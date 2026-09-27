@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One Agent BD - WhatsApp, Messenger, Instagram & Website AI Auto-Reply SaaS</title>
+    <meta name="description" content="One Agent BD - Omnichannel AI Auto-Reply & Order Confirmation Agent for WhatsApp, Messenger, Instagram & Website with unified inbox, order hub, and bKash/Nagad billing." />
+    <meta property="og:title" content="One Agent BD - WhatsApp, Messenger, Instagram & Website AI Auto-Reply SaaS" />
+    <meta property="og:description" content="One Agent BD - Omnichannel AI Auto-Reply & Order Confirmation Agent for WhatsApp, Messenger, Instagram & Website with unified inbox, order hub, and bKash/Nagad billing." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      (function () {
+        var noise = ['[vite]', 'websocket', 'react devtools', 'download the react devtools', 'hmr', 'initial session check'];
+        function isNoise(args) {
+          try {
+            var msg = Array.prototype.slice.call(args).map(function (a) {
+              return typeof a === 'string' ? a : (a && a.message) ? a.message : String(a);
+            }).join(' ').toLowerCase();
+            return noise.some(function (n) { return msg.indexOf(n) !== -1; });
+          } catch (e) { return false; }
+        }
+        ['log', 'info', 'debug', 'warn', 'error'].forEach(function (fn) {
+          var orig = console[fn] && console[fn].bind(console);
+          if (!orig) return;
+          console[fn] = function () {
+            if (isNoise(arguments)) return;
+            if (fn === 'log' || fn === 'info' || fn === 'debug' || fn === 'warn') return;
+            return orig.apply(console, arguments);
+          };
+        });
+        var OrigWS = window.WebSocket;
+        if (OrigWS) {
+          window.WebSocket = function (url, protocols) {
+            var u = String(url || '');
+            if (u.indexOf('24678') !== -1 || protocols === 'vite-hmr') {
+              return {
+                readyState: 3,
+                send: function () {},
+                close: function () {},
+                addEventListener: function () {},
+                removeEventListener: function () {}
+              };
+            }
+            return protocols ? new OrigWS(url, protocols) : new OrigWS(url);
+          };
+          window.WebSocket.prototype = OrigWS.prototype;
+          window.WebSocket.CONNECTING = OrigWS.CONNECTING;
+          window.WebSocket.OPEN = OrigWS.OPEN;
+          window.WebSocket.CLOSING = OrigWS.CLOSING;
+          window.WebSocket.CLOSED = OrigWS.CLOSED;
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

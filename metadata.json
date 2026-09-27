@@ -1,0 +1,6 @@
+{
+  "name": "One Agent BD",
+  "description": "Omnichannel AI Auto-Reply & Order Confirmation Agent for WhatsApp, Messenger, Instagram & Website with bKash/Nagad billing, unified inbox, and order tracking.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

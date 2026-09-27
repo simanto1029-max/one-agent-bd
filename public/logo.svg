@@ -1,0 +1,43 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="topGrad" x1="256" y1="56" x2="256" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="55%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+    <linearGradient id="leftGrad" x1="96" y1="240" x2="376" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9333EA" />
+      <stop offset="50%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+    <linearGradient id="rightGrad" x1="416" y1="240" x2="128" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9333EA" />
+      <stop offset="45%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M 256 72 C 266 72, 276 80, 284 92 L 320 152 C 328 164, 325 180, 315 190 L 271 228 C 261 238, 251 238, 241 228 L 197 190 C 187 180, 184 164, 192 152 L 228 92 C 236 80, 246 72, 256 72 Z"
+    stroke="url(#topGrad)"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <path
+    d="M 274 350 L 318 394 C 344 420, 386 417, 402 384 C 415 355, 397 307, 376 276 C 355 245, 315 245, 286 271"
+    stroke="url(#leftGrad)"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <path
+    d="M 238 314 L 220 296 C 194 271, 156 245, 130 276 C 110 307, 97 355, 110 384 C 126 417, 168 420, 194 394 L 292 296 C 318 271, 348 256, 371 276"
+    stroke="url(#rightGrad)"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>
