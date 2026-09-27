@@ -556,8 +556,8 @@ function handleStoreWebhook(req: Request, res: Response, forcedPlatform?: 'shopi
       currency: 'BDT',
       payment_method: paymentMethod,
       payment_status: paymentStatus,
-      status: 'confirmed',
-      order_source: 'website',
+      status: 'confirmed' as const,
+      order_source: 'website' as const,
       source_details: {
         platform,
         store_id: store ? store.id : undefined,

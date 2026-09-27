@@ -32,301 +32,72 @@
       "role": "user",
       "is_suspended": false,
       "llm_provider": "gemini",
-      "system_prompt": "You are a warm, professional customer support AI agent for our business. Reply politely, accurately, and concisely. Keep answers under 3 sentences unless details are requested.",
+      "system_prompt": "আপনি \"app developer\"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।\n\nBusiness Knowledge Base (ব্যবসায়িক তথ্য):\n1. সার্ভিস ও প্রোডাক্ট:\n   - WhatsApp, Facebook Messenger ও Instagram 24/7 AI অটো-রিপ্লাই, ভয়েস মেসেজ ট্রান্সক্রিপশন এবং ই-কমার্স অর্ডার অটোমেশন।\n   - আমাদের ২টি প্ল্যান: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল।\n2. ডেলিভারি ও চার্জ:\n   - ডিজিটাল সার্ভিস তাৎক্ষণিক অ্যাক্টিভ হয়। ফিজিক্যাল পার্সেল ডেলিভারি: ঢাকার ভেতরে ৳৬০ (২৪-৪৮ ঘণ্টা), ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। ক্যাশ অন ডেলিভারি (COD) সুবিধা আছে।\n3. পেমেন্ট পদ্ধতি:\n   - বিকাশ, নগদ, রকেট এবং ক্যাশ অন ডেলিভারি (COD)। মার্চেন্ট নাম্বার: 01711-223344।\n4. অর্ডার করার নিয়ম:\n   - অর্ডার কনফার্ম করতে কাস্টমারের নাম, সম্পূর্ণ ঠিকানা এবং ১১ ডিজিটের মোবাইল নাম্বার প্রয়োজন।\n5. সাপোর্ট ও হেল্পলাইন:\n   - প্রতিদিন সকাল ৯টা থেকে রাত ১১টা পর্যন্ত। হেল্পলাইন: 01811-998877।\n\nMANDATORY LANGUAGE & REPLY RULES:\n- কাস্টমার বাংলা (Bangla) বা বাংলিশ (Banglish - ইংরেজি অক্ষরে বাংলা লেখা) যেভাবেই প্রশ্ন করুক না কেন, সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন।\n- উত্তর সংক্ষিপ্ত, স্পষ্ট এবং ১-৩ বাক্যের মধ্যে রাখুন।",
       "created_at": "2026-09-25T07:24:54.039Z",
       "updated_at": "2026-09-25T07:24:54.039Z"
     }
   ],
   "plans": [
     {
-      "id": "plan_standard",
-      "name": "Standard",
-      "price": 899,
+      "id": "plan_starter",
+      "name": "Starter AI Plan",
+      "price": 1250,
       "currency": "BDT",
       "duration_days": 30,
       "trial_days": 2,
       "is_active": true,
       "features": [
-        "1 WhatsApp Business Number",
-        "1 Facebook Messenger Page",
-        "Unlimited AI Auto-Replies",
-        "Custom AI System Prompt & Personality",
-        "Unified Omnichannel Inbox",
-        "Customer Contacts & Leads CRM",
-        "Manual bKash & Nagad Billing Flow"
+        "1 Autonomous AI Sales Agent (24/7 Active)",
+        "Add Website, WooCommerce & Shopify Store Sync",
+        "Website AI Chatbot Widget Included",
+        "WhatsApp, Messenger & Instagram Auto-Reply",
+        "Unlimited Customer Conversations (0 TK per-msg fee)",
+        "Product Catalog & Photo Search (Up to 50 items)",
+        "Autonomous Order Booking & Orders Hub",
+        "Steadfast & Pathao 1-Click Courier Dispatch",
+        "Unified Live Inbox & Human Call Requests",
+        "2-Day Full Access Free Trial"
       ],
-      "created_at": "2026-08-17T09:51:51.887Z",
-      "updated_at": "2026-09-16T09:51:51.887Z",
+      "created_at": "2026-08-28T14:01:21.489Z",
+      "updated_at": "2026-09-27T14:01:21.489Z",
       "feature_config": {
-        "website_stores": false,
+        "website_stores": true,
         "call_requests": true,
-        "vip_broadcast": true,
+        "vip_broadcast": false,
         "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 2
+        "csv_export": false,
+        "max_channels": 3
       }
     },
     {
       "id": "plan_pro",
-      "name": "Pro Business",
-      "price": 1599,
+      "name": "Pro Business Plan",
+      "price": 1950,
       "currency": "BDT",
       "duration_days": 30,
       "trial_days": 2,
       "is_active": true,
       "features": [
-        "Shopify, WooCommerce & Website Integration",
-        "Unified Orders Hub with Website vs Manual Filter",
-        "1-Click WhatsApp VIP Customer Messaging",
-        "Up to 3 WhatsApp Numbers",
-        "Up to 5 Facebook Messenger Pages",
-        "Priority High-Speed LLM Inference",
-        "Advanced Persona & Knowledge Tuning",
-        "Multi-Agent Transfer Logic",
-        "Export Customer Leads to CSV",
-        "24/7 Dedicated Priority Support"
+        "3 Autonomous AI Sales & Support Agents",
+        "Everything in 1,250 TK Starter Plan Included",
+        "Unlimited Website, Shopify & WooCommerce Stores",
+        "Voice Note AI (Audio Message Transcription & Reply)",
+        "Unlimited Product Catalog & Visual Photo Search",
+        "Up to 10 Connected Social & Web Channels",
+        "VIP Customer Broadcast & Tagging",
+        "Google Sheets Live Sync & CSV Order Export",
+        "High-Speed Priority AI Response Engine",
+        "Dedicated Priority Onboarding & 24/7 VIP Support"
       ],
-      "created_at": "2026-08-17T09:51:51.887Z",
-      "updated_at": "2026-09-16T09:51:51.887Z",
+      "created_at": "2026-08-28T14:01:21.489Z",
+      "updated_at": "2026-09-27T14:01:21.489Z",
       "feature_config": {
         "website_stores": true,
         "call_requests": true,
         "vip_broadcast": true,
         "courier_dispatch": true,
         "csv_export": true,
-        "max_channels": 8
-      }
-    },
-    {
-      "id": "plan_standard_yearly",
-      "name": "Standard (Yearly)",
-      "price": 8990,
-      "currency": "BDT",
-      "duration_days": 365,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "1 WhatsApp Business Number",
-        "1 Facebook Messenger Page",
-        "Unlimited AI Auto-Replies",
-        "Custom AI System Prompt & Personality",
-        "Unified Omnichannel Inbox",
-        "Customer Contacts & Leads CRM",
-        "Manual bKash & Nagad Billing Flow",
-        "🎁 2 Months Free (Save BDT 1,798)"
-      ],
-      "created_at": "2026-08-20T02:47:52.182Z",
-      "updated_at": "2026-09-19T02:47:52.182Z",
-      "feature_config": {
-        "website_stores": false,
-        "call_requests": true,
-        "vip_broadcast": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 2
-      }
-    },
-    {
-      "id": "plan_pro_yearly",
-      "name": "Pro Business (Yearly)",
-      "price": 15990,
-      "currency": "BDT",
-      "duration_days": 365,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "Shopify, WooCommerce & Website Integration",
-        "Unified Orders Hub with Website vs Manual Filter",
-        "1-Click WhatsApp VIP Customer Messaging",
-        "Up to 3 WhatsApp Numbers",
-        "Up to 5 Facebook Messenger Pages",
-        "Priority High-Speed LLM Inference",
-        "Advanced Persona & Knowledge Tuning",
-        "Multi-Agent Transfer Logic",
-        "Export Customer Leads to CSV",
-        "24/7 Dedicated Priority Support",
-        "🎁 2 Months Free (Save BDT 3,198)"
-      ],
-      "created_at": "2026-08-20T02:47:52.182Z",
-      "updated_at": "2026-09-19T02:47:52.182Z",
-      "feature_config": {
-        "website_stores": true,
-        "call_requests": true,
-        "vip_broadcast": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 8
-      }
-    },
-    {
-      "id": "plan_basic",
-      "name": "Basic",
-      "price": 1490,
-      "currency": "BDT",
-      "duration_days": 30,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "1 Autonomous AI Agent",
-        "Official WhatsApp Business Cloud API Integration",
-        "Facebook Messenger Page Integration",
-        "Instagram Direct Messaging Integration",
-        "Unlimited Conversations & Auto-Replies (No per-message fee)",
-        "Bengali & English Smart NLP Understanding",
-        "Product Catalog & Image Search (Up to 25 items)",
-        "Autonomous Order Extraction & Orders Hub",
-        "Unified Omnichannel Live Inbox & Human Handoff",
-        "2-Day Full Access Free Trial"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": false,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": false,
-        "max_channels": 3
-      }
-    },
-    {
-      "id": "plan_advanced",
-      "name": "Advanced",
-      "price": 2690,
-      "currency": "BDT",
-      "duration_days": 30,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "3 Autonomous AI Agents",
-        "Everything in Basic Plan Included",
-        "Voice Note AI (Bangla & English Speech Transcription & Audio)",
-        "1-Click AI Web Store Builder & Embedded Widget",
-        "Steadfast & Pathao 1-Click Courier Parcel Booking",
-        "Product Catalog & Vision Search (Up to 150 items)",
-        "Google Sheets Live Sync & CSV Lead Export",
-        "High-Speed LLM Inference Priority",
-        "Priority Technical Onboarding & Support"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": true,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 8
-      }
-    },
-    {
-      "id": "plan_agency",
-      "name": "Agency",
-      "price": 6990,
-      "currency": "BDT",
-      "duration_days": 30,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "10 Autonomous AI Agents (Multi-Brand / Multi-Client)",
-        "Everything in Advanced Plan Included",
-        "Full Web Shop, Sales & Multi-Agent Workspace",
-        "Custom Domain for Web Store Integration",
-        "Unlimited Product Catalog & Unlimited Images",
-        "Multi-Tenant Team Seats & Role Permissions",
-        "Dedicated VIP Onboarding & Meta Business Verification",
-        "Custom Flow Builder & Dedicated 24/7 Account Manager"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": true,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 25
-      }
-    },
-    {
-      "id": "plan_basic_yearly",
-      "name": "Basic (Annual)",
-      "price": 14900,
-      "currency": "BDT",
-      "duration_days": 365,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "1 Autonomous AI Agent",
-        "Official WhatsApp Business Cloud API Integration",
-        "Facebook Messenger Page Integration",
-        "Instagram Direct Messaging Integration",
-        "Unlimited Conversations & Auto-Replies (No per-message fee)",
-        "Product Catalog & Image Search (Up to 25 items)",
-        "Autonomous Order Extraction & Orders Hub",
-        "Unified Omnichannel Live Inbox & Human Handoff",
-        "🎁 2 Months Free (Save BDT 2,980)"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": false,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": false,
-        "max_channels": 3
-      }
-    },
-    {
-      "id": "plan_advanced_yearly",
-      "name": "Advanced (Annual)",
-      "price": 26900,
-      "currency": "BDT",
-      "duration_days": 365,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "3 Autonomous AI Agents",
-        "Everything in Basic Plan Included",
-        "Voice Note AI (Bangla & English Speech Transcription & Audio)",
-        "1-Click AI Web Store Builder & Embedded Widget",
-        "Steadfast & Pathao 1-Click Courier Parcel Booking",
-        "Product Catalog & Vision Search (Up to 150 items)",
-        "Google Sheets Live Sync & CSV Lead Export",
-        "🎁 2 Months Free (Save BDT 5,380)"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": true,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 8
-      }
-    },
-    {
-      "id": "plan_agency_yearly",
-      "name": "Agency (Annual)",
-      "price": 69900,
-      "currency": "BDT",
-      "duration_days": 365,
-      "trial_days": 2,
-      "is_active": true,
-      "features": [
-        "10 Autonomous AI Agents (Multi-Brand / Multi-Client)",
-        "Everything in Advanced Plan Included",
-        "Full Web Shop, Sales & Multi-Agent Workspace",
-        "Custom Domain for Web Store Integration",
-        "Multi-Tenant Team Seats & Role Permissions",
-        "Dedicated VIP Onboarding & Meta Business Verification",
-        "🎁 2 Months Free (Save BDT 13,980)"
-      ],
-      "created_at": "2026-08-26T07:24:28.590Z",
-      "updated_at": "2026-09-25T07:24:28.590Z",
-      "feature_config": {
-        "website_stores": true,
-        "call_requests": true,
-        "courier_dispatch": true,
-        "csv_export": true,
-        "max_channels": 25
+        "max_channels": 10
       }
     }
   ],
@@ -355,11 +126,11 @@
       "id": "sub_1790321094043_ykopw",
       "user_id": "usr_1790321094039_p5g7h",
       "plan_id": "plan_standard",
-      "status": "trialing",
+      "status": "expired",
       "start_date": "2026-09-25T07:24:54.043Z",
       "end_date": "2026-09-27T07:24:54.043Z",
       "created_at": "2026-09-25T07:24:54.043Z",
-      "updated_at": "2026-09-25T07:24:54.043Z"
+      "updated_at": "2026-09-27T14:01:21.614Z"
     }
   ],
   "payments": [],
@@ -3475,6 +3246,32 @@
       "is_ai_reply": true,
       "status": "sent",
       "created_at": "2026-09-25T07:27:01.337Z"
+    },
+    {
+      "id": "msg_web_in_1790520410191_96sx",
+      "user_id": "usr_admin_1",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "saas_vis_e5uipu6d",
+      "customer_name": "SaaS Website Visitor",
+      "direction": "inbound",
+      "message_text": "[🎤 Voice Message]",
+      "is_ai_reply": false,
+      "status": "received",
+      "created_at": "2026-09-27T14:46:50.191Z"
+    },
+    {
+      "id": "msg_web_out_1790520442915_gntz",
+      "user_id": "usr_admin_1",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "saas_vis_e5uipu6d",
+      "customer_name": "SaaS Website Visitor",
+      "direction": "outbound",
+      "message_text": "আপনার ভয়েস মেসেজের জন্য ধন্যবাদ। আমাদের বর্তমানে দুটি প্রধান অফিশিয়াল প্ল্যান রয়েছে:\n\n১. **Starter AI Plan:** মাসিক ১,২৫০ টাকা (৳১,২৫০)। এতে ১টি এআই এজেন্ট, হোয়াটসঅ্যাপ, মেসেঞ্জার ও ইনস্টাগ্রাম অটো-রিপ্লাই এবং ১-ক্লিক কুরিয়ার বুকিং সুবিধা পাবেন।\n\n২. **Pro Business Plan:** মাসিক ১,৯৫০ টাকা (৳১,৯৫০)। এতে ৩টি এআই এজেন্ট, ভয়েস নোট এআই (ভয়েস মেসেজ বোঝা ও উত্তর দেওয়া), ইমেজ রিকগনিশন এবং আনলিমিটেড প্রোডাক্ট ক্যাটালগ সুবিধা রয়েছে।\n\nআপনি এই পেজের নিচের **'Pricing'** সেকশন থেকে সরাসরি আপনার পছন্দের প্ল্যানটি বেছে নিতে পারেন অথবা কোনো ক্রেডিট কার্ড ছাড়াই ২ দিনের **Free Trial** শুরু করতে পারেন।",
+      "is_ai_reply": true,
+      "status": "sent",
+      "created_at": "2026-09-27T14:47:22.915Z"
     }
   ],
   "settings": {
@@ -3485,8 +3282,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-09-21T09:37:51.857Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 9:37:51 AM)"
+    "cron_last_run": "2026-09-27T17:47:51.628Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 5:47:51 PM)"
   },
   "orders": [
     {
@@ -3820,5 +3617,96 @@
       "created_at": "2026-09-25T07:24:28.590Z",
       "updated_at": "2026-09-25T07:24:28.590Z"
     }
-  ]
+  ],
+  "coupons": [
+    {
+      "id": "cpn_welcome10",
+      "code": "WELCOME10",
+      "discount_type": "percentage",
+      "discount_value": 10,
+      "used_count": 0,
+      "is_active": true,
+      "created_at": "2026-09-27T14:01:21.489Z",
+      "updated_at": "2026-09-27T14:01:21.489Z"
+    },
+    {
+      "id": "cpn_save250",
+      "code": "SAVE250",
+      "discount_type": "fixed",
+      "discount_value": 250,
+      "used_count": 0,
+      "is_active": true,
+      "created_at": "2026-09-27T14:01:21.489Z",
+      "updated_at": "2026-09-27T14:01:21.489Z"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev_seed_1",
+      "name": "Mahmudul Hasan Rahat",
+      "role": "F-Commerce Seller",
+      "business": "Dhaka, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "Before One Agent BD, we used to lose late-night Facebook inquiries because no one was online after midnight. Now the AI replies in 2 seconds, checks available sizes, and confirms COD orders while we sleep.",
+      "status": "approved",
+      "created_at": "2026-09-15T14:01:21.489Z"
+    },
+    {
+      "id": "rev_seed_2",
+      "name": "Sadia Afrin Tisha",
+      "role": "Online Boutique Owner",
+      "business": "Dhaka, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "Customers constantly send product screenshots and voice notes on Instagram and Messenger. The AI recognizes product photos accurately, quotes the exact price, and handles the entire checkout conversation.",
+      "status": "approved",
+      "created_at": "2026-09-18T14:01:21.489Z"
+    },
+    {
+      "id": "rev_seed_3",
+      "name": "Tanvir Ahmed Chowdhury",
+      "role": "Electronics & Gadget Seller",
+      "business": "Chattogram, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "The auto comment-to-inbox workflow and 1-click Steadfast courier booking saved our team hours of manual data entry every single day. Best automation platform we have used.",
+      "status": "approved",
+      "created_at": "2026-09-20T14:01:21.489Z"
+    },
+    {
+      "id": "rev_seed_4",
+      "name": "Ariful Islam Sourav",
+      "role": "Organic Food Seller",
+      "business": "Sylhet, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "During peak season we receive hundreds of WhatsApp messages daily. One Agent BD collects customer names, phone numbers, and full delivery addresses and logs every order into our dashboard.",
+      "status": "approved",
+      "created_at": "2026-09-22T14:01:21.489Z"
+    },
+    {
+      "id": "rev_seed_5",
+      "name": "Nusrat Jahan Mim",
+      "role": "Clothing Page Owner",
+      "business": "Dhaka, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "Connecting our Facebook Page and Instagram took less than two minutes. Whenever a buyer asks for a live call, the AI alerts our team in the Call Requests queue immediately.",
+      "status": "approved",
+      "created_at": "2026-09-24T14:01:21.489Z"
+    },
+    {
+      "id": "rev_seed_6",
+      "name": "Imran Hossain Rony",
+      "role": "E-Commerce Merchant",
+      "business": "Dhaka, BD",
+      "avatar_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80",
+      "rating": 5,
+      "review_text": "Our ad conversion rate nearly doubled because customers get an instant response right after clicking our boosted posts. Smart follow-ups bring back hesitant buyers automatically.",
+      "status": "approved",
+      "created_at": "2026-09-26T14:01:21.489Z"
+    }
+  ],
+  "notifications": []
 }
