@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { authRouter } from './server/routes/auth.js';
 import { plansRouter } from './server/routes/plans.js';
@@ -66,7 +65,13 @@ app.use('/api', async (req, res, next) => {
   }
 
   const originalSend = res.send.bind(res);
+  let sendIntercepted = false;
   (res as any).send = function (body?: any) {
+    if (sendIntercepted) {
+      return originalSend(body);
+    }
+    sendIntercepted = true;
+    res.send = originalSend;
     db.flushToSupabase()
       .catch(() => {})
       .finally(() => {
@@ -153,6 +158,8 @@ async function startServer() {
 
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
+    const vitePkg = 'vite';
+    const { createServer: createViteServer } = await import(vitePkg);
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false, watch: null },
       appType: 'spa',

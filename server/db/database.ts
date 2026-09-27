@@ -750,6 +750,7 @@ class Database {
   private isDirty: boolean = false;
   private lastSupabaseSyncAt: number = 0;
   private pendingFlushPromise: Promise<void> | null = null;
+  private useNumericPayloadSchema: boolean = false;
 
   constructor() {
     this.data = this.loadData();
@@ -924,21 +925,56 @@ MANDATORY LANGUAGE & REPLY RULES:
     const cfg = this.getSupabaseConfig();
     if (!cfg) return;
     this.isDirty = false;
-    const response = await fetch(`${cfg.url}/rest/v1/app_state`, {
-      method: 'POST',
-      headers: this.getSupabaseHeaders(cfg.key, {
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal'
-      }),
-      body: JSON.stringify({
-        id: 'main',
-        state_data: this.data,
-        updated_at: new Date().toISOString()
-      })
+    const headers = this.getSupabaseHeaders(cfg.key, {
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    });
+    const nowIso = new Date().toISOString();
+
+    const tryPost = async (bodyObj: Record<string, any>) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        return await fetch(`${cfg.url}/rest/v1/app_state`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(bodyObj),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    if (this.useNumericPayloadSchema) {
+      const res = await tryPost({ id: 1, payload: this.data, updated_at: nowIso });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Supabase upsert HTTP ${res.status}: ${errText}`);
+      }
+      this.lastSupabaseSyncAt = Date.now();
+      return;
+    }
+
+    const response = await tryPost({
+      id: 'main',
+      state_data: this.data,
+      updated_at: nowIso
     });
     if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`Supabase upsert HTTP ${response.status}: ${errText}`);
+      // Fallback for (id INT PRIMARY KEY, payload JSONB) table schema
+      const fallbackRes = await tryPost({
+        id: 1,
+        payload: this.data,
+        updated_at: nowIso
+      });
+      if (fallbackRes.ok) {
+        this.useNumericPayloadSchema = true;
+        this.lastSupabaseSyncAt = Date.now();
+        return;
+      }
+      const errText = await fallbackRes.text().catch(() => '');
+      throw new Error(`Supabase upsert HTTP ${fallbackRes.status}: ${errText}`);
     }
     this.lastSupabaseSyncAt = Date.now();
   }
@@ -950,25 +986,37 @@ MANDATORY LANGUAGE & REPLY RULES:
     if (!force && !IS_VERCEL && Date.now() - this.lastSupabaseSyncAt < 2000) {
       return;
     }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`${cfg.url}/rest/v1/app_state?id=eq.main&select=state_data,updated_at`, {
+      const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&limit=1`, {
         method: 'GET',
         headers: this.getSupabaseHeaders(cfg.key, {
           Accept: 'application/json'
-        })
+        }),
+        signal: controller.signal
       });
       if (!response.ok) return;
       const rows = await response.json();
-      if (Array.isArray(rows) && rows.length > 0 && rows[0]?.state_data) {
-        this.data = this.normalizeSchema(rows[0].state_data);
-        this.saveData(this.data);
-        this.lastSupabaseSyncAt = Date.now();
+      if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
+        const row = rows[0];
+        if ('payload' in row || typeof row.id === 'number') {
+          this.useNumericPayloadSchema = true;
+        }
+        const rawState = row.state_data || row.payload;
+        if (rawState && typeof rawState === 'object') {
+          this.data = this.normalizeSchema(rawState);
+          this.saveData(this.data);
+          this.lastSupabaseSyncAt = Date.now();
+        }
       } else if (Array.isArray(rows) && rows.length === 0) {
         // First time initialization in Supabase: seed current data
         await this.pushToSupabase();
       }
     } catch (err: any) {
       console.warn('[Supabase Sync] Pull warning:', err?.message || err);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
