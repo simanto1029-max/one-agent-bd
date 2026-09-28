@@ -44,6 +44,182 @@ function validateMetaSignature(req: Request): { valid: boolean; reason?: string 
 }
 
 // ----------------------------------------------------------------------------
+// 0. UNIFIED META WEBHOOK (/api/webhooks/meta) - Handles WhatsApp, Messenger & Instagram
+// ----------------------------------------------------------------------------
+
+webhooksRouter.get(['/meta', '/'], (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  console.log(`[Unified Meta Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
+
+  if (mode === 'subscribe' && challenge !== undefined) {
+    return res.status(200).type('text/plain').send(String(challenge));
+  }
+
+  return res.status(200).type('text/plain').send(String(challenge || 'OK'));
+});
+
+webhooksRouter.post(['/meta', '/'], async (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    console.log('[Unified Meta Webhook POST] object=', body.object);
+
+    const tasks: Promise<any>[] = [];
+
+    // 1. WhatsApp Business Account events
+    if (body.object === 'whatsapp_business_account') {
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          const value = change.value;
+          if (value?.messages?.length) {
+            const phoneNumberId = value.metadata?.phone_number_id;
+            const messageObj = value.messages[0];
+            const senderId = messageObj.from;
+            const contactName = value.contacts?.[0]?.profile?.name || senderId;
+            const messageId = messageObj.id;
+
+            const messageType = messageObj.type;
+            const isAudio = messageType === 'audio' || messageType === 'voice';
+            const isImage = messageType === 'image';
+            const audioMediaId = isAudio ? (messageObj.audio?.id || messageObj.voice?.id) : undefined;
+            const audioMimeType = isAudio ? (messageObj.audio?.mime_type || messageObj.voice?.mime_type) : undefined;
+            const imageMediaId = isImage ? messageObj.image?.id : undefined;
+            const imageMimeType = isImage ? (messageObj.image?.mime_type || 'image/jpeg') : undefined;
+
+            const messageText =
+              messageObj.text?.body ||
+              messageObj.caption ||
+              (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
+
+            tasks.push(
+              handleInboundWebhook({
+                platform: 'whatsapp',
+                identifier: phoneNumberId,
+                customerId: senderId,
+                customerName: contactName,
+                messageText,
+                messageId,
+                audioMediaId,
+                audioMimeType,
+                imageMediaId,
+                imageMimeType,
+                rawPayload: messageObj
+              }).catch((err) => console.error('[Unified WA Webhook Error]:', err))
+            );
+          }
+        }
+      }
+    }
+
+    // 2. Facebook Page (Messenger + Comments) or Instagram (DM + Comments)
+    if (body.object === 'page' || body.object === 'instagram') {
+      const targetPlatform: 'messenger' | 'instagram' = body.object === 'instagram' ? 'instagram' : 'messenger';
+      for (const entry of body.entry || []) {
+        const assetId = entry.id;
+        for (const event of entry.messaging || entry.standby || []) {
+          if (event.message && !event.message.is_echo) {
+            const senderId = event.sender?.id;
+            const messageId = event.message.mid;
+            const attachments = event.message.attachments;
+
+            let audioUrl: string | undefined;
+            let audioMimeType: string | undefined;
+            let imageUrl: string | undefined;
+            let imageMimeType: string | undefined;
+
+            if (attachments && Array.isArray(attachments)) {
+              const audioAttach = attachments.find((a: any) => a.type === 'audio' || a.type === 'video');
+              if (audioAttach?.payload?.url) {
+                audioUrl = audioAttach.payload.url;
+                audioMimeType = 'audio/mp4';
+              }
+              const imageAttach = attachments.find((a: any) => a.type === 'image');
+              if (imageAttach?.payload?.url) {
+                imageUrl = imageAttach.payload.url;
+                imageMimeType = 'image/jpeg';
+              }
+            }
+
+            const rawText = event.message.text || '';
+            const messageText =
+              rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
+
+            tasks.push(
+              handleInboundWebhook({
+                platform: targetPlatform,
+                identifier: assetId,
+                customerId: senderId,
+                customerName: `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`,
+                messageText,
+                messageId,
+                audioUrl,
+                audioMimeType,
+                imageUrl,
+                imageMimeType,
+                rawPayload: event
+              }).catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
+            );
+          }
+        }
+
+        for (const change of entry.changes || []) {
+          const val = change.value;
+          if (
+            change.field === 'feed' &&
+            val?.item === 'comment' &&
+            val?.verb === 'add' &&
+            val?.comment_id &&
+            val?.message
+          ) {
+            const commenterId = val.from?.id || `fb_commenter_${val.comment_id}`;
+            const commenterName = val.from?.name || 'Facebook User';
+            if (commenterId !== assetId) {
+              tasks.push(
+                handleInboundCommentWebhook({
+                  platform: 'messenger',
+                  identifier: assetId,
+                  commentId: val.comment_id,
+                  postId: val.post_id,
+                  customerId: commenterId,
+                  customerName: commenterName,
+                  commentText: val.message
+                }).catch((err) => console.error('[Unified FB Comment Error]:', err))
+              );
+            }
+          } else if (change.field === 'comments' && val?.id && val?.text) {
+            const commenterId = val.from?.id || `ig_commenter_${val.id}`;
+            const commenterName = val.from?.username ? `@${val.from.username}` : 'Instagram User';
+            if (commenterId !== assetId) {
+              tasks.push(
+                handleInboundCommentWebhook({
+                  platform: 'instagram',
+                  identifier: assetId,
+                  commentId: val.id,
+                  postId: val.media?.id,
+                  customerId: commenterId,
+                  customerName: commenterName,
+                  commentText: val.text
+                }).catch((err) => console.error('[Unified IG Comment Error]:', err))
+              );
+            }
+          }
+        }
+      }
+    }
+
+    await Promise.all(tasks);
+    return res.status(200).send('EVENT_RECEIVED');
+  } catch (err: any) {
+    console.error('[Unified Meta Webhook Error]:', err);
+    if (!res.headersSent) {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+  }
+});
+
+// ----------------------------------------------------------------------------
 // 1. WHATSAPP CLOUD API WEBHOOKS
 // ----------------------------------------------------------------------------
 

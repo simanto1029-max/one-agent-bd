@@ -1,4 +1,4 @@
-// One Agent BD - Vercel Serverless Entry Point (ESM Bundle)
+// One Agent BD - Vercel Serverless Entry Point (AI Training & Catalog Isolation Fixed)
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -1104,9 +1104,7 @@ MANDATORY LANGUAGE & REPLY RULES:
       getProducts(userId) {
         const list = this.data.products || [];
         if (userId) {
-          const userProds = list.filter((p) => p.user_id === userId);
-          if (userProds.length > 0) return userProds;
-          return list;
+          return list.filter((p) => p.user_id === userId);
         }
         return list;
       }
@@ -1151,9 +1149,14 @@ MANDATORY LANGUAGE & REPLY RULES:
         }
         const prods = this.getProducts(userId);
         if (!prods || prods.length === 0) return void 0;
-        const q = (query || "").toLowerCase();
+        const q = (query || "").toLowerCase().trim();
+        if (!q) return void 0;
+        const pureGreetings = ["hello", "hi", "hey", "hlw", "salam", "assalamu alaikum", "\u09B9\u09CD\u09AF\u09BE\u09B2\u09CB", "\u09B9\u09BE\u0987", "\u09B8\u09BE\u09B2\u09BE\u09AE", "\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE"];
+        if (pureGreetings.includes(q)) {
+          return void 0;
+        }
         for (const prod of prods) {
-          if (prod.keywords?.some((k) => q.includes(k.toLowerCase()))) {
+          if (prod.keywords?.some((k) => k.trim().length >= 3 && q.includes(k.trim().toLowerCase()))) {
             return prod;
           }
         }
@@ -1164,28 +1167,11 @@ MANDATORY LANGUAGE & REPLY RULES:
           }
         }
         for (const prod of prods) {
-          if (q.includes(prod.category.toLowerCase())) {
+          if (prod.category && prod.category.trim().length >= 3 && q.includes(prod.category.toLowerCase())) {
             return prod;
           }
         }
-        const keywordMap = {
-          "prod_001": ["panjabi", "punjabi", "panzabi", "\u09AA\u09BE\u099E\u09CD\u099C\u09BE\u09AC\u09BF", "\u09AA\u09BE\u099E\u09CD\u099C\u09BE\u09AC\u09C0", "\u09AA\u09CB\u09B6\u09BE\u0995", "kurta"],
-          "prod_002": ["watch", "smartwatch", "ghori", "ghari", "\u0998\u09DC\u09BF", "\u0998\u09A1\u09BC\u09BF", "\u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F"],
-          "prod_003": ["wallet", "moneybag", "bag", "purse", "\u09B2\u09C7\u09A6\u09BE\u09B0", "\u09AE\u09BE\u09A8\u09BF\u09AC\u09CD\u09AF\u09BE\u0997", "\u0993\u09DF\u09BE\u09B2\u09C7\u099F", "\u09AE\u09BE\u09A8\u09BF \u09AC\u09CD\u09AF\u09BE\u0997"],
-          "prod_004": ["earbud", "earbuds", "headphone", "airpod", "earphone", "\u0987\u09DF\u09BE\u09B0\u09AC\u09BE\u09A1", "\u09B9\u09C7\u09A1\u09AB\u09CB\u09A8", "\u09AC\u09CD\u09B2\u09C1\u099F\u09C1\u09A5"],
-          "prod_005": ["shoe", "shoes", "sneaker", "sneakers", "keds", "juta", "\u099C\u09C1\u09A4\u09BE", "\u0995\u09C7\u09A1\u09B8", "\u09B8\u09CD\u09A8\u09BF\u0995\u09BE\u09B0\u09CD\u09B8"]
-        };
-        for (const [prodId, kwList] of Object.entries(keywordMap)) {
-          if (kwList.some((kw) => q.includes(kw))) {
-            const found = prods.find((p) => p.id === prodId);
-            if (found) return found;
-          }
-        }
-        if (q.includes("picture") || q.includes("photo") || q.includes("chobi") || q.includes("image") || q.includes("pic") || q.includes("dekhan")) {
-          const prodWithImg = prods.find((p) => Boolean(p.image_url));
-          if (prodWithImg) return prodWithImg;
-        }
-        return prods.find((p) => Boolean(p.image_url)) || prods[0];
+        return void 0;
       }
       // --- Settings ---
       getSettings() {
@@ -3103,15 +3089,25 @@ var MetaOAuthService = class {
     return settings?.meta_verify_token || process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || process.env.MESSENGER_VERIFY_TOKEN || "one_agent_bd_verify_token";
   }
   getEffectiveBaseUrl(req) {
+    const rawHost = (req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+    const rawProto = (req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim();
+    if (rawHost && !rawHost.includes("localhost") && !rawHost.includes(".vercel.app")) {
+      return `${rawProto}://${rawHost}`;
+    }
     if (process.env.APP_URL) {
       return process.env.APP_URL.replace(/\/+$/, "");
     }
-    const forwardedProto = req.headers["x-forwarded-proto"];
-    const proto = forwardedProto || req.protocol || "http";
-    const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:3000";
-    return `${proto}://${host}`;
+    if (rawHost) {
+      return `${rawProto}://${rawHost}`;
+    }
+    return "https://www.oneagentbd.online";
   }
   getRedirectUri(req) {
+    const rawHost = (req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+    if (rawHost && !rawHost.includes("localhost") && !rawHost.includes(".vercel.app")) {
+      const rawProto = (req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim();
+      return `${rawProto}://${rawHost}/api/channels/meta/callback`;
+    }
     if (process.env.META_REDIRECT_URI) {
       return process.env.META_REDIRECT_URI;
     }
@@ -4239,15 +4235,15 @@ async function downloadWhatsAppImage(mediaId, accessToken) {
 
 // server/services/aiService.ts
 function getGeminiClient(customApiKey) {
-  const apiKey = customApiKey && customApiKey.trim() || process.env.GEMINI_API_KEY || "";
+  const adminProfile = db.getProfileById("usr_admin_001");
+  const apiKey = customApiKey && customApiKey.trim() || adminProfile?.llm_api_key && adminProfile.llm_api_key.trim() || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
   return new GoogleGenAI({ apiKey });
 }
 var CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-flash-latest",
   "gemini-2.5-flash",
-  "gemini-2.5-flash-lite"
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-flash-latest"
 ];
 async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, businessName, recentHistory, catalogContext, customApiKey) {
   const ai = getGeminiClient(customApiKey);
@@ -4466,7 +4462,13 @@ ${topList}
     }
     return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u09AA\u09CD\u09B0\u09A4\u09BF\u09A6\u09BF\u09A8 \u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u09A5\u09C7\u0995\u09C7 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u099A\u09BE\u09B2\u09C1 \u0986\u099B\u09C7\u0964 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09A8, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u09A8\u09BF\u09A7\u09BF \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0995\u09B2 \u0995\u09B0\u09AC\u09C7\u0964`;
   }
-  const kbSummary = cleanPromptLines.filter((l) => !l.toLowerCase().includes("business knowledge base:")).slice(0, 3).join(" ");
+  const isOneAgentSaaS = systemPrompt.includes("Starter AI Plan") || systemPrompt.includes("1,250") || systemPrompt.includes("\u09E7,\u09E8\u09EB\u09E6") || businessName.toLowerCase().includes("one agent");
+  if (isOneAgentSaaS) {
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook Page, Instagram, WhatsApp \u098F\u09AC\u0982 Website-\u098F\u09B0 \u099C\u09A8\u09CD\u09AF \u09E8\u09EA/\u09ED \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 AI \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0, \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 (Starter \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u0993 Pro \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8) \u09AC\u09BE \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+  }
+  const kbSummary = cleanPromptLines.filter(
+    (l) => !l.toLowerCase().includes("business knowledge base") && !l.startsWith("\u0986\u09AA\u09A8\u09BF ") && !l.startsWith("===") && !l.startsWith("---")
+  ).slice(0, 2).join(" ");
   if (kbSummary && kbSummary.length > 20) {
     return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 ${kbSummary} \u2014 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F, \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u09C7\u09B0 \u09AC\u09BF\u09B7\u09DF\u09C7 \u0995\u09C0\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF?`;
   }
@@ -4481,21 +4483,17 @@ async function generateAIReply(params) {
   const businessName = params.channelName || profile?.full_name || "One Agent BD";
   const rawSystemPrompt = params.overrideSystemPrompt && params.overrideSystemPrompt.trim() || profile?.system_prompt && profile.system_prompt.trim() || `You are the polite, helpful customer service AI agent for ${businessName}.`;
   const systemPrompt = rawSystemPrompt.replace(/in 1-2 clear English sentences/gi, "in 1-3 clear, polite Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 clear, courteous English sentences/gi, "in 1-3 clear, courteous Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 polite, clear English sentences/gi, "in 1-3 polite, clear Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 informative, concise English sentences/gi, "in 1-3 informative, concise Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in clear, friendly English/gi, "in clear, friendly Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 concise English sentences/gi, "in 1-3 concise Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences");
-  let merchantProducts = db.getProducts(params.userId);
-  if (!merchantProducts || merchantProducts.length === 0) {
-    merchantProducts = db.getProducts("usr_demo_002");
-  }
+  const merchantProducts = db.getProducts(params.userId) || [];
   const catalogContext = merchantProducts.length > 0 ? merchantProducts.map(
     (p) => `- ${p.name}: ${p.price} ${p.currency} (Category: ${p.category}, Status: ${p.stock_status}). Details: ${p.description}`
-  ).join("\n") : `- Starter AI Plan: 1,250 BDT/month
-- Pro Business Plan: 1,950 BDT/month`;
+  ).join("\n") : `(\u0995\u09CB\u09A8\u09CB \u0986\u09B2\u09BE\u09A6\u09BE \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u09AF\u09CB\u0997 \u0995\u09B0\u09BE \u09B9\u09DF\u09A8\u09BF \u2014 \u0989\u09AA\u09B0\u09C7\u09B0 Business Knowledge Base / System Instructions \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8)`;
   const recentHistory = (params.history || []).filter((m) => m.message_text && !m.message_text.startsWith("[Attachment]")).slice(-5).map((m) => `${m.direction === "inbound" ? "Customer" : "Assistant"}: ${m.message_text}`).join("\n");
   const incomingLower = (params.incomingMessage || "").toLowerCase();
   const isAskingForImage = incomingLower.includes("picture") || incomingLower.includes("photo") || incomingLower.includes("chobi") || incomingLower.includes("dekhan") || incomingLower.includes("image") || incomingLower.includes("pic") || incomingLower.includes("dekhte chai") || incomingLower.includes("look like") || incomingLower.includes("pic din") || incomingLower.includes("\u099B\u09AC\u09BF") || incomingLower.includes("\u09AA\u09BF\u0995") || incomingLower.includes("\u09A6\u09C7\u0996\u09BE\u09A8");
   const isAskingForDetails = incomingLower.includes("detail") || incomingLower.includes("spec") || incomingLower.includes("feature") || incomingLower.includes("fabric") || incomingLower.includes("material") || incomingLower.includes("size") || incomingLower.includes("color") || incomingLower.includes("warranty") || incomingLower.includes("kemon") || incomingLower.includes("bistarito") || incomingLower.includes("ki ki ache") || incomingLower.includes("price") || incomingLower.includes("dam") || incomingLower.includes("cost") || incomingLower.includes("\u09A6\u09BE\u09AE") || incomingLower.includes("\u0995\u09A4") || incomingLower.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4");
   let matchedProduct = void 0;
-  if (params.incomingMessage) {
-    matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage) || db.findProductForQuery("usr_demo_002", params.incomingMessage);
+  if (params.incomingMessage && merchantProducts.length > 0) {
+    matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
   }
   if (params.audioBase64) {
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
@@ -6176,6 +6174,149 @@ init_database();
 var webhooksRouter = Router9();
 var DEFAULT_WA_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || "one_agent_bd_verify_token";
 var DEFAULT_FB_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.MESSENGER_VERIFY_TOKEN || "one_agent_bd_verify_token";
+webhooksRouter.get(["/meta", "/"], (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  console.log(`[Unified Meta Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
+  if (mode === "subscribe" && challenge !== void 0) {
+    return res.status(200).type("text/plain").send(String(challenge));
+  }
+  return res.status(200).type("text/plain").send(String(challenge || "OK"));
+});
+webhooksRouter.post(["/meta", "/"], async (req, res) => {
+  try {
+    const body = req.body || {};
+    console.log("[Unified Meta Webhook POST] object=", body.object);
+    const tasks = [];
+    if (body.object === "whatsapp_business_account") {
+      for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+          const value = change.value;
+          if (value?.messages?.length) {
+            const phoneNumberId = value.metadata?.phone_number_id;
+            const messageObj = value.messages[0];
+            const senderId = messageObj.from;
+            const contactName = value.contacts?.[0]?.profile?.name || senderId;
+            const messageId = messageObj.id;
+            const messageType = messageObj.type;
+            const isAudio = messageType === "audio" || messageType === "voice";
+            const isImage = messageType === "image";
+            const audioMediaId = isAudio ? messageObj.audio?.id || messageObj.voice?.id : void 0;
+            const audioMimeType = isAudio ? messageObj.audio?.mime_type || messageObj.voice?.mime_type : void 0;
+            const imageMediaId = isImage ? messageObj.image?.id : void 0;
+            const imageMimeType = isImage ? messageObj.image?.mime_type || "image/jpeg" : void 0;
+            const messageText = messageObj.text?.body || messageObj.caption || (isAudio ? "\u{1F399}\uFE0F [Voice Message]" : isImage ? "\u{1F4F7} [Sent Product Image]" : "[Media Message]");
+            tasks.push(
+              handleInboundWebhook({
+                platform: "whatsapp",
+                identifier: phoneNumberId,
+                customerId: senderId,
+                customerName: contactName,
+                messageText,
+                messageId,
+                audioMediaId,
+                audioMimeType,
+                imageMediaId,
+                imageMimeType,
+                rawPayload: messageObj
+              }).catch((err) => console.error("[Unified WA Webhook Error]:", err))
+            );
+          }
+        }
+      }
+    }
+    if (body.object === "page" || body.object === "instagram") {
+      const targetPlatform = body.object === "instagram" ? "instagram" : "messenger";
+      for (const entry of body.entry || []) {
+        const assetId = entry.id;
+        for (const event of entry.messaging || entry.standby || []) {
+          if (event.message && !event.message.is_echo) {
+            const senderId = event.sender?.id;
+            const messageId = event.message.mid;
+            const attachments = event.message.attachments;
+            let audioUrl;
+            let audioMimeType;
+            let imageUrl;
+            let imageMimeType;
+            if (attachments && Array.isArray(attachments)) {
+              const audioAttach = attachments.find((a) => a.type === "audio" || a.type === "video");
+              if (audioAttach?.payload?.url) {
+                audioUrl = audioAttach.payload.url;
+                audioMimeType = "audio/mp4";
+              }
+              const imageAttach = attachments.find((a) => a.type === "image");
+              if (imageAttach?.payload?.url) {
+                imageUrl = imageAttach.payload.url;
+                imageMimeType = "image/jpeg";
+              }
+            }
+            const rawText = event.message.text || "";
+            const messageText = rawText || (audioUrl ? "\u{1F399}\uFE0F [Voice Message]" : imageUrl ? "\u{1F4F7} [Sent Product Image]" : "[Attachment]");
+            tasks.push(
+              handleInboundWebhook({
+                platform: targetPlatform,
+                identifier: assetId,
+                customerId: senderId,
+                customerName: `${targetPlatform === "instagram" ? "Instagram" : "Messenger"} User (${String(senderId || "").slice(-4)})`,
+                messageText,
+                messageId,
+                audioUrl,
+                audioMimeType,
+                imageUrl,
+                imageMimeType,
+                rawPayload: event
+              }).catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
+            );
+          }
+        }
+        for (const change of entry.changes || []) {
+          const val = change.value;
+          if (change.field === "feed" && val?.item === "comment" && val?.verb === "add" && val?.comment_id && val?.message) {
+            const commenterId = val.from?.id || `fb_commenter_${val.comment_id}`;
+            const commenterName = val.from?.name || "Facebook User";
+            if (commenterId !== assetId) {
+              tasks.push(
+                handleInboundCommentWebhook({
+                  platform: "messenger",
+                  identifier: assetId,
+                  commentId: val.comment_id,
+                  postId: val.post_id,
+                  customerId: commenterId,
+                  customerName: commenterName,
+                  commentText: val.message
+                }).catch((err) => console.error("[Unified FB Comment Error]:", err))
+              );
+            }
+          } else if (change.field === "comments" && val?.id && val?.text) {
+            const commenterId = val.from?.id || `ig_commenter_${val.id}`;
+            const commenterName = val.from?.username ? `@${val.from.username}` : "Instagram User";
+            if (commenterId !== assetId) {
+              tasks.push(
+                handleInboundCommentWebhook({
+                  platform: "instagram",
+                  identifier: assetId,
+                  commentId: val.id,
+                  postId: val.media?.id,
+                  customerId: commenterId,
+                  customerName: commenterName,
+                  commentText: val.text
+                }).catch((err) => console.error("[Unified IG Comment Error]:", err))
+              );
+            }
+          }
+        }
+      }
+    }
+    await Promise.all(tasks);
+    return res.status(200).send("EVENT_RECEIVED");
+  } catch (err) {
+    console.error("[Unified Meta Webhook Error]:", err);
+    if (!res.headersSent) {
+      return res.status(200).send("EVENT_RECEIVED");
+    }
+  }
+});
 webhooksRouter.get("/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];

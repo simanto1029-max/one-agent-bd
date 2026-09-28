@@ -87,16 +87,26 @@ export class MetaOAuthService {
   }
 
   public getEffectiveBaseUrl(req: Request): string {
+    const rawHost = ((req.headers['x-forwarded-host'] as string) || req.headers.host || '').split(',')[0].trim();
+    const rawProto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'https').split(',')[0].trim();
+    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('.vercel.app')) {
+      return `${rawProto}://${rawHost}`;
+    }
     if (process.env.APP_URL) {
       return process.env.APP_URL.replace(/\/+$/, '');
     }
-    const forwardedProto = req.headers['x-forwarded-proto'] as string;
-    const proto = forwardedProto || req.protocol || 'http';
-    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'localhost:3000';
-    return `${proto}://${host}`;
+    if (rawHost) {
+      return `${rawProto}://${rawHost}`;
+    }
+    return 'https://www.oneagentbd.online';
   }
 
   public getRedirectUri(req: Request): string {
+    const rawHost = ((req.headers['x-forwarded-host'] as string) || req.headers.host || '').split(',')[0].trim();
+    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('.vercel.app')) {
+      const rawProto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'https').split(',')[0].trim();
+      return `${rawProto}://${rawHost}/api/channels/meta/callback`;
+    }
     if (process.env.META_REDIRECT_URI) {
       return process.env.META_REDIRECT_URI;
     }

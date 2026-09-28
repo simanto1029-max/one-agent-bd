@@ -1597,9 +1597,7 @@ MANDATORY LANGUAGE & REPLY RULES:
   getProducts(userId?: string): Product[] {
     const list = this.data.products || [];
     if (userId) {
-      const userProds = list.filter((p) => p.user_id === userId);
-      if (userProds.length > 0) return userProds;
-      return list;
+      return list.filter((p) => p.user_id === userId);
     }
     return list;
   }
@@ -1645,18 +1643,24 @@ MANDATORY LANGUAGE & REPLY RULES:
       query = arg1;
       userId = '';
     } else if (arg2 && arg1 && arg1.includes(' ') && !arg2.includes(' ')) {
-      // arg1 looks like a query sentence, arg2 looks like a userId (e.g. 'usr_demo_002')
       query = arg1;
       userId = arg2;
     }
 
     const prods = this.getProducts(userId);
     if (!prods || prods.length === 0) return undefined;
-    const q = (query || '').toLowerCase();
+    const q = (query || '').toLowerCase().trim();
+    if (!q) return undefined;
+
+    // Never match a product on pure greetings
+    const pureGreetings = ['hello', 'hi', 'hey', 'hlw', 'salam', 'assalamu alaikum', 'হ্যালো', 'হাই', 'সালাম', 'আসসালামু আলাইকুম'];
+    if (pureGreetings.includes(q)) {
+      return undefined;
+    }
 
     // 1. Direct match on keywords
     for (const prod of prods) {
-      if (prod.keywords?.some((k) => q.includes(k.toLowerCase()))) {
+      if (prod.keywords?.some((k) => k.trim().length >= 3 && q.includes(k.trim().toLowerCase()))) {
         return prod;
       }
     }
@@ -1671,43 +1675,12 @@ MANDATORY LANGUAGE & REPLY RULES:
 
     // 3. Match on category
     for (const prod of prods) {
-      if (q.includes(prod.category.toLowerCase())) {
+      if (prod.category && prod.category.trim().length >= 3 && q.includes(prod.category.toLowerCase())) {
         return prod;
       }
     }
 
-    // 4. Match common bangla/english e-commerce item keywords
-    const keywordMap: Record<string, string[]> = {
-      'prod_001': ['panjabi', 'punjabi', 'panzabi', 'পাঞ্জাবি', 'পাঞ্জাবী', 'পোশাক', 'kurta'],
-      'prod_002': ['watch', 'smartwatch', 'ghori', 'ghari', 'ঘড়ি', 'ঘড়ি', 'স্মার্ট'],
-      'prod_003': ['wallet', 'moneybag', 'bag', 'purse', 'লেদার', 'মানিব্যাগ', 'ওয়ালেট', 'মানি ব্যাগ'],
-      'prod_004': ['earbud', 'earbuds', 'headphone', 'airpod', 'earphone', 'ইয়ারবাড', 'হেডফোন', 'ব্লুটুথ'],
-      'prod_005': ['shoe', 'shoes', 'sneaker', 'sneakers', 'keds', 'juta', 'জুতা', 'কেডস', 'স্নিকার্স']
-    };
-
-    for (const [prodId, kwList] of Object.entries(keywordMap)) {
-      if (kwList.some(kw => q.includes(kw))) {
-        const found = prods.find(p => p.id === prodId);
-        if (found) return found;
-      }
-    }
-
-    // If query specifically asks for picture / photo without a clear product name,
-    // return the first product that has a valid image_url
-    if (
-      q.includes('picture') ||
-      q.includes('photo') ||
-      q.includes('chobi') ||
-      q.includes('image') ||
-      q.includes('pic') ||
-      q.includes('dekhan')
-    ) {
-      const prodWithImg = prods.find(p => Boolean(p.image_url));
-      if (prodWithImg) return prodWithImg;
-    }
-
-    // Fallback to first active product with an image
-    return prods.find(p => Boolean(p.image_url)) || prods[0];
+    return undefined;
   }
 
   // --- Settings ---

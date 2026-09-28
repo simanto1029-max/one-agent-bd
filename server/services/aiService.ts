@@ -3,7 +3,14 @@ import { db, Message, Product } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav } from './audioDownloader.js';
 
 function getGeminiClient(customApiKey?: string): GoogleGenAI {
-  const apiKey = (customApiKey && customApiKey.trim()) || process.env.GEMINI_API_KEY || '';
+  const adminProfile = db.getProfileById('usr_admin_001');
+  const apiKey =
+    (customApiKey && customApiKey.trim()) ||
+    (adminProfile?.llm_api_key && adminProfile.llm_api_key.trim()) ||
+    process.env.GEMINI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    '';
   return new GoogleGenAI({ apiKey });
 }
 
@@ -34,11 +41,10 @@ export interface GenerateReplyResult {
 
 // Supported Gemini models in priority order
 const CANDIDATE_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-latest',
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite'
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-flash-latest'
 ];
 
 // Call Google Gemini Multimodal API with Audio Input
@@ -403,9 +409,25 @@ function buildSmartBanglaFallbackFromPrompt(
   }
 
   // 7. Greetings (hello, hi, salam, assalamu alaikum, hlw, kemon achen, etc.) or general inquiry
+  const isOneAgentSaaS =
+    systemPrompt.includes('Starter AI Plan') ||
+    systemPrompt.includes('1,250') ||
+    systemPrompt.includes('১,২৫০') ||
+    businessName.toLowerCase().includes('one agent');
+
+  if (isOneAgentSaaS) {
+    return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। আমরা Facebook Page, Instagram, WhatsApp এবং Website-এর জন্য ২৪/৭ অটোমেটিক AI মেসেজ রিপ্লাই, ভয়েস ও ছবির উত্তর, কমেন্ট অটো-রিপ্লাই এবং অটো অর্ডার ও কুরিয়ার বুকিং সার্ভিস দিয়ে থাকি। আমাদের প্ল্যান (Starter ৳১,২৫০/মাস ও Pro ৳১,৯৫০/মাস) বা ২ দিনের ফ্রি ট্রায়াল সম্পর্কে জানতে চাইলে প্রশ্ন করতে পারেন!`;
+  }
+
   const kbSummary = cleanPromptLines
-    .filter((l) => !l.toLowerCase().includes('business knowledge base:'))
-    .slice(0, 3)
+    .filter(
+      (l) =>
+        !l.toLowerCase().includes('business knowledge base') &&
+        !l.startsWith('আপনি ') &&
+        !l.startsWith('===' ) &&
+        !l.startsWith('---')
+    )
+    .slice(0, 2)
     .join(' ');
 
   if (kbSummary && kbSummary.length > 20) {
@@ -442,11 +464,8 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     .replace(/in clear, friendly English/gi, 'in clear, friendly Bangla (বাংলা)')
     .replace(/in 1-2 concise English sentences/gi, 'in 1-3 concise Bangla (বাংলা) sentences');
 
-  // Get merchant product catalog for context (fall back to seed catalog if user has none)
-  let merchantProducts = db.getProducts(params.userId);
-  if (!merchantProducts || merchantProducts.length === 0) {
-    merchantProducts = db.getProducts('usr_demo_002');
-  }
+  // Get merchant product catalog for context (strictly isolated per merchant)
+  const merchantProducts = db.getProducts(params.userId) || [];
 
   const catalogContext =
     merchantProducts.length > 0
@@ -456,7 +475,7 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
               `- ${p.name}: ${p.price} ${p.currency} (Category: ${p.category}, Status: ${p.stock_status}). Details: ${p.description}`
           )
           .join('\n')
-      : `- Starter AI Plan: 1,250 BDT/month\n- Pro Business Plan: 1,950 BDT/month`;
+      : `(কোনো আলাদা প্রোডাক্ট ক্যাটালগ যোগ করা হয়নি — উপরের Business Knowledge Base / System Instructions অনুযায়ী উত্তর দিন)`;
 
   // Build context history
   const recentHistory = (params.history || [])
@@ -500,12 +519,10 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     incomingLower.includes('কত') ||
     incomingLower.includes('বিস্তারিত');
 
-  // Attempt to match a specific product from inquiry
+  // Attempt to match a specific product from merchant's own catalog
   let matchedProduct: Product | undefined = undefined;
-  if (params.incomingMessage) {
-    matchedProduct =
-      db.findProductForQuery(params.userId, params.incomingMessage) ||
-      db.findProductForQuery('usr_demo_002', params.incomingMessage);
+  if (params.incomingMessage && merchantProducts.length > 0) {
+    matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
   }
 
   // 1. If customer sent a voice note / audio
