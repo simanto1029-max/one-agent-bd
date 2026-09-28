@@ -12,19 +12,45 @@ const WHATSAPP_URL = 'https://wa.me/8801601705804';
 const EMAIL_URL = 'mailto:support.oneagentbd@gmail.com';
 
 export const Footer: React.FC<FooterProps> = () => {
-  const [legalModalOpen, setLegalModalOpen] = useState(false);
-  const [legalTab, setLegalTab] = useState<'privacy' | 'terms'>('privacy');
+  const resolveUrlLegalTab = (): { open: boolean; tab: 'privacy' | 'terms' } => {
+    if (typeof window === 'undefined') return { open: false, tab: 'privacy' };
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    const legalParam = (params.get('legal') || '').toLowerCase();
+
+    if (path.includes('terms') || hash.includes('terms') || legalParam === 'terms') {
+      return { open: true, tab: 'terms' };
+    }
+    if (
+      path.includes('privacy') ||
+      path.includes('data-deletion') ||
+      hash.includes('privacy') ||
+      legalParam === 'privacy'
+    ) {
+      return { open: true, tab: 'privacy' };
+    }
+    return { open: false, tab: 'privacy' };
+  };
+
+  const [legalModalOpen, setLegalModalOpen] = useState<boolean>(() => resolveUrlLegalTab().open);
+  const [legalTab, setLegalTab] = useState<'privacy' | 'terms'>(() => resolveUrlLegalTab().tab);
 
   React.useEffect(() => {
-    const path = window.location.pathname.toLowerCase();
-    const params = new URLSearchParams(window.location.search);
-    if (path.includes('privacy') || params.get('legal') === 'privacy') {
-      setLegalTab('privacy');
-      setLegalModalOpen(true);
-    } else if (path.includes('terms') || params.get('legal') === 'terms') {
-      setLegalTab('terms');
-      setLegalModalOpen(true);
-    }
+    const syncFromUrl = () => {
+      const state = resolveUrlLegalTab();
+      if (state.open) {
+        setLegalTab(state.tab);
+        setLegalModalOpen(true);
+      }
+    };
+    syncFromUrl();
+    window.addEventListener('popstate', syncFromUrl);
+    window.addEventListener('hashchange', syncFromUrl);
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+      window.removeEventListener('hashchange', syncFromUrl);
+    };
   }, []);
 
   const openLegal = (tab: 'privacy' | 'terms') => {
