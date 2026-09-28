@@ -15,6 +15,18 @@ export const Footer: React.FC<FooterProps> = () => {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState<'privacy' | 'terms'>('privacy');
 
+  React.useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    if (path.includes('privacy') || params.get('legal') === 'privacy') {
+      setLegalTab('privacy');
+      setLegalModalOpen(true);
+    } else if (path.includes('terms') || params.get('legal') === 'terms') {
+      setLegalTab('terms');
+      setLegalModalOpen(true);
+    }
+  }, []);
+
   const openLegal = (tab: 'privacy' | 'terms') => {
     setLegalTab(tab);
     setLegalModalOpen(true);
