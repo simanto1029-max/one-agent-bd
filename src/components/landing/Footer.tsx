@@ -30,6 +30,18 @@ export const Footer: React.FC<FooterProps> = () => {
   const openLegal = (tab: 'privacy' | 'terms') => {
     setLegalTab(tab);
     setLegalModalOpen(true);
+    try {
+      window.history.pushState({}, '', tab === 'terms' ? '/terms' : '/privacy');
+    } catch {}
+  };
+
+  const closeLegal = () => {
+    setLegalModalOpen(false);
+    try {
+      if (window.location.pathname.includes('privacy') || window.location.pathname.includes('terms')) {
+        window.history.pushState({}, '', '/');
+      }
+    } catch {}
   };
 
   return (
@@ -256,7 +268,7 @@ export const Footer: React.FC<FooterProps> = () => {
 
       <LegalModal
         isOpen={legalModalOpen}
-        onClose={() => setLegalModalOpen(false)}
+        onClose={closeLegal}
         defaultTab={legalTab}
       />
     </footer>

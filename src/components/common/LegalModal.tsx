@@ -14,6 +14,19 @@ export const LegalModal: React.FC<LegalModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'privacy' | 'terms'>(defaultTab);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab, isOpen]);
+
+  const handleSwitchTab = (tab: 'privacy' | 'terms') => {
+    setActiveTab(tab);
+    try {
+      window.history.replaceState({}, '', tab === 'terms' ? '/terms' : '/privacy');
+    } catch {}
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -45,7 +58,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
         {/* Tab Switcher */}
         <div className="flex items-center gap-2 px-6 pt-4 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
           <button
-            onClick={() => setActiveTab('privacy')}
+            onClick={() => handleSwitchTab('privacy')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 cursor-pointer border-b-2 ${
               activeTab === 'privacy'
                 ? 'border-violet-600 text-violet-600 dark:text-violet-400 bg-white dark:bg-neutral-900'
@@ -56,7 +69,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({
             Privacy Policy
           </button>
           <button
-            onClick={() => setActiveTab('terms')}
+            onClick={() => handleSwitchTab('terms')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 cursor-pointer border-b-2 ${
               activeTab === 'terms'
                 ? 'border-violet-600 text-violet-600 dark:text-violet-400 bg-white dark:bg-neutral-900'
