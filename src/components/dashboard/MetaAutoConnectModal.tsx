@@ -69,6 +69,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [metaAppId, setMetaAppId] = useState<string>('');
   const [waConnectTab, setWaConnectTab] = useState<'auto' | 'manual'>('auto');
   const [manualWaName, setManualWaName] = useState<string>('');
+  const [manualWabaId, setManualWabaId] = useState<string>('');
   const [manualWaPhoneId, setManualWaPhoneId] = useState<string>('');
   const [manualWaToken, setManualWaToken] = useState<string>('');
 
@@ -230,19 +231,20 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const handleManualWhatsAppConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualWaPhoneId.trim() || !manualWaToken.trim()) {
-      setError('অনুগ্রহ করে WhatsApp নাম্বার / Phone Number ID এবং Access Token দিন।');
+      setError('অনুগ্রহ করে WhatsApp Phone Number ID এবং Access Token দিন।');
       return;
     }
     try {
       setLoading(true);
       setError(null);
-      const created = await api.createChannel({
-        platform: 'whatsapp',
-        name: manualWaName.trim() || `WhatsApp (${manualWaPhoneId.trim()})`,
-        identifier: manualWaPhoneId.trim(),
-        access_token: manualWaToken.trim()
+      const res = await api.autoConnectWhatsApp({
+        wabaId: manualWabaId.trim() || undefined,
+        phoneNumberId: manualWaPhoneId.trim(),
+        displayPhoneNumber: manualWaName.trim() || manualWaPhoneId.trim(),
+        verifiedName: manualWaName.trim() || `WhatsApp (${manualWaPhoneId.trim()})`,
+        accessToken: manualWaToken.trim()
       });
-      onSuccess(created);
+      onSuccess(res.channel);
       onClose();
     } catch (err: any) {
       setError(err.message || 'WhatsApp নাম্বার কানেক্ট করতে সমস্যা হয়েছে।');
@@ -498,14 +500,26 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Phone Number ID (বা নাম্বার) *
+                    WhatsApp Business Account ID (WABA ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualWabaId}
+                    onChange={(e) => setManualWabaId(e.target.value)}
+                    placeholder="যেমন: 1098160382932544"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    WhatsApp Phone Number ID *
                   </label>
                   <input
                     type="text"
                     required
                     value={manualWaPhoneId}
                     onChange={(e) => setManualWaPhoneId(e.target.value)}
-                    placeholder="Meta WhatsApp Manager থেকে Phone Number ID দিন"
+                    placeholder="যেমন: 1248549471684856"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
                   />
                 </div>
