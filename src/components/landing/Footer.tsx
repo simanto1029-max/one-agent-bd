@@ -70,6 +70,23 @@ export const Footer: React.FC<FooterProps> = () => {
     } catch {}
   };
 
+  const scrollToSection = (sectionId?: string) => {
+    if (typeof window === 'undefined') return;
+    if (window.location.href.includes('#')) {
+      try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch {}
+    }
+    if (!sectionId) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <footer className="bg-white dark:bg-[#080518] py-12 sm:py-16 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -78,12 +95,16 @@ export const Footer: React.FC<FooterProps> = () => {
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10">
             {/* Column 1: Brand + Tagline + FOLLOW US Horizontal Logo Circles */}
             <div className="max-w-xs space-y-4">
-              <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => scrollToSection()}
+                className="flex items-center gap-2.5 cursor-pointer focus:outline-hidden"
+              >
                 <BrandLogo size="md" />
                 <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">
                   One Agent <span className="text-[#7C3AED]">BD</span>
                 </span>
-              </div>
+              </button>
 
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Simple AI support for chats, leads, and sales.
@@ -141,19 +162,31 @@ export const Footer: React.FC<FooterProps> = () => {
               </h4>
               <ul className="space-y-3 text-sm font-medium text-slate-600 dark:text-slate-300">
                 <li>
-                  <a href="#features" className="hover:text-slate-900 dark:hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('channels')}
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
                     Channels
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#features" className="hover:text-slate-900 dark:hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('features')}
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
                     Features
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="#pricing" className="hover:text-slate-900 dark:hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('pricing')}
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
                     Pricing
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>

@@ -98,6 +98,20 @@ export default function App() {
 
   useEffect(() => {
     bootstrapSession();
+    // Clean any stray '#' or '/#' from browser URL bar
+    const cleanUrlHash = () => {
+      if (typeof window !== 'undefined' && window.location.href.includes('#')) {
+        const h = window.location.hash.toLowerCase();
+        if (!h.includes('privacy') && !h.includes('terms')) {
+          try {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          } catch {}
+        }
+      }
+    };
+    cleanUrlHash();
+    window.addEventListener('hashchange', cleanUrlHash);
+    return () => window.removeEventListener('hashchange', cleanUrlHash);
   }, []);
 
   const bootstrapSession = async () => {

@@ -26,36 +26,70 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  const scrollToSection = (sectionId?: string) => {
+    if (typeof window === 'undefined') return;
+    if (window.location.href.includes('#')) {
+      try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch {}
+    }
+    if (!sectionId) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <>
       <div className="h-16 sm:h-[68px] shrink-0" aria-hidden="true" />
       <header className="fixed top-0 left-0 right-0 z-40 w-full backdrop-blur-xl bg-white/95 dark:bg-[#0B0720]/90 border-b border-slate-200/80 dark:border-purple-500/15 shadow-2xs transition-colors">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 sm:h-[68px] flex items-center justify-between gap-2">
         {/* Brand Logo */}
-        <a
-          href="#"
-          className="flex items-center gap-2 sm:gap-2.5 group focus:outline-hidden shrink-0"
+        <button
+          type="button"
+          onClick={() => scrollToSection()}
+          className="flex items-center gap-2 sm:gap-2.5 group focus:outline-hidden shrink-0 cursor-pointer"
         >
           <BrandLogo size="md" />
           <span className="font-black text-lg sm:text-2xl tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">
             One Agent <span className="bg-gradient-to-r from-[#7C3AED] to-[#A855F7] bg-clip-text text-transparent">BD</span>
           </span>
-        </a>
+        </button>
 
         {/* Navigation Links (Desktop) */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          <a href="#features" className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors">
+          <button
+            type="button"
+            onClick={() => scrollToSection('features')}
+            className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
+          >
             Features
-          </a>
-          <a href="#pricing" className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors">
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('pricing')}
+            className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
+          >
             Pricing
-          </a>
-          <a href="#testimonials" className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors">
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('testimonials')}
+            className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
+          >
             Reviews
-          </a>
-          <a href="#faq" className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors">
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('faq')}
+            className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
+          >
             FAQ
-          </a>
+          </button>
         </nav>
 
         {/* Actions */}
@@ -139,34 +173,46 @@ export const Navbar: React.FC<NavbarProps> = ({
       {mobileNavOpen && (
         <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3.5 space-y-3 shadow-xl animate-in slide-in-from-top-2 duration-150">
           <div className="grid grid-cols-2 gap-2 text-xs font-bold">
-            <a
-              href="#features"
-              onClick={() => setMobileNavOpen(false)}
-              className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6]"
+            <button
+              type="button"
+              onClick={() => {
+                setMobileNavOpen(false);
+                scrollToSection('features');
+              }}
+              className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
             >
               Features
-            </a>
-            <a
-              href="#pricing"
-              onClick={() => setMobileNavOpen(false)}
-              className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6]"
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileNavOpen(false);
+                scrollToSection('pricing');
+              }}
+              className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
             >
               Pricing & Plans
-            </a>
-            <a
-              href="#testimonials"
-              onClick={() => setMobileNavOpen(false)}
-              className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6]"
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileNavOpen(false);
+                scrollToSection('testimonials');
+              }}
+              className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
             >
               Merchant Reviews
-            </a>
-            <a
-              href="#faq"
-              onClick={() => setMobileNavOpen(false)}
-              className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6]"
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileNavOpen(false);
+                scrollToSection('faq');
+              }}
+              className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
             >
               FAQ
-            </a>
+            </button>
           </div>
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">

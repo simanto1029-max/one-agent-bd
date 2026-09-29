@@ -898,7 +898,11 @@ MANDATORY LANGUAGE & REPLY RULES:
     }
   }
 
+  private lastLocalWriteAt: number = 0;
+
   private persist(): void {
+    this.lastLocalWriteAt = Date.now();
+    (this.data as any)._lastUpdatedAt = this.lastLocalWriteAt;
     this.saveData(this.data);
     this.isDirty = true;
     if (this.getSupabaseConfig()) {
@@ -921,23 +925,47 @@ MANDATORY LANGUAGE & REPLY RULES:
     return headers;
   }
 
+  private buildCompactCloudSnapshot(): DatabaseSchema {
+    const snapshot: any = {
+      ...this.data,
+      _lastUpdatedAt: this.lastLocalWriteAt || (this.data as any)._lastUpdatedAt || Date.now()
+    };
+    if (Array.isArray(this.data.messages) && this.data.messages.length > 0) {
+      // Strip large base64 blobs from older messages so cloud JSONB sync stays fast & lightweight
+      const cutoffIdx = Math.max(0, this.data.messages.length - 5);
+      snapshot.messages = this.data.messages.map((m, idx) => {
+        if (idx < cutoffIdx && (m.audio_base64 || m.image_base64)) {
+          const { audio_base64, image_base64, ...rest } = m;
+          return rest;
+        }
+        return m;
+      });
+    }
+    return snapshot;
+  }
+
   private async pushToSupabase(): Promise<void> {
     const cfg = this.getSupabaseConfig();
     if (!cfg) return;
     this.isDirty = false;
-    const headers = this.getSupabaseHeaders(cfg.key, {
+    const upsertHeaders = this.getSupabaseHeaders(cfg.key, {
       'Content-Type': 'application/json',
       Prefer: 'resolution=merge-duplicates,return=minimal'
     });
+    const patchHeaders = this.getSupabaseHeaders(cfg.key, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal'
+    });
     const nowIso = new Date().toISOString();
+    const snapshot = this.buildCompactCloudSnapshot();
 
-    const tryPost = async (bodyObj: Record<string, any>) => {
+    const tryRequest = async (urlPath: string, method: string, hdrs: Record<string, string>, bodyObj: Record<string, any>) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
       try {
-        return await fetch(`${cfg.url}/rest/v1/app_state`, {
-          method: 'POST',
-          headers,
+        return await fetch(`${cfg.url}${urlPath}`, {
+          method,
+          headers: hdrs,
           body: JSON.stringify(bodyObj),
           signal: controller.signal
         });
@@ -946,72 +974,168 @@ MANDATORY LANGUAGE & REPLY RULES:
       }
     };
 
+    // Also mirror state backup into system_settings (present in all schema versions)
+    tryRequest('/rest/v1/system_settings?on_conflict=key', 'POST', upsertHeaders, {
+      key: 'app_state_backup',
+      value: snapshot,
+      updated_at: nowIso
+    }).catch(() => {});
+
     if (this.useNumericPayloadSchema) {
-      const res = await tryPost({ id: 1, payload: this.data, updated_at: nowIso });
+      let res = await tryRequest('/rest/v1/app_state?on_conflict=id', 'POST', upsertHeaders, {
+        id: 1,
+        payload: snapshot,
+        updated_at: nowIso
+      });
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error(`Supabase upsert HTTP ${res.status}: ${errText}`);
+        res = await tryRequest('/rest/v1/app_state?id=eq.1', 'PATCH', patchHeaders, {
+          payload: snapshot,
+          updated_at: nowIso
+        });
       }
+      if (res.ok) {
+        this.lastSupabaseSyncAt = Date.now();
+        return;
+      }
+    }
+
+    let response = await tryRequest('/rest/v1/app_state?on_conflict=id', 'POST', upsertHeaders, {
+      id: 'main',
+      state_data: snapshot,
+      updated_at: nowIso
+    });
+    if (!response.ok) {
+      response = await tryRequest('/rest/v1/app_state?id=eq.main', 'PATCH', patchHeaders, {
+        state_data: snapshot,
+        updated_at: nowIso
+      });
+    }
+    if (response.ok) {
       this.lastSupabaseSyncAt = Date.now();
       return;
     }
 
-    const response = await tryPost({
-      id: 'main',
-      state_data: this.data,
+    // Fallback for (id INT PRIMARY KEY, payload JSONB) table schema
+    let fallbackRes = await tryRequest('/rest/v1/app_state?on_conflict=id', 'POST', upsertHeaders, {
+      id: 1,
+      payload: snapshot,
       updated_at: nowIso
     });
-    if (!response.ok) {
-      // Fallback for (id INT PRIMARY KEY, payload JSONB) table schema
-      const fallbackRes = await tryPost({
-        id: 1,
-        payload: this.data,
+    if (!fallbackRes.ok) {
+      fallbackRes = await tryRequest('/rest/v1/app_state?id=eq.1', 'PATCH', patchHeaders, {
+        payload: snapshot,
         updated_at: nowIso
       });
-      if (fallbackRes.ok) {
-        this.useNumericPayloadSchema = true;
-        this.lastSupabaseSyncAt = Date.now();
-        return;
-      }
-      const errText = await fallbackRes.text().catch(() => '');
-      throw new Error(`Supabase upsert HTTP ${fallbackRes.status}: ${errText}`);
     }
-    this.lastSupabaseSyncAt = Date.now();
+    if (fallbackRes.ok) {
+      this.useNumericPayloadSchema = true;
+      this.lastSupabaseSyncAt = Date.now();
+      return;
+    }
+  }
+
+  private mergeLocalNewerProfiles(incoming: DatabaseSchema): DatabaseSchema {
+    if (!this.data?.profiles || !incoming?.profiles) return incoming;
+    const localMap = new Map<string, Profile>();
+    for (const p of this.data.profiles) {
+      localMap.set(p.id, p);
+    }
+
+    incoming.profiles = incoming.profiles.map((remoteProf) => {
+      const localProf = localMap.get(remoteProf.id);
+      if (!localProf) return remoteProf;
+      const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
+      const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
+      if (localTime >= remoteTime) {
+        return {
+          ...remoteProf,
+          ...localProf,
+          llm_api_key: localProf.llm_api_key !== undefined ? localProf.llm_api_key : remoteProf.llm_api_key,
+          system_prompt: localProf.system_prompt || remoteProf.system_prompt,
+          llm_provider: localProf.llm_provider || remoteProf.llm_provider
+        };
+      }
+      // Even if remote is newer, never lose a non-empty local llm_api_key if remote has none
+      if (localProf.llm_api_key && !remoteProf.llm_api_key) {
+        return {
+          ...remoteProf,
+          llm_api_key: localProf.llm_api_key
+        };
+      }
+      return remoteProf;
+    });
+
+    if ((this.data.settings as any)?.default_llm_api_key && !(incoming.settings as any)?.default_llm_api_key) {
+      (incoming.settings as any).default_llm_api_key = (this.data.settings as any).default_llm_api_key;
+    }
+
+    return incoming;
   }
 
   public async syncFromSupabase(force = false): Promise<void> {
     const cfg = this.getSupabaseConfig();
     if (!cfg) return;
-    // Avoid redundant fetches within 2 seconds if no writes occurred
+    // Never overwrite recent local writes within 10 seconds
+    if (!force && this.lastLocalWriteAt > 0 && Date.now() - this.lastLocalWriteAt < 10000) {
+      return;
+    }
     if (!force && !IS_VERCEL && Date.now() - this.lastSupabaseSyncAt < 2000) {
       return;
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&limit=1`, {
+      let rawState: any = null;
+      const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&order=updated_at.desc&limit=1`, {
         method: 'GET',
         headers: this.getSupabaseHeaders(cfg.key, {
           Accept: 'application/json'
         }),
         signal: controller.signal
       });
-      if (!response.ok) return;
-      const rows = await response.json();
-      if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
-        const row = rows[0];
-        if ('payload' in row || typeof row.id === 'number') {
-          this.useNumericPayloadSchema = true;
+      if (response.ok) {
+        const rows = await response.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
+          const row = rows[0];
+          if ('payload' in row || typeof row.id === 'number') {
+            this.useNumericPayloadSchema = true;
+          }
+          rawState = row.state_data || row.payload;
+        } else if (Array.isArray(rows) && rows.length === 0) {
+          await this.pushToSupabase();
+          return;
         }
-        const rawState = row.state_data || row.payload;
-        if (rawState && typeof rawState === 'object') {
-          this.data = this.normalizeSchema(rawState);
-          this.saveData(this.data);
-          this.lastSupabaseSyncAt = Date.now();
+      }
+
+      // Fallback to system_settings backup if app_state was unavailable
+      if (!rawState) {
+        const sysRes = await fetch(
+          `${cfg.url}/rest/v1/system_settings?key=eq.app_state_backup&select=*&limit=1`,
+          {
+            method: 'GET',
+            headers: this.getSupabaseHeaders(cfg.key, { Accept: 'application/json' }),
+            signal: controller.signal
+          }
+        );
+        if (sysRes.ok) {
+          const sysRows = await sysRes.json();
+          if (Array.isArray(sysRows) && sysRows.length > 0 && sysRows[0]?.value) {
+            rawState = sysRows[0].value;
+          }
         }
-      } else if (Array.isArray(rows) && rows.length === 0) {
-        // First time initialization in Supabase: seed current data
-        await this.pushToSupabase();
+      }
+
+      if (rawState && typeof rawState === 'object') {
+        const remoteTs = Number(rawState._lastUpdatedAt || 0);
+        if (this.lastLocalWriteAt > 0 && remoteTs > 0 && this.lastLocalWriteAt > remoteTs) {
+          // Local in-memory state is newer than cloud state; push local state to cloud instead
+          await this.pushToSupabase();
+          return;
+        }
+        const normalized = this.normalizeSchema(rawState);
+        this.data = this.mergeLocalNewerProfiles(normalized);
+        this.saveData(this.data);
+        this.lastSupabaseSyncAt = Date.now();
       }
     } catch (err: any) {
       console.warn('[Supabase Sync] Pull warning:', err?.message || err);

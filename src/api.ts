@@ -712,6 +712,7 @@ export const api = {
   // LLM Settings
   async getLLMSettings(): Promise<{
     llm_provider: 'gemini' | 'openai' | 'anthropic';
+    llm_api_key?: string;
     system_prompt: string;
     has_custom_key: boolean;
     masked_key: string | null;
@@ -723,9 +724,17 @@ export const api = {
   async updateLLMSettings(data: {
     llm_provider?: string;
     llm_api_key?: string;
+    clear_api_key?: boolean;
     system_prompt?: string;
   }) {
-    return fetchJson('/api/settings/llm', {
+    return fetchJson<{
+      message: string;
+      llm_provider: 'gemini' | 'openai' | 'anthropic';
+      llm_api_key?: string;
+      system_prompt: string;
+      has_custom_key: boolean;
+      masked_key: string | null;
+    }>('/api/settings/llm', {
       method: 'PUT',
       body: JSON.stringify(data)
     });

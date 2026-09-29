@@ -169,13 +169,16 @@ export const Hero: React.FC<HeroProps> = ({
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              <a
-                href="#features"
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="w-full sm:w-auto px-7 py-3.5 sm:px-8 sm:py-4 rounded-full bg-slate-100/80 dark:bg-[#150E30]/90 hover:bg-slate-200/70 dark:hover:bg-[#1E1442] text-neutral-900 dark:text-white font-bold text-sm sm:text-base border border-neutral-300/90 dark:border-purple-400/25 hover:border-[#8B5CF6]/60 shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
               >
                 <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-[#8B5CF6] dark:text-purple-400" />
                 <span>Explore AI Features</span>
-              </a>
+              </button>
             </div>
 
             {/* Trust Badges */}

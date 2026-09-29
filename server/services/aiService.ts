@@ -2,19 +2,25 @@ import { GoogleGenAI } from '@google/genai';
 import { db, Message, Product } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav } from './audioDownloader.js';
 
-function getGeminiClients(customApiKey?: string): GoogleGenAI[] {
+function getCandidateGeminiKeys(customApiKey?: string): string[] {
   const adminProfile = db.getProfileById('usr_admin_001');
-  const candidateKeys = Array.from(
+  const defaultSystemKey = ((db.getSettings() as any)?.default_llm_api_key || '').trim();
+  return Array.from(
     new Set(
       [
         customApiKey?.trim(),
+        defaultSystemKey,
         adminProfile?.llm_api_key?.trim(),
         process.env.GEMINI_API_KEY?.trim(),
         process.env.VITE_GEMINI_API_KEY?.trim(),
         process.env.GOOGLE_API_KEY?.trim()
-      ].filter((k): k is string => Boolean(k && k.length > 10))
+      ].filter((k): k is string => Boolean(k && k.length > 10 && !k.startsWith('sk-')))
     )
   );
+}
+
+function getGeminiClients(customApiKey?: string): GoogleGenAI[] {
+  const candidateKeys = getCandidateGeminiKeys(customApiKey);
 
   if (candidateKeys.length === 0) {
     return [
@@ -76,6 +82,7 @@ export interface GenerateReplyParams {
   imageMimeType?: string;
   imageUrl?: string;
   overrideSystemPrompt?: string;
+  overrideApiKey?: string;
 }
 
 export interface GenerateReplyResult {
@@ -87,8 +94,9 @@ export interface GenerateReplyResult {
   attachedProductPrice?: number;
 }
 
-// Supported Gemini 3 models in priority order (gemini-3.6-flash verified 200 OK & low latency)
+// Supported Gemini models in priority order (includes gemini-2.5-flash for user AIzaSy keys + gemini-3.6-flash)
 const CANDIDATE_MODELS = [
+  'gemini-2.5-flash',
   'gemini-3.6-flash',
   'gemini-3.8-flash',
   'gemini-flash-latest'
@@ -272,9 +280,46 @@ Assistant Reply (in Bangla):`;
   return null;
 }
 
-// Call Google Gemini API for Text with Fast Fallback Loop (avoids Vercel timeouts during 503 spikes)
+// Call Google Gemini or OpenAI API for Text with Fast Fallback Loop (avoids Vercel timeouts during 503 spikes)
 async function callGemini(fullPrompt: string, customApiKey?: string, systemInstruction?: string): Promise<string | null> {
-  const clients = getGeminiClients(customApiKey);
+  const trimmedKey =
+    customApiKey?.trim() ||
+    ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
+    db.getProfileById('usr_admin_001')?.llm_api_key?.trim() ||
+    '';
+
+  // If the merchant provided an OpenAI API key (starts with sk- and not sk-ant-), call OpenAI directly
+  if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-')) {
+    try {
+      const openAiRes = await withTimeout(
+        fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${trimmedKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+              { role: 'user', content: fullPrompt }
+            ],
+            temperature: 0.35
+          })
+        }),
+        6000
+      );
+      if (openAiRes.ok) {
+        const json: any = await openAiRes.json();
+        const text = json?.choices?.[0]?.message?.content?.trim();
+        if (text) return formatCleanChatMessage(text);
+      }
+    } catch (err: any) {
+      console.warn('[AI Service] OpenAI call warning:', err?.message || err);
+    }
+  }
+
+  const clients = getGeminiClients(trimmedKey);
   let consecutive503 = 0;
 
   for (const ai of clients.slice(0, 2)) {
@@ -814,7 +859,13 @@ Customer's Exact Question:
 
 Write a direct, accurate, well-formatted Bangla reply that directly answers the customer's question above:`;
 
-  const geminiReply = await callGemini(fullPrompt, profile?.llm_api_key, systemInstruction);
+  const effectiveApiKey =
+    (params.overrideApiKey && params.overrideApiKey.trim()) ||
+    (profile?.llm_api_key && profile.llm_api_key.trim()) ||
+    ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
+    undefined;
+
+  const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
 
   if (geminiReply) {

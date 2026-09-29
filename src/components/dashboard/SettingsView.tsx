@@ -12,7 +12,9 @@ import {
   UtensilsCrossed,
   Info,
   Truck,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { api } from '../../api';
 import { DeliverySettingsSection } from './DeliverySettingsSection';
@@ -23,7 +25,9 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => {
   const [provider, setProvider] = useState<'gemini' | 'openai' | 'anthropic'>('gemini');
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('oneagentbd_saved_api_key') || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [keySavedBanner, setKeySavedBanner] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [maskedKey, setMaskedKey] = useState<string | null>(null);
   const [hasCustomKey, setHasCustomKey] = useState(false);
@@ -89,6 +93,9 @@ MANDATORY LANGUAGE & REPLY RULES:
     try {
       setLoading(true);
       const data = await api.getLLMSettings();
+      const localBackupKey = (localStorage.getItem('oneagentbd_saved_api_key') || '').trim();
+      const localBackupPrompt = (localStorage.getItem('oneagentbd_saved_system_prompt') || '').trim();
+
       setProvider(data.llm_provider || 'gemini');
 
       const incomingPrompt = data.system_prompt || '';
@@ -96,14 +103,39 @@ MANDATORY LANGUAGE & REPLY RULES:
         !incomingPrompt.trim() ||
         incomingPrompt.includes('You are a warm, professional customer support AI agent for our business.')
       ) {
-        const defaultBuilt = buildKnowledgeBasePromptText();
-        setSystemPrompt(defaultBuilt);
+        if (localBackupPrompt) {
+          setSystemPrompt(localBackupPrompt);
+        } else {
+          const defaultBuilt = buildKnowledgeBasePromptText();
+          setSystemPrompt(defaultBuilt);
+        }
       } else {
         setSystemPrompt(incomingPrompt);
+        localStorage.setItem('oneagentbd_saved_system_prompt', incomingPrompt);
       }
 
-      setMaskedKey(data.masked_key);
-      setHasCustomKey(data.has_custom_key);
+      const incomingKey = (data.llm_api_key || '').trim();
+      if (incomingKey) {
+        setApiKey(incomingKey);
+        setHasCustomKey(true);
+        setMaskedKey(`••••••••${incomingKey.slice(-4)}`);
+        localStorage.setItem('oneagentbd_saved_api_key', incomingKey);
+      } else if (localBackupKey) {
+        setApiKey(localBackupKey);
+        setHasCustomKey(true);
+        setMaskedKey(`••••••••${localBackupKey.slice(-4)}`);
+        // Auto-sync local backup key to backend
+        api
+          .updateLLMSettings({
+            llm_provider: data.llm_provider || 'gemini',
+            llm_api_key: localBackupKey,
+            system_prompt: localBackupPrompt || incomingPrompt || undefined
+          })
+          .catch(() => {});
+      } else {
+        setMaskedKey(data.masked_key);
+        setHasCustomKey(data.has_custom_key);
+      }
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
@@ -117,9 +149,11 @@ MANDATORY LANGUAGE & REPLY RULES:
       ? `${systemPrompt}\n\n[DELIVERY RATES]:\n${deliveryText}`
       : `[DELIVERY RATES]:\n${deliveryText}`;
     setSystemPrompt(updated);
+    localStorage.setItem('oneagentbd_saved_system_prompt', updated);
     try {
       await api.updateLLMSettings({
         llm_provider: provider,
+        llm_api_key: apiKey.trim() || undefined,
         system_prompt: updated
       });
       onRefreshUser();
@@ -128,19 +162,34 @@ MANDATORY LANGUAGE & REPLY RULES:
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     try {
       setSaving(true);
-      await api.updateLLMSettings({
+      const cleanKey = apiKey.trim();
+      if (cleanKey) {
+        localStorage.setItem('oneagentbd_saved_api_key', cleanKey);
+      }
+      if (systemPrompt.trim()) {
+        localStorage.setItem('oneagentbd_saved_system_prompt', systemPrompt);
+      }
+
+      const res = await api.updateLLMSettings({
         llm_provider: provider,
-        llm_api_key: apiKey || undefined,
+        llm_api_key: cleanKey || undefined,
         system_prompt: systemPrompt
       });
+
+      const savedKey = (res?.llm_api_key || cleanKey || '').trim();
+      if (savedKey) {
+        setApiKey(savedKey);
+        setHasCustomKey(true);
+        setMaskedKey(`••••••••${savedKey.slice(-4)}`);
+        setKeySavedBanner(true);
+        setTimeout(() => setKeySavedBanner(false), 3500);
+      }
       setSavedSuccess(true);
-      setApiKey('');
       setTimeout(() => setSavedSuccess(false), 3000);
-      await loadSettings();
       onRefreshUser();
     } catch (err) {
       console.error('Failed to update settings:', err);
@@ -151,9 +200,11 @@ MANDATORY LANGUAGE & REPLY RULES:
 
   const handleApplyPreset = async (presetText: string) => {
     setSystemPrompt(presetText);
+    localStorage.setItem('oneagentbd_saved_system_prompt', presetText);
     try {
       await api.updateLLMSettings({
         llm_provider: provider,
+        llm_api_key: apiKey.trim() || undefined,
         system_prompt: presetText
       });
       setSavedSuccess(true);
@@ -166,10 +217,12 @@ MANDATORY LANGUAGE & REPLY RULES:
   const handleGenerateKnowledgeBase = async () => {
     const generated = buildKnowledgeBasePromptText();
     setSystemPrompt(generated);
+    localStorage.setItem('oneagentbd_saved_system_prompt', generated);
     setShowBuilder(false);
     try {
       await api.updateLLMSettings({
         llm_provider: provider,
+        llm_api_key: apiKey.trim() || undefined,
         system_prompt: generated
       });
       setSavedSuccess(true);
@@ -196,6 +249,7 @@ MANDATORY LANGUAGE & REPLY RULES:
       await api
         .updateLLMSettings({
           llm_provider: provider,
+          llm_api_key: apiKey.trim() || undefined,
           system_prompt: activePromptToUse
         })
         .catch(() => {});
@@ -423,30 +477,63 @@ MANDATORY RULES:
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1 flex items-center justify-between">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-neutral-400" />
+                    <Key className="w-3.5 h-3.5 text-[#7F22FE]" />
                     Custom {provider.toUpperCase()} API Key (Optional)
                   </span>
-                  {hasCustomKey && (
-                    <span className="text-[11px] text-[#7F22FE] font-normal">
-                      Key configured ({maskedKey})
+                  {(hasCustomKey || apiKey.trim().length > 8) && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      API Key Saved & Active ({apiKey.trim() ? `••••${apiKey.trim().slice(-4)}` : maskedKey})
                     </span>
                   )}
                 </label>
-                <input
-                  id="settings-llm-api-key"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={
-                    hasCustomKey
-                      ? 'Enter new key to replace existing'
-                      : 'Leave empty to use built-in Google GenAI system key'
-                  }
-                  className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
-                />
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      id="settings-llm-api-key"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Paste your Gemini (AIza...) or OpenAI (sk-...) API key here"
+                      className="w-full text-xs pl-3 pr-9 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
+                    />
+                    {apiKey && (
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey((prev) => !prev)}
+                        title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+                      >
+                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSave()}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                  >
+                    {saving ? (
+                      'Saving...'
+                    ) : keySavedBanner ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Key Saved!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Save API Key</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

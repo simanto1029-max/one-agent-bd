@@ -71,34 +71,57 @@ settingsRouter.get('/llm', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const savedKey =
+    (user.llm_api_key && user.llm_api_key.trim()) ||
+    (user.role === 'admin' ? ((db.getSettings() as any)?.default_llm_api_key || '').trim() : '');
+
   return res.json({
-    llm_provider: user.llm_provider,
+    llm_provider: user.llm_provider || 'gemini',
+    llm_api_key: savedKey,
     system_prompt: user.system_prompt,
-    has_custom_key: Boolean(user.llm_api_key),
-    masked_key: user.llm_api_key ? `••••••••${user.llm_api_key.slice(-4)}` : null,
+    has_custom_key: Boolean(savedKey),
+    masked_key: savedKey ? `••••••••${savedKey.slice(-4)}` : null,
     default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY)
   });
 });
 
 // PUT /api/settings/llm
-settingsRouter.put('/llm', (req: Request, res: Response) => {
+settingsRouter.put('/llm', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { llm_provider, llm_api_key, system_prompt } = req.body;
+  const { llm_provider, llm_api_key, clear_api_key, system_prompt } = req.body;
   const updates: any = {};
 
   if (llm_provider) updates.llm_provider = llm_provider;
   if (system_prompt !== undefined) updates.system_prompt = system_prompt;
-  if (llm_api_key !== undefined) updates.llm_api_key = llm_api_key.trim();
+
+  if (clear_api_key === true) {
+    updates.llm_api_key = '';
+  } else if (typeof llm_api_key === 'string' && llm_api_key.trim().length > 0) {
+    updates.llm_api_key = llm_api_key.trim();
+  }
 
   const updated = db.updateProfile(user.id, updates);
+
+  if (user.role === 'admin' && updates.llm_api_key !== undefined) {
+    db.updateSettings({ default_llm_api_key: updates.llm_api_key } as any);
+  }
+
+  await db.flushToSupabase().catch(() => {});
+
+  const effectiveKey =
+    (updated?.llm_api_key && updated.llm_api_key.trim()) ||
+    (user.role === 'admin' ? ((db.getSettings() as any)?.default_llm_api_key || '').trim() : '');
+
   return res.json({
     message: 'AI settings updated successfully',
-    llm_provider: updated?.llm_provider,
-    system_prompt: updated?.system_prompt,
-    has_custom_key: Boolean(updated?.llm_api_key)
+    llm_provider: updated?.llm_provider || 'gemini',
+    llm_api_key: effectiveKey,
+    system_prompt: updated?.system_prompt || '',
+    has_custom_key: Boolean(effectiveKey),
+    masked_key: effectiveKey ? `••••••••${effectiveKey.slice(-4)}` : null
   });
 });
