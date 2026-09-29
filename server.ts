@@ -161,7 +161,7 @@ async function startServer() {
     const vitePkg = 'vite';
     const { createServer: createViteServer } = await import(vitePkg);
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false, watch: null },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
