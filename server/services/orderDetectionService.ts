@@ -196,7 +196,7 @@ If the required criteria are NOT yet met (e.g. customer hasn't provided address/
 Respond ONLY with valid JSON, no markdown formatting.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
+      model: 'gemini-3.6-flash',
       contents: extractionPrompt
     });
 

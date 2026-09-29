@@ -1,4 +1,4 @@
-// One Agent BD - Vercel Serverless Entry Point (AI Training & Catalog Isolation Fixed)
+// One Agent BD - Vercel Serverless Entry Point (ESM Bundle v2)
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -16,7 +16,7 @@ import path from "path";
 var IS_VERCEL, DATA_DIR, DB_FILE, BUNDLED_DB_FILE, defaultSeedReviews, defaultSeedProducts, initialData, DEFAULT_ORDER_SETTINGS, Database, db;
 var init_database = __esm({
   "server/db/database.ts"() {
-    IS_VERCEL = Boolean("1");
+    IS_VERCEL = Boolean(process.env.VERCEL);
     DATA_DIR = IS_VERCEL ? path.join(os.tmpdir(), "oneagentbd_data") : path.join(process.cwd(), "data");
     DB_FILE = path.join(DATA_DIR, "db.json");
     BUNDLED_DB_FILE = path.join(process.cwd(), "data", "db.json");
@@ -1331,7 +1331,7 @@ __export(orderDetectionService_exports, {
   hasOrderSignals: () => hasOrderSignals
 });
 import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
-function getGeminiClient2() {
+function getGeminiClient() {
   if (!geminiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     geminiClient = new GoogleGenAI2({ apiKey: apiKey || "" });
@@ -1445,7 +1445,7 @@ async function detectAndRecordOrder(params) {
   console.log(`[Order Detection] Order signals detected in message from customer ${customerId} (${customerName})`);
   let extracted = null;
   try {
-    const ai = getGeminiClient2();
+    const ai = getGeminiClient();
     const reqFieldsList = [
       orderSettings.required_fields.customer_name ? "Customer full name" : null,
       orderSettings.required_fields.customer_phone ? "Bangladeshi mobile phone number (11-digit)" : null,
@@ -1490,7 +1490,7 @@ If the required criteria are NOT yet met (e.g. customer hasn't provided address/
 
 Respond ONLY with valid JSON, no markdown formatting.`;
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-3.6-flash",
       contents: extractionPrompt
     });
     const responseText = response.text?.trim() || "";
@@ -3041,7 +3041,9 @@ init_database();
 import { Router as Router5 } from "express";
 
 // server/services/tunnelService.ts
+import { spawn } from "child_process";
 import fs2 from "fs";
+var tunnelProcess = null;
 var currentPublicUrl = null;
 function getPublicTunnelUrl() {
   if (currentPublicUrl) return currentPublicUrl;
@@ -3057,6 +3059,25 @@ function getPublicTunnelUrl() {
   } catch (e) {
   }
   return null;
+}
+function startTunnelIfNeeded() {
+  if (!fs2.existsSync("/tmp/cloudflared")) {
+    return;
+  }
+  if (tunnelProcess && !tunnelProcess.killed) {
+    return;
+  }
+  try {
+    const fd = fs2.openSync("/tmp/tunnel.log", "a");
+    tunnelProcess = spawn("/tmp/cloudflared", ["tunnel", "--protocol", "http2", "--url", "http://localhost:3000"], {
+      detached: true,
+      stdio: ["ignore", fd, fd]
+    });
+    tunnelProcess.unref();
+    console.log("[TunnelService] Cloudflared tunnel process started.");
+  } catch (err) {
+    console.error("[TunnelService] Failed to start cloudflared:", err);
+  }
 }
 
 // server/services/metaOAuthService.ts
@@ -4234,19 +4255,58 @@ async function downloadWhatsAppImage(mediaId, accessToken) {
 }
 
 // server/services/aiService.ts
-function getGeminiClient(customApiKey) {
+function getGeminiClients(customApiKey) {
   const adminProfile = db.getProfileById("usr_admin_001");
-  const apiKey = customApiKey && customApiKey.trim() || adminProfile?.llm_api_key && adminProfile.llm_api_key.trim() || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-  return new GoogleGenAI({ apiKey });
+  const candidateKeys = Array.from(
+    new Set(
+      [
+        customApiKey?.trim(),
+        adminProfile?.llm_api_key?.trim(),
+        process.env.GEMINI_API_KEY?.trim(),
+        process.env.VITE_GEMINI_API_KEY?.trim(),
+        process.env.GOOGLE_API_KEY?.trim()
+      ].filter((k) => Boolean(k && k.length > 10))
+    )
+  );
+  if (candidateKeys.length === 0) {
+    return [
+      new GoogleGenAI({
+        apiKey: "",
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      })
+    ];
+  }
+  return candidateKeys.map(
+    (apiKey) => new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+    })
+  );
+}
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Gemini request timed out after ${ms}ms`)), ms);
+    promise.then((val) => {
+      clearTimeout(timer);
+      resolve(val);
+    }).catch((err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+function formatCleanChatMessage(raw) {
+  if (!raw) return "";
+  let text = raw.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/^#{1,6}\s*/gm, "").replace(/।।+/g, "\u0964").replace(/\n{3,}/g, "\n\n").trim();
+  return text;
 }
 var CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash",
+  "gemini-3.6-flash",
+  "gemini-3.8-flash",
   "gemini-flash-latest"
 ];
 async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, businessName, recentHistory, catalogContext, customApiKey) {
-  const ai = getGeminiClient(customApiKey);
+  const clients = getGeminiClients(customApiKey);
   let normalizedBase64 = audioBase64;
   let normalizedMime = "audio/wav";
   try {
@@ -4273,7 +4333,7 @@ ${catalogContext}
 TASK:
 1. Listen carefully to the voice note (may be in Bangla, Banglish, or English).
 2. Transcribe accurately what the customer said in the audio.
-3. Formulate a polite, helpful, concise customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Answer the customer's question directly using the Business Knowledge Base and Catalog above in 1-3 clear Bangla sentences. Never repeat or echo the customer's question.
+3. Formulate a polite, helpful, well-formatted customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Answer the customer's question directly using the Business Knowledge Base and Catalog above. Do not use ** markdown asterisks. Never repeat or echo the customer's question.
 
 Previous Conversation History:
 ${recentHistory || "(No previous messages)"}
@@ -4281,48 +4341,56 @@ ${recentHistory || "(No previous messages)"}
 OUTPUT FORMAT:
 TRANSCRIPT: <Accurate transcription of what the customer spoke>
 REPLY: <Polite, helpful customer reply in Bangla (\u09AC\u09BE\u0982\u09B2\u09BE\u09DF)>`;
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: [
-          {
-            role: "user",
-            parts: [
+  for (const ai of clients.slice(0, 2)) {
+    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+      try {
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: [
               {
-                inlineData: {
-                  mimeType: normalizedMime,
-                  data: normalizedBase64
-                }
-              },
-              {
-                text: promptText
+                role: "user",
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: normalizedMime,
+                      data: normalizedBase64
+                    }
+                  },
+                  {
+                    text: promptText
+                  }
+                ]
               }
-            ]
-          }
-        ]
-      });
-      const rawText = response.text?.trim();
-      if (!rawText) continue;
-      const transcriptMatch = rawText.match(/TRANSCRIPT:\s*([\s\S]*?)(?=(REPLY:|$))/i);
-      const replyMatch = rawText.match(/REPLY:\s*([\s\S]*)/i);
-      let transcript = transcriptMatch ? transcriptMatch[1].trim() : void 0;
-      let replyText = replyMatch ? replyMatch[1].trim() : rawText;
-      if (replyText.startsWith("REPLY:")) {
-        replyText = replyText.substring(6).trim();
+            ],
+            config: {
+              thinkingConfig: { thinkingBudget: 0 }
+            }
+          }),
+          5500
+        );
+        const rawText = response.text?.trim();
+        if (!rawText) continue;
+        const transcriptMatch = rawText.match(/TRANSCRIPT:\s*([\s\S]*?)(?=(REPLY:|$))/i);
+        const replyMatch = rawText.match(/REPLY:\s*([\s\S]*)/i);
+        let transcript = transcriptMatch ? transcriptMatch[1].trim() : void 0;
+        let replyText = replyMatch ? replyMatch[1].trim() : rawText;
+        if (replyText.startsWith("REPLY:")) {
+          replyText = replyText.substring(6).trim();
+        }
+        if (transcript && (transcript.toLowerCase().includes("silent") || transcript.includes("unclear"))) {
+          transcript = "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C";
+        }
+        return { replyText: formatCleanChatMessage(replyText), transcript };
+      } catch (err) {
+        console.warn(`[AI Service] Audio model ${modelName} error:`, err?.message || err);
       }
-      if (transcript && (transcript.toLowerCase().includes("silent") || transcript.includes("unclear"))) {
-        transcript = "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C";
-      }
-      return { replyText, transcript };
-    } catch (err) {
-      console.warn(`[AI Service] Audio model ${modelName} error:`, err?.message || err);
     }
   }
   return null;
 }
 async function callGeminiWithImage(imageBase64, imageMimeType, customerText, systemPrompt, businessName, catalogContext, recentHistory, customApiKey) {
-  const ai = getGeminiClient(customApiKey);
+  const clients = getGeminiClients(customApiKey);
   const promptText = `System Instructions & Business Knowledge Base:
 ${systemPrompt}
 
@@ -4336,147 +4404,303 @@ TASK:
 1. Examine the image sent by the customer.
 2. Identify which product from the Merchant Product Catalog matches this item (or describe its category and key features).
 3. Provide the exact price in BDT and specifications according to the catalog and business knowledge base.
-4. Reply in clear, polite, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF, \u09E7-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7). Do not echo robotic prefixes.
+4. Reply in clear, polite, well-formatted natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Do not use ** markdown asterisks.
 
 Recent Conversation History:
 ${recentHistory || "(No previous messages)"}
 
 Customer Question: "${customerText || "\u098F\u099F\u09BE\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
 Assistant Reply (in Bangla):`;
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: [
-          {
-            role: "user",
-            parts: [
+  for (const ai of clients.slice(0, 2)) {
+    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+      try {
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: [
               {
-                inlineData: {
-                  mimeType: imageMimeType || "image/jpeg",
-                  data: imageBase64
-                }
-              },
-              {
-                text: promptText
+                role: "user",
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: imageMimeType || "image/jpeg",
+                      data: imageBase64
+                    }
+                  },
+                  {
+                    text: promptText
+                  }
+                ]
               }
-            ]
-          }
-        ]
-      });
-      const reply = response.text?.trim();
-      if (reply) return reply;
-    } catch (err) {
-      console.warn(`[AI Service] Multimodal Image model ${modelName} error:`, err?.message || err);
+            ],
+            config: {
+              thinkingConfig: { thinkingBudget: 0 }
+            }
+          }),
+          5500
+        );
+        const reply = response.text?.trim();
+        if (reply) return formatCleanChatMessage(reply);
+      } catch (err) {
+        console.warn(`[AI Service] Multimodal Image model ${modelName} error:`, err?.message || err);
+      }
     }
   }
   return null;
 }
-async function callGemini(fullPrompt, customApiKey) {
-  const ai = getGeminiClient(customApiKey);
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: fullPrompt
-      });
-      const reply = response.text?.trim();
-      if (reply) return reply;
-    } catch (err) {
-      console.warn(`[AI Service] Model ${modelName} failed for text:`, err?.message || err);
+async function callGemini(fullPrompt, customApiKey, systemInstruction) {
+  const clients = getGeminiClients(customApiKey);
+  let consecutive503 = 0;
+  for (const ai of clients.slice(0, 2)) {
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: fullPrompt,
+            config: {
+              ...systemInstruction ? { systemInstruction } : {},
+              thinkingConfig: { thinkingBudget: 0 },
+              temperature: 0.35
+            }
+          }),
+          5500
+        );
+        const reply = response.text?.trim();
+        if (reply) return formatCleanChatMessage(reply);
+      } catch (err) {
+        const msg = String(err?.message || err || "");
+        console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 120));
+        if (err?.status === 503 || msg.includes("503") || msg.includes("high demand") || msg.includes("UNAVAILABLE")) {
+          consecutive503++;
+          if (consecutive503 >= 2) {
+            return null;
+          }
+        }
+      }
     }
   }
   return null;
 }
 function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, businessName, products, matchedProduct) {
   const q = (incomingMessage || "").toLowerCase().trim();
-  const cleanPromptLines = (systemPrompt || "").split("\n").map((l) => l.trim()).filter(
-    (l) => l.length > 0 && !l.toLowerCase().startsWith("you are") && !l.toLowerCase().startsWith("mandatory rules") && !l.toLowerCase().startsWith("- answer") && !l.toLowerCase().startsWith("- reply") && !l.toLowerCase().startsWith("- never repeat") && !l.toLowerCase().startsWith("- do not") && !l.toLowerCase().startsWith("- when known") && !l.toLowerCase().startsWith("- state exact")
-  );
-  const extractSection = (keywords) => {
-    const matchedLines = [];
-    for (let i = 0; i < cleanPromptLines.length; i++) {
-      const lineLower = cleanPromptLines[i].toLowerCase();
-      if (keywords.some((kw) => lineLower.includes(kw))) {
-        matchedLines.push(cleanPromptLines[i]);
-        if (i + 1 < cleanPromptLines.length && !/^\d+\./.test(cleanPromptLines[i + 1])) {
-          matchedLines.push(cleanPromptLines[i + 1]);
-        }
-      }
-    }
-    return matchedLines.length > 0 ? matchedLines.slice(0, 3).join(" ") : null;
-  };
   if (matchedProduct) {
     return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 "${matchedProduct.name}" \u098F\u0996\u09A8 \u09B8\u09CD\u099F\u0995\u09C7 \u0986\u099B\u09C7\u0964
+
 \u{1F4B0} \u09AE\u09C2\u09B2\u09CD\u09AF: \u09F3${matchedProduct.price} ${matchedProduct.currency}
 \u{1F4CB} \u09AC\u09BF\u09AC\u09B0\u09A3: ${matchedProduct.description}
+
 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u098F\u09AC\u0982 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u0964`;
-  }
-  if (q.includes("delivery") || q.includes("charge") || q.includes("courier") || q.includes("\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09A0\u09BE\u09A8\u09CB") || q.includes("dhaka") || q.includes("\u09A2\u09BE\u0995\u09BE") || q.includes("koto din") || q.includes("\u0995\u09A4 \u09A6\u09BF\u09A8")) {
-    const kbDelivery = extractSection(["delivery", "\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF", "courier", "dhaka", "\u09A2\u09BE\u0995\u09BE", "parcel"]);
-    if (kbDelivery) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09A4\u09A5\u09CD\u09AF: ${kbDelivery}\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
-    }
-    return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u098F\u09AC\u0982 \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7!`;
-  }
-  if (q.includes("bkash") || q.includes("nagad") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u099F\u09BE\u0995\u09BE \u09AA\u09BE\u09A0\u09BE\u09AC\u09CB") || q.includes("cod")) {
-    const kbPay = extractSection(["payment", "bkash", "nagad", "\u09AC\u09BF\u0995\u09BE\u09B6", "\u09A8\u0997\u09A6", "\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F", "cod"]);
-    if (kbPay) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF: ${kbPay}\u0964 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u099C\u09BE\u09A8\u09BE\u09B2\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09BE \u09B9\u09AC\u09C7\u0964`;
-    }
-    return `\u0986\u09AE\u09B0\u09BE \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD), \u09AC\u09BF\u0995\u09BE\u09B6 \u098F\u09AC\u0982 \u09A8\u0997\u09A6 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09CD\u09B0\u09B9\u09A3 \u0995\u09B0\u09BF\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
-  }
-  if (q.includes("order") || q.includes("buy") || q.includes("confirm") || q.includes("\u0985\u09B0\u09CD\u09A1\u09BE\u09B0") || q.includes("\u0995\u09BF\u09A8\u09AC") || q.includes("\u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u0987") || q.includes("\u09A8\u09BF\u09AC\u09CB") || q.includes("kivabe") || q.includes("\u0995\u09BF\u09AD\u09BE\u09AC\u09C7")) {
-    const kbOrder = extractSection(["order", "\u0985\u09B0\u09CD\u09A1\u09BE\u09B0", "confirm", "booking"]);
-    if (kbOrder) {
-      return `\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE: ${kbOrder}\u0964 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09E7\u09E7 \u09A1\u09BF\u099C\u09BF\u099F\u09C7\u09B0 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09A8, \u0986\u09AE\u09B0\u09BE \u098F\u0996\u09A8\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09AC\u09C1\u0995 \u0995\u09B0\u09C7 \u09A8\u09BF\u099A\u09CD\u099B\u09BF!`;
-    }
-    return `\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A8\u09BE\u09AE, \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u098F\u09AC\u0982 \u09B8\u099A\u09B2 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u0964`;
-  }
-  if (q.includes("price") || q.includes("dam") || q.includes("koto") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B0\u09BE\u0987\u09B8") || q.includes("service") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("product") || q.includes("\u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F") || q.includes("ki ki") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("ache") || q.includes("ase") || q.includes("\u0986\u099B\u09C7") || q.includes("details") || q.includes("detail") || q.includes("bistarito") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("package") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("plan") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8")) {
-    const kbServices = extractSection([
-      "product",
-      "service",
-      "price",
-      "plan",
-      "menu",
-      "\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8",
-      "\u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F",
-      "\u09A6\u09BE\u09AE",
-      "\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C"
-    ]);
-    if (kbServices) {
-      return `\u099C\u09CD\u09AC\u09C0, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09AC\u09BF\u09AC\u09B0\u09A3: ${kbServices}\u0964 \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u099C\u09BE\u09A8\u09BE\u09B2\u09C7 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09A6\u09BF\u09DF\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF!`;
-    }
-    if (products.length > 0) {
-      const topList = products.slice(0, 4).map((p) => `\u2022 ${p.name}: \u09F3${p.price}`).join("\n");
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u099C\u09A8\u09AA\u09CD\u09B0\u09BF\u09DF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0993 \u09AE\u09C2\u09B2\u09CD\u09AF \u09A4\u09BE\u09B2\u09BF\u0995\u09BE:
-${topList}
-\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u09A8 \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8?`;
-    }
-  }
-  if (q.includes("number") || q.includes("phone") || q.includes("call") || q.includes("contact") || q.includes("helpline") || q.includes("address") || q.includes("location") || q.includes("\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0") || q.includes("\u09AB\u09CB\u09A8") || q.includes("\u0995\u09B2") || q.includes("\u09A0\u09BF\u0995\u09BE\u09A8\u09BE") || q.includes("\u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7") || q.includes("\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997")) {
-    const kbHelp = extractSection(["helpline", "support", "hour", "phone", "address", "\u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8", "\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0", "\u09A0\u09BF\u0995\u09BE\u09A8\u09BE"]);
-    if (kbHelp) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997\u09C7\u09B0 \u09A4\u09A5\u09CD\u09AF: ${kbHelp}\u0964 \u098F\u099B\u09BE\u09DC\u09BE \u098F\u0996\u09BE\u09A8\u09C7 \u09AE\u09C7\u09B8\u09C7\u099C \u0995\u09B0\u09B2\u09C7\u0993 \u0986\u09AE\u09B0\u09BE \u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u099B\u09BF\u0964`;
-    }
-    return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u09AA\u09CD\u09B0\u09A4\u09BF\u09A6\u09BF\u09A8 \u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u09A5\u09C7\u0995\u09C7 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u099A\u09BE\u09B2\u09C1 \u0986\u099B\u09C7\u0964 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09A8, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u09A8\u09BF\u09A7\u09BF \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0995\u09B2 \u0995\u09B0\u09AC\u09C7\u0964`;
   }
   const isOneAgentSaaS = systemPrompt.includes("Starter AI Plan") || systemPrompt.includes("1,250") || systemPrompt.includes("\u09E7,\u09E8\u09EB\u09E6") || businessName.toLowerCase().includes("one agent");
   if (isOneAgentSaaS) {
-    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook Page, Instagram, WhatsApp \u098F\u09AC\u0982 Website-\u098F\u09B0 \u099C\u09A8\u09CD\u09AF \u09E8\u09EA/\u09ED \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 AI \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0, \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 (Starter \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u0993 Pro \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8) \u09AC\u09BE \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+    const isYearly = q.includes("1 bochor") || q.includes("1 year") || q.includes("12 month") || q.includes("12 mas") || q.includes("\u098F\u0995 \u09AC\u099B\u09B0") || q.includes("\u09E7 \u09AC\u099B\u09B0") || q.includes("\u09E7\u09E8 \u09AE\u09BE\u09B8") || q.includes("yearly") || q.includes("annual") || q.includes("bochorer") || q.includes("bochor") || q.includes("\u09AC\u099B\u09B0");
+    const isSixMonths = q.includes("6 mas") || q.includes("6 month") || q.includes("\u09EC \u09AE\u09BE\u09B8") || q.includes("\u099B\u09DF \u09AE\u09BE\u09B8");
+    const isThreeMonths = q.includes("3 mas") || q.includes("3 month") || q.includes("\u09E9 \u09AE\u09BE\u09B8") || q.includes("\u09A4\u09BF\u09A8 \u09AE\u09BE\u09B8");
+    const isTwoMonths = q.includes("2 mas") || q.includes("2 month") || q.includes("\u09E8 \u09AE\u09BE\u09B8") || q.includes("\u09A6\u09C1\u0987 \u09AE\u09BE\u09B8");
+    if (isYearly) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u09B0 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u0996\u09B0\u099A \u09A8\u09BF\u099A\u09C7 \u09A6\u09C7\u0993\u09DF\u09BE \u09B9\u09B2\u09CB:
+
+\u{1F4E6} \u09E7) Starter AI Plan (\u09E7 \u09AC\u099B\u09B0 / \u09E7\u09E8 \u09AE\u09BE\u09B8):
+\u2022 \u09AE\u09CB\u099F \u0996\u09B0\u099A: \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09BE\u09B8\u09BF\u0995 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u09B9\u09BF\u09B8\u09C7\u09AC\u09C7)
+\u2022 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE: \u09E7\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, Facebook, Instagram, WhatsApp \u0993 Website \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982\u0964
+
+\u{1F680} \u09E8) Pro Business Plan (\u09E7 \u09AC\u099B\u09B0 / \u09E7\u09E8 \u09AE\u09BE\u09B8):
+\u2022 \u09AE\u09CB\u099F \u0996\u09B0\u099A: \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09BE\u09B8\u09BF\u0995 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u09B9\u09BF\u09B8\u09C7\u09AC\u09C7)
+\u2022 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE: \u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u099B\u09AC\u09BF \u099A\u09C7\u09A8\u09BE (Voice & Image AI), \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0993 \u09B8\u09CD\u099F\u09CB\u09B0 \u0995\u09BE\u09A8\u09C7\u0995\u09B6\u09A8 \u098F\u09AC\u0982 \u09E8\u09EA/\u09ED \u09AD\u09BF\u0986\u0987\u09AA\u09BF \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F\u0964
+
+\u{1F381} \u099A\u09BE\u0987\u09B2\u09C7 \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online) \u09A5\u09C7\u0995\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8! \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+    }
+    if (isSixMonths) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09EC \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u09B0 \u0996\u09B0\u099A:
+
+\u{1F4E6} \u09E7) Starter AI Plan (\u09EC \u09AE\u09BE\u09B8): \u09F3\u09ED,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8)
+\u{1F680} \u09E8) Pro Business Plan (\u09EC \u09AE\u09BE\u09B8): \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8)
+
+\u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u09AA\u09CD\u09B0\u09CB\u09AE\u09CB/\u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u0986\u099B\u09C7 \u098F\u09AC\u0982 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u09B8\u09AC \u09AB\u09BF\u099A\u09BE\u09B0 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+    }
+    if (isThreeMonths) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E9 \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u09B0 \u0996\u09B0\u099A:
+
+\u{1F4E6} \u09E7) Starter AI Plan (\u09E9 \u09AE\u09BE\u09B8): \u09F3\u09E9,\u09ED\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8)
+\u{1F680} \u09E8) Pro Business Plan (\u09E9 \u09AE\u09BE\u09B8): \u09F3\u09EB,\u09EE\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8)
+
+\u0986\u09AA\u09A8\u09BF \u099A\u09BE\u0987\u09B2\u09C7 \u098F\u0996\u09A8\u0987 https://www.oneagentbd.online \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u0997\u09BF\u09DF\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u099A\u09BE\u09B2\u09C1 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8 \u0985\u09A5\u09AC\u09BE \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+    }
+    if (isTwoMonths) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u09B0 \u0996\u09B0\u099A:
+
+\u{1F4E6} \u09E7) Starter AI Plan (\u09E8 \u09AE\u09BE\u09B8): \u09F3\u09E8,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8)
+\u{1F680} \u09E8) Pro Business Plan (\u09E8 \u09AE\u09BE\u09B8): \u09F3\u09E9,\u09EF\u09E6\u09E6 \u099F\u09BE\u0995\u09BE (\u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8)
+
+\u09B8\u09BE\u09A5\u09C7 \u09A5\u09BE\u0995\u099B\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE! \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8: https://www.oneagentbd.online`;
+    }
+    if (q.includes("voice") || q.includes("audio") || q.includes("chobi") || q.includes("photo") || q.includes("image") || q.includes("picture") || q.includes("\u09AD\u09DF\u09C7\u09B8") || q.includes("\u0985\u09A1\u09BF\u0993") || q.includes("\u099B\u09AC\u09BF")) {
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C1\u099F\u09CB\u0987 \u09AC\u09C1\u099D\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7:
+
+\u{1F3A4} \u09E7) \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 (Voice AI): \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u099F\u09BE\u0987\u09AA \u09A8\u09BE \u0995\u09B0\u09C7 \u09AC\u09BE\u0982\u09B2\u09BE \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6\u09C7 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09AA\u09BE\u09A0\u09BE\u09B2\u09C7 AI \u09A4\u09BE \u09B6\u09C1\u09A8\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09A0\u09BF\u0995 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09DF\u0964
+\u{1F4F8} \u09E8) \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u099A\u09C7\u09A8\u09BE (Visual Photo Search): \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09AC\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09A8\u09B6\u099F \u09AA\u09BE\u09A0\u09BE\u09B2\u09C7 AI \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u09A5\u09C7\u0995\u09C7 \u099B\u09AC\u09BF\u099F\u09BF \u099A\u09BF\u09A8\u09C7 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09AC\u09B0\u09A3 \u099C\u09BE\u09A8\u09BF\u09DF\u09C7 \u09A6\u09C7\u09DF!
+
+\u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u098F\u0996\u09A8\u0987 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09C1\u09A8: https://www.oneagentbd.online`;
+    }
+    if (q.includes("comment") || q.includes("\u0995\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u09AA\u09CB\u09B8\u09CD\u099F")) {
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u0987\u09A8\u09B8\u09CD\u099F\u09BE\u0997\u09CD\u09B0\u09BE\u09AE\u09C7\u09B0 \u09AA\u09CB\u09B8\u09CD\u099F\u09C7 \u0995\u09C7\u0989 "Price please", "\u09A6\u09BE\u09AE \u0995\u09A4?" \u09AC\u09BE \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09B2\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7:
+
+\u2705 \u09E7) \u0993\u0987 \u0995\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09A8\u09BF\u099A\u09C7 \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0\u09AD\u09BE\u09AC\u09C7 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09A6\u09C7\u09DF\u0964
+\u{1F4E9} \u09E8) \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AE\u09C7\u09B8\u09C7\u099E\u09CD\u099C\u09BE\u09B0 \u0987\u09A8\u09AC\u0995\u09CD\u09B8\u09C7 (DM-\u098F) \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09AE\u09C7\u09B8\u09C7\u099C \u09AA\u09BE\u09A0\u09BF\u09DF\u09C7 \u09A6\u09C7\u09DF!
+
+\u09AB\u09B2\u09C7 \u098F\u0995\u099F\u09BF\u0993 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AE\u09BF\u09B8 \u09B9\u09DF \u09A8\u09BE\u0964`;
+    }
+    if (q.includes("courier") || q.includes("steadfast") || q.includes("pathao") || q.includes("redx") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2") || q.includes("order") && !q.includes("kivabe kinbo")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7 \u0995\u09BE\u099C \u0995\u09B0\u09C7:
+
+\u{1F6CD}\uFE0F \u09E7) \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0997\u09CD\u09B0\u09B9\u09A3: \u099A\u09CD\u09AF\u09BE\u099F\u09C7\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7\u0987 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE, \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u098F\u09AC\u0982 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u09A8\u09BF\u09DF\u09C7 AI \u09A8\u09BF\u099C\u09C7\u0987 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C7 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7\u09B0 "Orders & Courier" \u09B2\u09BF\u09B8\u09CD\u099F\u09C7 \u09B8\u09C7\u09AD \u0995\u09B0\u09C7 \u09B0\u09BE\u0996\u09C7\u0964
+\u{1F69A} \u09E8) \u09E7-\u0995\u09CD\u09B2\u09BF\u0995\u09C7 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982: \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0986\u09B8\u09BE\u09B0 \u09AA\u09B0 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09C7\u0995\u09C7 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 Steadfast, Pathao \u09AC\u09BE RedX \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0\u09C7 \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2 \u09AC\u09C1\u0995\u09BF\u0982 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u2014\u0986\u09B2\u09BE\u09A6\u09BE \u0995\u09B0\u09C7 \u0995\u09AA\u09BF-\u09AA\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u09B9\u09AC\u09C7 \u09A8\u09BE!`;
+    }
+    if (q.includes("website") || q.includes("wordpress") || q.includes("woocommerce") || q.includes("shopify") || q.includes("\u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F") || q.includes("\u0993\u09AF\u09BC\u09C7\u09AC\u09B8\u09BE\u0987\u099F")) {
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 (\u09F3\u09E7,\u09E8\u09EB\u09E6 \u098F\u09AC\u0982 \u09F3\u09E7,\u09EF\u09EB\u09E6) \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u0993 \u0987-\u0995\u09AE\u09BE\u09B0\u09CD\u09B8 \u09B8\u09CD\u099F\u09CB\u09B0 \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u0986\u099B\u09C7:
+
+\u{1F310} \u09E7) \u0986\u09AA\u09A8\u09BE\u09B0 WordPress/WooCommerce, Shopify \u09AC\u09BE \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0993 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09B2\u09BE\u0987\u09AD \u09B8\u09BF\u0999\u09CD\u0995 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u0964
+\u{1F4AC} \u09E8) \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09C7\u0995\u09C7 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u09B2\u09BE\u0987\u09A8\u09C7\u09B0 Script \u0995\u09CB\u09A1 \u0995\u09AA\u09BF \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09B2\u09BE\u0987\u09AD AI \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F \u09AC\u09B8\u09BE\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8!`;
+    }
+    if (q.includes("ban") || q.includes("risk") || q.includes("limit") || q.includes("official") || q.includes("\u09AC\u09CD\u09AF\u09BE\u09A8") || q.includes("\u099D\u09C1\u0981\u0995\u09BF") || q.includes("\u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09B9\u09AC\u09C7") || q.includes("\u09B2\u09BF\u09AE\u09BF\u099F")) {
+      return `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C \u09E7\u09E6\u09E6% \u09A8\u09BF\u09B0\u09BE\u09AA\u09A6 \u09A5\u09BE\u0995\u09AC\u09C7! \u{1F6E1}\uFE0F
+
+\u2022 \u0986\u09AE\u09B0\u09BE \u09AE\u09C7\u099F\u09BE\u09B0 \u09E7\u09E6\u09E6% \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 Cloud & Graph API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BF, \u09A4\u09BE\u0987 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09AC\u09CD\u09AF\u09BE\u09A8 \u09AC\u09BE \u09B0\u09C7\u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0995\u09CD\u099F\u09C7\u09A1 \u09B9\u0993\u09DF\u09BE\u09B0 \u09E6% \u099D\u09C1\u0981\u0995\u09BF\u0993 \u09A8\u09C7\u0987\u0964
+\u2022 \u098F\u09AC\u0982 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 (\u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09C7\u09B8\u09C7\u099C\u09C7 \u0986\u09B2\u09BE\u09A6\u09BE \u0995\u09CB\u09A8\u09CB \u099F\u09BE\u0995\u09BE \u0995\u09BE\u099F\u09C7 \u09A8\u09BE)!`;
+    }
+    if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("payment") || q.includes("pay") || q.includes("coupon") || q.includes("discount") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F") || q.includes("\u0995\u09C1\u09AA\u09A8") || q.includes("\u099B\u09BE\u09DC")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u098F\u0995\u09A6\u09AE \u09B8\u09B9\u099C:
+
+\u{1F4B3} \u09E7) \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online)-\u098F \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 "Billing & Plan" \u09AE\u09C7\u09A8\u09C1\u09A4\u09C7 \u09AF\u09BE\u09A8\u0964
+\u{1F4F2} \u09E8) \u09AC\u09BF\u0995\u09BE\u09B6 (bKash), \u09A8\u0997\u09A6 (Nagad), \u09B0\u0995\u09C7\u099F (Rocket) \u09AC\u09BE \u0989\u09AA\u09BE\u09DF (Upay)-\u098F\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE\u09C7 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 Transaction ID (TrxID) \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964
+\u{1F39F}\uFE0F \u09E9) \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF Coupon Code \u09AC\u0995\u09CD\u09B8\u09C7 \u09AA\u09CD\u09B0\u09CB\u09AE\u09CB \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09C7\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+    }
+    if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09A8\u09A4\u09C1\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09B2\u09C7\u0987 \u09AA\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 (\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u2014\u0995\u09CB\u09A8\u09CB \u0995\u09CD\u09B0\u09C7\u09A1\u09BF\u099F \u0995\u09BE\u09B0\u09CD\u09A1 \u09AC\u09BE \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B2\u09BE\u0997\u09AC\u09C7 \u09A8\u09BE\u0964
+
+\u2705 \u0995\u09C0\u09AD\u09BE\u09AC\u09C7 \u099A\u09BE\u09B2\u09C1 \u0995\u09B0\u09AC\u09C7\u09A8:
+\u09E7) \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8: https://www.oneagentbd.online
+\u09E8) "Get Started / Sign Up" \u09AC\u09BE\u099F\u09A8\u09C7 \u0995\u09CD\u09B2\u09BF\u0995 \u0995\u09B0\u09C7 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09C1\u09A8\u0964
+\u09E9) \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C7 \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C1\u09A8!`;
+    }
+    if (q.includes("connect") || q.includes("setup") || q.includes("kivabe") || q.includes("\u0995\u09BF\u09AD\u09BE\u09AC\u09C7") || q.includes("\u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F") || q.includes("\u09B8\u09C7\u099F\u0986\u09AA") || q.includes("\u0995\u09BE\u099C \u0995\u09B0\u09C7")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u099F\u09AB\u09B0\u09CD\u09AE\u09C7 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0993 AI \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09BE \u098F\u0995\u09A6\u09AE \u09B8\u09B9\u099C (\u09AE\u09BE\u09A4\u09CD\u09B0 \u09E8 \u09AE\u09BF\u09A8\u09BF\u099F\u09C7\u09B0 \u0995\u09BE\u099C):
+
+\u09E7) https://www.oneagentbd.online \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7 \u09AF\u09BE\u09A8\u0964
+\u09E8) "AI Agent & Channels" \u09AE\u09C7\u09A8\u09C1 \u09A5\u09C7\u0995\u09C7 "Connect with Facebook" \u09AC\u09BE\u099F\u09A8\u09C7 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995 \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8\u0964
+\u09E9) \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09AC\u09BF\u099C\u09A8\u09C7\u09B8\u09C7\u09B0 \u09A4\u09A5\u09CD\u09AF \u09B2\u09BF\u0996\u09C7 Save \u0995\u09B0\u09B2\u09C7\u0987 AI \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09AC\u09C7!
+
+\u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u099F\u09BF\u09AE (+8801601705804) \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09AB\u09CD\u09B0\u09BF\u09A4\u09C7 \u09AA\u09C1\u09B0\u09CB \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09C7 \u09A6\u09C7\u09AC\u09C7\u0964`;
+    }
+    if (q.includes("price") || q.includes("dam") || q.includes("koto") || q.includes("plan") || q.includes("package") || q.includes("taka") || q.includes("starter") || q.includes("pro") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u0996\u09B0\u099A") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:
+
+\u{1F4E6} \u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE/\u09AE\u09BE\u09B8 (\u09E7 \u09AC\u099B\u09B0 \u09A8\u09BF\u09B2\u09C7 \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE):
+\u2022 \u09E7\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F (\u09E8\u09EA/\u09ED \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987)
+\u2022 Facebook, Instagram, WhatsApp \u0993 Website \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F
+\u2022 \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982
+
+\u{1F680} \u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE/\u09AE\u09BE\u09B8 (\u09E7 \u09AC\u099B\u09B0 \u09A8\u09BF\u09B2\u09C7 \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE):
+\u2022 \u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F \u0993 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C (Voice AI) \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987
+\u2022 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u0993 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u099A\u09C7\u09A8\u09BE
+\u2022 \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E7\u09E6\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u09E8\u09EA/\u09ED \u09AD\u09BF\u0986\u0987\u09AA\u09BF \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F
+
+\u{1F381} \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09A4\u09C7 \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8: https://www.oneagentbd.online`;
+    }
+    if (q.includes("service") || q.includes("feature") || q.includes("ki ki") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("\u09AB\u09BF\u099A\u09BE\u09B0") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("details")) {
+      return `One Agent BD-\u098F\u09B0 \u09AA\u09CD\u09B0\u09A7\u09BE\u09A8 \u09AB\u09BF\u099A\u09BE\u09B0\u09B8\u09AE\u09C2\u09B9:
+
+\u2705 \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 (Facebook, Instagram, WhatsApp \u0993 Website)
+\u2705 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u0993 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09AC\u09B0\u09A3 \u099C\u09BE\u09A8\u09BE\u09A8\u09CB
+\u2705 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A8\u09BF\u09DF\u09C7 \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982
+\u2705 \u09E7-\u0995\u09CD\u09B2\u09BF\u0995\u09C7 Steadfast, Pathao \u0993 RedX \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0\u09C7 \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF
+\u2705 \u09AE\u09C7\u099F\u09BE\u09B0 \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 API (\u09AA\u09C7\u099C \u09AC\u09CD\u09AF\u09BE\u09A8 \u09B9\u0993\u09DF\u09BE\u09B0 \u09E6% \u099D\u09C1\u0981\u0995\u09BF, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C)
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 (\u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u09AC\u09BE \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8: https://www.oneagentbd.online`;
+    }
+    if (q.includes("number") || q.includes("phone") || q.includes("call") || q.includes("contact") || q.includes("support") || q.includes("\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0") || q.includes("\u09AB\u09CB\u09A8") || q.includes("\u0995\u09B2") || q.includes("\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997") || q.includes("\u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u099F\u09BF\u09AE\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997\u09C7\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE (\u09AA\u09CD\u09B0\u09A4\u09BF\u09A6\u09BF\u09A8 \u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u2013 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE):
+
+\u{1F4DE} \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u0993 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8: +8801601705804
+\u{1F4E7} \u0987\u09AE\u09C7\u0987\u09B2: support.oneagentbd@gmail.com
+\u{1F310} \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F: https://www.oneagentbd.online
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u098F\u0996\u09BE\u09A8\u09C7 \u09A6\u09BF\u09B2\u09C7\u0993 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u09A8\u09BF\u09A7\u09BF \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0995\u09B2 \u0995\u09B0\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09AC\u09C7\u09A8!`;
+    }
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u{1F44B}
+
+\u0986\u09AE\u09B0\u09BE Facebook Page, Instagram, WhatsApp \u098F\u09AC\u0982 Website-\u098F\u09B0 \u099C\u09A8\u09CD\u09AF \u09E8\u09EA/\u09ED \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 AI \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0, \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964
+
+\u{1F48E} \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09B8\u09AE\u09C2\u09B9:
+\u2022 Starter AI Plan: \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7 \u09AC\u099B\u09B0 \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6)
+\u2022 Pro Business Plan: \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7 \u09AC\u099B\u09B0 \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6)
+\u{1F381} \u09B8\u09BE\u09A5\u09C7 \u09A5\u09BE\u0995\u099B\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2!
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u09A5\u09BE\u0995\u09B2\u09C7 \u099C\u09BE\u09A8\u09BE\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
   }
-  const kbSummary = cleanPromptLines.filter(
-    (l) => !l.toLowerCase().includes("business knowledge base") && !l.startsWith("\u0986\u09AA\u09A8\u09BF ") && !l.startsWith("===") && !l.startsWith("---")
-  ).slice(0, 2).join(" ");
-  if (kbSummary && kbSummary.length > 20) {
-    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 ${kbSummary} \u2014 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F, \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u09C7\u09B0 \u09AC\u09BF\u09B7\u09DF\u09C7 \u0995\u09C0\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF?`;
+  const cleanLines = Array.from(
+    new Set(
+      (systemPrompt || "").split("\n").map((l) => l.trim()).filter(
+        (l) => l.length > 3 && !l.startsWith("===") && !l.startsWith("---") && !l.toLowerCase().startsWith("you are") && !l.startsWith('\u0986\u09AA\u09A8\u09BF "') && !l.toLowerCase().includes("mandatory") && !l.includes("\u0986\u09AC\u09B6\u09CD\u09AF\u09BF\u0995 \u09A8\u09BF\u09DF\u09AE\u09BE\u09AC\u09B2\u09C0") && !l.includes("\u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0")
+      )
+    )
+  );
+  const findMerchantLines = (keywords) => {
+    const matched = [];
+    for (const line of cleanLines) {
+      const lower = line.toLowerCase();
+      if (keywords.some((kw) => lower.includes(kw))) {
+        matched.push(line);
+      }
+      if (matched.length >= 4) break;
+    }
+    return matched.length > 0 ? matched.join("\n") : null;
+  };
+  if (q.includes("delivery") || q.includes("charge") || q.includes("courier") || q.includes("\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09A0\u09BE\u09A8\u09CB") || q.includes("dhaka") || q.includes("\u09A2\u09BE\u0995\u09BE") || q.includes("koto din") || q.includes("\u0995\u09A4 \u09A6\u09BF\u09A8")) {
+    const kbDelivery = findMerchantLines(["\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF", "delivery", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7", "\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0", "courier"]);
+    if (kbDelivery) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09B8\u0982\u0995\u09CD\u09B0\u09BE\u09A8\u09CD\u09A4 \u09A4\u09A5\u09CD\u09AF:
+
+${kbDelivery}
+
+\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+    }
+    return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u098F\u09AC\u0982 \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7! \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+  }
+  if (q.includes("bkash") || q.includes("nagad") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u099F\u09BE\u0995\u09BE \u09AA\u09BE\u09A0\u09BE\u09AC\u09CB") || q.includes("cod")) {
+    const kbPay = findMerchantLines(["\u09AC\u09BF\u0995\u09BE\u09B6", "\u09A8\u0997\u09A6", "\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F", "bkash", "nagad", "payment", "\u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF"]);
+    if (kbPay) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF:
+
+${kbPay}`;
+    }
+    return `\u0986\u09AE\u09B0\u09BE \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD), \u09AC\u09BF\u0995\u09BE\u09B6 \u098F\u09AC\u0982 \u09A8\u0997\u09A6 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09CD\u09B0\u09B9\u09A3 \u0995\u09B0\u09BF\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+  }
+  if (q.includes("order") || q.includes("buy") || q.includes("confirm") || q.includes("\u0985\u09B0\u09CD\u09A1\u09BE\u09B0") || q.includes("\u0995\u09BF\u09A8\u09AC") || q.includes("\u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u0987") || q.includes("\u09A8\u09BF\u09AC\u09CB")) {
+    return `\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u09A8\u09BF\u099A\u09C7\u09B0 \u09A4\u09A5\u09CD\u09AF\u0997\u09C1\u09B2\u09CB \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8:
+\u2022 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE:
+\u2022 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09A0\u09BF\u0995\u09BE\u09A8\u09BE:
+\u2022 \u09B8\u099A\u09B2 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 (\u09E7\u09E7 \u09A1\u09BF\u099C\u09BF\u099F):`;
   }
   if (products.length > 0) {
-    const sampleNames = products.slice(0, 3).map((p) => `${p.name} (\u09F3${p.price})`).join(", ");
-    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0995\u09BE\u099B\u09C7 \u09B0\u09DF\u09C7\u099B\u09C7 ${sampleNames} \u09B8\u09B9 \u09A6\u09BE\u09B0\u09C1\u09A3 \u09B8\u09AC \u0995\u09BE\u09B2\u09C7\u0995\u09B6\u09A8\u0964 \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+    const topList = products.slice(0, 5).map((p) => `\u2022 ${p.name} \u2014 \u09F3${p.price} (${p.description.slice(0, 60)})`).join("\n");
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0993 \u09AE\u09C2\u09B2\u09CD\u09AF \u09A4\u09BE\u09B2\u09BF\u0995\u09BE:
+${topList}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u09A8 \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8?`;
   }
-  return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8, \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6\u09C7 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8, \u0986\u09AE\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
+  const kbOverview = findMerchantLines(["\u09F3", "\u099F\u09BE\u0995\u09BE", "price", "\u09A6\u09BE\u09AE", "\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8", "\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C"]);
+  if (kbOverview) {
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964
+
+${kbOverview}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8?`;
+  }
+  return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8, \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u09A8, \u0986\u09AE\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
 }
 async function generateAIReply(params) {
   const profile = db.getProfileById(params.userId);
@@ -4557,10 +4781,11 @@ async function generateAIReply(params) {
       isVoice: false
     };
   }
-  const languageDirective = `CRITICAL MANDATORY LANGUAGE RULE (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
-- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla script), \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish - \u0987\u0982\u09B0\u09C7\u099C\u09BF \u0985\u0995\u09CD\u09B7\u09B0\u09C7 \u09AC\u09BE\u0982\u09B2\u09BE \u09B2\u09C7\u0996\u09BE \u09AF\u09C7\u09AE\u09A8: "dam koto", "ki ki service ache", "order korbo kivabe", "delivery charge koto", "hello", "hi") \u0985\u09A5\u09AC\u09BE \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 \u09A8\u09BE \u0995\u09C7\u09A8, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (Bengali script: \u09AC\u09BE\u0982\u09B2\u09BE\u09DF) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964
-- \u09AC\u09CD\u09AF\u09AC\u09B8\u09BE\u09DF\u09BF\u0995 \u09A4\u09A5\u09CD\u09AF (Business Knowledge Base / System Instructions) \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997\u09C7 \u09AF\u09BE \u09A6\u09C7\u0993\u09DF\u09BE \u0986\u099B\u09C7, \u09A0\u09BF\u0995 \u09B8\u09C7\u0987 \u09A4\u09A5\u09CD\u09AF \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE, \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C, \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u0993 \u09A8\u09BF\u09DF\u09AE \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8\u0964
-- \u0989\u09A4\u09CD\u09A4\u09B0 \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4, \u0986\u09A8\u09CD\u09A4\u09B0\u09BF\u0995 \u098F\u09AC\u0982 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09E7 \u09A5\u09C7\u0995\u09C7 \u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7\u09B0 \u09AE\u09A7\u09CD\u09AF\u09C7 \u09B0\u09BE\u0996\u09AC\u09C7\u09A8\u0964`;
+  const languageDirective = `CRITICAL MANDATORY LANGUAGE & FORMATTING RULES (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
+- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla script), \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish - \u0987\u0982\u09B0\u09C7\u099C\u09BF \u0985\u0995\u09CD\u09B7\u09B0\u09C7 \u09AC\u09BE\u0982\u09B2\u09BE \u09B2\u09C7\u0996\u09BE \u09AF\u09C7\u09AE\u09A8: "1 bochorer jonno koto", "dam koto", "ki ki service ache", "order korbo kivabe", "hello") \u0985\u09A5\u09AC\u09BE \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 \u09A8\u09BE \u0995\u09C7\u09A8, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (Bengali script: \u09AC\u09BE\u0982\u09B2\u09BE\u09DF) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964
+- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A0\u09BF\u0995 \u09AF\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u099F\u09BF \u0995\u09B0\u09C7\u099B\u09C7, \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09B8\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u09B8\u09A0\u09BF\u0995 \u0989\u09A4\u09CD\u09A4\u09B0 \u0986\u0997\u09C7 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964 \u0985\u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u0995\u09A5\u09BE \u09AC\u09BE \u0985\u09A8\u09CD\u09AF \u099F\u09AA\u09BF\u0995 \u099F\u09C7\u09A8\u09C7 \u0986\u09A8\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964
+- \u09AF\u09A6\u09BF \u09AE\u09BE\u09B8\u09BF\u0995 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09AC\u09BE \u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C\u09C7\u09B0 \u09A6\u09BE\u09AE \u09A6\u09C7\u0993\u09DF\u09BE \u09A5\u09BE\u0995\u09C7 (\u09AF\u09C7\u09AE\u09A8 Starter \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u0993 Pro \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8) \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09E8 \u09AE\u09BE\u09B8, \u09E9 \u09AE\u09BE\u09B8, \u09EC \u09AE\u09BE\u09B8 \u09AC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u0996\u09B0\u099A \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09DF, \u09A4\u09AC\u09C7 \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u0982\u0996\u09CD\u09AF\u09BE \u09A6\u09BF\u09DF\u09C7 \u0997\u09C1\u09A3 \u0995\u09B0\u09C7 \u09B8\u09A0\u09BF\u0995 \u09AE\u09CB\u099F \u0996\u09B0\u099A\u099F\u09BF (\u09AF\u09C7\u09AE\u09A8 \u09E7 \u09AC\u099B\u09B0\u09C7 Starter \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09E7,\u09E8\u09EB\u09E6 \xD7 \u09E7\u09E8 = \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09E7,\u09EF\u09EB\u09E6 \xD7 \u09E7\u09E8 = \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE) \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0\u09AD\u09BE\u09AC\u09C7 \u09B9\u09BF\u09B8\u09BE\u09AC \u0995\u09B0\u09C7 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8\u0964
+- \u09AE\u09C7\u09B8\u09C7\u099C \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F (Message Formatting): \u09AE\u09C7\u09B8\u09C7\u099E\u09CD\u099C\u09BE\u09B0 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AA\u09DC\u09BE\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0989\u09A4\u09CD\u09A4\u09B0\u099F\u09BF \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u09B2\u09BE\u0987\u09A8 \u09AC\u09CD\u09B0\u09C7\u0995 (\u09A8\u09A4\u09C1\u09A8 \u09B2\u09BE\u0987\u09A8) \u098F\u09AC\u0982 \u09AC\u09C1\u09B2\u09C7\u099F \u09AA\u09DF\u09C7\u09A8\u09CD\u099F (\u2022 \u09AC\u09BE \u2705) \u09A6\u09BF\u09DF\u09C7 \u09B8\u09BE\u099C\u09BF\u09DF\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 \u098F\u0995 \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB\u09C7 \u09B8\u09AC \u0997\u09BE\u09A6\u09BE\u0997\u09BE\u09A6\u09BF \u0995\u09B0\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8 \u09A8\u09BE \u098F\u09AC\u0982 \u0995\u0996\u09A8\u09CB\u0987 ** \u09AC\u09BE # \u099A\u09BF\u09B9\u09CD\u09A8 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964`;
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance = "ORDER CONFIRMATION: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7 \u09AC\u09BE \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09B2\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C1\u09A8 \u098F\u09AC\u0982 \u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6 \u099C\u09BE\u09A8\u09BE\u09A8\u0964";
   if (orderSettings && orderSettings.enabled && orderSettings.instructions) {
@@ -4572,10 +4797,13 @@ Collect name, 11-digit mobile number, and address to finalize order.`;
   if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
     productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u099B\u09AC\u09BF \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8\u0964 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u099C\u09BE\u09A8\u09BE\u09A8 \u09AF\u09C7 \u0986\u09AA\u09A8\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u099B\u09AC\u09BF \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09C7\u099B\u09C7\u09A8 \u098F\u09AC\u0982 \u098F\u09B0 \u09AE\u09C2\u09B2 \u09AC\u09BF\u09AC\u09B0\u09A3 (${matchedProduct.description}) \u0993 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE (\u09F3${matchedProduct.price} ${matchedProduct.currency}) \u0989\u09B2\u09CD\u09B2\u09C7\u0996 \u0995\u09B0\u09C1\u09A8\u0964`;
   }
+  const systemInstruction = `You are the official, warm, and highly intelligent Customer Support & Sales AI Representative for "${businessName}".
+Always follow the merchant's Business Knowledge Base and Product Catalog strictly.
+Reply in clean, well-formatted Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) with proper line breaks and bullet points (\u2022) when listing prices or features. Never output raw markdown asterisks (**).`;
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
 ${systemPrompt}
 
-Language Instructions:
+Language & Formatting Instructions:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -4584,19 +4812,14 @@ ${catalogContext}
 ${orderGuidance}
 ${productPhotoDirective}
 
-ABSOLUTE RULES:
-1. \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (in Bengali script) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964
-2. \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u09B9\u09C1\u09AC\u09B9\u09C1 \u09B0\u09BF\u09AA\u09BF\u099F \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE, \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964
-3. \u09AE\u09BE\u09B0\u09CD\u099A\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09A6\u09C7\u0993\u09DF\u09BE Business Knowledge Base \u098F\u09AC\u0982 Product Catalog-\u098F\u09B0 \u09A4\u09A5\u09CD\u09AF\u09C7\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u0995\u09CB\u09A8\u09CB \u09AD\u09C1\u09B2 \u09A4\u09A5\u09CD\u09AF \u09A6\u09C7\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964
-
 Recent Conversation History:
 ${recentHistory || "(No previous messages)"}
 
-New Customer Message:
+Customer's Exact Question:
 "${params.incomingMessage}"
 
-Assistant Reply (in Bangla / \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8):`;
-  const geminiReply = await callGemini(fullPrompt, profile?.llm_api_key);
+Write a direct, accurate, well-formatted Bangla reply that directly answers the customer's question above:`;
+  const geminiReply = await callGemini(fullPrompt, profile?.llm_api_key, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
   if (geminiReply) {
     return {
@@ -7701,9 +7924,9 @@ Visitor Message: "${rawText || (hasAudio ? "[Voice Message Attached - Please lis
 Provide a helpful, accurate, and friendly response (2-4 concise sentences or bullet points) following the CRITICAL LANGUAGE MATCHING RULE above:`;
         parts.push({ text: promptText });
         const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-3-flash-preview",
-          "gemini-3.1-flash-lite-preview",
+          "gemini-3.6-flash",
+          "gemini-3.8-flash",
+          "gemini-3.5-flash-lite",
           "gemini-flash-latest"
         ];
         for (const model of candidateModels) {
@@ -8170,7 +8393,7 @@ widgetRouter.get("/embed.js", (req, res) => {
 // server/routes/aiChat.ts
 var aiChatRouter = Router12();
 var geminiClient2 = null;
-function getGeminiClient3() {
+function getGeminiClient2() {
   if (!geminiClient2) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -8215,7 +8438,7 @@ aiChatRouter.post("/hero-query", async (req, res) => {
       return res.json({ reply: couponReply, source: "coupon-generator", detectedLanguage: lang });
     }
     try {
-      const ai = getGeminiClient3();
+      const ai = getGeminiClient2();
       if (ai) {
         const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "User" : "One Agent BD AI"}: ${h.text}`).join("\n") : "";
         const languageInstruction = lang === "en" ? "CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences)." : "CRITICAL LANGUAGE RULE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u0985\u09A5\u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u098F \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964";
@@ -8232,9 +8455,9 @@ Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, and concise response:`;
         const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-3-flash-preview",
-          "gemini-3.1-flash-lite-preview",
+          "gemini-3.6-flash",
+          "gemini-3.8-flash",
+          "gemini-3.5-flash-lite",
           "gemini-flash-latest"
         ];
         for (const model of candidateModels) {
@@ -8284,7 +8507,7 @@ aiChatRouter.post("/business-sandbox", async (req, res) => {
     const trimmedMsg = message.trim();
     const lang = detectLanguageMode(trimmedMsg);
     try {
-      const ai = getGeminiClient3();
+      const ai = getGeminiClient2();
       if (ai) {
         const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "Customer" : businessName + " AI"}: ${h.text}`).join("\n") : "";
         const systemPrompt = `You are the autonomous AI Sales & Customer Support Agent representing "${businessName}" (an online ${businessCategory} business).
@@ -8312,9 +8535,9 @@ Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
         const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-3-flash-preview",
-          "gemini-3.1-flash-lite-preview",
+          "gemini-3.6-flash",
+          "gemini-3.8-flash",
+          "gemini-3.5-flash-lite",
           "gemini-flash-latest"
         ];
         let reply2 = void 0;
@@ -9543,6 +9766,7 @@ productsRouter.post("/sample-seed", (req, res) => {
 init_database();
 dotenv.config();
 process.env.DISABLE_HMR = "true";
+var PORT = 3e3;
 var app = express2();
 app.use(
   express2.json({
@@ -9621,7 +9845,53 @@ app.use("/api/stores", storesRouter);
 app.use("/api/call-requests", callRequestsRouter);
 app.use("/api/widget", widgetRouter);
 app.use("/api/products", productsRouter);
-if (false) {
+async function startServer() {
+  startTunnelIfNeeded();
+  try {
+    await db.syncFromSupabase(true);
+    runSubscriptionExpiryCheck();
+  } catch (err) {
+    console.error("[Startup Expiry Check] Error:", err);
+  }
+  setInterval(() => {
+    try {
+      const result = runSubscriptionExpiryCheck();
+      if (result.expiredCount > 0) {
+        console.log(`[Cron Expiry Worker] Updated ${result.expiredCount} expired subscriptions.`);
+      }
+    } catch (err) {
+      console.error("[Cron Expiry Worker] Error:", err);
+    }
+  }, 60 * 1e3);
+  setInterval(() => {
+    runAutoFollowUpEngine().then((res) => {
+      if (res.followUpsSent > 0) {
+        console.log(`[Auto Follow-up Engine] Sent ${res.followUpsSent} follow-up messages.`);
+      }
+    }).catch((err) => {
+      console.error("[Auto Follow-up Engine] Error:", err);
+    });
+  }, 15 * 60 * 1e3);
+  if (process.env.NODE_ENV !== "production") {
+    const vitePkg = "vite";
+    const { createServer: createViteServer } = await import(vitePkg);
+    const vite = await createViteServer({
+      server: { middlewareMode: true, hmr: false, watch: null },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path3.join(process.cwd(), "dist");
+    app.use(express2.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path3.join(distPath, "index.html"));
+    });
+  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`\u{1F680} One Agent BD Server running at http://0.0.0.0:${PORT}`);
+  });
+}
+if (!process.env.VERCEL) {
   startServer().catch((err) => {
     console.error("Fatal server startup error:", err);
     process.exit(1);

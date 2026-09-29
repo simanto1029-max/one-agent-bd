@@ -145,9 +145,9 @@ Visitor asks: "${trimmedMsg}"
 Generate a direct, helpful, and concise response:`;
 
         const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-3-flash-preview',
-          'gemini-3.1-flash-lite-preview',
+          'gemini-3.6-flash',
+          'gemini-3.8-flash',
+          'gemini-3.5-flash-lite',
           'gemini-flash-latest'
         ];
         for (const model of candidateModels) {
@@ -244,9 +244,9 @@ Customer message: "${trimmedMsg}"
 Respond directly as ${businessName}'s AI agent:`;
 
         const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-3-flash-preview',
-          'gemini-3.1-flash-lite-preview',
+          'gemini-3.6-flash',
+          'gemini-3.8-flash',
+          'gemini-3.5-flash-lite',
           'gemini-flash-latest'
         ];
         let reply: string | undefined = undefined;
