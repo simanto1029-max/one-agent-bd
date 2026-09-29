@@ -731,15 +731,35 @@ export class MetaOAuthService {
     }
 
     try {
-      // 1. Subscribe WABA to webhooks if not simulated
-      if (wabaId && accessToken && !accessToken.startsWith('sim_')) {
+      // 1. Subscribe WABA to webhooks and register phone number on Cloud API if not simulated
+      if (accessToken && !accessToken.startsWith('sim_')) {
+        if (wabaId) {
+          try {
+            const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              wabaId
+            )}/subscribed_apps?access_token=${encodeURIComponent(accessToken)}`;
+            await fetch(subUrl, { method: 'POST' });
+          } catch (subErr) {
+            console.warn('[MetaOAuth] WhatsApp WABA webhook subscription warning:', subErr);
+          }
+        }
+
+        // Also call Cloud API /register so verified numbers transition from Pending/Unverified to Connected
         try {
-          const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-            wabaId
-          )}/subscribed_apps?access_token=${encodeURIComponent(accessToken)}`;
-          await fetch(subUrl, { method: 'POST' });
-        } catch (subErr) {
-          console.warn('[MetaOAuth] WhatsApp WABA webhook subscription warning:', subErr);
+          const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/register`;
+          await fetch(regUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              pin: '123456'
+            })
+          });
+        } catch (regErr) {
+          console.warn('[MetaOAuth] WhatsApp Cloud API register warning:', regErr);
         }
       }
 
@@ -877,6 +897,47 @@ export class MetaOAuthService {
           message: errorMsg,
           details: json.error
         };
+      }
+
+      if (channel.platform === 'whatsapp') {
+        // Ensure WABA webhook subscription and Cloud API registration are active
+        if (channel.meta_business_id) {
+          try {
+            await fetch(
+              `https://graph.facebook.com/v21.0/${encodeURIComponent(
+                channel.meta_business_id
+              )}/subscribed_apps?access_token=${encodeURIComponent(channel.access_token)}`,
+              { method: 'POST' }
+            );
+          } catch (_e) {}
+        }
+        try {
+          await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(channel.identifier)}/register`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${channel.access_token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                pin: '123456'
+              })
+            }
+          );
+        } catch (_e) {}
+
+        if (json.code_verification_status && json.code_verification_status !== 'VERIFIED') {
+          const unverifiedMsg = `এই নাম্বারটি (${json.display_phone_number || channel.name}) মেটা WhatsApp Manager-এ এখনো "Unverified" অবস্থায় আছে। মেটাতে OTP দিয়ে ভেরিফাই না করা পর্যন্ত এই নাম্বারে মেসেজ বা AI রিপ্লাই কাজ করবে না।`;
+          db.updateChannel(channel.id, { status: 'error', error_message: unverifiedMsg });
+          return {
+            valid: false,
+            status: 'error',
+            message: unverifiedMsg,
+            details: json
+          };
+        }
       }
 
       db.updateChannel(channel.id, { status: 'connected', error_message: undefined });

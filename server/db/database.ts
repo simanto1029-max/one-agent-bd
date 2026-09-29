@@ -1354,15 +1354,30 @@ MANDATORY LANGUAGE & REPLY RULES:
     );
     if (exact) return exact;
 
-    // 2. Flexible matching (ignoring "page_", "+", or whitespace)
+    // 2. Flexible matching (ignoring "page_", "+", or whitespace, or matching phone digits in channel identifier/name)
+    const digitsOnly = cleanId.replace(/\D/g, '');
     const flexible = this.data.channels.find((c) => {
       if (c.platform !== platform || !c.is_active) return false;
       const cId = c.identifier.trim().toLowerCase();
-      return (
+      if (
         cId === cleanId ||
         cId.replace(/^page_/, '') === cleanId.replace(/^page_/, '') ||
         cId.replace(/^\+/, '') === cleanId.replace(/^\+/, '')
-      );
+      ) {
+        return true;
+      }
+      if (platform === 'whatsapp' && digitsOnly.length >= 10) {
+        const cDigits = cId.replace(/\D/g, '');
+        const nameDigits = (c.name || '').replace(/\D/g, '');
+        const tail10 = digitsOnly.slice(-10);
+        if (
+          (cDigits.length >= 10 && cDigits.slice(-10) === tail10) ||
+          (nameDigits.length >= 10 && nameDigits.slice(-10) === tail10)
+        ) {
+          return true;
+        }
+      }
+      return false;
     });
     if (flexible) return flexible;
 

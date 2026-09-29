@@ -883,10 +883,22 @@ MANDATORY LANGUAGE & REPLY RULES:
           (c) => c.platform === platform && c.identifier.trim().toLowerCase() === cleanId && c.is_active
         );
         if (exact) return exact;
+        const digitsOnly = cleanId.replace(/\D/g, "");
         const flexible = this.data.channels.find((c) => {
           if (c.platform !== platform || !c.is_active) return false;
           const cId = c.identifier.trim().toLowerCase();
-          return cId === cleanId || cId.replace(/^page_/, "") === cleanId.replace(/^page_/, "") || cId.replace(/^\+/, "") === cleanId.replace(/^\+/, "");
+          if (cId === cleanId || cId.replace(/^page_/, "") === cleanId.replace(/^page_/, "") || cId.replace(/^\+/, "") === cleanId.replace(/^\+/, "")) {
+            return true;
+          }
+          if (platform === "whatsapp" && digitsOnly.length >= 10) {
+            const cDigits = cId.replace(/\D/g, "");
+            const nameDigits = (c.name || "").replace(/\D/g, "");
+            const tail10 = digitsOnly.slice(-10);
+            if (cDigits.length >= 10 && cDigits.slice(-10) === tail10 || nameDigits.length >= 10 && nameDigits.slice(-10) === tail10) {
+              return true;
+            }
+          }
+          return false;
         });
         if (flexible) return flexible;
         const platformChannels = this.data.channels.filter((c) => c.platform === platform && c.is_active);
@@ -3780,14 +3792,32 @@ var MetaOAuthService = class {
       return { success: false, error: "Phone Number ID and System Access Token are required." };
     }
     try {
-      if (wabaId && accessToken && !accessToken.startsWith("sim_")) {
+      if (accessToken && !accessToken.startsWith("sim_")) {
+        if (wabaId) {
+          try {
+            const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              wabaId
+            )}/subscribed_apps?access_token=${encodeURIComponent(accessToken)}`;
+            await fetch(subUrl, { method: "POST" });
+          } catch (subErr) {
+            console.warn("[MetaOAuth] WhatsApp WABA webhook subscription warning:", subErr);
+          }
+        }
         try {
-          const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-            wabaId
-          )}/subscribed_apps?access_token=${encodeURIComponent(accessToken)}`;
-          await fetch(subUrl, { method: "POST" });
-        } catch (subErr) {
-          console.warn("[MetaOAuth] WhatsApp WABA webhook subscription warning:", subErr);
+          const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/register`;
+          await fetch(regUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              messaging_product: "whatsapp",
+              pin: "123456"
+            })
+          });
+        } catch (regErr) {
+          console.warn("[MetaOAuth] WhatsApp Cloud API register warning:", regErr);
         }
       }
       if (wabaId) {
@@ -3904,6 +3934,46 @@ var MetaOAuthService = class {
           message: errorMsg,
           details: json.error
         };
+      }
+      if (channel.platform === "whatsapp") {
+        if (channel.meta_business_id) {
+          try {
+            await fetch(
+              `https://graph.facebook.com/v21.0/${encodeURIComponent(
+                channel.meta_business_id
+              )}/subscribed_apps?access_token=${encodeURIComponent(channel.access_token)}`,
+              { method: "POST" }
+            );
+          } catch (_e) {
+          }
+        }
+        try {
+          await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(channel.identifier)}/register`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${channel.access_token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                messaging_product: "whatsapp",
+                pin: "123456"
+              })
+            }
+          );
+        } catch (_e) {
+        }
+        if (json.code_verification_status && json.code_verification_status !== "VERIFIED") {
+          const unverifiedMsg = `\u098F\u0987 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF (${json.display_phone_number || channel.name}) \u09AE\u09C7\u099F\u09BE WhatsApp Manager-\u098F \u098F\u0996\u09A8\u09CB "Unverified" \u0985\u09AC\u09B8\u09CD\u09A5\u09BE\u09DF \u0986\u099B\u09C7\u0964 \u09AE\u09C7\u099F\u09BE\u09A4\u09C7 OTP \u09A6\u09BF\u09DF\u09C7 \u09AD\u09C7\u09B0\u09BF\u09AB\u09BE\u0987 \u09A8\u09BE \u0995\u09B0\u09BE \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u098F\u0987 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u09C7 \u09AE\u09C7\u09B8\u09C7\u099C \u09AC\u09BE AI \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0995\u09BE\u099C \u0995\u09B0\u09AC\u09C7 \u09A8\u09BE\u0964`;
+          db.updateChannel(channel.id, { status: "error", error_message: unverifiedMsg });
+          return {
+            valid: false,
+            status: "error",
+            message: unverifiedMsg,
+            details: json
+          };
+        }
       }
       db.updateChannel(channel.id, { status: "connected", error_message: void 0 });
       return {
