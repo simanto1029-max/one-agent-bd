@@ -43,10 +43,21 @@ storesRouter.post('/', (req: Request, res: Response) => {
   const subStatus = getUserSubscriptionStatus(user.id);
   const canAddWebsite = subStatus.canAccessStores || subStatus.isProPlan || user.role === 'admin';
 
-  if (!canAddWebsite) {
+  if (!canAddWebsite || subStatus.isExpired) {
     return res.status(403).json({
-      error: 'Active plan required to connect a website.',
+      error: 'Active subscription required to connect a website store.',
       code: 'PLAN_REQUIRED'
+    });
+  }
+
+  const existingStores = db.getStores(user.id);
+  const isPro = subStatus.isProPlan || user.role === 'admin';
+  const maxStores = isPro ? 999 : 1;
+
+  if (existingStores.length >= maxStores) {
+    return res.status(403).json({
+      error: 'আপনার Starter AI Plan (৳1,250/মাস)-এ ১টি ওয়েবসাইট স্টোর যুক্ত করা যায়। আনলিমিটেড ওয়েবসাইট ও মাল্টি-স্টোর সিঙ্ক করতে Pro Business Plan (৳1,950/মাস)-এ আপগ্রেড করুন।',
+      code: 'PRO_PLAN_REQUIRED'
     });
   }
 

@@ -14,7 +14,8 @@ import { Plan } from '../../types';
 import {
   PLAN_DURATION_OPTIONS,
   OFFICIAL_PLANS,
-  calculateCustomPlanPrice
+  calculateCustomPlanPrice,
+  calculateOriginalPlanPrice
 } from '../../utils/pricingPlans';
 
 interface PricingTableProps {
@@ -124,7 +125,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                     : 'bg-[#DCFCE7] text-[#15803D]'
                 }`}
               >
-                Custom Duration
+                Save 15%–30%
               </span>
             </button>
           </div>
@@ -138,13 +139,24 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                   key={opt.id}
                   type="button"
                   onClick={() => setSelectedDurationId(opt.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSelected
                       ? 'bg-[#0F172A] dark:bg-[#7C3AED] text-white shadow-2xs'
                       : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:bg-violet-50/70 dark:hover:bg-neutral-800'
                   }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {opt.discountPercent > 0 && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                        isSelected
+                          ? 'bg-emerald-400/25 text-emerald-200'
+                          : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
+                      }`}
+                    >
+                      -{opt.discountPercent}%
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -161,7 +173,9 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 w-full items-stretch">
               {displayPlans.map((plan, index) => {
                 const isPro = plan.price >= 1950 || plan.id.includes('pro');
+                const originalPrice = calculateOriginalPlanPrice(plan.price, activeDuration.months);
                 const totalPrice = calculateCustomPlanPrice(plan.price, activeDuration.months);
+                const savedAmount = Math.max(0, originalPrice - totalPrice);
 
                 return (
                   <motion.div
@@ -180,7 +194,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                     {isPro && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
                         <Sparkles className="w-3 h-3" />
-                        <span>Most Popular</span>
+                        <span>Most Popular • More Channels</span>
                       </div>
                     )}
 
@@ -193,8 +207,8 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                           </h3>
                           <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 leading-relaxed">
                             {isPro
-                              ? 'Ideal for growing businesses & multi-channel stores'
-                              : 'Perfect for getting started with AI sales automation'}
+                              ? 'Connect up to 10 channels, 3 AI agents & unlimited multi-store scaling'
+                              : 'All SaaS AI features included for your business & up to 3 channels'}
                           </p>
                         </div>
 
@@ -211,17 +225,29 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
                       {/* Price Display matching screenshot */}
                       <div className="mb-6 pb-5 border-b border-slate-100 dark:border-neutral-800">
-                        <div className="flex items-baseline gap-1.5">
+                        <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
                             TK {totalPrice.toLocaleString()}
                           </span>
                           <span className="text-xs font-semibold text-slate-500 dark:text-neutral-400">
                             /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                           </span>
+                          {savedAmount > 0 && (
+                            <>
+                              <span className="text-xs font-semibold text-slate-400 line-through">
+                                TK {originalPrice.toLocaleString()}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[10px] font-extrabold">
+                                {activeDuration.discountPercent}% OFF • Save TK {savedAmount.toLocaleString()}
+                              </span>
+                            </>
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-400 font-medium mt-1.5">
                           {activeDuration.months === 1
                             ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
+                            : savedAmount > 0
+                            ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo (${activeDuration.discountPercent}% Discount applied • ${activeDuration.days} Days access)`
                             : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days total)`}
                         </p>
                       </div>

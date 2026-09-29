@@ -60,8 +60,8 @@ function getSaasIntelligentFallback(question: string, lang: 'bn' | 'en'): string
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'We have 2 official plans plus a 2-Day Free Trial: 1) Starter AI Plan — 1,250 TK/month (WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 products, Courier Dispatch) and 2) Pro Business Plan — 1,950 TK/month (3 AI Agents, Voice & Image AI, Unlimited Products, Multi-Store Sync). You can also apply a Coupon Code at checkout!'
-      : 'আমাদের ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে: ১) Starter AI Plan — ৳১,২৫০/মাস (WhatsApp, Messenger, Instagram ও Website AI Chatbot, ৫০টি প্রোডাক্ট ক্যাটালগ, কুরিয়ার বুকিং) এবং ২) Pro Business Plan — ৳১,৯৫০/মাস (৩টি AI এজেন্ট, ভয়েস ও ছবির AI রিকগনিশন, আনলিমিটেড প্রোডাক্ট)। পেমেন্টের সময় কুপন কোড ব্যবহারের সুবিধাও রয়েছে!';
+      ? 'We have 2 official plans plus a 2-Day Free Trial:\n• Starter AI Plan — 1,250 TK/month (Includes all SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store & Courier Dispatch)\n• Pro Business Plan — 1,950 TK/month (Connect up to 10 Channels, 3 AI Agents, Unlimited Multi-Store Sync, VIP Broadcast & Priority Support)\n\nPlus, enjoy 15% OFF on 1-Year subscriptions and 20% OFF on 2-Year subscriptions!'
+      : 'আমাদের ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে:\n• Starter AI Plan — ৳১,২৫০/মাস (সব SaaS ফিচার: WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI, ৩টি চ্যানেল ও কুরিয়ার বুকিং)\n• Pro Business Plan — ৳১,৯৫০/মাস (১০টি পর্যন্ত চ্যানেল কানেকশন, ৩টি AI এজেন্ট, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n\nএছাড়া ১ বছরের সাবস্ক্রিপশনে ১৫% ডিসকাউন্ট এবং ২ বছরের সাবস্ক্রিপশনে ২০% ডিসকাউন্ট পাবেন!';
   }
 
   // Free Trial

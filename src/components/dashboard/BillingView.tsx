@@ -24,15 +24,21 @@ import { SubscriptionStatusInfo, Payment, Plan } from '../../types';
 import {
   PLAN_DURATION_OPTIONS,
   OFFICIAL_PLANS,
-  calculateCustomPlanPrice
+  calculateCustomPlanPrice,
+  calculateOriginalPlanPrice
 } from '../../utils/pricingPlans';
 
 interface BillingViewProps {
   subStatus: SubscriptionStatusInfo | null;
+  initialSelectedPlan?: Plan | null;
   onRefresh: () => void;
 }
 
-export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }) => {
+export const BillingView: React.FC<BillingViewProps> = ({
+  subStatus,
+  initialSelectedPlan,
+  onRefresh
+}) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [plans, setPlans] = useState<Plan[]>(OFFICIAL_PLANS);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(OFFICIAL_PLANS[0]);
@@ -80,20 +86,39 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
       setPayments(myPayments);
 
       const active = availablePlans.filter((p) => p.is_active);
+      let merged = OFFICIAL_PLANS;
       if (active.length >= 2) {
         const starter =
           active.find((p) => p.price === 1250 || p.id === 'plan_starter') || OFFICIAL_PLANS[0];
         const pro =
           active.find((p) => p.price === 1950 || p.id === 'plan_pro') || OFFICIAL_PLANS[1];
-        const merged = [
+        merged = [
           { ...OFFICIAL_PLANS[0], ...starter, price: 1250, features: OFFICIAL_PLANS[0].features },
           { ...OFFICIAL_PLANS[1], ...pro, price: 1950, features: OFFICIAL_PLANS[1].features }
         ];
-        setPlans(merged);
-        setSelectedPlan(merged[0]);
+      }
+      setPlans(merged);
+
+      if (initialSelectedPlan) {
+        const matchedPlan =
+          merged.find(
+            (p) =>
+              p.id === initialSelectedPlan.id ||
+              (initialSelectedPlan.id?.includes('pro') && p.id === 'plan_pro')
+          ) || merged[0];
+        setSelectedPlan(matchedPlan);
+
+        if (initialSelectedPlan.duration_days && initialSelectedPlan.duration_days > 2) {
+          const matchedDuration = PLAN_DURATION_OPTIONS.find(
+            (d) => d.days === initialSelectedPlan.duration_days
+          );
+          if (matchedDuration) {
+            setDurationMode(matchedDuration.type);
+            setSelectedDurationId(matchedDuration.id);
+          }
+        }
       } else {
-        setPlans(OFFICIAL_PLANS);
-        setSelectedPlan(OFFICIAL_PLANS[0]);
+        setSelectedPlan(merged[0]);
       }
     } catch (err) {
       console.error('Failed to load billing history:', err);
@@ -284,7 +309,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
                     : 'bg-[#DCFCE7] text-[#15803D]'
                 }`}
               >
-                Custom
+                Save 15%–30%
               </span>
             </button>
           </div>
@@ -297,13 +322,24 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
                   key={opt.id}
                   type="button"
                   onClick={() => setSelectedDurationId(opt.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSelected
                       ? 'bg-[#7C3AED] text-white shadow-2xs'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                   }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {opt.discountPercent > 0 && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
+                      }`}
+                    >
+                      -{opt.discountPercent}%
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -315,7 +351,9 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
           {plans.map((plan) => {
             const isPro = plan.price >= 1950 || plan.id.includes('pro');
             const isSelected = selectedPlan?.id === plan.id;
+            const originalPrice = calculateOriginalPlanPrice(plan.price, activeDuration.months);
             const totalPrice = calculateCustomPlanPrice(plan.price, activeDuration.months);
+            const savedAmount = Math.max(0, originalPrice - totalPrice);
             const displayFeatures = plan.features.filter(
               (feat) => !feat.toLowerCase().includes('free trial')
             );
@@ -333,7 +371,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
                 {isPro && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
                     <Sparkles className="w-3 h-3" />
-                    <span>Most Popular</span>
+                    <span>Most Popular • More Channels</span>
                   </div>
                 )}
 
@@ -352,8 +390,8 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {isPro
-                          ? 'Ideal for growing businesses & multi-channel stores'
-                          : 'Perfect for getting started with AI sales automation'}
+                          ? 'Connect up to 10 channels, 3 AI agents & unlimited multi-store scaling'
+                          : 'All SaaS AI features included for your business & up to 3 channels'}
                       </p>
                     </div>
 
@@ -369,17 +407,29 @@ export const BillingView: React.FC<BillingViewProps> = ({ subStatus, onRefresh }
                   </div>
 
                   <div className="mb-5 pb-5 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-baseline gap-1.5">
+                    <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
                         TK {totalPrice.toLocaleString()}
                       </span>
                       <span className="text-xs font-semibold text-slate-500">
                         /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                       </span>
+                      {savedAmount > 0 && (
+                        <>
+                          <span className="text-xs font-semibold text-slate-400 line-through">
+                            TK {originalPrice.toLocaleString()}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[10px] font-extrabold">
+                            {activeDuration.discountPercent}% OFF • Save TK {savedAmount.toLocaleString()}
+                          </span>
+                        </>
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-400 font-medium mt-1">
                       {activeDuration.months === 1
                         ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
+                        : savedAmount > 0
+                        ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo (${activeDuration.discountPercent}% Discount applied • ${activeDuration.days} Days)`
                         : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days)`}
                     </p>
                   </div>

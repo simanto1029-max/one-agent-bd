@@ -781,6 +781,7 @@ export default function App() {
               {activeTab === 'billing' && (
                 <BillingView
                   subStatus={subStatus}
+                  initialSelectedPlan={selectedPlan}
                   onRefresh={refreshUserData}
                 />
               )}

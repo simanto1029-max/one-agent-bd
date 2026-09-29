@@ -215,25 +215,25 @@ MANDATORY LANGUAGE & SHORT REPLY RULES:
           trial_days: 2,
           is_active: true,
           features: [
-            "1 Autonomous AI Sales Agent (24/7 Active)",
-            "Add Website, WooCommerce & Shopify Store Sync",
-            "Website AI Chatbot Widget Included",
-            "WhatsApp, Messenger & Instagram Auto-Reply",
-            "Unlimited Customer Conversations (0 TK per-msg fee)",
-            "Product Catalog & Photo Search (Up to 50 items)",
-            "Autonomous Order Booking & Orders Hub",
-            "Steadfast & Pathao 1-Click Courier Dispatch",
-            "Unified Live Inbox & Human Call Requests",
-            "2-Day Full Access Free Trial"
+            "All Core SaaS Features Included (24/7 Active AI Agent)",
+            "WhatsApp, Facebook Messenger, Instagram & Website Auto-Reply",
+            "Voice Note AI (Audio Listening) & Product Picture Recognition AI",
+            "Auto Post Comment Reply + Direct Inbox (DM) Automation",
+            "Connect up to 3 Social Channels + 1 Website Live Chat Widget",
+            "Add Website, WooCommerce & Shopify Store Sync (1 Store)",
+            "Unlimited Product Catalog & Visual Photo Search",
+            "Autonomous Chat Order Booking, Orders Hub & Call Requests",
+            "Steadfast, Pathao & RedX 1-Click Courier Dispatch",
+            "Unlimited Customer Conversations (0 TK per-msg fee)"
           ],
           created_at: new Date(Date.now() - 30 * 864e5).toISOString(),
           updated_at: (/* @__PURE__ */ new Date()).toISOString(),
           feature_config: {
             website_stores: true,
             call_requests: true,
-            vip_broadcast: false,
+            vip_broadcast: true,
             courier_dispatch: true,
-            csv_export: false,
+            csv_export: true,
             max_channels: 3
           }
         },
@@ -246,16 +246,16 @@ MANDATORY LANGUAGE & SHORT REPLY RULES:
           trial_days: 2,
           is_active: true,
           features: [
-            "3 Autonomous AI Sales & Support Agents",
-            "Everything in 1,250 TK Starter Plan Included",
-            "Unlimited Website, Shopify & WooCommerce Stores",
-            "Voice Note AI (Audio Message Transcription & Reply)",
-            "Unlimited Product Catalog & Visual Photo Search",
-            "Up to 10 Connected Social & Web Channels",
-            "VIP Customer Broadcast & Tagging",
-            "Google Sheets Live Sync & CSV Order Export",
-            "High-Speed Priority AI Response Engine",
-            "Dedicated Priority Onboarding & 24/7 VIP Support"
+            "Everything in 1,250 TK Starter Plan Included (100% All Features)",
+            "Connect up to 10 Social & Web Channels (Multi-Page & Multi-Number)",
+            "3 Autonomous AI Sales & Support Agents (Run Multiple Brands)",
+            "Unlimited Website, Shopify & WooCommerce Multi-Store Sync",
+            "Smart Auto Follow-Up & VIP Customer Retargeting Broadcast",
+            "High-Speed Priority AI Engine for High-Traffic Pages",
+            "Google Sheets Live Sync, Advanced Analytics & CSV Lead Export",
+            "Custom Brand AI Persona & Multi-Page Order Routing",
+            "Dedicated Account Manager & Free 1-on-1 Setup Onboarding",
+            "24/7 VIP Priority WhatsApp & Phone Support"
           ],
           created_at: new Date(Date.now() - 30 * 864e5).toISOString(),
           updated_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -399,6 +399,28 @@ MANDATORY LANGUAGE & SHORT REPLY RULES:
         }
         if (!parsed.plans || parsed.plans.length === 0) {
           parsed.plans = initialData.plans;
+        } else {
+          parsed.plans = parsed.plans.map((p) => {
+            if (p.id === "plan_starter" || p.price === 1250) {
+              return {
+                ...p,
+                price: 1250,
+                trial_days: 2,
+                features: initialData.plans[0].features,
+                feature_config: initialData.plans[0].feature_config
+              };
+            }
+            if (p.id === "plan_pro" || p.price === 1950) {
+              return {
+                ...p,
+                price: 1950,
+                trial_days: 2,
+                features: initialData.plans[1].features,
+                feature_config: initialData.plans[1].feature_config
+              };
+            }
+            return p;
+          });
         }
         if (!parsed.businesses) parsed.businesses = [];
         if (!parsed.facebook_pages) parsed.facebook_pages = [];
@@ -1745,9 +1767,19 @@ function getUserSubscriptionStatus(userId) {
       updated_at: startDate
     });
   }
-  const endDate = new Date(sub.end_date);
-  const isPastEnd = now.getTime() >= endDate.getTime();
-  if (isPastEnd && (sub.status === "trialing" || sub.status === "active")) {
+  const profile = db.getProfileById(userId);
+  const isAdmin = profile?.role === "admin";
+  let endDate = new Date(sub.end_date);
+  let isPastEnd = now.getTime() >= endDate.getTime();
+  if (isAdmin && isPastEnd) {
+    const newAdminEnd = new Date(now.getTime() + 365 * 864e5).toISOString();
+    sub = db.updateSubscription(sub.id, {
+      status: "active",
+      end_date: newAdminEnd
+    }) || sub;
+    endDate = new Date(sub.end_date);
+    isPastEnd = false;
+  } else if (isPastEnd && (sub.status === "trialing" || sub.status === "active")) {
     sub = db.updateSubscription(sub.id, {
       status: "expired"
     }) || sub;
@@ -1757,18 +1789,33 @@ function getUserSubscriptionStatus(userId) {
     price: 1250,
     currency: "BDT",
     trial_days: 2,
-    duration_days: 30
+    duration_days: 30,
+    feature_config: {
+      website_stores: true,
+      call_requests: true,
+      vip_broadcast: true,
+      courier_dispatch: true,
+      csv_export: true,
+      max_channels: 3
+    }
   };
   const msRemaining = Math.max(0, endDate.getTime() - now.getTime());
   const hoursRemaining = Math.floor(msRemaining / (1e3 * 60 * 60));
   const daysRemaining = Math.floor(hoursRemaining / 24);
-  const isExpired = sub.status === "expired" || isPastEnd;
+  const isExpired = !isAdmin && (sub.status === "expired" || isPastEnd);
   const isGated = isExpired;
   const canAccessDashboard = !isGated;
   const planId = sub.plan_id || "plan_starter";
-  const isProPlan = planId.includes("pro") || (plan.name || "").toLowerCase().includes("pro");
-  const featureConfig = plan.feature_config;
-  const canAccessStores = featureConfig?.website_stores !== false;
+  const isProPlan = planId.includes("pro") || (plan.name || "").toLowerCase().includes("pro") || isAdmin;
+  const featureConfig = plan.feature_config || {
+    website_stores: true,
+    call_requests: true,
+    vip_broadcast: true,
+    courier_dispatch: true,
+    csv_export: true,
+    max_channels: isProPlan ? 10 : 3
+  };
+  const canAccessStores = !isExpired && featureConfig?.website_stores !== false;
   return {
     subscription: sub,
     planId,
@@ -1797,18 +1844,17 @@ function activateSubscription(userId, planId, durationDays) {
     baseDate = new Date(currentSub.end_date);
   }
   const newEndDate = new Date(baseDate.getTime() + days * 864e5).toISOString();
-  const isPro = String(planId).toLowerCase().includes("pro");
-  if (!isPro) {
-    const activeMetaChannels = db.getChannels(userId).filter(
-      (c) => c.is_active && ["messenger", "instagram", "whatsapp"].includes(c.platform) && c.identifier !== "website_widget"
-    );
-    if (activeMetaChannels.length > 1) {
-      for (let i = 1; i < activeMetaChannels.length; i++) {
-        db.updateChannel(activeMetaChannels[i].id, {
-          is_active: false,
-          status: "not_connected"
-        });
-      }
+  const isPro = String(planId).toLowerCase().includes("pro") || plan?.price && plan.price >= 1950;
+  const maxAllowedChannels = plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+  const activeMetaChannels = db.getChannels(userId).filter(
+    (c) => c.is_active && ["messenger", "instagram", "whatsapp"].includes(c.platform) && c.identifier !== "website_widget"
+  );
+  if (activeMetaChannels.length > maxAllowedChannels) {
+    for (let i = maxAllowedChannels; i < activeMetaChannels.length; i++) {
+      db.updateChannel(activeMetaChannels[i].id, {
+        is_active: false,
+        status: "not_connected"
+      });
     }
   }
   if (currentSub) {
@@ -3985,7 +4031,18 @@ var MetaChannelService = class {
     }
     const connectedChannels = [];
     if (autoConnect) {
+      const user = db.getProfileById(userId);
+      const isAdmin = user?.role === "admin";
+      const sub = db.getSubscriptionByUserId(userId);
+      const planId = String(sub?.plan_id || "plan_starter").toLowerCase();
+      const plan = db.getPlanById(planId);
+      const isPro = isAdmin || planId.includes("pro") || Boolean(plan?.price && plan.price >= 1950);
+      const maxAllowedChannels = isAdmin ? 999 : plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+      const getActiveCount = () => db.getChannels(userId).filter(
+        (c) => c.is_active && ["messenger", "instagram", "whatsapp"].includes(c.platform) && c.identifier !== "website_widget"
+      ).length;
       for (const page of pages) {
+        if (getActiveCount() >= maxAllowedChannels) break;
         const fbRes = await metaOAuthService.connectPage(userId, page.id, {
           name: page.name,
           category: page.category,
@@ -3994,7 +4051,7 @@ var MetaChannelService = class {
         if (fbRes.success && fbRes.channel) {
           connectedChannels.push(fbRes.channel);
         }
-        if (page.instagram_business_account?.id) {
+        if (page.instagram_business_account?.id && getActiveCount() < maxAllowedChannels) {
           const igRes = await metaOAuthService.connectInstagram(userId, page.instagram_business_account.id, {
             username: page.instagram_business_account.username,
             pageId: page.id,
@@ -4006,6 +4063,7 @@ var MetaChannelService = class {
         }
       }
       for (const wa of whatsappNumbers) {
+        if (getActiveCount() >= maxAllowedChannels) break;
         const waRes = await metaOAuthService.connectWhatsAppOnboarding(userId, {
           wabaId: wa.waba_id,
           phoneNumberId: wa.id,
@@ -5179,14 +5237,14 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
     const isThreeMonths = q.includes("3 mas") || q.includes("3 month") || q.includes("three month") || q.includes("\u09E9 \u09AE\u09BE\u09B8") || q.includes("\u09A4\u09BF\u09A8 \u09AE\u09BE\u09B8");
     const isTwoMonths = q.includes("2 mas") || q.includes("2 month") || q.includes("two month") || q.includes("\u09E8 \u09AE\u09BE\u09B8") || q.includes("\u09A6\u09C1\u0987 \u09AE\u09BE\u09B8");
     if (isYearly) {
-      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09E7\u09EB% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09A6\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7\u2014Starter AI Plan \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7\u09E8,\u09ED\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09C2\u09B2 \u09A6\u09BE\u09AE \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6) \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7\u09EF,\u09EE\u09EF\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09C2\u09B2 \u09A6\u09BE\u09AE \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6)\u0964
 
-\u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (WELCOME10) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09B2\u09C7 \u0986\u09AA\u09A8\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09E7\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09BE\u09AC\u09C7\u09A8!
+\u0986\u09B0 \u09E8 \u09AC\u099B\u09B0\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09A8\u09BF\u09B2\u09C7 \u09AA\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09E8\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F (Starter \u09F3\u09E8\u09EA,\u09E6\u09E6\u09E6 \u098F\u09AC\u0982 Pro \u09F3\u09E9\u09ED,\u09EA\u09EA\u09E6)!
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (isSixMonths) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09EC \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09ED,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09EC \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09E7\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09B0\u09DF\u09C7\u099B\u09C7\u2014Starter AI Plan \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09EC,\u09ED\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09C2\u09B2 \u09A6\u09BE\u09AE \u09F3\u09ED,\u09EB\u09E6\u09E6) \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7\u09E6,\u09EB\u09E9\u09E6 \u099F\u09BE\u0995\u09BE (\u09AE\u09C2\u09B2 \u09A6\u09BE\u09AE \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6)\u0964
 
 \u0986\u09AA\u09A8\u09BF \u099A\u09BE\u0987\u09B2\u09C7 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8 \u0985\u09A5\u09AC\u09BE \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7 \u0995\u09C1\u09AA\u09A8 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!
 
@@ -5251,10 +5309,10 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
     }
     if (q.includes("price") || q.includes("pricing") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("charges") || q.includes("rate") || q.includes("dam") || q.includes("daam") || q.includes("koto") || q.includes("plan") || q.includes("package") || q.includes("taka") || q.includes("tk") || q.includes("bdt") || q.includes("mashe") || q.includes("mash") || q.includes("starter") || q.includes("pro") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u09AE\u09C2\u09B2\u09CD\u09AF") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u0996\u09B0\u099A") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8") || q.includes("\u09AE\u09BE\u09B8\u09BF\u0995") || q.includes("\u09AE\u09BE\u09B8\u09C7")) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AE\u09BE\u09B8\u09BF\u0995 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AB\u09BF \u0996\u09C1\u09AC\u0987 \u09B8\u09BE\u09B6\u09CD\u09B0\u09DF\u09C0\u2014\u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:
-\u2022 Starter AI Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09E7\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)
-\u2022 Pro Business Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987\u09B8\u09B9 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1)
+\u2022 Starter AI Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 SaaS-\u098F\u09B0 \u09B8\u09AC \u09AB\u09BF\u099A\u09BE\u09B0, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI, \u09E9\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F)
+\u2022 Pro Business Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09E7\u09E6\u099F\u09BF \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09AA\u09C7\u099C, \u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09CD\u099F\u09CB\u09B0 \u0993 VIP \u09AC\u09CD\u09B0\u09A1\u0995\u09BE\u09B8\u09CD\u099F)
 
-\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09AC\u09C7\u09A8?`;
+\u098F\u099B\u09BE\u09DC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7 \u09E7\u09EB% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u098F\u09AC\u0982 \u09E8 \u09AC\u099B\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7 \u09E8\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09B0\u09DF\u09C7\u099B\u09C7! \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
     if (q.includes("service") || q.includes("feature") || q.includes("what do you do") || q.includes("ki ki") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("\u09AB\u09BF\u099A\u09BE\u09B0") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("details")) {
       return `\u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u0987\u0964
@@ -6183,24 +6241,30 @@ function checkSubscriptionActive(userId) {
   }
   return false;
 }
-function checkChannelLimitForPlan(userId, targetPlatform) {
+function checkChannelLimitForPlan(userId, targetPlatform, targetIdentifier) {
   const user = db.getProfileById(userId);
   if (user?.role === "admin") return { allowed: true };
   const sub = db.getSubscriptionByUserId(userId);
   const planId = String(sub?.plan_id || "plan_starter").toLowerCase();
-  const isPro = planId.includes("pro");
-  if (isPro) {
-    return { allowed: true };
-  }
+  const plan = db.getPlanById(planId);
+  const isPro = planId.includes("pro") || plan?.price && plan.price >= 1950;
+  const maxAllowedChannels = plan?.feature_config?.max_channels || (isPro ? 10 : 3);
   const activeMetaChannels = db.getChannels(userId).filter(
     (c) => c.is_active && ["messenger", "instagram", "whatsapp"].includes(c.platform) && c.identifier !== "website_widget"
   );
-  const otherPlatformsConnected = activeMetaChannels.filter((c) => c.platform !== targetPlatform);
-  if (otherPlatformsConnected.length >= 1) {
-    const existingName = otherPlatformsConnected[0].platform.toUpperCase();
+  if (targetIdentifier && activeMetaChannels.some((c) => c.identifier === targetIdentifier)) {
+    return { allowed: true };
+  }
+  if (activeMetaChannels.length >= maxAllowedChannels) {
+    if (!isPro) {
+      return {
+        allowed: false,
+        error: `\u0986\u09AA\u09A8\u09BE\u09B0 Starter AI Plan (\u09F31,250/\u09AE\u09BE\u09B8)-\u098F \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A ${maxAllowedChannels}\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 (Facebook, Instagram \u0993 WhatsApp) \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u0964 \u0986\u09B0\u0993 \u09AC\u09C7\u09B6\u09BF \u09AA\u09C7\u099C \u09AC\u09BE \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 (\u09E7\u09E6\u099F\u09BF \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4) \u098F\u0995\u09B8\u09BE\u09A5\u09C7 \u099A\u09BE\u09B2\u09BE\u09A4\u09C7 Pro Business Plan (\u09F31,950/\u09AE\u09BE\u09B8)-\u098F \u0986\u09AA\u0997\u09CD\u09B0\u09C7\u09A1 \u0995\u09B0\u09C1\u09A8\u0964`
+      };
+    }
     return {
       allowed: false,
-      error: `Your Starter Plan allows 1 active Meta channel at a time (currently connected: ${existingName}). Please upgrade to the Pro Business Plan (1,950 TK/mo) to connect Facebook, Instagram & WhatsApp simultaneously, or disconnect ${existingName} first.`
+      error: `\u0986\u09AA\u09A8\u09BE\u09B0 Pro Business Plan-\u098F\u09B0 \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A ${maxAllowedChannels}\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u09B9\u09DF\u09C7 \u0997\u09C7\u099B\u09C7\u0964 \u09A8\u09A4\u09C1\u09A8 \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09A4\u09C7 \u09AA\u09C1\u09B0\u09A8\u09CB \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u098F\u0995\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u09A1\u09BF\u09B8\u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8\u0964`
     };
   }
   return { allowed: true };
@@ -6493,13 +6557,13 @@ channelsRouter.post("/meta/select-page", async (req, res) => {
       error: "Active subscription required. Please activate or renew your subscription to connect Meta channels."
     });
   }
-  const limitCheck = checkChannelLimitForPlan(user.id, "messenger");
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
   const { pageId, pageName, category } = req.body;
   if (!pageId) {
     return res.status(400).json({ error: "Page ID is required" });
+  }
+  const limitCheck = checkChannelLimitForPlan(user.id, "messenger", String(pageId));
+  if (!limitCheck.allowed) {
+    return res.status(403).json({ error: limitCheck.error });
   }
   const result = await metaOAuthService.connectPage(user.id, pageId, {
     name: pageName,
@@ -6650,11 +6714,15 @@ channelsRouter.post("/", async (req, res) => {
       error: "Active subscription required. Please activate or renew your subscription to connect channels."
     });
   }
-  const limitCheck = checkChannelLimitForPlan(user.id, platform);
+  const cleanIdentifier = String(identifier).trim();
+  const limitCheck = checkChannelLimitForPlan(
+    user.id,
+    platform,
+    cleanIdentifier
+  );
   if (!limitCheck.allowed) {
     return res.status(403).json({ error: limitCheck.error });
   }
-  const cleanIdentifier = String(identifier).trim();
   const cleanToken = String(access_token).trim();
   const cleanName = name?.trim() || (platform === "whatsapp" ? "WhatsApp Business" : platform === "messenger" ? "Facebook Page" : "Instagram Direct");
   const existing = db.getChannels(user.id).find(
@@ -8411,19 +8479,25 @@ CRITICAL ON-WEBSITE CONTEXT RULE (MUST OBEY):
 3. PRICING PLANS & 2-DAY FREE TRIAL (ONLY 2 OFFICIAL PLANS):
    - 2-Day Free Trial: Every merchant can activate a 2-Day Free Trial with 1 click from the Pricing section or Billing dashboard (no credit card required), OR purchase any plan directly anytime.
    - Plan 1 \u2014 Starter AI Plan: 1,250 TK / Month (\u09F31,250 BDT)
-     * 1 AI Agent Workspace
-     * WhatsApp, Facebook Messenger & Instagram Auto-Reply
-     * Website AI Chatbot Widget & Website Store Integration included!
-     * Up to 50 Products in AI Catalog
-     * Autonomous Order Extraction (auto-saves customer Name, Phone, Address & Items to Orders Hub)
-     * 1-Click Courier Booking (Steadfast, Pathao & RedX)
+     * All Core SaaS Features Included (24/7 Active AI Agent)
+     * WhatsApp, Facebook Messenger, Instagram & Website Auto-Reply
+     * Voice Note AI (Audio Listening) & Product Picture Recognition AI Included
+     * Auto Post Comment Reply + Direct Inbox (DM) Automation
+     * Connect up to 3 Social Channels + 1 Website Live Chat Widget
+     * Add Website, WooCommerce & Shopify Store Sync (1 Store)
+     * Unlimited Product Catalog, Autonomous Order Booking, Call Requests & 1-Click Courier Booking (Steadfast, Pathao & RedX)
    - Plan 2 \u2014 Pro Business Plan (Most Popular): 1,950 TK / Month (\u09F31,950 BDT)
-     * 3 AI Agent Workspaces
-     * Everything in Starter AI Plan + Unlimited Product Catalog
-     * Built-in Voice Note AI & Image/Screenshot Recognition
-     * 1-Click Custom Website Storefront + Shopify & WooCommerce Live Sync
-     * Human Call Request Escalation & Priority 24/7 Support
-   - Custom Plan Durations: Users can switch between 1 Month, 2 Months, 3 Months, 6 Months, 1 Year (12M), 2 Years, 3 Years, or 6 Years right on the pricing table.
+     * Everything in 1,250 TK Starter Plan Included (100% All Features)
+     * Connect up to 10 Social & Web Channels (Multi-Page & Multi-Number)
+     * 3 Autonomous AI Sales & Support Agents (Run Multiple Brands)
+     * Unlimited Website, Shopify & WooCommerce Multi-Store Sync
+     * Smart Auto Follow-Up & VIP Customer Retargeting Broadcast
+     * High-Speed Priority AI Engine, Google Sheets Sync & Dedicated 24/7 VIP Priority Support
+   - Multi-Month & Multi-Year Automatic Discounts:
+     * 6 Months: 10% OFF (Starter: 6,750 TK, Pro: 10,530 TK)
+     * 1 Year (12 Months): 15% OFF (Starter: 12,750 TK instead of 15,000 TK, Pro: 19,890 TK instead of 23,400 TK)
+     * 2 Years (24 Months): 20% OFF (Starter: 24,000 TK instead of 30,000 TK, Pro: 37,440 TK instead of 46,800 TK)
+     * 3 Years: 25% OFF | 6 Years: 30% OFF
 
 4. PAYMENT & COUPON CODE SYSTEM:
    - Payment Gateway: Official automated checkout via pay.oneagentbd.online supporting bKash, Nagad, Rocket, and Upay. Enter the Transaction ID (TrxID) for instant automated plan activation.
@@ -8448,7 +8522,7 @@ function getSaasBilingualFallback(question, lang, hasImage, hasAudio) {
     return UNCLEAR_VOICE_REPLY;
   }
   if (q.includes("price") || q.includes("pricing") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("rate") || q.includes("plan") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("tk") || q.includes("1250") || q.includes("1950") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8")) {
-    return lang === "en" ? "One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan \u2014 1,250 TK/month (Includes WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 Products, Auto Order & Courier Booking).\n2) Pro Business Plan \u2014 1,950 TK/month (Includes 3 AI Agents, Voice & Image AI Recognition, Unlimited Products, Multi-Store Sync & Priority 24/7 Support).\nYou can also apply a Coupon Code at checkout!" : "One Agent BD-\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:\n\u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (WhatsApp, Messenger, Instagram \u098F\u09AC\u0982 Website AI Chatbot, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)\u0964\n\u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI \u09B0\u09BF\u0995\u0997\u09A8\u09BF\u09B6\u09A8, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u098F\u09AC\u0982 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09B8\u09CD\u099F\u09CB\u09B0 \u09B8\u09BF\u0999\u09CD\u0995)\u0964\n\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (Coupon Code) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u0993 \u09B0\u09DF\u09C7\u099B\u09C7!";
+    return lang === "en" ? "One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan \u2014 1,250 TK/month (Includes ALL SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store, Unlimited Products, Auto Order & Courier Booking).\n2) Pro Business Plan \u2014 1,950 TK/month (Connect up to 10 Channels & Multi-Page, 3 AI Agents, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 VIP Priority Support).\n\nPlus, get 15% OFF on 1-Year plans and 20% OFF on 2-Year plans!" : "One Agent BD-\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:\n\u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09B8\u09AC SaaS \u09AB\u09BF\u099A\u09BE\u09B0 \u0986\u09A8\u09B2\u0995\u09A1: WhatsApp, Messenger, Instagram \u0993 Website AI Chatbot, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI, \u09E9\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2, \u09E7\u099F\u09BF \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09CD\u099F\u09CB\u09B0 \u098F\u09AC\u0982 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)\u0964\n\u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7\u09E6\u099F\u09BF \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09B6\u09A8, \u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09CD\u099F\u09CB\u09B0 \u09B8\u09BF\u0999\u09CD\u0995 \u0993 VIP \u09AC\u09CD\u09B0\u09A1\u0995\u09BE\u09B8\u09CD\u099F)\u0964\n\n\u098F\u099B\u09BE\u09DC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09E7\u09EB% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u098F\u09AC\u0982 \u09E8 \u09AC\u099B\u09B0\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09E8\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09B0\u09DF\u09C7\u099B\u09C7!";
   }
   if (q.includes("website") || q.includes("widget") || q.includes("embed") || q.includes("script") || q.includes("shopify") || q.includes("wordpress") || q.includes("add") || q.includes("\u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F") || q.includes("\u0993\u09AF\u09BC\u09C7\u09AC\u09B8\u09BE\u0987\u099F")) {
     return lang === "en" ? 'Adding the One Agent BD AI Chatbot to your website takes just 60 seconds! Both our 1,250 TK and 1,950 TK plans include Website AI Integration. Simply go to Dashboard -> "Website AI Chatbot", customize your brand color & welcome message, copy the 1-line <script> tag, and paste it before </body> on your WordPress, Shopify, Wix, or custom website!' : '\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 \u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE\u2014\u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7! \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7\u09B0 "Website AI Chatbot" \u0985\u09AA\u09B6\u09A8\u09C7 \u0997\u09BF\u09DF\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09CD\u09B0\u09CD\u09AF\u09BE\u09A8\u09CD\u09A1 \u0995\u09BE\u09B2\u09BE\u09B0 \u0993 \u09A8\u09BE\u09AE \u09B8\u09C7\u099F \u0995\u09B0\u09C7 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u09B2\u09BE\u0987\u09A8\u09C7\u09B0 Script \u0995\u09CB\u09A1\u099F\u09BF \u0995\u09AA\u09BF \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 WordPress, Shopify \u09AC\u09BE \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09AC\u09B8\u09BF\u09DF\u09C7 \u09A6\u09BF\u09B2\u09C7\u0987 \u09A0\u09BF\u0995 \u098F\u0987 \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F\u099F\u09BF\u09B0 \u09AE\u09A4\u09CB\u0987 \u0986\u09AA\u09A8\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u0993 AI \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F \u099A\u09BE\u09B2\u09C1 \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7!';
@@ -9303,7 +9377,7 @@ function getGeminiClient2() {
 function getSaasIntelligentFallback(question, lang) {
   const q = question.toLowerCase();
   if (q.includes("price") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("rate") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("pricing") || q.includes("plan") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8")) {
-    return lang === "en" ? "We have 2 official plans plus a 2-Day Free Trial: 1) Starter AI Plan \u2014 1,250 TK/month (WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 products, Courier Dispatch) and 2) Pro Business Plan \u2014 1,950 TK/month (3 AI Agents, Voice & Image AI, Unlimited Products, Multi-Store Sync). You can also apply a Coupon Code at checkout!" : "\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7: \u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (WhatsApp, Messenger, Instagram \u0993 Website AI Chatbot, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982) \u098F\u09AC\u0982 \u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI \u09B0\u09BF\u0995\u0997\u09A8\u09BF\u09B6\u09A8, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F)\u0964 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u0993 \u09B0\u09DF\u09C7\u099B\u09C7!";
+    return lang === "en" ? "We have 2 official plans plus a 2-Day Free Trial:\n\u2022 Starter AI Plan \u2014 1,250 TK/month (Includes all SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store & Courier Dispatch)\n\u2022 Pro Business Plan \u2014 1,950 TK/month (Connect up to 10 Channels, 3 AI Agents, Unlimited Multi-Store Sync, VIP Broadcast & Priority Support)\n\nPlus, enjoy 15% OFF on 1-Year subscriptions and 20% OFF on 2-Year subscriptions!" : "\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:\n\u2022 Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09B8\u09AC SaaS \u09AB\u09BF\u099A\u09BE\u09B0: WhatsApp, Messenger, Instagram \u0993 Website AI Chatbot, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI, \u09E9\u099F\u09BF \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)\n\u2022 Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7\u09E6\u099F\u09BF \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0995\u09BE\u09A8\u09C7\u0995\u09B6\u09A8, \u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09CD\u099F\u09CB\u09B0 \u0993 VIP \u09AC\u09CD\u09B0\u09A1\u0995\u09BE\u09B8\u09CD\u099F)\n\n\u098F\u099B\u09BE\u09DC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09E7\u09EB% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u098F\u09AC\u0982 \u09E8 \u09AC\u099B\u09B0\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8\u09C7 \u09E8\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AA\u09BE\u09AC\u09C7\u09A8!";
   }
   if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("2 day") || q.includes("test") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
     return lang === "en" ? "Yes! You can activate a 2-Day Free Trial with 1 click right from our Pricing section, or buy a direct plan anytime. During the trial, you can test WhatsApp, Messenger, Instagram, and Website AI Auto-Reply for free!" : "\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09BE\u0987\u09B8\u09BF\u0982 \u09B8\u09C7\u0995\u09B6\u09A8 \u09A5\u09C7\u0995\u09C7 \u0986\u09AA\u09A8\u09BF \u09E7-\u0995\u09CD\u09B2\u09BF\u0995\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u099A\u09BE\u09B2\u09C1 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8 \u0985\u09A5\u09AC\u09BE \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0995\u09BF\u09A8\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u0964 \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u099A\u09B2\u09BE\u0995\u09BE\u09B2\u09C0\u09A8 \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2\u09C7 \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF\u09A4\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u0964";
@@ -10098,10 +10172,19 @@ storesRouter.post("/", (req, res) => {
   }
   const subStatus = getUserSubscriptionStatus(user.id);
   const canAddWebsite = subStatus.canAccessStores || subStatus.isProPlan || user.role === "admin";
-  if (!canAddWebsite) {
+  if (!canAddWebsite || subStatus.isExpired) {
     return res.status(403).json({
-      error: "Active plan required to connect a website.",
+      error: "Active subscription required to connect a website store.",
       code: "PLAN_REQUIRED"
+    });
+  }
+  const existingStores = db.getStores(user.id);
+  const isPro = subStatus.isProPlan || user.role === "admin";
+  const maxStores = isPro ? 999 : 1;
+  if (existingStores.length >= maxStores) {
+    return res.status(403).json({
+      error: "\u0986\u09AA\u09A8\u09BE\u09B0 Starter AI Plan (\u09F31,250/\u09AE\u09BE\u09B8)-\u098F \u09E7\u099F\u09BF \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09CD\u099F\u09CB\u09B0 \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u0964 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u0993 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09B8\u09CD\u099F\u09CB\u09B0 \u09B8\u09BF\u0999\u09CD\u0995 \u0995\u09B0\u09A4\u09C7 Pro Business Plan (\u09F31,950/\u09AE\u09BE\u09B8)-\u098F \u0986\u09AA\u0997\u09CD\u09B0\u09C7\u09A1 \u0995\u09B0\u09C1\u09A8\u0964",
+      code: "PRO_PLAN_REQUIRED"
     });
   }
   const { platform, store_name, store_url, api_key, webhook_secret } = req.body;

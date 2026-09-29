@@ -209,19 +209,25 @@ CRITICAL ON-WEBSITE CONTEXT RULE (MUST OBEY):
 3. PRICING PLANS & 2-DAY FREE TRIAL (ONLY 2 OFFICIAL PLANS):
    - 2-Day Free Trial: Every merchant can activate a 2-Day Free Trial with 1 click from the Pricing section or Billing dashboard (no credit card required), OR purchase any plan directly anytime.
    - Plan 1 — Starter AI Plan: 1,250 TK / Month (৳1,250 BDT)
-     * 1 AI Agent Workspace
-     * WhatsApp, Facebook Messenger & Instagram Auto-Reply
-     * Website AI Chatbot Widget & Website Store Integration included!
-     * Up to 50 Products in AI Catalog
-     * Autonomous Order Extraction (auto-saves customer Name, Phone, Address & Items to Orders Hub)
-     * 1-Click Courier Booking (Steadfast, Pathao & RedX)
+     * All Core SaaS Features Included (24/7 Active AI Agent)
+     * WhatsApp, Facebook Messenger, Instagram & Website Auto-Reply
+     * Voice Note AI (Audio Listening) & Product Picture Recognition AI Included
+     * Auto Post Comment Reply + Direct Inbox (DM) Automation
+     * Connect up to 3 Social Channels + 1 Website Live Chat Widget
+     * Add Website, WooCommerce & Shopify Store Sync (1 Store)
+     * Unlimited Product Catalog, Autonomous Order Booking, Call Requests & 1-Click Courier Booking (Steadfast, Pathao & RedX)
    - Plan 2 — Pro Business Plan (Most Popular): 1,950 TK / Month (৳1,950 BDT)
-     * 3 AI Agent Workspaces
-     * Everything in Starter AI Plan + Unlimited Product Catalog
-     * Built-in Voice Note AI & Image/Screenshot Recognition
-     * 1-Click Custom Website Storefront + Shopify & WooCommerce Live Sync
-     * Human Call Request Escalation & Priority 24/7 Support
-   - Custom Plan Durations: Users can switch between 1 Month, 2 Months, 3 Months, 6 Months, 1 Year (12M), 2 Years, 3 Years, or 6 Years right on the pricing table.
+     * Everything in 1,250 TK Starter Plan Included (100% All Features)
+     * Connect up to 10 Social & Web Channels (Multi-Page & Multi-Number)
+     * 3 Autonomous AI Sales & Support Agents (Run Multiple Brands)
+     * Unlimited Website, Shopify & WooCommerce Multi-Store Sync
+     * Smart Auto Follow-Up & VIP Customer Retargeting Broadcast
+     * High-Speed Priority AI Engine, Google Sheets Sync & Dedicated 24/7 VIP Priority Support
+   - Multi-Month & Multi-Year Automatic Discounts:
+     * 6 Months: 10% OFF (Starter: 6,750 TK, Pro: 10,530 TK)
+     * 1 Year (12 Months): 15% OFF (Starter: 12,750 TK instead of 15,000 TK, Pro: 19,890 TK instead of 23,400 TK)
+     * 2 Years (24 Months): 20% OFF (Starter: 24,000 TK instead of 30,000 TK, Pro: 37,440 TK instead of 46,800 TK)
+     * 3 Years: 25% OFF | 6 Years: 30% OFF
 
 4. PAYMENT & COUPON CODE SYSTEM:
    - Payment Gateway: Official automated checkout via pay.oneagentbd.online supporting bKash, Nagad, Rocket, and Upay. Enter the Transaction ID (TrxID) for instant automated plan activation.
@@ -302,8 +308,8 @@ function getSaasBilingualFallback(
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan — 1,250 TK/month (Includes WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 Products, Auto Order & Courier Booking).\n2) Pro Business Plan — 1,950 TK/month (Includes 3 AI Agents, Voice & Image AI Recognition, Unlimited Products, Multi-Store Sync & Priority 24/7 Support).\nYou can also apply a Coupon Code at checkout!'
-      : 'One Agent BD-তে ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে:\n১) Starter AI Plan — ৳১,২৫০/মাস (WhatsApp, Messenger, Instagram এবং Website AI Chatbot, ৫০টি প্রোডাক্ট ক্যাটালগ, অটো অর্ডার ও কুরিয়ার বুকিং)।\n২) Pro Business Plan — ৳১,৯৫০/মাস (৩টি AI এজেন্ট, ভয়েস ও ছবির AI রিকগনিশন, আনলিমিটেড প্রোডাক্ট এবং মাল্টি-স্টোর সিঙ্ক)।\nপেমেন্ট করার সময় কুপন কোড (Coupon Code) ব্যবহারের সুবিধাও রয়েছে!';
+      ? 'One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan — 1,250 TK/month (Includes ALL SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store, Unlimited Products, Auto Order & Courier Booking).\n2) Pro Business Plan — 1,950 TK/month (Connect up to 10 Channels & Multi-Page, 3 AI Agents, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 VIP Priority Support).\n\nPlus, get 15% OFF on 1-Year plans and 20% OFF on 2-Year plans!'
+      : 'One Agent BD-তে ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে:\n১) Starter AI Plan — ৳১,২৫০/মাস (সব SaaS ফিচার আনলকড: WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI, ৩টি চ্যানেল, ১টি ওয়েবসাইট স্টোর এবং কুরিয়ার বুকিং)।\n২) Pro Business Plan — ৳১,৯৫০/মাস (১০টি পর্যন্ত চ্যানেল ও মাল্টি-পেজ কানেকশন, ৩টি AI এজেন্ট, আনলিমিটেড ওয়েবসাইট স্টোর সিঙ্ক ও VIP ব্রডকাস্ট)।\n\nএছাড়া ১ বছরের সাবস্ক্রিপশনে ১৫% ডিসকাউন্ট এবং ২ বছরের সাবস্ক্রিপশনে ২০% ডিসকাউন্ট রয়েছে!';
   }
 
   // Website AI Chatbot integration

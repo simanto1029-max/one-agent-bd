@@ -20,23 +20,21 @@ function checkSubscriptionActive(userId: string): boolean {
   return false;
 }
 
-// Helper to enforce Starter Plan (1 Meta channel) vs Pro Plan (3 Meta channels) limit
+// Helper to enforce Starter Plan (up to 3 Meta channels) vs Pro Plan (up to 10 Meta channels) limit
 function checkChannelLimitForPlan(
   userId: string,
-  targetPlatform: 'messenger' | 'instagram' | 'whatsapp'
+  targetPlatform: 'messenger' | 'instagram' | 'whatsapp',
+  targetIdentifier?: string
 ): { allowed: boolean; error?: string } {
   const user = db.getProfileById(userId);
   if (user?.role === 'admin') return { allowed: true };
 
   const sub = db.getSubscriptionByUserId(userId);
   const planId = String(sub?.plan_id || 'plan_starter').toLowerCase();
-  const isPro = planId.includes('pro');
+  const plan = db.getPlanById(planId);
+  const isPro = planId.includes('pro') || (plan?.price && plan.price >= 1950);
+  const maxAllowedChannels = plan?.feature_config?.max_channels || (isPro ? 10 : 3);
 
-  if (isPro) {
-    return { allowed: true };
-  }
-
-  // Starter Plan allows 1 active Meta channel (Facebook OR Instagram OR WhatsApp) + Website Widget
   const activeMetaChannels = db
     .getChannels(userId)
     .filter(
@@ -46,14 +44,21 @@ function checkChannelLimitForPlan(
         c.identifier !== 'website_widget'
     );
 
-  // Allow re-connecting/updating the same platform if it's the only one connected
-  const otherPlatformsConnected = activeMetaChannels.filter((c) => c.platform !== targetPlatform);
+  // If re-connecting/updating an already connected channel with the same identifier (or same platform when within limit), allow it
+  if (targetIdentifier && activeMetaChannels.some((c) => c.identifier === targetIdentifier)) {
+    return { allowed: true };
+  }
 
-  if (otherPlatformsConnected.length >= 1) {
-    const existingName = otherPlatformsConnected[0].platform.toUpperCase();
+  if (activeMetaChannels.length >= maxAllowedChannels) {
+    if (!isPro) {
+      return {
+        allowed: false,
+        error: `আপনার Starter AI Plan (৳1,250/মাস)-এ সর্বোচ্চ ${maxAllowedChannels}টি চ্যানেল (Facebook, Instagram ও WhatsApp) কানেক্ট করা যায়। আরও বেশি পেজ বা চ্যানেল (১০টি পর্যন্ত) একসাথে চালাতে Pro Business Plan (৳1,950/মাস)-এ আপগ্রেড করুন।`
+      };
+    }
     return {
       allowed: false,
-      error: `Your Starter Plan allows 1 active Meta channel at a time (currently connected: ${existingName}). Please upgrade to the Pro Business Plan (1,950 TK/mo) to connect Facebook, Instagram & WhatsApp simultaneously, or disconnect ${existingName} first.`
+      error: `আপনার Pro Business Plan-এর সর্বোচ্চ ${maxAllowedChannels}টি চ্যানেল কানেক্ট করা হয়ে গেছে। নতুন চ্যানেল যুক্ত করতে পুরনো যেকোনো একটি চ্যানেল ডিসকানেক্ট করুন।`
     };
   }
 
@@ -414,14 +419,14 @@ channelsRouter.post('/meta/select-page', async (req: Request, res: Response) => 
     });
   }
 
-  const limitCheck = checkChannelLimitForPlan(user.id, 'messenger');
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
   const { pageId, pageName, category } = req.body;
   if (!pageId) {
     return res.status(400).json({ error: 'Page ID is required' });
+  }
+
+  const limitCheck = checkChannelLimitForPlan(user.id, 'messenger', String(pageId));
+  if (!limitCheck.allowed) {
+    return res.status(403).json({ error: limitCheck.error });
   }
 
   const result = await metaOAuthService.connectPage(user.id, pageId, {
@@ -621,12 +626,16 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
     });
   }
 
-  const limitCheck = checkChannelLimitForPlan(user.id, platform as 'messenger' | 'instagram' | 'whatsapp');
+  const cleanIdentifier = String(identifier).trim();
+  const limitCheck = checkChannelLimitForPlan(
+    user.id,
+    platform as 'messenger' | 'instagram' | 'whatsapp',
+    cleanIdentifier
+  );
   if (!limitCheck.allowed) {
     return res.status(403).json({ error: limitCheck.error });
   }
 
-  const cleanIdentifier = String(identifier).trim();
   const cleanToken = String(access_token).trim();
   const cleanName = name?.trim() || (platform === 'whatsapp' ? 'WhatsApp Business' : platform === 'messenger' ? 'Facebook Page' : 'Instagram Direct');
 

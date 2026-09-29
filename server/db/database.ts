@@ -601,25 +601,25 @@ MANDATORY LANGUAGE & SHORT REPLY RULES:
       trial_days: 2,
       is_active: true,
       features: [
-        '1 Autonomous AI Sales Agent (24/7 Active)',
-        'Add Website, WooCommerce & Shopify Store Sync',
-        'Website AI Chatbot Widget Included',
-        'WhatsApp, Messenger & Instagram Auto-Reply',
-        'Unlimited Customer Conversations (0 TK per-msg fee)',
-        'Product Catalog & Photo Search (Up to 50 items)',
-        'Autonomous Order Booking & Orders Hub',
-        'Steadfast & Pathao 1-Click Courier Dispatch',
-        'Unified Live Inbox & Human Call Requests',
-        '2-Day Full Access Free Trial'
+        'All Core SaaS Features Included (24/7 Active AI Agent)',
+        'WhatsApp, Facebook Messenger, Instagram & Website Auto-Reply',
+        'Voice Note AI (Audio Listening) & Product Picture Recognition AI',
+        'Auto Post Comment Reply + Direct Inbox (DM) Automation',
+        'Connect up to 3 Social Channels + 1 Website Live Chat Widget',
+        'Add Website, WooCommerce & Shopify Store Sync (1 Store)',
+        'Unlimited Product Catalog & Visual Photo Search',
+        'Autonomous Chat Order Booking, Orders Hub & Call Requests',
+        'Steadfast, Pathao & RedX 1-Click Courier Dispatch',
+        'Unlimited Customer Conversations (0 TK per-msg fee)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
       feature_config: {
         website_stores: true,
         call_requests: true,
-        vip_broadcast: false,
+        vip_broadcast: true,
         courier_dispatch: true,
-        csv_export: false,
+        csv_export: true,
         max_channels: 3
       }
     },
@@ -632,16 +632,16 @@ MANDATORY LANGUAGE & SHORT REPLY RULES:
       trial_days: 2,
       is_active: true,
       features: [
-        '3 Autonomous AI Sales & Support Agents',
-        'Everything in 1,250 TK Starter Plan Included',
-        'Unlimited Website, Shopify & WooCommerce Stores',
-        'Voice Note AI (Audio Message Transcription & Reply)',
-        'Unlimited Product Catalog & Visual Photo Search',
-        'Up to 10 Connected Social & Web Channels',
-        'VIP Customer Broadcast & Tagging',
-        'Google Sheets Live Sync & CSV Order Export',
-        'High-Speed Priority AI Response Engine',
-        'Dedicated Priority Onboarding & 24/7 VIP Support'
+        'Everything in 1,250 TK Starter Plan Included (100% All Features)',
+        'Connect up to 10 Social & Web Channels (Multi-Page & Multi-Number)',
+        '3 Autonomous AI Sales & Support Agents (Run Multiple Brands)',
+        'Unlimited Website, Shopify & WooCommerce Multi-Store Sync',
+        'Smart Auto Follow-Up & VIP Customer Retargeting Broadcast',
+        'High-Speed Priority AI Engine for High-Traffic Pages',
+        'Google Sheets Live Sync, Advanced Analytics & CSV Lead Export',
+        'Custom Brand AI Persona & Multi-Page Order Routing',
+        'Dedicated Account Manager & Free 1-on-1 Setup Onboarding',
+        '24/7 VIP Priority WhatsApp & Phone Support'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -791,6 +791,28 @@ class Database {
     }
     if (!parsed.plans || parsed.plans.length === 0) {
       parsed.plans = initialData.plans;
+    } else {
+      parsed.plans = parsed.plans.map((p: Plan) => {
+        if (p.id === 'plan_starter' || p.price === 1250) {
+          return {
+            ...p,
+            price: 1250,
+            trial_days: 2,
+            features: initialData.plans[0].features,
+            feature_config: initialData.plans[0].feature_config
+          };
+        }
+        if (p.id === 'plan_pro' || p.price === 1950) {
+          return {
+            ...p,
+            price: 1950,
+            trial_days: 2,
+            features: initialData.plans[1].features,
+            feature_config: initialData.plans[1].feature_config
+          };
+        }
+        return p;
+      });
     }
     if (!parsed.businesses) parsed.businesses = [];
     if (!parsed.facebook_pages) parsed.facebook_pages = [];

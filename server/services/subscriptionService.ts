@@ -44,10 +44,22 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   }
 
   // Check if expired
-  const endDate = new Date(sub.end_date);
-  const isPastEnd = now.getTime() >= endDate.getTime();
+  const profile = db.getProfileById(userId);
+  const isAdmin = profile?.role === 'admin';
+  let endDate = new Date(sub.end_date);
+  let isPastEnd = now.getTime() >= endDate.getTime();
 
-  if (isPastEnd && (sub.status === 'trialing' || sub.status === 'active')) {
+  // Ensure Admin accounts never expire so official SaaS channels stay 24/7 active
+  if (isAdmin && isPastEnd) {
+    const newAdminEnd = new Date(now.getTime() + 365 * 86400000).toISOString();
+    sub =
+      db.updateSubscription(sub.id, {
+        status: 'active',
+        end_date: newAdminEnd
+      }) || sub;
+    endDate = new Date(sub.end_date);
+    isPastEnd = false;
+  } else if (isPastEnd && (sub.status === 'trialing' || sub.status === 'active')) {
     sub = db.updateSubscription(sub.id, {
       status: 'expired'
     }) || sub;
@@ -58,21 +70,36 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
     price: 1250,
     currency: 'BDT',
     trial_days: 2,
-    duration_days: 30
+    duration_days: 30,
+    feature_config: {
+      website_stores: true,
+      call_requests: true,
+      vip_broadcast: true,
+      courier_dispatch: true,
+      csv_export: true,
+      max_channels: 3
+    }
   };
 
   const msRemaining = Math.max(0, endDate.getTime() - now.getTime());
   const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60));
   const daysRemaining = Math.floor(hoursRemaining / 24);
 
-  const isExpired = sub.status === 'expired' || isPastEnd;
+  const isExpired = !isAdmin && (sub.status === 'expired' || isPastEnd);
   const isGated = isExpired;
   const canAccessDashboard = !isGated;
 
   const planId = sub.plan_id || 'plan_starter';
-  const isProPlan = planId.includes('pro') || (plan.name || '').toLowerCase().includes('pro');
-  const featureConfig = (plan as any).feature_config;
-  const canAccessStores = featureConfig?.website_stores !== false;
+  const isProPlan = planId.includes('pro') || (plan.name || '').toLowerCase().includes('pro') || isAdmin;
+  const featureConfig = (plan as any).feature_config || {
+    website_stores: true,
+    call_requests: true,
+    vip_broadcast: true,
+    courier_dispatch: true,
+    csv_export: true,
+    max_channels: isProPlan ? 10 : 3
+  };
+  const canAccessStores = !isExpired && featureConfig?.website_stores !== false;
 
   return {
     subscription: sub,
@@ -108,25 +135,23 @@ export function activateSubscription(userId: string, planId: string, durationDay
 
   const newEndDate = new Date(baseDate.getTime() + days * 86400000).toISOString();
 
-  // If activating Starter Plan, ensure at most 1 Meta channel remains active (Website Widget is always allowed)
-  const isPro = String(planId).toLowerCase().includes('pro');
-  if (!isPro) {
-    const activeMetaChannels = db
-      .getChannels(userId)
-      .filter(
-        (c) =>
-          c.is_active &&
-          ['messenger', 'instagram', 'whatsapp'].includes(c.platform) &&
-          c.identifier !== 'website_widget'
-      );
-    if (activeMetaChannels.length > 1) {
-      // Keep the first active Meta channel, pause the rest
-      for (let i = 1; i < activeMetaChannels.length; i++) {
-        db.updateChannel(activeMetaChannels[i].id, {
-          is_active: false,
-          status: 'not_connected'
-        });
-      }
+  // Enforce channel limit for plan: Starter (1,250 TK) allows up to 3 active Meta channels; Pro (1,950 TK) allows up to 10
+  const isPro = String(planId).toLowerCase().includes('pro') || (plan?.price && plan.price >= 1950);
+  const maxAllowedChannels = plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+  const activeMetaChannels = db
+    .getChannels(userId)
+    .filter(
+      (c) =>
+        c.is_active &&
+        ['messenger', 'instagram', 'whatsapp'].includes(c.platform) &&
+        c.identifier !== 'website_widget'
+    );
+  if (activeMetaChannels.length > maxAllowedChannels) {
+    for (let i = maxAllowedChannels; i < activeMetaChannels.length; i++) {
+      db.updateChannel(activeMetaChannels[i].id, {
+        is_active: false,
+        status: 'not_connected'
+      });
     }
   }
 

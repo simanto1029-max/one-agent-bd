@@ -7,6 +7,7 @@ export interface PlanDurationOption {
   type: 'monthly' | 'yearly';
   months: number;
   days: number;
+  discountPercent: number;
   badge?: string;
 }
 
@@ -17,7 +18,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '1M',
     type: 'monthly',
     months: 1,
-    days: 30
+    days: 30,
+    discountPercent: 0
   },
   {
     id: '2m',
@@ -25,7 +27,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '2M',
     type: 'monthly',
     months: 2,
-    days: 60
+    days: 60,
+    discountPercent: 0
   },
   {
     id: '3m',
@@ -34,6 +37,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     type: 'monthly',
     months: 3,
     days: 90,
+    discountPercent: 0,
     badge: 'Popular'
   },
   {
@@ -42,7 +46,9 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '6M',
     type: 'monthly',
     months: 6,
-    days: 180
+    days: 180,
+    discountPercent: 10,
+    badge: '10% OFF'
   },
   {
     id: '12m',
@@ -50,7 +56,9 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '12M',
     type: 'monthly',
     months: 12,
-    days: 365
+    days: 365,
+    discountPercent: 15,
+    badge: '15% OFF'
   },
   {
     id: '1y',
@@ -59,7 +67,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     type: 'yearly',
     months: 12,
     days: 365,
-    badge: 'Best Value'
+    discountPercent: 15,
+    badge: '15% OFF'
   },
   {
     id: '2y',
@@ -67,7 +76,9 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '2Y',
     type: 'yearly',
     months: 24,
-    days: 730
+    days: 730,
+    discountPercent: 20,
+    badge: '20% OFF'
   },
   {
     id: '3y',
@@ -75,7 +86,9 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '3Y',
     type: 'yearly',
     months: 36,
-    days: 1095
+    days: 1095,
+    discountPercent: 25,
+    badge: '25% OFF'
   },
   {
     id: '6y',
@@ -83,7 +96,9 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     shortLabel: '6Y',
     type: 'yearly',
     months: 72,
-    days: 2190
+    days: 2190,
+    discountPercent: 30,
+    badge: '30% OFF'
   }
 ];
 
@@ -97,23 +112,23 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
     trial_days: 2,
     is_active: true,
     features: [
-      '1 Autonomous AI Sales Agent (24/7 Active)',
-      'Add Website, WooCommerce & Shopify Store Sync',
-      'Website AI Chatbot Widget Included',
-      'WhatsApp, Messenger & Instagram Auto-Reply',
-      'Unlimited Customer Conversations (0 TK per-msg fee)',
-      'Product Catalog & Photo Search (Up to 50 items)',
-      'Autonomous Order Booking & Orders Hub',
-      'Steadfast & Pathao 1-Click Courier Dispatch',
-      'Unified Live Inbox & Human Call Requests',
-      '2-Day Full Access Free Trial'
+      'All Core SaaS Features Included (24/7 Active AI Agent)',
+      'WhatsApp, Facebook Messenger, Instagram & Website Auto-Reply',
+      'Voice Note AI (Audio Listening) & Product Picture Recognition AI',
+      'Auto Post Comment Reply + Direct Inbox (DM) Automation',
+      'Connect up to 3 Social Channels + 1 Website Live Chat Widget',
+      'Add Website, WooCommerce & Shopify Store Sync (1 Store)',
+      'Unlimited Product Catalog & Visual Photo Search',
+      'Autonomous Chat Order Booking, Orders Hub & Call Requests',
+      'Steadfast, Pathao & RedX 1-Click Courier Dispatch',
+      'Unlimited Customer Conversations (0 TK per-msg fee)'
     ],
     feature_config: {
       website_stores: true,
       call_requests: true,
-      vip_broadcast: false,
+      vip_broadcast: true,
       courier_dispatch: true,
-      csv_export: false,
+      csv_export: true,
       max_channels: 3
     },
     created_at: '',
@@ -128,16 +143,16 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
     trial_days: 2,
     is_active: true,
     features: [
-      '3 Autonomous AI Sales & Support Agents',
-      'Everything in 1,250 TK Starter Plan Included',
-      'Unlimited Website, Shopify & WooCommerce Stores',
-      'Voice Note AI (Audio Message Transcription & Reply)',
-      'Unlimited Product Catalog & Visual Photo Search',
-      'Up to 10 Connected Social & Web Channels',
-      'VIP Customer Broadcast & Tagging',
-      'Google Sheets Live Sync & CSV Order Export',
-      'High-Speed Priority AI Response Engine',
-      'Dedicated Priority Onboarding & 24/7 VIP Support'
+      'Everything in 1,250 TK Starter Plan Included (100% All Features)',
+      'Connect up to 10 Social & Web Channels (Multi-Page & Multi-Number)',
+      '3 Autonomous AI Sales & Support Agents (Run Multiple Brands)',
+      'Unlimited Website, Shopify & WooCommerce Multi-Store Sync',
+      'Smart Auto Follow-Up & VIP Customer Retargeting Broadcast',
+      'High-Speed Priority AI Engine for High-Traffic Pages',
+      'Google Sheets Live Sync, Advanced Analytics & CSV Lead Export',
+      'Custom Brand AI Persona & Multi-Page Order Routing',
+      'Dedicated Account Manager & Free 1-on-1 Setup Onboarding',
+      '24/7 VIP Priority WhatsApp & Phone Support'
     ],
     feature_config: {
       website_stores: true,
@@ -168,63 +183,63 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
   },
   {
     category: 'Core AI & Channels',
+    feature: '1 Year Subscription (15% Discount)',
+    starterValue: '12,750 TK / year (Save 2,250 TK)',
+    proValue: '19,890 TK / year (Save 3,510 TK)'
+  },
+  {
+    category: 'Core AI & Channels',
+    feature: '2 Years Subscription (20% Discount)',
+    starterValue: '24,000 TK / 2 yrs (Save 6,000 TK)',
+    proValue: '37,440 TK / 2 yrs (Save 9,360 TK)'
+  },
+  {
+    category: 'Core AI & Channels',
     feature: 'Autonomous AI Agents',
-    starterValue: '1 AI Agent',
-    proValue: '3 AI Agents'
-  },
-  {
-    category: 'Core AI & Channels',
-    feature: 'Website & Store Integration (Add Website)',
-    starterValue: true,
-    proValue: true
-  },
-  {
-    category: 'Core AI & Channels',
-    feature: 'Website AI Live Chat Widget',
-    starterValue: true,
-    proValue: true
+    starterValue: '1 AI Agent (All Features)',
+    proValue: '3 AI Agents (Multi-Brand)'
   },
   {
     category: 'Core AI & Channels',
     feature: 'Connected Meta & WhatsApp Channels',
-    starterValue: 'Up to 3 Channels',
-    proValue: 'Up to 10 Channels'
+    starterValue: 'Up to 3 Channels + Website',
+    proValue: 'Up to 10 Channels (Multi-Page)'
   },
   {
     category: 'Core AI & Channels',
-    feature: 'WhatsApp, Messenger & Instagram Auto-Reply',
+    feature: 'Website, WooCommerce & Shopify Store Sync',
+    starterValue: '1 Connected Store',
+    proValue: 'Unlimited Stores'
+  },
+  {
+    category: 'AI Intelligence & Media',
+    feature: 'Voice Note AI & Product Image Recognition AI',
     starterValue: true,
     proValue: true
   },
   {
     category: 'AI Intelligence & Media',
-    feature: 'Voice Note AI (Audio Transcription)',
-    starterValue: false,
+    feature: 'Auto Comment Reply + Direct Inbox DM',
+    starterValue: true,
     proValue: true
   },
   {
     category: 'AI Intelligence & Media',
-    feature: 'Product Catalog & Visual Image Recognition',
-    starterValue: 'Up to 50 Products',
+    feature: 'Product Catalog & Visual Photo Search',
+    starterValue: 'Unlimited Products',
     proValue: 'Unlimited Products'
   },
   {
     category: 'Orders, Store & Logistics',
-    feature: 'Autonomous Chat Order Confirmation & Hub',
+    feature: 'Autonomous Chat Order Confirmation & Courier Booking',
     starterValue: true,
     proValue: true
   },
   {
     category: 'Orders, Store & Logistics',
-    feature: 'Steadfast & Pathao 1-Click Courier Booking',
-    starterValue: true,
-    proValue: true
-  },
-  {
-    category: 'Orders, Store & Logistics',
-    feature: 'CSV Lead Export & VIP Customer Broadcast',
-    starterValue: false,
-    proValue: true
+    feature: 'Multi-Page Routing, Priority AI Queue & 24/7 VIP Support',
+    starterValue: 'Standard Support',
+    proValue: 'VIP Priority + Dedicated Onboarding'
   }
 ];
 
@@ -256,12 +271,39 @@ export function normalizeToTwoPlans(apiPlans: Plan[]): Plan[] {
 
 export const OFFICIAL_PLANS: Plan[] = OFFICIAL_TWO_PLANS;
 
-export function calculateCustomPlanPrice(basePrice: number, months: number): number {
+export function getDurationDiscountPercent(months: number): number {
+  if (months >= 72) return 30;
+  if (months >= 36) return 25;
+  if (months >= 24) return 20;
+  if (months >= 12) return 15;
+  if (months >= 6) return 10;
+  return 0;
+}
+
+export function calculateOriginalPlanPrice(
+  basePrice: number,
+  durationOrMonths: number | PlanDurationOption
+): number {
+  const months = typeof durationOrMonths === 'number' ? durationOrMonths : durationOrMonths.months;
   return basePrice * months;
 }
 
+export function calculateCustomPlanPrice(
+  basePrice: number,
+  durationOrMonths: number | PlanDurationOption
+): number {
+  const months = typeof durationOrMonths === 'number' ? durationOrMonths : durationOrMonths.months;
+  const original = basePrice * months;
+  const discountPercent =
+    typeof durationOrMonths === 'object' && durationOrMonths.discountPercent !== undefined
+      ? durationOrMonths.discountPercent
+      : getDurationDiscountPercent(months);
+  if (discountPercent <= 0) return original;
+  return Math.round((original * (100 - discountPercent)) / 100);
+}
+
 export function buildCustomizedPlan(basePlan: Plan, duration: PlanDurationOption): Plan {
-  const totalPrice = basePlan.price * duration.months;
+  const totalPrice = calculateCustomPlanPrice(basePlan.price, duration.months);
   return {
     ...basePlan,
     price: totalPrice,
@@ -269,4 +311,5 @@ export function buildCustomizedPlan(basePlan: Plan, duration: PlanDurationOption
     name: `${basePlan.name} (${duration.label})`
   };
 }
+
 

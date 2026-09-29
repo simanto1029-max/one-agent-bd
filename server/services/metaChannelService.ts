@@ -129,7 +129,26 @@ export class MetaChannelService {
     // 4. Optionally auto-connect channels so the backend webhook router immediately hooks into them
     const connectedChannels: Channel[] = [];
     if (autoConnect) {
+      const user = db.getProfileById(userId);
+      const isAdmin = user?.role === 'admin';
+      const sub = db.getSubscriptionByUserId(userId);
+      const planId = String(sub?.plan_id || 'plan_starter').toLowerCase();
+      const plan = db.getPlanById(planId);
+      const isPro = isAdmin || planId.includes('pro') || Boolean(plan?.price && plan.price >= 1950);
+      const maxAllowedChannels = isAdmin ? 999 : plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+
+      const getActiveCount = () =>
+        db
+          .getChannels(userId)
+          .filter(
+            (c) =>
+              c.is_active &&
+              ['messenger', 'instagram', 'whatsapp'].includes(c.platform) &&
+              c.identifier !== 'website_widget'
+          ).length;
+
       for (const page of pages) {
+        if (getActiveCount() >= maxAllowedChannels) break;
         const fbRes = await metaOAuthService.connectPage(userId, page.id, {
           name: page.name,
           category: page.category,
@@ -139,7 +158,7 @@ export class MetaChannelService {
           connectedChannels.push(fbRes.channel);
         }
 
-        if (page.instagram_business_account?.id) {
+        if (page.instagram_business_account?.id && getActiveCount() < maxAllowedChannels) {
           const igRes = await metaOAuthService.connectInstagram(userId, page.instagram_business_account.id, {
             username: page.instagram_business_account.username,
             pageId: page.id,
@@ -152,6 +171,7 @@ export class MetaChannelService {
       }
 
       for (const wa of whatsappNumbers) {
+        if (getActiveCount() >= maxAllowedChannels) break;
         const waRes = await metaOAuthService.connectWhatsAppOnboarding(userId, {
           wabaId: wa.waba_id,
           phoneNumberId: wa.id,
