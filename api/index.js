@@ -8018,6 +8018,7 @@ adminRouter.put("/settings", (req, res) => {
     meta_description,
     meta_app_id,
     meta_app_secret,
+    meta_config_id,
     meta_verify_token
   } = req.body;
   const updated = db.updateSettings({
@@ -8032,6 +8033,7 @@ adminRouter.put("/settings", (req, res) => {
     meta_description: meta_description !== void 0 ? meta_description : current.meta_description,
     meta_app_id: meta_app_id !== void 0 ? meta_app_id.trim() : current.meta_app_id,
     meta_app_secret: meta_app_secret !== void 0 ? meta_app_secret.trim() : current.meta_app_secret,
+    meta_config_id: meta_config_id !== void 0 ? meta_config_id.trim() : current.meta_config_id,
     meta_verify_token: meta_verify_token !== void 0 ? meta_verify_token.trim() : current.meta_verify_token
   });
   return res.json({

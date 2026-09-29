@@ -74,6 +74,10 @@ export const AdminSettings: React.FC = () => {
         api.getAdminSettings(),
         api.getSchemaSql().catch(() => '-- Schema unavailable')
       ]);
+      if (settingsData.meta_app_id && settingsData.meta_app_id.includes('@')) {
+        settingsData.meta_app_id = '';
+        settingsData.meta_app_secret = '';
+      }
       setSettings(settingsData);
       setSchemaSql(sql);
     } catch (err) {
@@ -677,17 +681,19 @@ export const AdminSettings: React.FC = () => {
         </div>
 
         {/* Credentials Inputs */}
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={handleSave} autoComplete="off" className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Meta App ID (from App Settings &gt; Basic)
               </label>
               <input
                 type="text"
+                name="meta_app_id_field"
+                autoComplete="off"
                 value={settings.meta_app_id || ''}
                 onChange={(e) => setSettings({ ...settings, meta_app_id: e.target.value })}
-                placeholder="e.g. 109283746592019"
+                placeholder="e.g. 28133631089641045"
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
               />
             </div>
@@ -698,6 +704,8 @@ export const AdminSettings: React.FC = () => {
               </label>
               <input
                 type="password"
+                name="meta_app_secret_field"
+                autoComplete="new-password"
                 value={settings.meta_app_secret || ''}
                 onChange={(e) => setSettings({ ...settings, meta_app_secret: e.target.value })}
                 placeholder="••••••••••••••••••••••••••••••••"
@@ -705,16 +713,18 @@ export const AdminSettings: React.FC = () => {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                Meta Login Configuration ID (Optional — for WhatsApp QR / Coexistence &amp; Embedded Signup)
+            <div>
+              <label className="block text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                Meta Login Configuration ID (WhatsApp QR / Coexistence)
               </label>
               <input
                 type="text"
+                name="meta_config_id_field"
+                autoComplete="off"
                 value={settings.meta_config_id || ''}
                 onChange={(e) => setSettings({ ...settings, meta_config_id: e.target.value })}
-                placeholder="e.g. 123456789012345 (from Facebook Login for Business > Configurations)"
-                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+                placeholder="e.g. 123456789012345"
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/30 text-neutral-900 dark:text-white font-mono"
               />
             </div>
           </div>

@@ -156,6 +156,7 @@ adminRouter.put('/settings', (req: Request, res: Response) => {
     meta_description,
     meta_app_id,
     meta_app_secret,
+    meta_config_id,
     meta_verify_token
   } = req.body;
 
@@ -172,6 +173,7 @@ adminRouter.put('/settings', (req: Request, res: Response) => {
     meta_description: meta_description !== undefined ? meta_description : current.meta_description,
     meta_app_id: meta_app_id !== undefined ? meta_app_id.trim() : current.meta_app_id,
     meta_app_secret: meta_app_secret !== undefined ? meta_app_secret.trim() : current.meta_app_secret,
+    meta_config_id: meta_config_id !== undefined ? meta_config_id.trim() : current.meta_config_id,
     meta_verify_token: meta_verify_token !== undefined ? meta_verify_token.trim() : current.meta_verify_token
   });
 
