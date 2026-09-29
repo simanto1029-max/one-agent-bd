@@ -35,6 +35,10 @@ function getGeminiClients(customApiKey?: string): GoogleGenAI[] {
   const candidateKeys = getCandidateGeminiKeys(customApiKey);
 
   if (candidateKeys.length === 0) {
+    // On Vercel Serverless, an empty API key cannot use AI Studio's internal container proxy
+    if (process.env.VERCEL === '1' || process.env.VERCEL === 'true') {
+      return [];
+    }
     return [
       new GoogleGenAI({
         apiKey: '',
@@ -840,10 +844,38 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
     }
   }
 
+  // 5. Built-in Zero-Key Cloud LLM Engine (ensures real AI reasoning on Vercel even if no API key is set or Gemini quota is exceeded)
+  try {
+    const cloudRes = await withTimeout(
+      fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          messages: [
+            ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+            { role: 'user', content: fullPrompt }
+          ],
+          temperature: 0.35
+        })
+      }),
+      12000
+    );
+    if (cloudRes.ok) {
+      const cloudJson: any = await cloudRes.json();
+      const cloudText = cloudJson?.choices?.[0]?.message?.content?.trim();
+      if (cloudText && cloudText.length > 5) {
+        return formatCleanChatMessage(cloudText);
+      }
+    }
+  } catch (cloudErr: any) {
+    console.warn('[AI Service] Built-in Cloud LLM warning:', cloudErr?.message || cloudErr);
+  }
+
   return null;
 }
 
-// Intelligent Bangla Knowledge-Base Engine when LLM calls experience temporary 503 overload
+// Universal Bilingual (English + Banglish + বাংলা) Knowledge-Base Engine for One Agent BD & Any Subscribed Merchant
 function buildSmartBanglaFallbackFromPrompt(
   incomingMessage: string,
   systemPrompt: string,
@@ -855,7 +887,7 @@ function buildSmartBanglaFallbackFromPrompt(
 
   // 1. Specific matched product from merchant catalog
   if (matchedProduct) {
-    return `আসসালামু আলাইকুম! আমাদের "${matchedProduct.name}" এখন স্টকে আছে।\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n📋 বিবরণ: ${matchedProduct.description}\n\nঅর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
+    return `আসসালামু আলাইকুম! আমাদের "${matchedProduct.name}" এখন স্টকে আছে।\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n📋 বিবরণ: ${matchedProduct.description}\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
   }
 
   const isOneAgentSaaS =
@@ -870,6 +902,9 @@ function buildSmartBanglaFallbackFromPrompt(
     const isYearly =
       q.includes('1 bochor') ||
       q.includes('1 year') ||
+      q.includes('one year') ||
+      q.includes('per year') ||
+      q.includes('every year') ||
       q.includes('12 month') ||
       q.includes('12 mas') ||
       q.includes('এক বছর') ||
@@ -882,13 +917,13 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('বছর');
 
     const isSixMonths =
-      q.includes('6 mas') || q.includes('6 month') || q.includes('৬ মাস') || q.includes('ছয় মাস');
+      q.includes('6 mas') || q.includes('6 month') || q.includes('six month') || q.includes('৬ মাস') || q.includes('ছয় মাস');
 
     const isThreeMonths =
-      q.includes('3 mas') || q.includes('3 month') || q.includes('৩ মাস') || q.includes('তিন মাস');
+      q.includes('3 mas') || q.includes('3 month') || q.includes('three month') || q.includes('৩ মাস') || q.includes('তিন মাস');
 
     const isTwoMonths =
-      q.includes('2 mas') || q.includes('2 month') || q.includes('২ মাস') || q.includes('দুই মাস');
+      q.includes('2 mas') || q.includes('2 month') || q.includes('two month') || q.includes('২ মাস') || q.includes('দুই মাস');
 
     if (isYearly) {
       return `জ্বী ভাইয়া, আমাদের ১ বছরের (১২ মাসের) জন্য Starter AI Plan ৳১৫,০০০ টাকা এবং Pro Business Plan ৳২৩,৪০০ টাকা।\n\nচেকআউটের সময় কুপন কোড (WELCOME10) ব্যবহার করলে আপনি সাথে সাথে ১০% ডিসকাউন্টও পাবেন!\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল নিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করতে চাচ্ছেন?`;
@@ -918,7 +953,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('অডিও') ||
       q.includes('ছবি')
     ) {
-      return `জ্বী, অবশ্যই! আমাদের AI কাস্টমারের পাঠানো বাংলা বা বাংলিশ ভয়েস মেসেজ শুনে এবং প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক দাম ও উত্তর দিতে পারে।\n\nআপনি কি আপনার ফেসবুক পেজে এটি ২ দিনের ফ্রি ট্রায়াল দিয়ে টেস্ট করে দেখতে চান?`;
+      return `জ্বী, অবশ্যই! আমাদের AI কাস্টমারের পাঠানো বাংলা, বাংলিশ বা ইংরেজি ভয়েস মেসেজ শুনে এবং প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক দাম ও উত্তর দিতে পারে।\n\nআপনি কি আপনার ফেসবুক পেজে এটি ২ দিনের ফ্রি ট্রায়াল দিয়ে টেস্ট করে দেখতে চান?`;
     }
 
     // 2C. Comment reply inquiry
@@ -957,6 +992,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('risk') ||
       q.includes('limit') ||
       q.includes('official') ||
+      q.includes('safe') ||
       q.includes('ব্যান') ||
       q.includes('ঝুঁকি') ||
       q.includes('সমস্যা হবে') ||
@@ -992,7 +1028,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('rocket') ||
       q.includes('upay') ||
       q.includes('payment') ||
-      q.includes('pay') ||
+      (q.includes('pay') && !q.includes('how much')) ||
       q.includes('বিকাশ') ||
       q.includes('নগদ') ||
       q.includes('রকেট') ||
@@ -1002,7 +1038,7 @@ function buildSmartBanglaFallbackFromPrompt(
     }
 
     // 2H. Free trial inquiry
-    if (q.includes('trial') || q.includes('trail') || q.includes('free') || q.includes('ট্রায়াল') || q.includes('ফ্রি')) {
+    if (q.includes('trial') || q.includes('trail') || q.includes('free') || q.includes('demo') || q.includes('ট্রায়াল') || q.includes('ফ্রি')) {
       return `জ্বী! আমাদের ওয়েবসাইটে (https://www.oneagentbd.online) নতুন অ্যাকাউন্ট খুললেই কোনো অগ্রিম পেমেন্ট ছাড়া ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল পাবেন।\n\nআপনি কি আজই ট্রায়ালটি চালু করে আপনার পেজে টেস্ট করে দেখতে চান?`;
     }
 
@@ -1010,6 +1046,8 @@ function buildSmartBanglaFallbackFromPrompt(
     if (
       q.includes('connect') ||
       q.includes('setup') ||
+      q.includes('how it works') ||
+      q.includes('how does it work') ||
       q.includes('kivabe') ||
       q.includes('কিভাবে') ||
       q.includes('কানেক্ট') ||
@@ -1019,30 +1057,55 @@ function buildSmartBanglaFallbackFromPrompt(
       return `মাত্র ২ মিনিটেই সেটআপ করা যায়! https://www.oneagentbd.online ওয়েবসাইটে লগইন করে "Connect with Facebook"-এ ১ ক্লিক করে পেজ কানেক্ট ও বিজনেস ডিটেইলস সেভ করলেই অটো রিপ্লাই শুরু হবে।\n\nসেটআপ করতে আপনার কি কোনো সাহায্য প্রয়োজন?`;
     }
 
-    // 2J. General pricing / plan inquiry
+    // 2J. General pricing / monthly subscription fee / plan inquiry (English + Banglish + বাংলা)
     if (
       q.includes('price') ||
+      q.includes('pricing') ||
+      q.includes('cost') ||
+      q.includes('fee') ||
+      q.includes('fees') ||
+      q.includes('subscription') ||
+      q.includes('subscriptions') ||
+      q.includes('how much') ||
+      q.includes('every month') ||
+      q.includes('per month') ||
+      q.includes('monthly') ||
+      q.includes('month') ||
+      q.includes('charge') ||
+      q.includes('charges') ||
+      q.includes('rate') ||
       q.includes('dam') ||
+      q.includes('daam') ||
       q.includes('koto') ||
       q.includes('plan') ||
       q.includes('package') ||
       q.includes('taka') ||
+      q.includes('tk') ||
+      q.includes('bdt') ||
+      q.includes('mashe') ||
+      q.includes('mash') ||
       q.includes('starter') ||
       q.includes('pro') ||
       q.includes('দাম') ||
+      q.includes('মূল্য') ||
       q.includes('কত') ||
       q.includes('প্ল্যান') ||
       q.includes('প্যাকেজ') ||
       q.includes('খরচ') ||
-      q.includes('চার্জ')
+      q.includes('চার্জ') ||
+      q.includes('ফি') ||
+      q.includes('সাবস্ক্রিপশন') ||
+      q.includes('মাসিক') ||
+      q.includes('মাসে')
     ) {
-      return `আমাদের ২টি প্ল্যান রয়েছে:\n• Starter AI Plan: ৳১,২৫০/মাস (১টি এজেন্ট, সব চ্যানেল ও কুরিয়ার বুকিং)\n• Pro Business Plan: ৳১,৯৫০/মাস (৩টি এজেন্ট, ভয়েস ও ছবির রিপ্লাইসহ আনলিমিটেড)\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল দিয়ে শুরু করতে চান, নাকি সরাসরি কোনো প্ল্যান নিবেন?`;
+      return `আমাদের মাসিক সাবস্ক্রিপশন ফি খুবই সাশ্রয়ী—২টি প্ল্যান রয়েছে:\n• Starter AI Plan: প্রতি মাসে ৳১,২৫০ টাকা (১টি এজেন্ট, সব চ্যানেল ও কুরিয়ার বুকিং)\n• Pro Business Plan: প্রতি মাসে ৳১,৯৫০ টাকা (৩টি এজেন্ট, ভয়েস ও ছবির রিপ্লাইসহ আনলিমিটেড)\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল দিয়ে শুরু করতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করবেন?`;
     }
 
     // 2K. Features / Services inquiry
     if (
       q.includes('service') ||
       q.includes('feature') ||
+      q.includes('what do you do') ||
       q.includes('ki ki') ||
       q.includes('সার্ভিস') ||
       q.includes('ফিচার') ||
@@ -1060,6 +1123,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('call') ||
       q.includes('contact') ||
       q.includes('support') ||
+      q.includes('helpline') ||
       q.includes('নাম্বার') ||
       q.includes('ফোন') ||
       q.includes('কল') ||
@@ -1068,12 +1132,10 @@ function buildSmartBanglaFallbackFromPrompt(
     ) {
       return `আমাদের হেল্পলাইন ও হোয়াটসঅ্যাপ নাম্বার: +8801601705804 (সকাল ৯টা – রাত ১১টা) এবং ওয়েবসাইট: https://www.oneagentbd.online।\n\nআপনি চাইলে আপনার মোবাইল নাম্বারটি এখানে দিতে পারেন, আমাদের প্রতিনিধি সরাসরি কল করে সাহায্য করবে!`;
     }
-
-    // Default SaaS greeting / overview
-    return `আসসালামু আলাইকুম! ${businessName}-এ স্বাগতম। আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ স্মার্ট AI অটো-রিপ্লাই ও অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি।\n\nআমাদের প্ল্যান শুরু ৳১,২৫০/মাস থেকে এবং সাথে ২ দিনের ফ্রি ট্রায়াল সুবিধা রয়েছে।\n\nআপনি কি আপনার ফেসবুক পেজ বা ওয়েবসাইটের জন্য অটোমেশন সম্পর্কে জানতে চাচ্ছেন?`;
   }
 
-  // 3. General Merchant Knowledge-Base Parser (for any Merchant's custom systemPrompt + Product Catalog)
+  // 3. Universal Dynamic Merchant Knowledge-Base Parser & Bilingual Semantic Matcher
+  // Works for ANY subscribed merchant who trains the AI with their own business details (in Bangla, Banglish, or English)
   const cleanLines = Array.from(
     new Set(
       (systemPrompt || '')
@@ -1084,6 +1146,7 @@ function buildSmartBanglaFallbackFromPrompt(
             l.length > 3 &&
             !l.startsWith('===') &&
             !l.startsWith('---') &&
+            !l.startsWith('[ONE AGENT BD COMPLETE') &&
             !l.toLowerCase().startsWith('you are') &&
             !l.startsWith('আপনি "') &&
             !l.toLowerCase().includes('mandatory') &&
@@ -1093,20 +1156,76 @@ function buildSmartBanglaFallbackFromPrompt(
     )
   );
 
-  const findMerchantLines = (keywords: string[]): string | null => {
+  const findMerchantLines = (keywords: string[], maxLines = 4): string | null => {
     const matched: string[] = [];
     for (const line of cleanLines) {
       const lower = line.toLowerCase();
       if (keywords.some((kw) => lower.includes(kw))) {
         matched.push(line);
       }
-      if (matched.length >= 4) break;
+      if (matched.length >= maxLines) break;
     }
     return matched.length > 0 ? matched.join('\n') : null;
   };
 
+  // 3A. Dynamic token & bilingual synonym scoring against the merchant's custom systemPrompt
+  const BILINGUAL_CONCEPT_GROUPS: string[][] = [
+    ['price', 'pricing', 'cost', 'fee', 'fees', 'subscription', 'subscriptions', 'how much', 'monthly', 'every month', 'per month', 'rate', 'charge', 'plan', 'package', 'dam', 'daam', 'koto', 'taka', 'tk', 'bdt', 'দাম', 'মূল্য', 'কত', 'টাকা', 'ফি', 'চার্জ', 'প্ল্যান', 'প্যাকেজ', 'মাসিক', 'মাসে', 'খরচ', '৳'],
+    ['delivery', 'shipping', 'courier', 'cod', 'cash on delivery', 'dhaka', 'outside dhaka', 'inside dhaka', 'home delivery', 'parcel', 'delivari', 'ডেলিভারি', 'কুরিয়ার', 'পাঠানো', 'ঢাকা', 'ঢাকার ভেতরে', 'ঢাকার বাইরে', 'ক্যাশ অন', 'হোম ডেলিভারি'],
+    ['bkash', 'nagad', 'rocket', 'upay', 'payment', 'pay', 'bank', 'card', 'advance', 'বিকাশ', 'নগদ', 'রকেট', 'উপায়', 'পেমেন্ট', 'অ্যাডভান্স', 'ব্যাংক'],
+    ['return', 'refund', 'exchange', 'replace', 'warranty', 'guarantee', 'policy', 'রিটার্ন', 'রিফান্ড', 'চেঞ্জ', 'পরিবর্তন', 'ওয়ারেন্টি', 'গ্যারান্টি', 'ফেরত'],
+    ['size', 'color', 'colour', 'fabric', 'material', 'quality', 'stock', 'available', 'original', 'authentic', 'সাইজ', 'কালার', 'রঙ', 'কাপড়', 'কোয়ালিটি', 'স্টক', 'অরিজিনাল'],
+    ['address', 'location', 'where', 'shop', 'store', 'showroom', 'office', 'branch', 'kothay', 'thikana', 'ঠিকানা', 'লোকেশন', 'কোথায়', 'শোরুম', 'অফিস', 'দোকান'],
+    ['phone', 'number', 'call', 'contact', 'whatsapp', 'helpline', 'support', 'নাম্বার', 'ফোন', 'কল', 'যোগাযোগ', 'হেল্পলাইন', 'সাপোর্ট'],
+    ['discount', 'offer', 'coupon', 'promo', 'less', 'kom', 'কুপন', 'ডিসকাউন্ট', 'অফার', 'ছাড়', 'ছাড়']
+  ];
+
+  // Expand query tokens with matching bilingual concepts
+  const expandedSearchTerms = new Set<string>();
+  const queryWords = q
+    .split(/[^a-z0-9\u0980-\u09FF]+/i)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2 && !['how', 'what', 'the', 'for', 'and', 'are', 'you', 'can', 'please', 'tell', 'about'].includes(w));
+
+  for (const w of queryWords) {
+    expandedSearchTerms.add(w);
+  }
+  for (const group of BILINGUAL_CONCEPT_GROUPS) {
+    if (group.some((term) => q.includes(term))) {
+      for (const syn of group) {
+        expandedSearchTerms.add(syn);
+      }
+    }
+  }
+
+  if (expandedSearchTerms.size > 0 && cleanLines.length > 0) {
+    const scoredLines = cleanLines
+      .map((line) => {
+        const lower = line.toLowerCase();
+        let score = 0;
+        for (const w of queryWords) {
+          if (lower.includes(w)) score += 3;
+        }
+        for (const syn of expandedSearchTerms) {
+          if (lower.includes(syn)) score += 1;
+        }
+        return { line, score };
+      })
+      .filter((item) => item.score >= 2)
+      .sort((a, b) => b.score - a.score);
+
+    if (scoredLines.length > 0) {
+      const topFacts = scoredLines
+        .slice(0, 3)
+        .map((item) => item.line)
+        .join('\n');
+      return `${topFacts}\n\nআপনি কি এই বিষয়ে আরও কিছু জানতে চান, নাকি অর্ডার কনফার্ম করতে চাচ্ছেন?`;
+    }
+  }
+
   if (
     q.includes('delivery') ||
+    q.includes('shipping') ||
     q.includes('charge') ||
     q.includes('courier') ||
     q.includes('ডেলিভারি') ||
@@ -1120,9 +1239,9 @@ function buildSmartBanglaFallbackFromPrompt(
   ) {
     const kbDelivery = findMerchantLines(['ডেলিভারি', 'delivery', 'ঢাকার ভেতরে', 'ঢাকার বাইরে', 'কুরিয়ার', 'courier']);
     if (kbDelivery) {
-      return `আমাদের ডেলিভারি সংক্রান্ত তথ্য:\n\n${kbDelivery}\n\nঅর্ডার করতে আপনার নাম, ঠিকানা ও ফোন নাম্বার দিন।`;
+      return `আমাদের ডেলিভারি সংক্রান্ত তথ্য:\n\n${kbDelivery}\n\nআপনি কি আজই অর্ডারটি কনফার্ম করতে চান?`;
     }
-    return `আমাদের ডেলিভারি চার্জ ঢাকার ভেতরে ৳৬০ (২৪-৪৮ ঘণ্টা) এবং ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। সারাদেশে ক্যাশ অন ডেলিভারি (COD) সুবিধা রয়েছে! অর্ডার করতে আপনার নাম, ঠিকানা ও ফোন নাম্বার দিন।`;
+    return `আমাদের ডেলিভারি চার্জ ঢাকার ভেতরে ৳৬০ (২৪-৪৮ ঘণ্টা) এবং ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। সারাদেশে ক্যাশ অন ডেলিভারি (COD) সুবিধা রয়েছে!\n\nঅর্ডার করতে আপনার নাম, ঠিকানা ও ফোন নাম্বার দিন।`;
   }
 
   if (
@@ -1138,9 +1257,9 @@ function buildSmartBanglaFallbackFromPrompt(
   ) {
     const kbPay = findMerchantLines(['বিকাশ', 'নগদ', 'পেমেন্ট', 'bkash', 'nagad', 'payment', 'ক্যাশ অন ডেলিভারি']);
     if (kbPay) {
-      return `আমাদের পেমেন্ট পদ্ধতি:\n\n${kbPay}`;
+      return `আমাদের পেমেন্ট পদ্ধতি:\n\n${kbPay}\n\nআপনি কোন পদ্ধতিতে পেমেন্ট করতে চাচ্ছেন?`;
     }
-    return `আমরা ক্যাশ অন ডেলিভারি (COD), বিকাশ এবং নগদ পেমেন্ট গ্রহণ করি। অর্ডার কনফার্ম করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বার দিন।`;
+    return `আমরা ক্যাশ অন ডেলিভারি (COD), বিকাশ এবং নগদ পেমেন্ট গ্রহণ করি।\n\nঅর্ডার কনফার্ম করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বার দিন।`;
   }
 
   if (
@@ -1168,27 +1287,39 @@ function buildSmartBanglaFallbackFromPrompt(
     return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\n${kbOverview}\n\nআপনি কোনটি নিতে চাচ্ছেন বা বিস্তারিত জানতে চান?`;
   }
 
-  return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। আমাদের সার্ভিস, প্রোডাক্টের দাম বা অর্ডার করার নিয়ম সম্পর্কে যেকোনো প্রশ্ন করুন, আমি সাথে সাথে উত্তর দিচ্ছি!`;
+  if (isOneAgentSaaS) {
+    return `আসসালামু আলাইকুম! ${businessName}-এ স্বাগতম। আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ স্মার্ট AI অটো-রিপ্লাই ও অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি।\n\nআমাদের প্ল্যান শুরু ৳১,২৫০/মাস থেকে এবং সাথে ২ দিনের ফ্রি ট্রায়াল সুবিধা রয়েছে।\n\nআপনি কি আপনার ফেসবুক পেজ বা ওয়েবসাইটের জন্য অটোমেশন সম্পর্কে জানতে চাচ্ছেন?`;
+  }
+
+  return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\nআমাদের সার্ভিস, প্রোডাক্টের দাম বা অর্ডার করার নিয়ম সম্পর্কে যেকোনো প্রশ্ন করুন, আমি সাথে সাথে উত্তর দিচ্ছি!`;
 }
 
 export async function generateAIReply(params: GenerateReplyParams): Promise<GenerateReplyResult> {
-  const profile = db.getProfileById(params.userId);
+  const profile = (params as any).profile || db.getProfileById(params.userId);
   const businessName = params.channelName || profile?.full_name || 'One Agent BD';
 
-  // Resolve the best custom system_prompt (if admin channel, also check default_system_prompt or other admin profiles)
-  const defaultSavedPrompt = ((db.getSettings() as any)?.default_system_prompt || '').trim();
-  const adminCustomPrompt =
-    profile?.role === 'admin'
-      ? db
-          .getProfiles()
-          .find(
-            (p) =>
-              p.role === 'admin' &&
-              p.system_prompt &&
-              !p.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
-              !p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
-          )?.system_prompt || ''
-      : '';
+  const isAdminOrOfficialSaaS =
+    profile?.role === 'admin' ||
+    params.userId === 'usr_admin_1' ||
+    params.userId === 'usr_admin_001' ||
+    params.userId === 'saas_official' ||
+    businessName.toLowerCase().includes('one agent');
+
+  // Resolve the best custom system_prompt (ONLY use global SaaS default_system_prompt for Admin / Official One Agent BD channels!)
+  const defaultSavedPrompt = isAdminOrOfficialSaaS
+    ? ((db.getSettings() as any)?.default_system_prompt || '').trim()
+    : '';
+  const adminCustomPrompt = isAdminOrOfficialSaaS
+    ? db
+        .getProfiles()
+        .find(
+          (p) =>
+            p.role === 'admin' &&
+            p.system_prompt &&
+            !p.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
+            !p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
+        )?.system_prompt || ''
+    : '';
 
   const rawSystemPrompt =
     (params.overrideSystemPrompt && params.overrideSystemPrompt.trim()) ||
@@ -1200,10 +1331,10 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     defaultSavedPrompt ||
     adminCustomPrompt ||
     (profile?.system_prompt && profile.system_prompt.trim()) ||
-    `You are the polite, helpful customer service AI agent for ${businessName}.`;
+    `আপনি "${businessName}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট। কাস্টমারের প্রশ্নের অর্থ বুঝে আন্তরিক ও স্বাভাবিক বাংলায় উত্তর দিন।`;
 
   // Sanitize any legacy "English only" instructions inside saved prompts so Bangla replies always work
-  const systemPrompt = rawSystemPrompt
+  let systemPrompt = rawSystemPrompt
     .replace(/in 1-2 clear English sentences/gi, 'in clear, natural Bangla (বাংলা)')
     .replace(/in 1-2 clear, courteous English sentences/gi, 'in clear, courteous Bangla (বাংলা)')
     .replace(/in 1-2 polite, clear English sentences/gi, 'in polite, clear Bangla (বাংলা)')
@@ -1212,11 +1343,15 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     .replace(/in 1-2 concise English sentences/gi, 'in natural Bangla (বাংলা)')
     .replace(/Respond politely and directly in 1-2 concise English sentences\./gi, 'কাস্টমারের প্রশ্নের অর্থ বুঝে সর্বদা সুন্দর ও স্বাভাবিক বাংলায় উত্তর দিন।');
 
-  const isOneAgentSaaS =
-    businessName.toLowerCase().includes('one agent') ||
-    systemPrompt.includes('Starter AI Plan') ||
-    systemPrompt.includes('oneagentbd.online') ||
-    profile?.role === 'admin';
+  // If this is a subscribed merchant (NOT One Agent BD Admin), strip any accidental SaaS boilerplate from old signup defaults
+  if (!isAdminOrOfficialSaaS) {
+    systemPrompt = systemPrompt
+      .replace(/-\s*WhatsApp,\s*Facebook Messenger ও Instagram 24\/7 AI অটো-রিপ্লাই[^\n]*\n?/gi, '')
+      .replace(/-\s*স্টার্টার প্ল্যান:\s*৳১,২৫০\/মাস[^\n]*\n?/gi, '')
+      .replace(/ডিজিটাল সার্ভিস তাৎক্ষণিক অ্যাক্টিভ হয়।\s*/gi, '');
+  }
+
+  const isOneAgentSaaS = isAdminOrOfficialSaaS;
 
   // If this is One Agent BD's official business or admin channel, enrich with complete SaaS details & live coupons
   const activeCoupons = (db.getCoupons() || []).filter((c) => c.is_active);

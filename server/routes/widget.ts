@@ -273,7 +273,19 @@ function getSaasBilingualFallback(
   // Pricing & Plans
   if (
     q.includes('price') ||
+    q.includes('pricing') ||
     q.includes('cost') ||
+    q.includes('fee') ||
+    q.includes('fees') ||
+    q.includes('subscription') ||
+    q.includes('subscriptions') ||
+    q.includes('how much') ||
+    q.includes('every month') ||
+    q.includes('per month') ||
+    q.includes('monthly') ||
+    q.includes('month') ||
+    q.includes('charge') ||
+    q.includes('rate') ||
     q.includes('plan') ||
     q.includes('package') ||
     q.includes('dam') ||
@@ -285,7 +297,9 @@ function getSaasBilingualFallback(
     q.includes('দাম') ||
     q.includes('কত') ||
     q.includes('প্ল্যান') ||
-    q.includes('প্যাকেজ')
+    q.includes('প্যাকেজ') ||
+    q.includes('ফি') ||
+    q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
       ? 'One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan — 1,250 TK/month (Includes WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 Products, Auto Order & Courier Booking).\n2) Pro Business Plan — 1,950 TK/month (Includes 3 AI Agents, Voice & Image AI Recognition, Unlimited Products, Multi-Store Sync & Priority 24/7 Support).\nYou can also apply a Coupon Code at checkout!'
@@ -639,7 +653,7 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
 
     const baseKnowledge = isSaasOfficial
       ? `${ONE_AGENT_SAAS_KNOWLEDGE}\n${livePlansContext}${adminCustomPrompt}${catalogContext}`
-      : `${profile?.system_prompt || `You are the official AI Sales & Support Assistant for "${config.business_name}".`}\n${catalogContext}\n\n${ONE_AGENT_SAAS_KNOWLEDGE}`;
+      : `${profile?.system_prompt || `You are the official AI Sales & Support Assistant for "${config.business_name}".`}\n${catalogContext}`;
 
     const recentHistoryText = Array.isArray(history)
       ? history
@@ -782,6 +796,36 @@ Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevan
         }
       } catch (geminiErr: any) {
         console.warn('Gemini multimodal widget fallback:', geminiErr.message);
+      }
+    }
+
+    // Built-in Zero-Key Cloud LLM Fallback for text queries when Gemini key is absent or rate-limited
+    if (!aiReplyText && !hasAudio && !hasImage && rawText) {
+      try {
+        const cloudPrompt = `${baseKnowledge}\n\n${languageDirective}\n\n${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}Visitor Message: "${rawText}"\n\nReply naturally like a real human in 2-3 short sentences with \\n\\n paragraph spacing and 1 smart closing follow-up question:`;
+        const cloudRes = await fetch('https://text.pollinations.ai/openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'openai',
+            messages: [{ role: 'user', content: cloudPrompt }],
+            temperature: 0.35
+          })
+        });
+        if (cloudRes.ok) {
+          const cloudJson: any = await cloudRes.json();
+          const cText = cloudJson?.choices?.[0]?.message?.content?.trim();
+          if (cText) {
+            aiReplyText = ensureConversationalFollowUp(
+              sanitizeWebsiteBotReply(cText),
+              rawText,
+              isSaasOfficial,
+              merchantProducts.length > 0
+            );
+          }
+        }
+      } catch {
+        // Ignore and proceed to bilingual knowledge fallback
       }
     }
 

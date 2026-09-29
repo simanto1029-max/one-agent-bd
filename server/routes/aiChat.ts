@@ -35,17 +35,29 @@ function getSaasIntelligentFallback(question: string, lang: 'bn' | 'en'): string
   if (
     q.includes('price') ||
     q.includes('cost') ||
+    q.includes('fee') ||
+    q.includes('fees') ||
+    q.includes('subscription') ||
+    q.includes('subscriptions') ||
+    q.includes('how much') ||
+    q.includes('every month') ||
+    q.includes('per month') ||
+    q.includes('monthly') ||
+    q.includes('month') ||
+    q.includes('charge') ||
+    q.includes('rate') ||
     q.includes('package') ||
     q.includes('dam') ||
     q.includes('koto') ||
     q.includes('taka') ||
-    q.includes('fee') ||
     q.includes('pricing') ||
     q.includes('plan') ||
     q.includes('দাম') ||
     q.includes('কত') ||
     q.includes('প্ল্যান') ||
-    q.includes('প্যাকেজ')
+    q.includes('প্যাকেজ') ||
+    q.includes('ফি') ||
+    q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
       ? 'We have 2 official plans plus a 2-Day Free Trial: 1) Starter AI Plan — 1,250 TK/month (WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 products, Courier Dispatch) and 2) Pro Business Plan — 1,950 TK/month (3 AI Agents, Voice & Image AI, Unlimited Products, Multi-Store Sync). You can also apply a Coupon Code at checkout!'
@@ -123,21 +135,19 @@ aiChatRouter.post('/hero-query', async (req: Request, res: Response) => {
     }
 
     try {
-      const ai = getGeminiClient();
-      if (ai) {
-        const formattedHistory = Array.isArray(history)
-          ? history
-              .slice(-4)
-              .map((h: any) => `${h.sender === 'customer' ? 'User' : 'One Agent BD AI'}: ${h.text}`)
-              .join('\n')
-          : '';
+      const formattedHistory = Array.isArray(history)
+        ? history
+            .slice(-4)
+            .map((h: any) => `${h.sender === 'customer' ? 'User' : 'One Agent BD AI'}: ${h.text}`)
+            .join('\n')
+        : '';
 
-        const languageInstruction =
-          lang === 'en'
-            ? 'CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences).'
-            : 'CRITICAL LANGUAGE RULE: কাস্টমার বাংলা (Bangla) অথবা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) ২-৩ বাক্যে উত্তর দিন।';
+      const languageInstruction =
+        lang === 'en'
+          ? 'CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences).'
+          : 'CRITICAL LANGUAGE RULE: কাস্টমার বাংলা (Bangla) অথবা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) ২-৩ বাক্যে উত্তর দিন।';
 
-        const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
+      const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
 
 Channel UI: ${platform === 'whatsapp' ? 'WhatsApp Business' : 'Facebook Messenger'}
 ${languageInstruction}
@@ -154,6 +164,8 @@ Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing and 1 closing follow-up question):`;
 
+      const ai = getGeminiClient();
+      if (ai) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
@@ -172,6 +184,28 @@ Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing a
           } catch (modelErr: any) {
             console.warn(`[Hero AI Chat] Model ${model} failed:`, modelErr?.message || modelErr);
           }
+        }
+      }
+
+      // Built-in Zero-Key Cloud LLM Fallback
+      const cloudRes = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          messages: [{ role: 'user', content: fullPrompt }],
+          temperature: 0.35
+        })
+      });
+      if (cloudRes.ok) {
+        const cloudJson: any = await cloudRes.json();
+        const cReply = cloudJson?.choices?.[0]?.message?.content?.trim();
+        if (cReply) {
+          return res.json({
+            reply: ensureConversationalFollowUp(sanitizeWebsiteBotReply(cReply), trimmedMsg, true, false),
+            source: 'cloud-llm',
+            detectedLanguage: lang
+          });
         }
       }
     } catch (geminiErr) {
@@ -212,16 +246,14 @@ aiChatRouter.post('/business-sandbox', async (req: Request, res: Response) => {
     const lang = detectLanguageMode(trimmedMsg);
 
     try {
-      const ai = getGeminiClient();
-      if (ai) {
-        const formattedHistory = Array.isArray(history)
-          ? history
-              .slice(-4)
-              .map((h: any) => `${h.sender === 'customer' ? 'Customer' : businessName + ' AI'}: ${h.text}`)
-              .join('\n')
-          : '';
+      const formattedHistory = Array.isArray(history)
+        ? history
+            .slice(-4)
+            .map((h: any) => `${h.sender === 'customer' ? 'Customer' : businessName + ' AI'}: ${h.text}`)
+            .join('\n')
+        : '';
 
-        const systemPrompt = `You are the autonomous AI Sales & Customer Support Agent representing "${businessName}" (an online ${businessCategory} business).
+      const systemPrompt = `You are the autonomous AI Sales & Customer Support Agent representing "${businessName}" (an online ${businessCategory} business).
 You are answering a real customer inquiry on ${platform === 'whatsapp' ? 'WhatsApp' : 'Facebook Messenger'}.
 
 Business Rules & Details configured by the store owner:
@@ -236,13 +268,14 @@ RULES OF ENGAGEMENT:
 1. Always adhere strictly to the store's products, prices, and delivery terms provided above.
 2. If the customer is inquiring about price, size, or availability, provide exact details based on the catalog and prompt them politely to share delivery details if they want to order.
 3. If the customer is providing their delivery address and phone number to place an order, celebrate their order, summarize the items, delivery charge, total price in BDT, and confirm that their order is booked!
-4. CRITICAL LANGUAGE RULE: ${
-          lang === 'en'
-            ? 'The customer asked in English. Respond in clear, natural, and polite English.'
-            : 'কাস্টমার বাংলা (Bangla) বা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন।'
-        }`;
+4. Keep your answer concise (2-3 short sentences), put an empty line (\\n\\n) before your closing follow-up question, and always ask 1 relevant follow-up question!
+5. CRITICAL LANGUAGE RULE: ${
+        lang === 'en'
+          ? 'The customer asked in English. Respond in clear, natural, and polite English.'
+          : 'কাস্টমার বাংলা (Bangla) বা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন।'
+      }`;
 
-        const fullPrompt = `${systemPrompt}
+      const fullPrompt = `${systemPrompt}
 
 Chat History:
 ${formattedHistory || '(No previous messages)'}
@@ -251,8 +284,10 @@ Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
 
-        let reply: string | undefined = undefined;
+      let reply: string | undefined = undefined;
 
+      const ai = getGeminiClient();
+      if (ai) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
@@ -265,28 +300,47 @@ Respond directly as ${businessName}'s AI agent:`;
             console.warn(`[Sandbox AI] Model ${model} failed:`, modelErr?.message || modelErr);
           }
         }
+      }
 
-        let detectedOrder: any = null;
-        const phoneMatch = trimmedMsg.match(/(?:(?:\+|00)88|01)?\d{9,11}/);
-        const hasAddress = /mirpur|dhanmondi|gulshan|uttara|banani|chittagong|sylhet|khulna|rajshahi|barisal|rangpur|house|road|block|sector|dhaka|ঢাকা|মিরপুর|ধানমন্ডি|উত্তরা/i.test(trimmedMsg);
-
-        if (phoneMatch || hasAddress || /confirm|order|buy|purchase|অর্ডার/i.test(trimmedMsg)) {
-          detectedOrder = {
-            detected: true,
-            customerPhone: phoneMatch ? phoneMatch[0] : 'Identified in chat',
-            addressSnippet: hasAddress ? 'Extracted from chat' : 'Mentioned by customer',
-            paymentMethod: /cash|cod|ক্যাশ/i.test(trimmedMsg) ? 'Cash on Delivery' : 'Online / Mobile Banking',
-            summary: `Automated order signal captured for ${businessName}`
-          };
+      if (!reply) {
+        const cloudRes = await fetch('https://text.pollinations.ai/openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'openai',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: fullPrompt }
+            ],
+            temperature: 0.35
+          })
+        });
+        if (cloudRes.ok) {
+          const cloudJson: any = await cloudRes.json();
+          reply = cloudJson?.choices?.[0]?.message?.content?.trim();
         }
+      }
 
-        if (reply) {
-          return res.json({
-            reply: ensureConversationalFollowUp(formatCleanChatMessage(reply), trimmedMsg, false, true),
-            detectedOrder,
-            source: 'gemini'
-          });
-        }
+      let detectedOrder: any = null;
+      const phoneMatch = trimmedMsg.match(/(?:(?:\+|00)88|01)?\d{9,11}/);
+      const hasAddress = /mirpur|dhanmondi|gulshan|uttara|banani|chittagong|sylhet|khulna|rajshahi|barisal|rangpur|house|road|block|sector|dhaka|ঢাকা|মিরপুর|ধানমন্ডি|উত্তরা/i.test(trimmedMsg);
+
+      if (phoneMatch || hasAddress || /confirm|order|buy|purchase|অর্ডার/i.test(trimmedMsg)) {
+        detectedOrder = {
+          detected: true,
+          customerPhone: phoneMatch ? phoneMatch[0] : 'Identified in chat',
+          addressSnippet: hasAddress ? 'Extracted from chat' : 'Mentioned by customer',
+          paymentMethod: /cash|cod|ক্যাশ/i.test(trimmedMsg) ? 'Cash on Delivery' : 'Online / Mobile Banking',
+          summary: `Automated order signal captured for ${businessName}`
+        };
+      }
+
+      if (reply) {
+        return res.json({
+          reply: ensureConversationalFollowUp(formatCleanChatMessage(reply), trimmedMsg, false, true),
+          detectedOrder,
+          source: 'gemini'
+        });
       }
     } catch (geminiErr) {
       console.warn('[Business Sandbox AI] Gemini error, falling back to local simulator:', geminiErr);

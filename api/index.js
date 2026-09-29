@@ -1894,25 +1894,23 @@ authRouter.post("/signup", (req, res) => {
       });
     }
     const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const bizTitle = fullName?.trim() || cleanEmail.split("@")[0] || "One Agent BD";
+    const bizTitle = fullName?.trim() || cleanEmail.split("@")[0] || "My Online Store";
     const defaultSystemPrompt = `\u0986\u09AA\u09A8\u09BF "${bizTitle}"-\u098F\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09B8\u09C7\u09B2\u09B8 AI \u0985\u09CD\u09AF\u09BE\u09B8\u09BF\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F\u0964
 
 Business Knowledge Base (\u09AC\u09CD\u09AF\u09AC\u09B8\u09BE\u09DF\u09BF\u0995 \u09A4\u09A5\u09CD\u09AF):
-1. \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F:
-   - WhatsApp, Facebook Messenger \u0993 Instagram 24/7 AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u098F\u09AC\u0982 \u0987-\u0995\u09AE\u09BE\u09B0\u09CD\u09B8 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8\u0964
-   - \u09B8\u09CD\u099F\u09BE\u09B0\u09CD\u099F\u09BE\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9)\u0964
+1. \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0993 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8:
+   - \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u0995\u09B2 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09E7\u09E6\u09E6% \u0985\u09B0\u09BF\u099C\u09BF\u09A8\u09BE\u09B2 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09DF\u09BE\u09AE \u0995\u09CB\u09DF\u09BE\u09B2\u09BF\u099F\u09BF\u09B0\u0964 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7\u09B0 Products \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u0993 \u098F\u0987 \u09A8\u09B2\u09C7\u099C \u09AC\u09C7\u09B8 \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u0995\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09AC\u09B0\u09A3 \u09A6\u09BF\u09A8\u0964
 2. \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u0993 \u099A\u09BE\u09B0\u09CD\u099C:
-   - \u09A1\u09BF\u099C\u09BF\u099F\u09BE\u09B2 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u0964 \u09AB\u09BF\u099C\u09BF\u0995\u09CD\u09AF\u09BE\u09B2 \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2: \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE), \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u0986\u099B\u09C7\u0964
+   - \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u098F\u09AC\u0982 \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u0986\u099B\u09C7\u0964
 3. \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF:
-   - \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6, \u09B0\u0995\u09C7\u099F \u098F\u09AC\u0982 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD)\u0964
+   - \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD), \u09AC\u09BF\u0995\u09BE\u09B6 \u098F\u09AC\u0982 \u09A8\u0997\u09A6\u0964
 4. \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE:
    - \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u098F\u09AC\u0982 \u09E7\u09E7 \u09A1\u09BF\u099C\u09BF\u099F\u09C7\u09B0 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u0964
 5. \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u0993 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8:
    - \u09AA\u09CD\u09B0\u09A4\u09BF\u09A6\u09BF\u09A8 \u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u09A5\u09C7\u0995\u09C7 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4\u0964 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8: ${cleanPhone || "01811-998877"}\u0964
 
 MANDATORY LANGUAGE & REPLY RULES:
-- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish - \u0987\u0982\u09B0\u09C7\u099C\u09BF \u0985\u0995\u09CD\u09B7\u09B0\u09C7 \u09AC\u09BE\u0982\u09B2\u09BE \u09B2\u09C7\u0996\u09BE) \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 \u09A8\u09BE \u0995\u09C7\u09A8, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964
-- \u0989\u09A4\u09CD\u09A4\u09B0 \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4, \u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u098F\u09AC\u0982 \u09E7-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7\u09B0 \u09AE\u09A7\u09CD\u09AF\u09C7 \u09B0\u09BE\u0996\u09C1\u09A8\u0964`;
+- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE, \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AC\u09BE \u0987\u0982\u09B0\u09C7\u099C\u09BF\u09A4\u09C7 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 \u09A8\u09BE \u0995\u09C7\u09A8, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF (\u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8 \u098F\u09AC\u0982 \u09B6\u09C7\u09B7\u09C7 \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u09E7\u099F\u09BF \u09AB\u09B2\u09CB-\u0986\u09AA \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u09A8\u0964`;
     const profile = db.createProfile({
       id: newUserId,
       email: cleanEmail,
@@ -4538,6 +4536,9 @@ function getCandidateGeminiKeys(customApiKey) {
 function getGeminiClients(customApiKey) {
   const candidateKeys = getCandidateGeminiKeys(customApiKey);
   if (candidateKeys.length === 0) {
+    if (process.env.VERCEL === "1" || process.env.VERCEL === "true") {
+      return [];
+    }
     return [
       new GoogleGenAI({
         apiKey: "",
@@ -5133,6 +5134,32 @@ async function callGemini(fullPrompt, customApiKey, systemInstruction) {
       }
     }
   }
+  try {
+    const cloudRes = await withTimeout(
+      fetch("https://text.pollinations.ai/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "openai",
+          messages: [
+            ...systemInstruction ? [{ role: "system", content: systemInstruction }] : [],
+            { role: "user", content: fullPrompt }
+          ],
+          temperature: 0.35
+        })
+      }),
+      12e3
+    );
+    if (cloudRes.ok) {
+      const cloudJson = await cloudRes.json();
+      const cloudText = cloudJson?.choices?.[0]?.message?.content?.trim();
+      if (cloudText && cloudText.length > 5) {
+        return formatCleanChatMessage(cloudText);
+      }
+    }
+  } catch (cloudErr) {
+    console.warn("[AI Service] Built-in Cloud LLM warning:", cloudErr?.message || cloudErr);
+  }
   return null;
 }
 function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, businessName, products, matchedProduct) {
@@ -5143,14 +5170,14 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
 \u{1F4B0} \u09AE\u09C2\u09B2\u09CD\u09AF: \u09F3${matchedProduct.price} ${matchedProduct.currency}
 \u{1F4CB} \u09AC\u09BF\u09AC\u09B0\u09A3: ${matchedProduct.description}
 
-\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u098F\u09AC\u0982 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u0964`;
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8? \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u098F\u09AC\u0982 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u0964`;
   }
   const isOneAgentSaaS = systemPrompt.includes("Starter AI Plan") || systemPrompt.includes("1,250") || systemPrompt.includes("\u09E7,\u09E8\u09EB\u09E6") || businessName.toLowerCase().includes("one agent");
   if (isOneAgentSaaS) {
-    const isYearly = q.includes("1 bochor") || q.includes("1 year") || q.includes("12 month") || q.includes("12 mas") || q.includes("\u098F\u0995 \u09AC\u099B\u09B0") || q.includes("\u09E7 \u09AC\u099B\u09B0") || q.includes("\u09E7\u09E8 \u09AE\u09BE\u09B8") || q.includes("yearly") || q.includes("annual") || q.includes("bochorer") || q.includes("bochor") || q.includes("\u09AC\u099B\u09B0");
-    const isSixMonths = q.includes("6 mas") || q.includes("6 month") || q.includes("\u09EC \u09AE\u09BE\u09B8") || q.includes("\u099B\u09DF \u09AE\u09BE\u09B8");
-    const isThreeMonths = q.includes("3 mas") || q.includes("3 month") || q.includes("\u09E9 \u09AE\u09BE\u09B8") || q.includes("\u09A4\u09BF\u09A8 \u09AE\u09BE\u09B8");
-    const isTwoMonths = q.includes("2 mas") || q.includes("2 month") || q.includes("\u09E8 \u09AE\u09BE\u09B8") || q.includes("\u09A6\u09C1\u0987 \u09AE\u09BE\u09B8");
+    const isYearly = q.includes("1 bochor") || q.includes("1 year") || q.includes("one year") || q.includes("per year") || q.includes("every year") || q.includes("12 month") || q.includes("12 mas") || q.includes("\u098F\u0995 \u09AC\u099B\u09B0") || q.includes("\u09E7 \u09AC\u099B\u09B0") || q.includes("\u09E7\u09E8 \u09AE\u09BE\u09B8") || q.includes("yearly") || q.includes("annual") || q.includes("bochorer") || q.includes("bochor") || q.includes("\u09AC\u099B\u09B0");
+    const isSixMonths = q.includes("6 mas") || q.includes("6 month") || q.includes("six month") || q.includes("\u09EC \u09AE\u09BE\u09B8") || q.includes("\u099B\u09DF \u09AE\u09BE\u09B8");
+    const isThreeMonths = q.includes("3 mas") || q.includes("3 month") || q.includes("three month") || q.includes("\u09E9 \u09AE\u09BE\u09B8") || q.includes("\u09A4\u09BF\u09A8 \u09AE\u09BE\u09B8");
+    const isTwoMonths = q.includes("2 mas") || q.includes("2 month") || q.includes("two month") || q.includes("\u09E8 \u09AE\u09BE\u09B8") || q.includes("\u09A6\u09C1\u0987 \u09AE\u09BE\u09B8");
     if (isYearly) {
       return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
 
@@ -5176,7 +5203,7 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AA\u09C7\u099C\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (q.includes("voice") || q.includes("audio") || q.includes("chobi") || q.includes("photo") || q.includes("image") || q.includes("picture") || q.includes("\u09AD\u09DF\u09C7\u09B8") || q.includes("\u0985\u09A1\u09BF\u0993") || q.includes("\u099B\u09AC\u09BF")) {
-      return `\u099C\u09CD\u09AC\u09C0, \u0985\u09AC\u09B6\u09CD\u09AF\u0987! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AC\u09BE\u0982\u09B2\u09BE \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964
+      return `\u099C\u09CD\u09AC\u09C0, \u0985\u09AC\u09B6\u09CD\u09AF\u0987! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AC\u09BE\u0982\u09B2\u09BE, \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AC\u09BE \u0987\u0982\u09B0\u09C7\u099C\u09BF \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C\u09C7 \u098F\u099F\u09BF \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
@@ -5197,7 +5224,7 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
 
 \u0986\u09AA\u09A8\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u099F\u09BF \u0995\u09BF WordPress \u09A8\u09BE\u0995\u09BF \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0995\u09CB\u09A1\u09C7 \u09A4\u09C8\u09B0\u09BF?`;
     }
-    if (q.includes("ban") || q.includes("risk") || q.includes("limit") || q.includes("official") || q.includes("\u09AC\u09CD\u09AF\u09BE\u09A8") || q.includes("\u099D\u09C1\u0981\u0995\u09BF") || q.includes("\u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09B9\u09AC\u09C7") || q.includes("\u09B2\u09BF\u09AE\u09BF\u099F")) {
+    if (q.includes("ban") || q.includes("risk") || q.includes("limit") || q.includes("official") || q.includes("safe") || q.includes("\u09AC\u09CD\u09AF\u09BE\u09A8") || q.includes("\u099D\u09C1\u0981\u0995\u09BF") || q.includes("\u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09B9\u09AC\u09C7") || q.includes("\u09B2\u09BF\u09AE\u09BF\u099F")) {
       return `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C \u09E7\u09E6\u09E6% \u09A8\u09BF\u09B0\u09BE\u09AA\u09A6 \u09A5\u09BE\u0995\u09AC\u09C7! \u0986\u09AE\u09B0\u09BE \u09AE\u09C7\u099F\u09BE\u09B0 \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BF \u09A4\u09BE\u0987 \u09AC\u09CD\u09AF\u09BE\u09A8 \u09B9\u0993\u09DF\u09BE\u09B0 \u0995\u09CB\u09A8\u09CB \u099D\u09C1\u0981\u0995\u09BF \u09A8\u09C7\u0987 \u098F\u09AC\u0982 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09A8\u09BE\u0995\u09BF \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
@@ -5207,83 +5234,125 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF (Starter \u09A8\u09BE\u0995\u09BF Pro) \u09A8\u09C7\u0993\u09DF\u09BE\u09B0 \u0995\u09A5\u09BE \u09AD\u09BE\u09AC\u099B\u09C7\u09A8? \u099C\u09BE\u09A8\u09BE\u09B2\u09C7 \u0986\u09AE\u09BF \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u09B8\u09B9 \u09B9\u09BF\u09B8\u09BE\u09AC\u099F\u09BF \u09AC\u09B2\u09C7 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
     }
-    if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("upay") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09B0\u0995\u09C7\u099F") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F")) {
+    if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("upay") || q.includes("payment") || q.includes("pay") && !q.includes("how much") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09B0\u0995\u09C7\u099F") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F")) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online)-\u098F\u09B0 Billing \u09AE\u09C7\u09A8\u09C1 \u09A5\u09C7\u0995\u09C7 \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6, \u09B0\u0995\u09C7\u099F \u09AC\u09BE \u0989\u09AA\u09BE\u09DF-\u098F \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 TrxID \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u099F\u09CB \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
-    if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
+    if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("demo") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
       return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 (https://www.oneagentbd.online) \u09A8\u09A4\u09C1\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09B2\u09C7\u0987 \u0995\u09CB\u09A8\u09CB \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u099B\u09BE\u09DC\u09BE \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u099C\u0987 \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u099F\u09BF \u099A\u09BE\u09B2\u09C1 \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
-    if (q.includes("connect") || q.includes("setup") || q.includes("kivabe") || q.includes("\u0995\u09BF\u09AD\u09BE\u09AC\u09C7") || q.includes("\u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F") || q.includes("\u09B8\u09C7\u099F\u0986\u09AA") || q.includes("\u0995\u09BE\u099C \u0995\u09B0\u09C7")) {
+    if (q.includes("connect") || q.includes("setup") || q.includes("how it works") || q.includes("how does it work") || q.includes("kivabe") || q.includes("\u0995\u09BF\u09AD\u09BE\u09AC\u09C7") || q.includes("\u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F") || q.includes("\u09B8\u09C7\u099F\u0986\u09AA") || q.includes("\u0995\u09BE\u099C \u0995\u09B0\u09C7")) {
       return `\u09AE\u09BE\u09A4\u09CD\u09B0 \u09E8 \u09AE\u09BF\u09A8\u09BF\u099F\u09C7\u0987 \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09BE \u09AF\u09BE\u09DF! https://www.oneagentbd.online \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 "Connect with Facebook"-\u098F \u09E7 \u0995\u09CD\u09B2\u09BF\u0995 \u0995\u09B0\u09C7 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0993 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8 \u09B8\u09C7\u09AD \u0995\u09B0\u09B2\u09C7\u0987 \u0985\u099F\u09CB \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B6\u09C1\u09B0\u09C1 \u09B9\u09AC\u09C7\u0964
 
 \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0995\u09BF \u0995\u09CB\u09A8\u09CB \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8?`;
     }
-    if (q.includes("price") || q.includes("dam") || q.includes("koto") || q.includes("plan") || q.includes("package") || q.includes("taka") || q.includes("starter") || q.includes("pro") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u0996\u09B0\u099A") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C")) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:
-\u2022 Starter AI Plan: \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)
-\u2022 Pro Business Plan: \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987\u09B8\u09B9 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1)
+    if (q.includes("price") || q.includes("pricing") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("charges") || q.includes("rate") || q.includes("dam") || q.includes("daam") || q.includes("koto") || q.includes("plan") || q.includes("package") || q.includes("taka") || q.includes("tk") || q.includes("bdt") || q.includes("mashe") || q.includes("mash") || q.includes("starter") || q.includes("pro") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u09AE\u09C2\u09B2\u09CD\u09AF") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u0996\u09B0\u099A") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8") || q.includes("\u09AE\u09BE\u09B8\u09BF\u0995") || q.includes("\u09AE\u09BE\u09B8\u09C7")) {
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AE\u09BE\u09B8\u09BF\u0995 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AB\u09BF \u0996\u09C1\u09AC\u0987 \u09B8\u09BE\u09B6\u09CD\u09B0\u09DF\u09C0\u2014\u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:
+\u2022 Starter AI Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09E7\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)
+\u2022 Pro Business Plan: \u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09BE\u09B8\u09C7 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE (\u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987\u09B8\u09B9 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1)
 
-\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09A8\u09BF\u09AC\u09C7\u09A8?`;
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09AC\u09C7\u09A8?`;
     }
-    if (q.includes("service") || q.includes("feature") || q.includes("ki ki") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("\u09AB\u09BF\u099A\u09BE\u09B0") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("details")) {
+    if (q.includes("service") || q.includes("feature") || q.includes("what do you do") || q.includes("ki ki") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("\u09AB\u09BF\u099A\u09BE\u09B0") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("details")) {
       return `\u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u0987\u0964
 
 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 (\u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964
 
 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AA\u09C7\u099C\u099F\u09BF \u09AE\u09C2\u09B2\u09A4 \u0995\u09CB\u09A8 \u09A7\u09B0\u09A8\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A8\u09BF\u09DF\u09C7 \u0995\u09BE\u099C \u0995\u09B0\u09C7?`;
     }
-    if (q.includes("number") || q.includes("phone") || q.includes("call") || q.includes("contact") || q.includes("support") || q.includes("\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0") || q.includes("\u09AB\u09CB\u09A8") || q.includes("\u0995\u09B2") || q.includes("\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997") || q.includes("\u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7")) {
+    if (q.includes("number") || q.includes("phone") || q.includes("call") || q.includes("contact") || q.includes("support") || q.includes("helpline") || q.includes("\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0") || q.includes("\u09AB\u09CB\u09A8") || q.includes("\u0995\u09B2") || q.includes("\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997") || q.includes("\u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7")) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0: +8801601705804 (\u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u2013 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE) \u098F\u09AC\u0982 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F: https://www.oneagentbd.online\u0964
 
 \u0986\u09AA\u09A8\u09BF \u099A\u09BE\u0987\u09B2\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u098F\u0996\u09BE\u09A8\u09C7 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u09A8\u09BF\u09A7\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09B2 \u0995\u09B0\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09AC\u09C7!`;
     }
-    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964
-
-\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 \u098F\u09AC\u0982 \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7\u0964
-
-\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
   }
   const cleanLines = Array.from(
     new Set(
       (systemPrompt || "").split("\n").map((l) => l.trim()).filter(
-        (l) => l.length > 3 && !l.startsWith("===") && !l.startsWith("---") && !l.toLowerCase().startsWith("you are") && !l.startsWith('\u0986\u09AA\u09A8\u09BF "') && !l.toLowerCase().includes("mandatory") && !l.includes("\u0986\u09AC\u09B6\u09CD\u09AF\u09BF\u0995 \u09A8\u09BF\u09DF\u09AE\u09BE\u09AC\u09B2\u09C0") && !l.includes("\u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0")
+        (l) => l.length > 3 && !l.startsWith("===") && !l.startsWith("---") && !l.startsWith("[ONE AGENT BD COMPLETE") && !l.toLowerCase().startsWith("you are") && !l.startsWith('\u0986\u09AA\u09A8\u09BF "') && !l.toLowerCase().includes("mandatory") && !l.includes("\u0986\u09AC\u09B6\u09CD\u09AF\u09BF\u0995 \u09A8\u09BF\u09DF\u09AE\u09BE\u09AC\u09B2\u09C0") && !l.includes("\u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0")
       )
     )
   );
-  const findMerchantLines = (keywords) => {
+  const findMerchantLines = (keywords, maxLines = 4) => {
     const matched = [];
     for (const line of cleanLines) {
       const lower = line.toLowerCase();
       if (keywords.some((kw) => lower.includes(kw))) {
         matched.push(line);
       }
-      if (matched.length >= 4) break;
+      if (matched.length >= maxLines) break;
     }
     return matched.length > 0 ? matched.join("\n") : null;
   };
-  if (q.includes("delivery") || q.includes("charge") || q.includes("courier") || q.includes("\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09A0\u09BE\u09A8\u09CB") || q.includes("dhaka") || q.includes("\u09A2\u09BE\u0995\u09BE") || q.includes("koto din") || q.includes("\u0995\u09A4 \u09A6\u09BF\u09A8")) {
+  const BILINGUAL_CONCEPT_GROUPS = [
+    ["price", "pricing", "cost", "fee", "fees", "subscription", "subscriptions", "how much", "monthly", "every month", "per month", "rate", "charge", "plan", "package", "dam", "daam", "koto", "taka", "tk", "bdt", "\u09A6\u09BE\u09AE", "\u09AE\u09C2\u09B2\u09CD\u09AF", "\u0995\u09A4", "\u099F\u09BE\u0995\u09BE", "\u09AB\u09BF", "\u099A\u09BE\u09B0\u09CD\u099C", "\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8", "\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C", "\u09AE\u09BE\u09B8\u09BF\u0995", "\u09AE\u09BE\u09B8\u09C7", "\u0996\u09B0\u099A", "\u09F3"],
+    ["delivery", "shipping", "courier", "cod", "cash on delivery", "dhaka", "outside dhaka", "inside dhaka", "home delivery", "parcel", "delivari", "\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF", "\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0", "\u09AA\u09BE\u09A0\u09BE\u09A8\u09CB", "\u09A2\u09BE\u0995\u09BE", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7", "\u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8", "\u09B9\u09CB\u09AE \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF"],
+    ["bkash", "nagad", "rocket", "upay", "payment", "pay", "bank", "card", "advance", "\u09AC\u09BF\u0995\u09BE\u09B6", "\u09A8\u0997\u09A6", "\u09B0\u0995\u09C7\u099F", "\u0989\u09AA\u09BE\u09DF", "\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F", "\u0985\u09CD\u09AF\u09BE\u09A1\u09AD\u09BE\u09A8\u09CD\u09B8", "\u09AC\u09CD\u09AF\u09BE\u0982\u0995"],
+    ["return", "refund", "exchange", "replace", "warranty", "guarantee", "policy", "\u09B0\u09BF\u099F\u09BE\u09B0\u09CD\u09A8", "\u09B0\u09BF\u09AB\u09BE\u09A8\u09CD\u09A1", "\u099A\u09C7\u099E\u09CD\u099C", "\u09AA\u09B0\u09BF\u09AC\u09B0\u09CD\u09A4\u09A8", "\u0993\u09DF\u09BE\u09B0\u09C7\u09A8\u09CD\u099F\u09BF", "\u0997\u09CD\u09AF\u09BE\u09B0\u09BE\u09A8\u09CD\u099F\u09BF", "\u09AB\u09C7\u09B0\u09A4"],
+    ["size", "color", "colour", "fabric", "material", "quality", "stock", "available", "original", "authentic", "\u09B8\u09BE\u0987\u099C", "\u0995\u09BE\u09B2\u09BE\u09B0", "\u09B0\u0999", "\u0995\u09BE\u09AA\u09DC", "\u0995\u09CB\u09DF\u09BE\u09B2\u09BF\u099F\u09BF", "\u09B8\u09CD\u099F\u0995", "\u0985\u09B0\u09BF\u099C\u09BF\u09A8\u09BE\u09B2"],
+    ["address", "location", "where", "shop", "store", "showroom", "office", "branch", "kothay", "thikana", "\u09A0\u09BF\u0995\u09BE\u09A8\u09BE", "\u09B2\u09CB\u0995\u09C7\u09B6\u09A8", "\u0995\u09CB\u09A5\u09BE\u09DF", "\u09B6\u09CB\u09B0\u09C1\u09AE", "\u0985\u09AB\u09BF\u09B8", "\u09A6\u09CB\u0995\u09BE\u09A8"],
+    ["phone", "number", "call", "contact", "whatsapp", "helpline", "support", "\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0", "\u09AB\u09CB\u09A8", "\u0995\u09B2", "\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997", "\u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8", "\u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F"],
+    ["discount", "offer", "coupon", "promo", "less", "kom", "\u0995\u09C1\u09AA\u09A8", "\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F", "\u0985\u09AB\u09BE\u09B0", "\u099B\u09BE\u09DC", "\u099B\u09BE\u09A1\u09BC"]
+  ];
+  const expandedSearchTerms = /* @__PURE__ */ new Set();
+  const queryWords = q.split(/[^a-z0-9\u0980-\u09FF]+/i).map((w) => w.trim()).filter((w) => w.length >= 2 && !["how", "what", "the", "for", "and", "are", "you", "can", "please", "tell", "about"].includes(w));
+  for (const w of queryWords) {
+    expandedSearchTerms.add(w);
+  }
+  for (const group of BILINGUAL_CONCEPT_GROUPS) {
+    if (group.some((term) => q.includes(term))) {
+      for (const syn of group) {
+        expandedSearchTerms.add(syn);
+      }
+    }
+  }
+  if (expandedSearchTerms.size > 0 && cleanLines.length > 0) {
+    const scoredLines = cleanLines.map((line) => {
+      const lower = line.toLowerCase();
+      let score = 0;
+      for (const w of queryWords) {
+        if (lower.includes(w)) score += 3;
+      }
+      for (const syn of expandedSearchTerms) {
+        if (lower.includes(syn)) score += 1;
+      }
+      return { line, score };
+    }).filter((item) => item.score >= 2).sort((a, b) => b.score - a.score);
+    if (scoredLines.length > 0) {
+      const topFacts = scoredLines.slice(0, 3).map((item) => item.line).join("\n");
+      return `${topFacts}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u0987 \u09AC\u09BF\u09B7\u09DF\u09C7 \u0986\u09B0\u0993 \u0995\u09BF\u099B\u09C1 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+    }
+  }
+  if (q.includes("delivery") || q.includes("shipping") || q.includes("charge") || q.includes("courier") || q.includes("\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09A0\u09BE\u09A8\u09CB") || q.includes("dhaka") || q.includes("\u09A2\u09BE\u0995\u09BE") || q.includes("koto din") || q.includes("\u0995\u09A4 \u09A6\u09BF\u09A8")) {
     const kbDelivery = findMerchantLines(["\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF", "delivery", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7", "\u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7", "\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0", "courier"]);
     if (kbDelivery) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09B8\u0982\u0995\u09CD\u09B0\u09BE\u09A8\u09CD\u09A4 \u09A4\u09A5\u09CD\u09AF:
 
 ${kbDelivery}
 
-\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u099C\u0987 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
-    return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u098F\u09AC\u0982 \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7! \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+    return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u09A2\u09BE\u0995\u09BE\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7 \u09F3\u09EC\u09E6 (\u09E8\u09EA-\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u098F\u09AC\u0982 \u09A2\u09BE\u0995\u09BE\u09B0 \u09AC\u09BE\u0987\u09B0\u09C7 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u09F3\u09E7\u09E8\u09E6 (\u09E8-\u09E9 \u09A6\u09BF\u09A8)\u0964 \u09B8\u09BE\u09B0\u09BE\u09A6\u09C7\u09B6\u09C7 \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD) \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7!
+
+\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
   }
   if (q.includes("bkash") || q.includes("nagad") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u099F\u09BE\u0995\u09BE \u09AA\u09BE\u09A0\u09BE\u09AC\u09CB") || q.includes("cod")) {
     const kbPay = findMerchantLines(["\u09AC\u09BF\u0995\u09BE\u09B6", "\u09A8\u0997\u09A6", "\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F", "bkash", "nagad", "payment", "\u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF"]);
     if (kbPay) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF:
 
-${kbPay}`;
+${kbPay}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF\u09A4\u09C7 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
-    return `\u0986\u09AE\u09B0\u09BE \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD), \u09AC\u09BF\u0995\u09BE\u09B6 \u098F\u09AC\u0982 \u09A8\u0997\u09A6 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09CD\u09B0\u09B9\u09A3 \u0995\u09B0\u09BF\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
+    return `\u0986\u09AE\u09B0\u09BE \u0995\u09CD\u09AF\u09BE\u09B6 \u0985\u09A8 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF (COD), \u09AC\u09BF\u0995\u09BE\u09B6 \u098F\u09AC\u0982 \u09A8\u0997\u09A6 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09CD\u09B0\u09B9\u09A3 \u0995\u09B0\u09BF\u0964
+
+\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`;
   }
   if (q.includes("order") || q.includes("buy") || q.includes("confirm") || q.includes("\u0985\u09B0\u09CD\u09A1\u09BE\u09B0") || q.includes("\u0995\u09BF\u09A8\u09AC") || q.includes("\u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u0987") || q.includes("\u09A8\u09BF\u09AC\u09CB")) {
     return `\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u09A8\u09BF\u099A\u09C7\u09B0 \u09A4\u09A5\u09CD\u09AF\u0997\u09C1\u09B2\u09CB \u09B2\u09BF\u0996\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8:
@@ -5308,18 +5377,31 @@ ${kbOverview}
 
 \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8?`;
   }
-  return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8, \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u09A8, \u0986\u09AE\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
+  if (isOneAgentSaaS) {
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 \u098F\u09AC\u0982 \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+  }
+  return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8, \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u09A8, \u0986\u09AE\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
 }
 async function generateAIReply(params) {
-  const profile = db.getProfileById(params.userId);
+  const profile = params.profile || db.getProfileById(params.userId);
   const businessName = params.channelName || profile?.full_name || "One Agent BD";
-  const defaultSavedPrompt = (db.getSettings()?.default_system_prompt || "").trim();
-  const adminCustomPrompt = profile?.role === "admin" ? db.getProfiles().find(
+  const isAdminOrOfficialSaaS = profile?.role === "admin" || params.userId === "usr_admin_1" || params.userId === "usr_admin_001" || params.userId === "saas_official" || businessName.toLowerCase().includes("one agent");
+  const defaultSavedPrompt = isAdminOrOfficialSaaS ? (db.getSettings()?.default_system_prompt || "").trim() : "";
+  const adminCustomPrompt = isAdminOrOfficialSaaS ? db.getProfiles().find(
     (p) => p.role === "admin" && p.system_prompt && !p.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !p.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month")
   )?.system_prompt || "" : "";
-  const rawSystemPrompt = params.overrideSystemPrompt && params.overrideSystemPrompt.trim() || (profile?.system_prompt && !profile.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !profile.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") ? profile.system_prompt.trim() : "") || defaultSavedPrompt || adminCustomPrompt || profile?.system_prompt && profile.system_prompt.trim() || `You are the polite, helpful customer service AI agent for ${businessName}.`;
-  const systemPrompt = rawSystemPrompt.replace(/in 1-2 clear English sentences/gi, "in clear, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 clear, courteous English sentences/gi, "in clear, courteous Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 polite, clear English sentences/gi, "in polite, clear Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 informative, concise English sentences/gi, "in informative, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in clear, friendly English/gi, "in clear, friendly Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 concise English sentences/gi, "in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/Respond politely and directly in 1-2 concise English sentences\./gi, "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964");
-  const isOneAgentSaaS = businessName.toLowerCase().includes("one agent") || systemPrompt.includes("Starter AI Plan") || systemPrompt.includes("oneagentbd.online") || profile?.role === "admin";
+  const rawSystemPrompt = params.overrideSystemPrompt && params.overrideSystemPrompt.trim() || (profile?.system_prompt && !profile.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !profile.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") ? profile.system_prompt.trim() : "") || defaultSavedPrompt || adminCustomPrompt || profile?.system_prompt && profile.system_prompt.trim() || `\u0986\u09AA\u09A8\u09BF "${businessName}"-\u098F\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09B8\u09C7\u09B2\u09B8 AI \u0985\u09CD\u09AF\u09BE\u09B8\u09BF\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F\u0964 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u0986\u09A8\u09CD\u09A4\u09B0\u09BF\u0995 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964`;
+  let systemPrompt = rawSystemPrompt.replace(/in 1-2 clear English sentences/gi, "in clear, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 clear, courteous English sentences/gi, "in clear, courteous Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 polite, clear English sentences/gi, "in polite, clear Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 informative, concise English sentences/gi, "in informative, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in clear, friendly English/gi, "in clear, friendly Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 concise English sentences/gi, "in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/Respond politely and directly in 1-2 concise English sentences\./gi, "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964");
+  if (!isAdminOrOfficialSaaS) {
+    systemPrompt = systemPrompt.replace(/-\s*WhatsApp,\s*Facebook Messenger ও Instagram 24\/7 AI অটো-রিপ্লাই[^\n]*\n?/gi, "").replace(/-\s*স্টার্টার প্ল্যান:\s*৳১,২৫০\/মাস[^\n]*\n?/gi, "").replace(/ডিজিটাল সার্ভিস তাৎক্ষণিক অ্যাক্টিভ হয়।\s*/gi, "");
+  }
+  const isOneAgentSaaS = isAdminOrOfficialSaaS;
   const activeCoupons = (db.getCoupons() || []).filter((c) => c.is_active);
   const couponSummary = activeCoupons.length > 0 ? activeCoupons.slice(0, 4).map(
     (c) => `${c.code} (${c.discount_type === "percentage" ? `${c.discount_value}% \u099B\u09BE\u09DC` : `\u09F3${c.discount_value} \u099B\u09BE\u09DC`})`
@@ -8365,7 +8447,7 @@ function getSaasBilingualFallback(question, lang, hasImage, hasAudio) {
   if (hasAudio && (!q || q.length < 3)) {
     return UNCLEAR_VOICE_REPLY;
   }
-  if (q.includes("price") || q.includes("cost") || q.includes("plan") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("tk") || q.includes("1250") || q.includes("1950") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C")) {
+  if (q.includes("price") || q.includes("pricing") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("rate") || q.includes("plan") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("tk") || q.includes("1250") || q.includes("1950") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8")) {
     return lang === "en" ? "One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan \u2014 1,250 TK/month (Includes WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 Products, Auto Order & Courier Booking).\n2) Pro Business Plan \u2014 1,950 TK/month (Includes 3 AI Agents, Voice & Image AI Recognition, Unlimited Products, Multi-Store Sync & Priority 24/7 Support).\nYou can also apply a Coupon Code at checkout!" : "One Agent BD-\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:\n\u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (WhatsApp, Messenger, Instagram \u098F\u09AC\u0982 Website AI Chatbot, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)\u0964\n\u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI \u09B0\u09BF\u0995\u0997\u09A8\u09BF\u09B6\u09A8, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u098F\u09AC\u0982 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09B8\u09CD\u099F\u09CB\u09B0 \u09B8\u09BF\u0999\u09CD\u0995)\u0964\n\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (Coupon Code) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u0993 \u09B0\u09DF\u09C7\u099B\u09C7!";
   }
   if (q.includes("website") || q.includes("widget") || q.includes("embed") || q.includes("script") || q.includes("shopify") || q.includes("wordpress") || q.includes("add") || q.includes("\u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F") || q.includes("\u0993\u09AF\u09BC\u09C7\u09AC\u09B8\u09BE\u0987\u099F")) {
@@ -8590,9 +8672,7 @@ ${profile.system_prompt}
 ` : "";
     const baseKnowledge = isSaasOfficial ? `${ONE_AGENT_SAAS_KNOWLEDGE}
 ${livePlansContext}${adminCustomPrompt}${catalogContext}` : `${profile?.system_prompt || `You are the official AI Sales & Support Assistant for "${config.business_name}".`}
-${catalogContext}
-
-${ONE_AGENT_SAAS_KNOWLEDGE}`;
+${catalogContext}`;
     const recentHistoryText = Array.isArray(history) ? history.slice(-6).map((h) => `${h.sender === "user" ? "Visitor" : "AI Assistant"}: ${h.text || ""}`).join("\n") : "";
     const languageDirective = `
 CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
@@ -8710,6 +8790,41 @@ Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevan
         }
       } catch (geminiErr) {
         console.warn("Gemini multimodal widget fallback:", geminiErr.message);
+      }
+    }
+    if (!aiReplyText && !hasAudio && !hasImage && rawText) {
+      try {
+        const cloudPrompt = `${baseKnowledge}
+
+${languageDirective}
+
+${recentHistoryText ? `Recent Conversation History:
+${recentHistoryText}
+` : ""}Visitor Message: "${rawText}"
+
+Reply naturally like a real human in 2-3 short sentences with \\n\\n paragraph spacing and 1 smart closing follow-up question:`;
+        const cloudRes = await fetch("https://text.pollinations.ai/openai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai",
+            messages: [{ role: "user", content: cloudPrompt }],
+            temperature: 0.35
+          })
+        });
+        if (cloudRes.ok) {
+          const cloudJson = await cloudRes.json();
+          const cText = cloudJson?.choices?.[0]?.message?.content?.trim();
+          if (cText) {
+            aiReplyText = ensureConversationalFollowUp(
+              sanitizeWebsiteBotReply(cText),
+              rawText,
+              isSaasOfficial,
+              merchantProducts.length > 0
+            );
+          }
+        }
+      } catch {
       }
     }
     if (!aiReplyText) {
@@ -9187,7 +9302,7 @@ function getGeminiClient2() {
 }
 function getSaasIntelligentFallback(question, lang) {
   const q = question.toLowerCase();
-  if (q.includes("price") || q.includes("cost") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("fee") || q.includes("pricing") || q.includes("plan") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C")) {
+  if (q.includes("price") || q.includes("cost") || q.includes("fee") || q.includes("fees") || q.includes("subscription") || q.includes("subscriptions") || q.includes("how much") || q.includes("every month") || q.includes("per month") || q.includes("monthly") || q.includes("month") || q.includes("charge") || q.includes("rate") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("pricing") || q.includes("plan") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u09AB\u09BF") || q.includes("\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8")) {
     return lang === "en" ? "We have 2 official plans plus a 2-Day Free Trial: 1) Starter AI Plan \u2014 1,250 TK/month (WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 products, Courier Dispatch) and 2) Pro Business Plan \u2014 1,950 TK/month (3 AI Agents, Voice & Image AI, Unlimited Products, Multi-Store Sync). You can also apply a Coupon Code at checkout!" : "\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7: \u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (WhatsApp, Messenger, Instagram \u0993 Website AI Chatbot, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982) \u098F\u09AC\u0982 \u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI \u09B0\u09BF\u0995\u0997\u09A8\u09BF\u09B6\u09A8, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F)\u0964 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u0993 \u09B0\u09DF\u09C7\u099B\u09C7!";
   }
   if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("2 day") || q.includes("test") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
@@ -9220,11 +9335,9 @@ aiChatRouter.post("/hero-query", async (req, res) => {
       return res.json({ reply: couponReply, source: "coupon-generator", detectedLanguage: lang });
     }
     try {
-      const ai = getGeminiClient2();
-      if (ai) {
-        const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "User" : "One Agent BD AI"}: ${h.text}`).join("\n") : "";
-        const languageInstruction = lang === "en" ? "CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences)." : "CRITICAL LANGUAGE RULE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u0985\u09A5\u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u098F \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964";
-        const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
+      const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "User" : "One Agent BD AI"}: ${h.text}`).join("\n") : "";
+      const languageInstruction = lang === "en" ? "CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences)." : "CRITICAL LANGUAGE RULE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u0985\u09A5\u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u098F \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964";
+      const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
 
 Channel UI: ${platform === "whatsapp" ? "WhatsApp Business" : "Facebook Messenger"}
 ${languageInstruction}
@@ -9240,6 +9353,8 @@ ${formattedHistory || "(No previous messages)"}
 Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing and 1 closing follow-up question):`;
+      const ai = getGeminiClient2();
+      if (ai) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
@@ -9257,6 +9372,26 @@ Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing a
           } catch (modelErr) {
             console.warn(`[Hero AI Chat] Model ${model} failed:`, modelErr?.message || modelErr);
           }
+        }
+      }
+      const cloudRes = await fetch("https://text.pollinations.ai/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "openai",
+          messages: [{ role: "user", content: fullPrompt }],
+          temperature: 0.35
+        })
+      });
+      if (cloudRes.ok) {
+        const cloudJson = await cloudRes.json();
+        const cReply = cloudJson?.choices?.[0]?.message?.content?.trim();
+        if (cReply) {
+          return res.json({
+            reply: ensureConversationalFollowUp(sanitizeWebsiteBotReply(cReply), trimmedMsg, true, false),
+            source: "cloud-llm",
+            detectedLanguage: lang
+          });
         }
       }
     } catch (geminiErr) {
@@ -9291,10 +9426,8 @@ aiChatRouter.post("/business-sandbox", async (req, res) => {
     const trimmedMsg = message.trim();
     const lang = detectLanguageMode(trimmedMsg);
     try {
-      const ai = getGeminiClient2();
-      if (ai) {
-        const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "Customer" : businessName + " AI"}: ${h.text}`).join("\n") : "";
-        const systemPrompt = `You are the autonomous AI Sales & Customer Support Agent representing "${businessName}" (an online ${businessCategory} business).
+      const formattedHistory = Array.isArray(history) ? history.slice(-4).map((h) => `${h.sender === "customer" ? "Customer" : businessName + " AI"}: ${h.text}`).join("\n") : "";
+      const systemPrompt = `You are the autonomous AI Sales & Customer Support Agent representing "${businessName}" (an online ${businessCategory} business).
 You are answering a real customer inquiry on ${platform === "whatsapp" ? "WhatsApp" : "Facebook Messenger"}.
 
 Business Rules & Details configured by the store owner:
@@ -9309,8 +9442,9 @@ RULES OF ENGAGEMENT:
 1. Always adhere strictly to the store's products, prices, and delivery terms provided above.
 2. If the customer is inquiring about price, size, or availability, provide exact details based on the catalog and prompt them politely to share delivery details if they want to order.
 3. If the customer is providing their delivery address and phone number to place an order, celebrate their order, summarize the items, delivery charge, total price in BDT, and confirm that their order is booked!
-4. CRITICAL LANGUAGE RULE: ${lang === "en" ? "The customer asked in English. Respond in clear, natural, and polite English." : "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u098F \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964"}`;
-        const fullPrompt = `${systemPrompt}
+4. Keep your answer concise (2-3 short sentences), put an empty line (\\n\\n) before your closing follow-up question, and always ask 1 relevant follow-up question!
+5. CRITICAL LANGUAGE RULE: ${lang === "en" ? "The customer asked in English. Respond in clear, natural, and polite English." : "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla) \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u098F \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964"}`;
+      const fullPrompt = `${systemPrompt}
 
 Chat History:
 ${formattedHistory || "(No previous messages)"}
@@ -9318,7 +9452,9 @@ ${formattedHistory || "(No previous messages)"}
 Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
-        let reply2 = void 0;
+      let reply2 = void 0;
+      const ai = getGeminiClient2();
+      if (ai) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
@@ -9331,25 +9467,43 @@ Respond directly as ${businessName}'s AI agent:`;
             console.warn(`[Sandbox AI] Model ${model} failed:`, modelErr?.message || modelErr);
           }
         }
-        let detectedOrder2 = null;
-        const phoneMatch = trimmedMsg.match(/(?:(?:\+|00)88|01)?\d{9,11}/);
-        const hasAddress = /mirpur|dhanmondi|gulshan|uttara|banani|chittagong|sylhet|khulna|rajshahi|barisal|rangpur|house|road|block|sector|dhaka|ঢাকা|মিরপুর|ধানমন্ডি|উত্তরা/i.test(trimmedMsg);
-        if (phoneMatch || hasAddress || /confirm|order|buy|purchase|অর্ডার/i.test(trimmedMsg)) {
-          detectedOrder2 = {
-            detected: true,
-            customerPhone: phoneMatch ? phoneMatch[0] : "Identified in chat",
-            addressSnippet: hasAddress ? "Extracted from chat" : "Mentioned by customer",
-            paymentMethod: /cash|cod|ক্যাশ/i.test(trimmedMsg) ? "Cash on Delivery" : "Online / Mobile Banking",
-            summary: `Automated order signal captured for ${businessName}`
-          };
+      }
+      if (!reply2) {
+        const cloudRes = await fetch("https://text.pollinations.ai/openai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: fullPrompt }
+            ],
+            temperature: 0.35
+          })
+        });
+        if (cloudRes.ok) {
+          const cloudJson = await cloudRes.json();
+          reply2 = cloudJson?.choices?.[0]?.message?.content?.trim();
         }
-        if (reply2) {
-          return res.json({
-            reply: ensureConversationalFollowUp(formatCleanChatMessage(reply2), trimmedMsg, false, true),
-            detectedOrder: detectedOrder2,
-            source: "gemini"
-          });
-        }
+      }
+      let detectedOrder2 = null;
+      const phoneMatch = trimmedMsg.match(/(?:(?:\+|00)88|01)?\d{9,11}/);
+      const hasAddress = /mirpur|dhanmondi|gulshan|uttara|banani|chittagong|sylhet|khulna|rajshahi|barisal|rangpur|house|road|block|sector|dhaka|ঢাকা|মিরপুর|ধানমন্ডি|উত্তরা/i.test(trimmedMsg);
+      if (phoneMatch || hasAddress || /confirm|order|buy|purchase|অর্ডার/i.test(trimmedMsg)) {
+        detectedOrder2 = {
+          detected: true,
+          customerPhone: phoneMatch ? phoneMatch[0] : "Identified in chat",
+          addressSnippet: hasAddress ? "Extracted from chat" : "Mentioned by customer",
+          paymentMethod: /cash|cod|ক্যাশ/i.test(trimmedMsg) ? "Cash on Delivery" : "Online / Mobile Banking",
+          summary: `Automated order signal captured for ${businessName}`
+        };
+      }
+      if (reply2) {
+        return res.json({
+          reply: ensureConversationalFollowUp(formatCleanChatMessage(reply2), trimmedMsg, false, true),
+          detectedOrder: detectedOrder2,
+          source: "gemini"
+        });
       }
     } catch (geminiErr) {
       console.warn("[Business Sandbox AI] Gemini error, falling back to local simulator:", geminiErr);
