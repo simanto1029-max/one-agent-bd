@@ -442,6 +442,129 @@ async function sendMetaMessage(channel: Channel, recipientId: string, text: stri
   }
 }
 
+export async function sendManualMetaMessage(
+  channel: Channel,
+  recipientId: string,
+  payload: {
+    text?: string;
+    imageBase64?: string;
+    imageMimeType?: string;
+    videoBase64?: string;
+    videoMimeType?: string;
+    audioBase64?: string;
+    audioMimeType?: string;
+  }
+): Promise<void> {
+  if (!channel.access_token || channel.access_token.includes('demo')) {
+    console.log(
+      `[Meta Manual Simulation] Outbound ${channel.platform} reply to ${recipientId}: text="${payload.text || ''}" media=${Boolean(
+        payload.imageBase64 || payload.videoBase64 || payload.audioBase64
+      )}`
+    );
+    return;
+  }
+
+  try {
+    const hasMedia = Boolean(payload.imageBase64 || payload.videoBase64 || payload.audioBase64);
+    const mediaType: 'image' | 'video' | 'audio' | null = payload.imageBase64
+      ? 'image'
+      : payload.videoBase64
+      ? 'video'
+      : payload.audioBase64
+      ? 'audio'
+      : null;
+    const rawBase64 = payload.imageBase64 || payload.videoBase64 || payload.audioBase64 || '';
+    const mimeType =
+      payload.imageMimeType ||
+      payload.videoMimeType ||
+      payload.audioMimeType ||
+      (mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'audio/ogg');
+
+    if (channel.platform === 'whatsapp') {
+      const msgUrl = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
+
+      if (hasMedia && mediaType && rawBase64) {
+        const mediaUploadUrl = `https://graph.facebook.com/v21.0/${channel.identifier}/media`;
+        const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, '');
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        const ext = mimeType.split('/')[1]?.split(';')[0] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'ogg');
+        const form = new FormData();
+        form.append('messaging_product', 'whatsapp');
+        form.append('type', mimeType.split(';')[0]);
+        form.append('file', new Blob([buffer], { type: mimeType.split(';')[0] }), `attachment.${ext}`);
+
+        const uploadRes = await fetch(mediaUploadUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${channel.access_token}`
+          },
+          body: form
+        });
+
+        const uploadData: any = await uploadRes.json().catch(() => ({}));
+        if (uploadRes.ok && uploadData?.id) {
+          const mediaObj: any = { id: uploadData.id };
+          if (payload.text && (mediaType === 'image' || mediaType === 'video')) {
+            mediaObj.caption = payload.text;
+          }
+          await fetch(msgUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${channel.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: recipientId,
+              type: mediaType,
+              [mediaType]: mediaObj
+            })
+          });
+          if (mediaType === 'audio' && payload.text) {
+            await sendMetaMessage(channel, recipientId, payload.text);
+          }
+          return;
+        }
+      }
+
+      if (payload.text) {
+        await sendMetaMessage(channel, recipientId, payload.text);
+      }
+    } else if (channel.platform === 'messenger' || channel.platform === 'instagram') {
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${channel.access_token}`;
+
+      if (hasMedia && mediaType && rawBase64) {
+        const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, '');
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        const ext = mimeType.split('/')[1]?.split(';')[0] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'mp4');
+        const form = new FormData();
+        form.append('recipient', JSON.stringify({ id: recipientId }));
+        form.append(
+          'message',
+          JSON.stringify({
+            attachment: {
+              type: mediaType,
+              payload: { is_reusable: true }
+            }
+          })
+        );
+        form.append('filedata', new Blob([buffer], { type: mimeType.split(';')[0] }), `attachment.${ext}`);
+
+        await fetch(url, {
+          method: 'POST',
+          body: form
+        }).catch((err) => console.error(`[${channel.platform} Media Upload Error]`, err));
+      }
+
+      if (payload.text) {
+        await sendMetaMessage(channel, recipientId, payload.text);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send manual media/voice via Meta Graph API:', err);
+  }
+}
+
 // ----------------------------------------------------------------------------
 // FACEBOOK PAGE & INSTAGRAM COMMENT AUTO-REPLY + PRIVATE INBOX DM
 // ----------------------------------------------------------------------------

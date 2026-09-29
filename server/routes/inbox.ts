@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db, Message } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
-import { handleInboundWebhook } from '../services/metaService.js';
+import { handleInboundWebhook, sendManualMetaMessage } from '../services/metaService.js';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
 import { summarizeConversation } from '../services/aiService.js';
 
@@ -124,8 +124,8 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
   });
 });
 
-// POST /api/inbox/reply - Manual agent reply
-inboxRouter.post('/reply', (req: Request, res: Response) => {
+// POST /api/inbox/reply - Manual agent reply (supports text, image, video, and voice note)
+inboxRouter.post('/reply', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -136,20 +136,77 @@ inboxRouter.post('/reply', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Subscription expired. Please renew to send messages.' });
   }
 
-  const { customerId, customerName, platform, channelId, messageText } = req.body;
-  if (!customerId || !platform || !messageText) {
-    return res.status(400).json({ error: 'customerId, platform, and messageText are required' });
+  const {
+    customerId,
+    customerName,
+    platform,
+    channelId,
+    messageText,
+    imageBase64,
+    imageMimeType,
+    videoBase64,
+    videoMimeType,
+    audioBase64,
+    audioMimeType
+  } = req.body;
+
+  const hasText = Boolean(messageText && String(messageText).trim());
+  const hasImage = Boolean(imageBase64);
+  const hasVideo = Boolean(videoBase64);
+  const hasVoice = Boolean(audioBase64);
+
+  if (!customerId || !platform || (!hasText && !hasImage && !hasVideo && !hasVoice)) {
+    return res.status(400).json({
+      error: 'customerId, platform, and at least one of messageText, image, video, or voice are required'
+    });
+  }
+
+  const fallbackText = hasText
+    ? String(messageText).trim()
+    : hasVoice
+    ? '🎙️ Voice Message'
+    : hasVideo
+    ? '🎬 Sent a Video'
+    : hasImage
+    ? '📷 Sent a Photo'
+    : '';
+
+  // Dispatch to real connected Meta channel if available
+  const userChannels = db.getChannels(user.id);
+  const activeChannel =
+    (channelId ? userChannels.find((c) => c.id === channelId) : undefined) ||
+    userChannels.find((c) => c.platform === platform && c.is_active);
+
+  if (activeChannel) {
+    await sendManualMetaMessage(activeChannel, customerId, {
+      text: hasText ? String(messageText).trim() : undefined,
+      imageBase64,
+      imageMimeType,
+      videoBase64,
+      videoMimeType,
+      audioBase64,
+      audioMimeType
+    });
   }
 
   const outbound: Message = db.createMessage({
     id: `msg_${Date.now()}_agent_${Math.random().toString(36).substring(2, 6)}`,
     user_id: user.id,
-    channel_id: channelId,
+    channel_id: activeChannel?.id || channelId,
     platform,
     customer_id: customerId,
     customer_name: customerName,
     direction: 'outbound',
-    message_text: messageText.trim(),
+    message_text: fallbackText,
+    has_image: hasImage,
+    image_base64: hasImage ? String(imageBase64) : undefined,
+    image_mime_type: hasImage ? imageMimeType || 'image/jpeg' : undefined,
+    has_video: hasVideo,
+    video_base64: hasVideo ? String(videoBase64) : undefined,
+    video_mime_type: hasVideo ? videoMimeType || 'video/mp4' : undefined,
+    has_voice: hasVoice,
+    audio_base64: hasVoice ? String(audioBase64) : undefined,
+    audio_mime_type: hasVoice ? audioMimeType || 'audio/webm' : undefined,
     is_ai_reply: false,
     status: 'sent',
     created_at: new Date().toISOString()

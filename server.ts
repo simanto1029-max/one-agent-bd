@@ -31,13 +31,13 @@ export const app = express();
 // Parse JSON and urlencoded request bodies with rawBody capture for Meta webhook signature verification
 app.use(
   express.json({
-    limit: '25mb',
+    limit: '50mb',
     verify: (req: any, _res, buf) => {
       req.rawBody = buf;
     }
   })
 );
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // CORS / security headers
 app.use((req, res, next) => {

@@ -773,7 +773,13 @@ export const api = {
     customerName?: string;
     platform: 'whatsapp' | 'messenger' | 'instagram';
     channelId?: string;
-    messageText: string;
+    messageText?: string;
+    imageBase64?: string;
+    imageMimeType?: string;
+    videoBase64?: string;
+    videoMimeType?: string;
+    audioBase64?: string;
+    audioMimeType?: string;
   }): Promise<Message> {
     return fetchJson<Message>('/api/inbox/reply', {
       method: 'POST',
@@ -786,7 +792,13 @@ export const api = {
     customerName?: string;
     platform: 'whatsapp' | 'messenger' | 'instagram';
     channelId?: string;
-    messageText: string;
+    messageText?: string;
+    imageBase64?: string;
+    imageMimeType?: string;
+    videoBase64?: string;
+    videoMimeType?: string;
+    audioBase64?: string;
+    audioMimeType?: string;
   }): Promise<Message> {
     return this.sendManualReply(data);
   },

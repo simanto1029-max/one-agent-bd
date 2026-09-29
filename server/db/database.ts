@@ -246,6 +246,9 @@ export interface Message {
   image_url?: string;
   image_base64?: string;
   image_mime_type?: string;
+  has_video?: boolean;
+  video_base64?: string;
+  video_mime_type?: string;
   created_at: string;
 }
 

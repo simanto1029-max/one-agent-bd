@@ -28,7 +28,9 @@ import {
   ShieldCheck,
   ArrowUpRight,
   FileText,
-  X
+  X,
+  Video,
+  Trash2
 } from 'lucide-react';
 import { api } from '../../api';
 import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
@@ -72,12 +74,25 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   const [simImageUrl, setSimImageUrl] = useState<string>('');
   const [simulating, setSimulating] = useState(false);
 
-  // Voice recording state
+  // Voice recording state (Simulator)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [inboxToast, setInboxToast] = useState<string | null>(null);
   const audioRecorderRef = useRef<BrowserAudioRecorder | null>(null);
   const recordTimerRef = useRef<any>(null);
+
+  // Direct Composer Media (Image / Video from device storage) & WhatsApp-style Voice state
+  const [replyMedia, setReplyMedia] = useState<{
+    type: 'image' | 'video';
+    base64: string;
+    mimeType: string;
+    fileName: string;
+  } | null>(null);
+  const replyMediaInputRef = useRef<HTMLInputElement>(null);
+  const [isReplyRecording, setIsReplyRecording] = useState(false);
+  const [replyRecordingSeconds, setReplyRecordingSeconds] = useState(0);
+  const replyAudioRecorderRef = useRef<BrowserAudioRecorder | null>(null);
+  const replyRecordTimerRef = useRef<any>(null);
 
   // Image preview modal
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -126,6 +141,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   useEffect(() => {
     setConversationSummary(null);
     setShowSummaryPanel(false);
+    setReplyMedia(null);
+    if (isReplyRecording && replyAudioRecorderRef.current) {
+      clearInterval(replyRecordTimerRef.current);
+      replyAudioRecorderRef.current.stop().catch(() => {});
+      setIsReplyRecording(false);
+      setReplyRecordingSeconds(0);
+    }
   }, [selectedConvKey]);
 
   useEffect(() => {
@@ -232,21 +254,111 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
     }
   };
 
-  const handleSendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedConv || !replyText.trim() || sendingReply) return;
-
+  const handleSelectReplyMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
+      const isVideo = file.type.startsWith('video/');
+      const base64 = await blobToBase64(file);
+      setReplyMedia({
+        type: isVideo ? 'video' : 'image',
+        base64,
+        mimeType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        fileName: file.name
+      });
+    } catch (err) {
+      console.error('Failed to read selected media:', err);
+      setInboxToast('Could not read file from device storage.');
+      setTimeout(() => setInboxToast(null), 3500);
+    } finally {
+      if (replyMediaInputRef.current) {
+        replyMediaInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleStartReplyVoice = async () => {
+    if (!selectedConv || sendingReply) return;
+    try {
+      const recorder = new BrowserAudioRecorder();
+      replyAudioRecorderRef.current = recorder;
+      await recorder.start();
+      setIsReplyRecording(true);
+      setReplyRecordingSeconds(0);
+      replyRecordTimerRef.current = setInterval(() => {
+        setReplyRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      setInboxToast(err?.message || 'Microphone access denied. Please allow microphone permission.');
+      setTimeout(() => setInboxToast(null), 3500);
+    }
+  };
+
+  const handleCancelReplyVoice = async () => {
+    clearInterval(replyRecordTimerRef.current);
+    setIsReplyRecording(false);
+    setReplyRecordingSeconds(0);
+    if (replyAudioRecorderRef.current) {
+      try {
+        await replyAudioRecorderRef.current.stop();
+      } catch {
+        // ignore
+      }
+      replyAudioRecorderRef.current = null;
+    }
+  };
+
+  const handleSendReplyVoice = async () => {
+    if (!selectedConv || !replyAudioRecorderRef.current || sendingReply) return;
+    try {
+      clearInterval(replyRecordTimerRef.current);
+      setIsReplyRecording(false);
       setSendingReply(true);
-      const text = replyText.trim();
-      setReplyText('');
+      const recorded = await replyAudioRecorderRef.current.stop();
+      replyAudioRecorderRef.current = null;
+      setReplyRecordingSeconds(0);
 
       await api.sendReply({
         customerId: selectedConv.customerId,
         customerName: selectedConv.customerName,
         platform: selectedConv.platform,
         channelId: selectedConv.channelId,
-        messageText: text
+        audioBase64: recorded.base64,
+        audioMimeType: recorded.mimeType
+      });
+
+      await loadInbox();
+      scrollToBottom();
+    } catch (err) {
+      console.error('Failed to send voice reply:', err);
+      setInboxToast('Failed to send voice message.');
+      setTimeout(() => setInboxToast(null), 3500);
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedConv || (!replyText.trim() && !replyMedia) || sendingReply) return;
+
+    try {
+      setSendingReply(true);
+      const text = replyText.trim();
+      const mediaToSend = replyMedia;
+      setReplyText('');
+      setReplyMedia(null);
+
+      await api.sendReply({
+        customerId: selectedConv.customerId,
+        customerName: selectedConv.customerName,
+        platform: selectedConv.platform,
+        channelId: selectedConv.channelId,
+        messageText: text || undefined,
+        imageBase64: mediaToSend?.type === 'image' ? mediaToSend.base64 : undefined,
+        imageMimeType: mediaToSend?.type === 'image' ? mediaToSend.mimeType : undefined,
+        videoBase64: mediaToSend?.type === 'video' ? mediaToSend.base64 : undefined,
+        videoMimeType: mediaToSend?.type === 'video' ? mediaToSend.mimeType : undefined
       });
 
       await loadInbox();
@@ -745,19 +857,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                   type="button"
                   onClick={handleSummarizeConversation}
                   disabled={summarizing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 disabled:opacity-60 text-white text-[11px] sm:text-xs font-extrabold shadow-xs shadow-[#7F22FE]/25 transition-all cursor-pointer whitespace-nowrap"
-                  title="এই কাস্টমারের সাথে কী কী কথা হয়েছে এবং কনভারসেশন কোন পর্যায়ে আছে তা এক ক্লিকে দেখুন"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 disabled:opacity-60 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                  title="এই কাস্টমারের সাথে কী কী কথা হয়েছে এবং কনভারসেশন কোন পর্যায়ে আছে তা দেখুন"
                 >
                   {summarizing ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
                   ) : (
-                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    <FileText className="w-3 h-3 shrink-0" />
                   )}
-                  <span>{summarizing ? 'Summarizing...' : 'Conversation Summarize'}</span>
+                  <span>{summarizing ? 'Summarizing...' : 'Summarize'}</span>
                 </button>
 
-                <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/50 border border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 text-[11px] font-bold whitespace-nowrap">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/50 border border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 text-[11px] font-bold whitespace-nowrap">
+                  <Sparkles className="w-3 h-3 shrink-0" />
                   <span>AI Auto-Reply Active</span>
                 </div>
               </div>
@@ -954,8 +1066,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
               ref={threadContainerRef}
               className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-3.5 bg-neutral-50/50 dark:bg-neutral-950/40"
             >
-              {/* Date Divider + Inline Summarize Button */}
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-white/90 dark:bg-neutral-900/90 border border-neutral-200/70 dark:border-neutral-800 rounded-xl px-3 py-2 shadow-2xs">
+              {/* Date Divider + Compact Summarize Button */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-white/90 dark:bg-neutral-900/90 border border-neutral-200/70 dark:border-neutral-800 rounded-xl px-3 py-1.5 shadow-2xs">
                 <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
                   Conversation History · {selectedConv.messages.length} Messages Synced
                 </span>
@@ -963,10 +1075,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                   type="button"
                   onClick={handleSummarizeConversation}
                   disabled={summarizing}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-100 hover:bg-[#7F22FE] text-[#7F22FE] hover:text-white dark:bg-violet-950/80 dark:text-purple-300 dark:hover:bg-[#7F22FE] dark:hover:text-white text-[11px] font-extrabold transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-violet-100 hover:bg-[#7F22FE] text-[#7F22FE] hover:text-white dark:bg-violet-950/80 dark:text-purple-300 dark:hover:bg-[#7F22FE] dark:hover:text-white text-[11px] font-bold transition-all cursor-pointer"
                 >
                   <FileText className="w-3 h-3" />
-                  <span>{summarizing ? 'Summarizing...' : '✨ Conversation Summarize (চ্যাট সামারি দেখুন)'}</span>
+                  <span>{summarizing ? 'Summarizing...' : 'Summarize'}</span>
                 </button>
               </div>
 
@@ -1046,7 +1158,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                                     ? `data:${m.image_mime_type || 'image/jpeg'};base64,${m.image_base64}`
                                     : '')
                                 }
-                                alt="Product"
+                                alt="Attachment"
                                 className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                               <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
@@ -1056,25 +1168,47 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                             </div>
                             <span className="text-[10px] opacity-80 block mt-1">
                               {isOutbound
-                                ? 'Official Product Photo Attached by AI'
+                                ? m.is_ai_reply
+                                  ? 'Official Product Photo Attached by AI'
+                                  : 'Sent Photo'
                                 : 'Customer Sent Product Picture'}
                             </span>
                           </div>
                         )}
 
-                        {/* Inbound Voice Message & Audio Player */}
-                        {!isOutbound && m.has_voice && (
+                        {/* Attached Video */}
+                        {m.has_video && m.video_base64 && (
+                          <div className="mb-2.5">
+                            <video
+                              controls
+                              className="w-full max-w-xs max-h-56 rounded-xl border border-white/20 dark:border-neutral-700 bg-black"
+                              src={`data:${m.video_mime_type || 'video/mp4'};base64,${m.video_base64}`}
+                            />
+                            <span className="text-[10px] opacity-80 block mt-1">
+                              {isOutbound ? 'Sent Video' : 'Customer Sent Video'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Voice Message & Audio Player (Both Inbound and Outbound) */}
+                        {m.has_voice && (
                           <div className="mb-2">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] text-xs font-semibold">
+                            <div
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                                isOutbound
+                                  ? 'bg-white/15 dark:bg-neutral-800/30 text-current'
+                                  : 'bg-[#7F22FE]/10 text-[#7F22FE]'
+                              }`}
+                            >
                               <Mic className="w-3.5 h-3.5 animate-pulse" />
-                              <span>Voice Note</span>
+                              <span>Voice Message</span>
                             </div>
 
                             {m.audio_base64 && (
                               <div className="mt-2 mb-1">
                                 <audio
                                   controls
-                                  className="h-8 w-full max-w-xs rounded-md"
+                                  className="h-8 w-56 sm:w-64 max-w-full rounded-md"
                                   src={`data:${m.audio_mime_type || 'audio/ogg'};base64,${m.audio_base64}`}
                                 />
                               </div>
@@ -1108,64 +1242,151 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Reply Chips & Composer Footer (Pinned at bottom, never scrolls off screen) */}
-            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 shrink-0">
-              {/* Quick Replies Bar */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-                <button
-                  type="button"
-                  onClick={handleSummarizeConversation}
-                  disabled={summarizing}
-                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 text-white text-[11px] font-extrabold transition-all cursor-pointer shrink-0 flex items-center gap-1 shadow-2xs"
-                >
-                  <FileText className="w-3 h-3" />
-                  <span>{summarizing ? 'Summarizing...' : '✨ Summarize Chat'}</span>
-                </button>
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 ml-1 mr-0.5">
-                  Quick Reply:
-                </span>
-                {quickReplies.map((qr, i) => (
+            {/* Composer Footer (Pinned at bottom, direct Picture/Video upload + WhatsApp-style Voice send) */}
+            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2.5 space-y-2 shrink-0">
+              {/* Toast notification inside composer if needed */}
+              {inboxToast && (
+                <div className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] font-semibold text-rose-700 dark:text-rose-300 flex items-center justify-between">
+                  <span>{inboxToast}</span>
                   <button
-                    key={i}
                     type="button"
-                    onClick={() => setReplyText(qr.text)}
-                    className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-violet-50 dark:hover:bg-violet-950/50 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] dark:hover:text-purple-300 text-[11px] font-semibold transition-colors cursor-pointer shrink-0 border border-transparent hover:border-[#7F22FE]/20"
+                    onClick={() => setInboxToast(null)}
+                    className="text-rose-500 hover:text-rose-700 cursor-pointer"
                   >
-                    {qr.label}
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
 
-              {/* Manual Reply Form */}
-              <form onSubmit={handleSendReply} className="flex gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => setShowSimulateDrawer(true)}
-                  className="p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-500 hover:text-[#7F22FE] hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
-                  title="Simulate customer voice or photo message"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
+              {/* Selected Device Picture / Video Preview Strip */}
+              {replyMedia && (
+                <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-violet-50/80 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/60">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {replyMedia.type === 'image' ? (
+                      <img
+                        src={`data:${replyMedia.mimeType};base64,${replyMedia.base64}`}
+                        alt={replyMedia.fileName}
+                        className="w-11 h-11 rounded-lg object-cover border border-violet-300/60 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-lg bg-neutral-900 text-white flex items-center justify-center shrink-0">
+                        <Video className="w-5 h-5 text-purple-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                        {replyMedia.fileName}
+                      </p>
+                      <p className="text-[10px] font-semibold text-[#7F22FE] dark:text-purple-300 capitalize">
+                        Ready to send {replyMedia.type} on {selectedConv.platform}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyMedia(null)}
+                    className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 text-neutral-500 hover:text-rose-600 border border-neutral-200 dark:border-neutral-700 transition-colors cursor-pointer shrink-0"
+                    title="Remove attachment"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
-                <input
-                  id="manual-reply-input"
-                  type="text"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={`Reply to ${selectedConv.customerName} on ${selectedConv.platform}...`}
-                  className="flex-1 bg-neutral-50 dark:bg-neutral-800/90 text-neutral-900 dark:text-white text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
-                />
+              {/* Hidden file input for direct Device Storage Picture or Video selection */}
+              <input
+                ref={replyMediaInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleSelectReplyMedia}
+                className="hidden"
+              />
 
-                <button
-                  id="manual-reply-send-btn"
-                  type="submit"
-                  disabled={!replyText.trim() || sendingReply}
-                  className="px-4 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#7F22FE]/25 shrink-0"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send</span>
-                </button>
-              </form>
+              {isReplyRecording ? (
+                /* WhatsApp-Style Live Voice Recording Bar */
+                <div className="flex items-center justify-between gap-2 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 px-3 py-2 rounded-xl">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
+                    <Mic className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span className="text-xs font-extrabold font-mono text-rose-700 dark:text-rose-300">
+                      {Math.floor(replyRecordingSeconds / 60)}:
+                      {String(replyRecordingSeconds % 60).padStart(2, '0')}
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 truncate">
+                      Recording voice for {selectedConv.platform}...
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelReplyVoice}
+                      className="p-2 rounded-xl bg-white dark:bg-neutral-800 text-neutral-500 hover:text-rose-600 border border-neutral-200 dark:border-neutral-700 transition-colors cursor-pointer"
+                      title="Cancel voice recording"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendReplyVoice}
+                      disabled={sendingReply}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title="Send Voice Message"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Voice</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Standard Reply Form with Direct Device Picture/Video Picker & Voice Button */
+                <form onSubmit={handleSendReply} className="flex gap-2 items-center">
+                  <button
+                    id="direct-media-upload-btn"
+                    type="button"
+                    onClick={() => replyMediaInputRef.current?.click()}
+                    disabled={sendingReply}
+                    className="p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] hover:border-[#7F22FE]/40 hover:bg-violet-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+                    title="Send Picture or Video from device storage"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    id="direct-voice-record-btn"
+                    type="button"
+                    onClick={handleStartReplyVoice}
+                    disabled={sendingReply}
+                    className="p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-emerald-600 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+                    title="Record & send voice message (WhatsApp / Messenger / Instagram)"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+
+                  <input
+                    id="manual-reply-input"
+                    type="text"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={
+                      replyMedia
+                        ? `Add an optional caption for this ${replyMedia.type}...`
+                        : `Reply to ${selectedConv.customerName} on ${selectedConv.platform}...`
+                    }
+                    className="flex-1 bg-neutral-50 dark:bg-neutral-800/90 text-neutral-900 dark:text-white text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
+                  />
+
+                  <button
+                    id="manual-reply-send-btn"
+                    type="submit"
+                    disabled={(!replyText.trim() && !replyMedia) || sendingReply}
+                    className="px-4 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#7F22FE]/25 shrink-0"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{sendingReply ? 'Sending...' : 'Send'}</span>
+                  </button>
+                </form>
+              )}
             </div>
           </>
         ) : (
