@@ -79,10 +79,9 @@ Business Knowledge Base:
 5. Helpline & Support Hours:
    ${kbHelpline}
 
-SMART REASONING & REPLY RULES:
-- Understand the customer's real intent even if they ask an indirect, scenario-based, or unscripted question in Bangla, Banglish, or English.
-- If a customer asks a question not written word-for-word above, analyze the Business Knowledge Base logically and give a helpful, natural, human-like answer in Bangla (বাংলায়) that directly addresses their question.
-- Never ignore the customer's question or repeat a generic welcome message. Use clean line breaks and bullet points (•) when helpful.`;
+SMART REASONING & SHORT REPLY RULES:
+- সবসময় সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট উত্তর দেবেন (সর্বোচ্চ ২ থেকে ৩ বাক্যে / ২-৪ লাইনের মধ্যে)। কখনোই বিশাল বড় প্যারাগ্রাফ বা অপ্রয়োজনীয় লম্বা লিস্ট পাঠিয়ে কাস্টমারকে বিরক্ত করবেন না।
+- কাস্টমার ঘুরিয়ে বা নতুন যেভাবেই প্রশ্ন করুক, বিজনেস ডিটেইলস বুঝে সরাসরি শুধুমাত্র সেই প্রশ্নটুকুরই আন্তরিক ও স্বাভাবিক বাংলায় উত্তর দেবেন।`;
   };
 
   useEffect(() => {
@@ -311,8 +310,9 @@ Business Knowledge Base (আমাদের সম্পূর্ণ সার�
    - ইমেইল: support.oneagentbd@gmail.com
    - ওয়েবসাইট: https://www.oneagentbd.online
 
-SMART REASONING RULES:
-- কাস্টমার হুবহু একভাবে প্রশ্ন না করে ঘুরিয়ে বা নতুন যেকোনো পরিস্থিতি নিয়ে প্রশ্ন করলে উপরের তথ্যের আলোকে বুদ্ধিমত্তার সাথে প্রাসঙ্গিক ও সুন্দর বাংলায় উত্তর দেবেন।`
+SMART REASONING & SHORT REPLY RULES:
+- সর্বদা সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট উত্তর দেবেন (সর্বোচ্চ ২ থেকে ৩ বাক্যে / ২-৪ লাইনের মধ্যে)। কখনোই বিশাল বড় প্যারাগ্রাফ বা অপ্রয়োজনীয় লম্বা লিস্ট লিখবেন না।
+- কাস্টমার যেটুকু প্রশ্ন করেছে (যেমন ১ বছরের দাম, কুপন কোড বা ভয়েস মেসেজ), শুধুমাত্র সেটুকুরই সরাসরি ও সুন্দর বাংলায় উত্তর দেবেন।`
     },
     {
       label: 'E-Commerce & Clothing Shop',

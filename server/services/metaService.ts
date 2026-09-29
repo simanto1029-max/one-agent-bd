@@ -1,7 +1,12 @@
 import { db, Channel, Message, Order, CallRequest } from '../db/database.js';
 import { generateAIReply } from './aiService.js';
 import { getUserSubscriptionStatus } from './subscriptionService.js';
-import { downloadMessengerAudio, downloadWhatsAppAudio, downloadWhatsAppImage } from './audioDownloader.js';
+import {
+  downloadMessengerAudio,
+  downloadMessengerImage,
+  downloadWhatsAppAudio,
+  downloadWhatsAppImage
+} from './audioDownloader.js';
 import { detectAndRecordOrder } from './orderDetectionService.js';
 
 export interface InboundWebhookEvent {
@@ -147,6 +152,15 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   let imageMimeType = event.imageMimeType || 'image/jpeg';
   if (!imageBase64 && event.imageMediaId && channel.access_token) {
     const downloadedImg = await downloadWhatsAppImage(event.imageMediaId, channel.access_token);
+    if (downloadedImg) {
+      imageBase64 = downloadedImg.base64;
+      imageMimeType = downloadedImg.mimeType;
+    }
+  }
+
+  // Download Messenger / Instagram image if direct imageUrl was supplied
+  if (!imageBase64 && event.imageUrl) {
+    const downloadedImg = await downloadMessengerImage(event.imageUrl);
     if (downloadedImg) {
       imageBase64 = downloadedImg.base64;
       imageMimeType = downloadedImg.mimeType;
