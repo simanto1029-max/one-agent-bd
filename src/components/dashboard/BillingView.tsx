@@ -436,100 +436,11 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                       {activeDuration.months === 1
-                        ? `Monthly Plan: ${plan.price.toLocaleString()} TK/month • Select 6M, 1 Year or 2 Years below for up to 30% Discount!`
+                        ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
                         : savedAmount > 0
                         ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% Discount applied (${activeDuration.days} Days)`
                         : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days)`}
                     </p>
-
-                    {/* Always-Visible Plan Discount Tiers Breakdown (Click to Apply) */}
-                    <div
-                      className="mt-4 p-3.5 rounded-2xl bg-violet-50/80 dark:bg-slate-800/70 border border-violet-200/80 dark:border-slate-700"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-[11px] font-extrabold text-[#7C3AED] dark:text-purple-300 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>কোন প্ল্যান মেয়াদে কত % ডিসকাউন্ট (ক্লিক করে বেছে নিন):</span>
-                        </span>
-                        {activeDuration.discountPercent > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black">
-                            {activeDuration.discountPercent}% OFF Active
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {[
-                          { id: '3m', mode: 'monthly' as const, label: '3 Months', pct: 5 },
-                          { id: '6m', mode: 'monthly' as const, label: '6 Months', pct: 10 },
-                          { id: '1y', mode: 'yearly' as const, label: '1 Year', pct: 15 },
-                          { id: '2y', mode: 'yearly' as const, label: '2 Years', pct: 20 },
-                          { id: '3y', mode: 'yearly' as const, label: '3 Years', pct: 25 },
-                          { id: '6y', mode: 'yearly' as const, label: '6 Years', pct: 30 }
-                        ].map((tier) => {
-                          const tierMonths =
-                            tier.id === '3m'
-                              ? 3
-                              : tier.id === '6m'
-                              ? 6
-                              : tier.id === '1y'
-                              ? 12
-                              : tier.id === '2y'
-                              ? 24
-                              : tier.id === '3y'
-                              ? 36
-                              : 72;
-                          const tierOriginal = calculateOriginalPlanPrice(plan.price, tierMonths);
-                          const tierPrice = calculateCustomPlanPrice(plan.price, tierMonths);
-                          const isTierActive = activeDuration.months === tierMonths;
-                          return (
-                            <button
-                              key={tier.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedPlan(plan);
-                                setDurationMode(tier.mode);
-                                setSelectedDurationId(tier.id);
-                              }}
-                              className={`p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                                isTierActive
-                                  ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm ring-2 ring-[#7C3AED]/25'
-                                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-violet-200/70 dark:border-slate-700 hover:border-[#7C3AED]'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="text-[11px] font-extrabold">{tier.label}</span>
-                                <span
-                                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
-                                    isTierActive
-                                      ? 'bg-emerald-400 text-slate-950'
-                                      : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
-                                  }`}
-                                >
-                                  {tier.pct}% OFF
-                                </span>
-                              </div>
-                              <div className="flex items-baseline gap-1.5 mt-1">
-                                <span
-                                  className={`text-xs font-black ${
-                                    isTierActive ? 'text-white' : 'text-[#0F172A] dark:text-white'
-                                  }`}
-                                >
-                                  ৳{tierPrice.toLocaleString()}
-                                </span>
-                                <span
-                                  className={`text-[10px] line-through ${
-                                    isTierActive ? 'text-purple-200' : 'text-slate-400'
-                                  }`}
-                                >
-                                  ৳{tierOriginal.toLocaleString()}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
                   </div>
 
                   <ul className="space-y-2.5 mb-6">
