@@ -70,14 +70,176 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export function formatCleanChatMessage(raw: string): string {
   if (!raw) return '';
   let text = raw
+    .replace(/\r\n/g, '\n')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/^#{1,6}\s*/gm, '')
     .replace(/।।+/g, '।')
-    .replace(/\n{3,}/g, '\n\n')
+    // Ensure a space after Bengali Dari or punctuation when followed directly by a word character
+    .replace(/([।?!])(?=[^\s।?!\n"”')\]])/gu, '$1 ')
     .trim();
 
-  return text;
+  const splitDenseParagraph = (para: string): string[] => {
+    const trimmed = para.trim();
+    if (!trimmed) return [];
+    // Do not split bullet points
+    if (/^[•\-–—*০-৯0-9]+[.)]?\s/.test(trimmed)) {
+      return [trimmed];
+    }
+    const sentences = trimmed
+      .split(/(?<=[।?!])\s+/u)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (sentences.length <= 1) {
+      return [trimmed];
+    }
+    if (sentences.length === 2) {
+      // If the second sentence is a question or the paragraph is long, put empty line between them
+      if (sentences[1].endsWith('?') || trimmed.length > 95) {
+        return [sentences[0], sentences[1]];
+      }
+      return [trimmed];
+    }
+    if (sentences.length === 3) {
+      if (sentences[2].endsWith('?')) {
+        return [`${sentences[0]} ${sentences[1]}`, sentences[2]];
+      }
+      return [sentences[0], `${sentences[1]} ${sentences[2]}`];
+    }
+    // 4+ sentences: group body into 2 clean paragraphs and keep the closing question separate
+    const lastSentence = sentences[sentences.length - 1];
+    const bodySentences = sentences.slice(0, -1);
+    const mid = Math.ceil(bodySentences.length / 2);
+    const para1 = bodySentences.slice(0, mid).join(' ');
+    const para2 = bodySentences.slice(mid).join(' ');
+    return [para1, para2, lastSentence].filter(Boolean);
+  };
+
+  const rawLines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const expandedLines: string[] = [];
+  for (const line of rawLines) {
+    expandedLines.push(...splitDenseParagraph(line));
+  }
+
+  if (expandedLines.length > 1) {
+    const rebuilt: string[] = [];
+    for (let i = 0; i < expandedLines.length; i++) {
+      const curr = expandedLines[i];
+      const prev = i > 0 ? expandedLines[i - 1] : '';
+      const isCurrBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(curr);
+      const isPrevBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(prev);
+
+      if (i === 0) {
+        rebuilt.push(curr);
+      } else if (isCurrBullet && isPrevBullet) {
+        rebuilt.push('\n' + curr);
+      } else {
+        rebuilt.push('\n\n' + curr);
+      }
+    }
+    text = rebuilt.join('');
+  } else if (expandedLines.length === 1) {
+    text = expandedLines[0];
+  }
+
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function ensureConversationalFollowUp(
+  replyText: string,
+  customerQuery: string,
+  isOneAgentSaaS: boolean,
+  hasProducts = false
+): string {
+  const formatted = formatCleanChatMessage(replyText);
+  if (!formatted) return formatted;
+
+  // If it already ends with a question mark (or question mark + emoji), it already has a follow-up question
+  if (/\?\s*(?:[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])?\s*$/u.test(formatted)) {
+    return formatted;
+  }
+
+  // Do not append a follow-up if the reply is already asking for order details (name, address, phone)
+  if (
+    formatted.includes('নাম, ঠিকানা') ||
+    formatted.includes('নাম, সম্পূর্ণ ঠিকানা') ||
+    formatted.includes('মোবাইল নাম্বারটি দিন') ||
+    formatted.includes('মোবাইল নাম্বার দিন') ||
+    formatted.includes('স্পষ্ট বোঝা যায়নি')
+  ) {
+    return formatted;
+  }
+
+  const q = (customerQuery || '').toLowerCase();
+  const isEnglish = /^[a-z0-9\s.,?!'"-]+$/i.test(formatted) && !/[\u0980-\u09FF]/.test(formatted);
+
+  if (isEnglish) {
+    const enFollowUp =
+      q.includes('price') || q.includes('plan') || q.includes('cost')
+        ? 'Would you like to start with our 2-Day Free Trial first, or activate a plan right away?'
+        : 'Which platform (Facebook Page, WhatsApp, or Website) are you looking to automate first?';
+    return `${formatted}\n\n${enFollowUp}`;
+  }
+
+  if (isOneAgentSaaS) {
+    if (q.includes('price') || q.includes('dam') || q.includes('koto') || q.includes('plan') || q.includes('দাম') || q.includes('কত') || q.includes('প্ল্যান') || q.includes('প্যাকেজ') || q.includes('টাকা')) {
+      return `${formatted}\n\nআপনি কি প্রথমে আমাদের ২ দিনের ফ্রি ট্রায়াল দিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করবেন?`;
+    }
+    if (q.includes('trial') || q.includes('free') || q.includes('ট্রায়াল') || q.includes('ফ্রি')) {
+      return `${formatted}\n\nআপনি কি আপনার ফেসবুক পেজ নাকি ওয়েবসাইটে ট্রায়ালটি কানেক্ট করতে চাচ্ছেন?`;
+    }
+    if (q.includes('coupon') || q.includes('discount') || q.includes('কুপন') || q.includes('ডিসকাউন্ট') || q.includes('ছাড়')) {
+      return `${formatted}\n\nআপনি কোন প্ল্যানটি (Starter নাকি Pro) নেওয়ার কথা ভাবছেন?`;
+    }
+    return `${formatted}\n\nআপনার বিজনেস বা ফেসবুক পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?`;
+  }
+
+  if (hasProducts) {
+    return `${formatted}\n\nআপনি কি এটি অর্ডার করতে চান, নাকি অন্য কোনো প্রোডাক্ট সম্পর্কে জানতে চাচ্ছেন?`;
+  }
+
+  return `${formatted}\n\nএই বিষয়ে আপনার কি আর কোনো প্রশ্ন আছে, নাকি অর্ডার করার নিয়মটি জানিয়ে দেবো?`;
+}
+
+export const UNCLEAR_VOICE_REPLY = `ভাইয়া/আপু, আপনার ভয়েস মেসেজটি স্পষ্ট বোঝা যায়নি।\n\nঅনুগ্রহ করে আরেকবার একটু পরিষ্কারভাবে ভয়েস দিন অথবা টেক্সটে লিখে জানান, আপনি ঠিক কোন বিষয়ে জানতে চাচ্ছেন? 😊`;
+
+export function isUnclearVoiceText(str?: string): boolean {
+  if (!str) return true;
+  const cleaned = str
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/[.,?!।'"\-_*~`]/g, '')
+    .trim();
+  if (cleaned.length < 2) return true;
+
+  const lower = str.toLowerCase().trim();
+  return (
+    lower.includes('[unclear]') ||
+    lower.includes('unclear_audio') ||
+    lower === 'unclear' ||
+    lower.includes('silent') ||
+    lower.includes('silence') ||
+    lower.includes('inaudible') ||
+    lower.includes('unintelligible') ||
+    lower.includes('no speech') ||
+    lower.includes('background noise') ||
+    lower.includes('only noise') ||
+    lower.includes('cannot understand') ||
+    lower.includes('could not understand') ||
+    lower.includes('not clear') ||
+    lower.includes('audio is unclear') ||
+    lower.includes('অস্পষ্ট') ||
+    lower.includes('বোঝা যাচ্ছে না') ||
+    lower.includes('বোঝা যায়নি') ||
+    lower.includes('শোনা যাচ্ছে না') ||
+    lower.includes('শোনা যায়নি') ||
+    lower.includes('কোনো কথা শোনা')
+  );
 }
 
 export interface GenerateReplyParams {
@@ -116,14 +278,14 @@ export const CANDIDATE_MODELS = [
   'gemini-flash-latest'
 ];
 
-// Call Google Gemini Multimodal API with Audio Input (plus gemini-3.5-transcribe & Whisper fallback)
+// Stage 1: Zero-Bias Audio Transcription (so unclear/noisy voice notes NEVER trigger hallucinated/random business answers!)
 async function callGeminiWithAudio(
   audioBase64: string,
   audioMimeType: string,
-  systemPrompt: string,
-  businessName: string,
-  recentHistory: string,
-  catalogContext: string,
+  _systemPrompt: string,
+  _businessName: string,
+  _recentHistory: string,
+  _catalogContext: string,
   customApiKey?: string
 ): Promise<{ replyText: string; transcript?: string } | null> {
   const clients = getGeminiClients(customApiKey);
@@ -131,6 +293,11 @@ async function callGeminiWithAudio(
   let normalizedBase64 = audioBase64;
   let normalizedMime = cleanAudioMimeType(audioMimeType);
   let rawBuffer: Buffer = Buffer.from(audioBase64, 'base64');
+
+  // Reject empty or corrupted tiny audio clips (< 350 bytes) immediately
+  if (!rawBuffer || rawBuffer.length < 350) {
+    return { replyText: UNCLEAR_VOICE_REPLY, transcript: 'অস্পষ্ট ভয়েস মেসেজ' };
+  }
 
   try {
     // Detect actual binary format from magic bytes first
@@ -158,47 +325,40 @@ async function callGeminiWithAudio(
     }
   }
 
-  const promptText = `System Instructions & Business Knowledge Base:
-${systemPrompt}
+  // Pure Zero-Context Transcription Prompt:
+  // By NOT including the business knowledge base or product catalog here, the model cannot hallucinate
+  // a fake business question when the user sends an unclear, noisy, mumbled, or silent voice note!
+  const promptText = `Listen carefully to this audio recording sent by a customer.
+Your ONLY task is to transcribe the exact spoken words in Bangla (বাংলা) or English.
 
-You are the official customer service AI assistant for ${businessName}.
-The customer sent a voice note / audio message.
-
-Merchant Product Catalog & Pricing:
-${catalogContext}
-
-TASK:
-1. Listen carefully to the customer's voice note (may be in Bangla, Banglish, or English).
-2. Transcribe accurately what the customer said in the audio.
-3. Formulate a SHORT, polite, direct customer service response in natural Bangla (বাংলা ভাষায়) based on the Business Knowledge Base above.
-4. STRICT LENGTH RULE: Keep your reply concise and conversational — maximum 2 to 3 short sentences (2-4 lines max). Answer ONLY what the customer asked in the voice note without dumping long lists or essays. Do not use ** markdown asterisks. Never repeat the customer's question.
-
-Previous Conversation History:
-${recentHistory || '(No previous messages)'}
+CRITICAL ANTI-HALLUCINATION RULES:
+1. Do NOT answer any question. Output ONLY the exact transcript of what the person said, or [UNCLEAR].
+2. If the audio is silent, very faint, only background noise, wind/static, coughing, breathing, music, mumbled, or if you cannot clearly hear and understand meaningful spoken words with high confidence, you MUST output strictly:
+TRANSCRIPT: [UNCLEAR]
+3. Never guess, invent, or hallucinate words that are not clearly spoken in the audio.
 
 OUTPUT FORMAT:
-TRANSCRIPT: <Accurate transcription of what the customer spoke>
-REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্চ ২-৩ বাক্যে)>`;
+TRANSCRIPT: <exact spoken words in Bangla/English, OR [UNCLEAR]>`;
 
-  const parseAudioResponse = (rawText: string): { replyText: string; transcript?: string } => {
+  const parseAudioResponse = (rawText: string): { replyText: string; transcript?: string; isUnclear?: boolean } => {
     const transcriptMatch = rawText.match(/TRANSCRIPT:\s*([\s\S]*?)(?=(REPLY:|$))/i);
     const replyMatch = rawText.match(/REPLY:\s*([\s\S]*)/i);
 
-    let transcript = transcriptMatch ? transcriptMatch[1].trim() : undefined;
-    let replyText = replyMatch ? replyMatch[1].trim() : rawText;
+    let transcript = (transcriptMatch ? transcriptMatch[1] : rawText)
+      .replace(/^TRANSCRIPT:\s*/i, '')
+      .trim();
 
-    if (replyText.startsWith('REPLY:')) {
-      replyText = replyText.substring(6).trim();
-    }
-    // If Gemini returned only a transcript without a REPLY: block, let generateAIReply answer it
-    if (transcript && !replyMatch) {
-      replyText = '';
-    }
-    if (transcript && (transcript.toLowerCase().includes('silent') || transcript.toLowerCase().includes('unclear'))) {
-      transcript = undefined;
+    if (isUnclearVoiceText(transcript) || (replyMatch && isUnclearVoiceText(replyMatch[1]))) {
+      return {
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: 'অস্পষ্ট ভয়েস মেসেজ',
+        isUnclear: true
+      };
     }
 
-    return { replyText: formatCleanChatMessage(replyText), transcript };
+    // Always return empty replyText so Stage 2 (generateAIReply's Human Conversational Engine)
+    // answers the verified transcript using the full Business Knowledge Base + follow-up question!
+    return { replyText: '', transcript };
   };
 
   // 1. Try Groq Whisper or OpenAI Whisper transcription if the merchant provided a gsk_ or sk- key
@@ -243,7 +403,7 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
       if (whisperRes.ok) {
         const wJson: any = await whisperRes.json();
         const wText = String(wJson?.text || '').trim();
-        if (wText) {
+        if (wText && !isUnclearVoiceText(wText)) {
           console.log(`[AI Service] Whisper transcribed voice note: "${wText}"`);
           return { replyText: '', transcript: wText };
         }
@@ -253,7 +413,7 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
     }
   }
 
-  // 2. Try Multimodal Audio-to-Reply across Gemini candidate models via @google/genai SDK
+  // 2. Try Multimodal Audio Transcription across Gemini candidate models via @google/genai SDK
   for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
       // gemini-3.8-flash prefers audio/aac over raw audio/mp4 container
@@ -285,7 +445,10 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
                   }
                 ]
               }
-            ]
+            ],
+            config: {
+              temperature: 0.1
+            }
           }),
           14000
         );
@@ -293,6 +456,9 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
         const rawText = response.text?.trim();
         if (!rawText) continue;
         const parsed = parseAudioResponse(rawText);
+        if (parsed.isUnclear) {
+          return { replyText: UNCLEAR_VOICE_REPLY, transcript: 'অস্পষ্ট ভয়েস মেসেজ' };
+        }
         if (parsed.replyText || parsed.transcript) {
           return parsed;
         }
@@ -317,7 +483,7 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
                   }
                 },
                 {
-                  text: 'Transcribe this customer voice message accurately.'
+                  text: 'Transcribe the spoken words in this customer voice message accurately. If the audio is silent, background noise only, or unintelligible, output ONLY [UNCLEAR]. Do not guess or invent words.'
                 }
               ]
             }
@@ -337,6 +503,9 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
       }
       transcriptText = (transcriptText || transcribeRes.text || '').trim();
       if (transcriptText) {
+        if (isUnclearVoiceText(transcriptText)) {
+          return { replyText: UNCLEAR_VOICE_REPLY, transcript: 'অস্পষ্ট ভয়েস মেসেজ' };
+        }
         console.log(`[AI Service] gemini-3.5-transcribe succeeded: "${transcriptText}"`);
         return { replyText: '', transcript: transcriptText };
       }
@@ -367,11 +536,15 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
                         data: normalizedBase64
                       }
                     },
-                    { text: isTranscribeModel ? 'Transcribe this audio.' : promptText }
+                    {
+                      text: isTranscribeModel
+                        ? 'Transcribe the spoken words accurately. If silent, background noise, or unintelligible, output ONLY [UNCLEAR].'
+                        : promptText
+                    }
                   ]
                 }
               ],
-              ...(isTranscribeModel ? {} : { generationConfig: { temperature: 0.35 } })
+              ...(isTranscribeModel ? {} : { generationConfig: { temperature: 0.1 } })
             })
           }),
           14000
@@ -384,6 +557,9 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
             .join(' ')
             .trim();
           if (audioTrans) {
+            if (isUnclearVoiceText(audioTrans)) {
+              return { replyText: UNCLEAR_VOICE_REPLY, transcript: 'অস্পষ্ট ভয়েস মেসেজ' };
+            }
             return { replyText: '', transcript: audioTrans };
           }
           const rawText = parts
@@ -391,7 +567,11 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
             .join('')
             .trim();
           if (rawText) {
-            return parseAudioResponse(rawText);
+            const parsed = parseAudioResponse(rawText);
+            if (parsed.isUnclear) {
+              return { replyText: UNCLEAR_VOICE_REPLY, transcript: 'অস্পষ্ট ভয়েস মেসেজ' };
+            }
+            return parsed;
           }
         }
       } catch (restErr: any) {
@@ -420,7 +600,7 @@ async function callGeminiWithImage(
   const promptText = `System Instructions & Business Knowledge Base:
 ${systemPrompt}
 
-You are the customer service AI assistant for ${businessName}.
+You are a warm, smart, human-like Customer Service & Sales Executive for ${businessName}.
 The customer sent an image/photo along with the text: "${customerText || 'এই প্রোডাক্টটির দাম কত এবং বিস্তারিত জানাবেন?'}"
 
 Merchant Product Catalog & Price List:
@@ -429,13 +609,15 @@ ${catalogContext}
 TASK:
 1. Examine the image sent by the customer carefully.
 2. Identify what is shown in the image (product from catalog, screenshot, payment slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
-3. Reply in SHORT, clear, polite natural Bangla (বাংলা ভাষায় — সর্বোচ্চ ২-৩ বাক্যে / ২-৪ লাইনে). Give the exact price or answer directly without writing a long essay. Do not use ** markdown asterisks.
+3. Reply naturally like a real human in concise Bangla (বাংলা ভাষায় — ২ থেকে ৩ বাক্যে).
+4. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+5. End with 1 smart, relevant follow-up question in a new paragraph (যেমন: কাস্টমার কি এটি অর্ডার করতে চান নাকি অন্য কোনো সাইজ/কালার খুঁজছেন?). Do not use ** markdown asterisks.
 
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}
 
 Customer Question: "${customerText || 'এটার দাম কত এবং বিস্তারিত জানাবেন?'}"
-Assistant Reply (in concise Bangla, 2-3 sentences max):`;
+Assistant Reply (in concise Bangla with paragraph spacing and a follow-up question):`;
 
   for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
@@ -709,19 +891,19 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('2 mas') || q.includes('2 month') || q.includes('২ মাস') || q.includes('দুই মাস');
 
     if (isYearly) {
-      return `আমাদের ১ বছরের (১২ মাসের) জন্য Starter AI Plan ৳১৫,০০০ টাকা এবং Pro Business Plan ৳২৩,৪০০ টাকা। চেকআউটের সময় কুপন কোড (WELCOME10) ব্যবহার করলে ১০% ছাড় পাবেন! আপনি কোন প্ল্যানটি নিতে চাচ্ছেন?`;
+      return `জ্বী ভাইয়া, আমাদের ১ বছরের (১২ মাসের) জন্য Starter AI Plan ৳১৫,০০০ টাকা এবং Pro Business Plan ৳২৩,৪০০ টাকা।\n\nচেকআউটের সময় কুপন কোড (WELCOME10) ব্যবহার করলে আপনি সাথে সাথে ১০% ডিসকাউন্টও পাবেন!\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল নিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করতে চাচ্ছেন?`;
     }
 
     if (isSixMonths) {
-      return `আমাদের ৬ মাসের জন্য Starter AI Plan ৳৭,৫০০ টাকা এবং Pro Business Plan ৳১১,৭০০ টাকা। সাথে ২ দিনের ফ্রি ট্রায়াল ও কুপন ডিসকাউন্ট সুবিধা রয়েছে!`;
+      return `আমাদের ৬ মাসের জন্য Starter AI Plan ৳৭,৫০০ টাকা এবং Pro Business Plan ৳১১,৭০০ টাকা।\n\nআপনি চাইলে শুরুতে ২ দিনের ফ্রি ট্রায়াল নিয়ে টেস্ট করতে পারেন অথবা চেকআউটে কুপন ডিসকাউন্ট ব্যবহার করতে পারেন!\n\nআপনি কোন প্ল্যানটি নেওয়ার কথা ভাবছেন?`;
     }
 
     if (isThreeMonths) {
-      return `আমাদের ৩ মাসের জন্য Starter AI Plan ৳৩,৭৫০ টাকা এবং Pro Business Plan ৳৫,৮৫০ টাকা। শুরুতে ২ দিনের ফ্রি ট্রায়াল নিয়েও টেস্ট করে দেখতে পারেন!`;
+      return `আমাদের ৩ মাসের জন্য Starter AI Plan ৳৩,৭৫০ টাকা এবং Pro Business Plan ৳৫,৮৫০ টাকা।\n\nআপনি কি প্রথমে আমাদের ২ দিনের ফ্রি ট্রায়াল দিয়ে সব ফিচার যাচাই করে দেখতে চান?`;
     }
 
     if (isTwoMonths) {
-      return `আমাদের ২ মাসের জন্য Starter AI Plan ৳২,৫০০ টাকা এবং Pro Business Plan ৳৩,৯০০ টাকা। বিস্তারিত দেখতে বা ফ্রি ট্রায়াল নিতে ভিজিট করুন: https://www.oneagentbd.online`;
+      return `আমাদের ২ মাসের জন্য Starter AI Plan ৳২,৫০০ টাকা এবং Pro Business Plan ৳৩,৯০০ টাকা।\n\nআপনার বিজনেস বা পেজের জন্য কোন প্ল্যানটি অ্যাক্টিভ করতে চাচ্ছেন?`;
     }
 
     // 2B. Voice & Photo recognition inquiry
@@ -736,12 +918,12 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('অডিও') ||
       q.includes('ছবি')
     ) {
-      return `জ্বী! আমাদের AI কাস্টমারের পাঠানো বাংলা বা বাংলিশ ভয়েস মেসেজ শুনে এবং প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক দাম ও উত্তর দিতে পারে। ২ দিনের ফ্রি ট্রায়ালে এটি টেস্ট করে দেখতে পারেন!`;
+      return `জ্বী, অবশ্যই! আমাদের AI কাস্টমারের পাঠানো বাংলা বা বাংলিশ ভয়েস মেসেজ শুনে এবং প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক দাম ও উত্তর দিতে পারে।\n\nআপনি কি আপনার ফেসবুক পেজে এটি ২ দিনের ফ্রি ট্রায়াল দিয়ে টেস্ট করে দেখতে চান?`;
     }
 
     // 2C. Comment reply inquiry
     if (q.includes('comment') || q.includes('কমেন্ট') || q.includes('পোস্ট')) {
-      return `জ্বী! আপনার পেজের পোস্টে কেউ কমেন্ট করলে AI সাথে সাথে কমেন্টের রিপ্লাই দেয় এবং কাস্টমারের ইনবক্সে (DM-এ) প্রোডাক্টের দাম ও বিস্তারিত মেসেজ পাঠিয়ে দেয়।`;
+      return `জ্বী! আপনার পেজের পোস্টে কেউ কমেন্ট করলে AI সাথে সাথে কমেন্টের রিপ্লাই দেয় এবং কাস্টমারের ইনবক্সে (DM-এ) প্রোডাক্টের দাম ও বিস্তারিত পাঠিয়ে দেয়।\n\nআপনার ফেসবুক পেজটি কি মূলত ই-কমার্স বা প্রোডাক্ট সেলিং পেজ?`;
     }
 
     // 2D. Courier & Order taking inquiry
@@ -754,7 +936,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('পার্সেল') ||
       (q.includes('order') && !q.includes('kivabe kinbo'))
     ) {
-      return `চ্যাটের ভেতরেই কাস্টমারের নাম, ঠিকানা ও নাম্বার নিয়ে AI অটোমেটিক অর্ডার বুক করে এবং ড্যাশবোর্ড থেকে মাত্র ১ ক্লিকে Steadfast, Pathao বা RedX কুরিয়ারে পার্সেল এন্ট্রি করা যায়!`;
+      return `চ্যাটের ভেতরেই কাস্টমারের নাম, ঠিকানা ও মোবাইল নাম্বার নিয়ে AI অটোমেটিক অর্ডার বুক করে নেয়।\n\nএরপর ড্যাশবোর্ড থেকে মাত্র ১ ক্লিকে Steadfast, Pathao বা RedX কুরিয়ারে পার্সেল এন্ট্রি করতে পারবেন!\n\nআপনি বর্তমানে কোন কুরিয়ার সার্ভিসটি বেশি ব্যবহার করেন?`;
     }
 
     // 2E. Website / WooCommerce / Shopify integration
@@ -766,7 +948,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('ওয়েবসাইট') ||
       q.includes('ওয়েবসাইট')
     ) {
-      return `জ্বী! আমাদের উভয় প্ল্যানেই আপনার WordPress/WooCommerce, Shopify বা কাস্টম ওয়েবসাইটের প্রোডাক্ট সিঙ্ক এবং ১ ক্লিকে লাইভ ওয়েবসাইট চ্যাটবট যুক্ত করতে পারবেন।`;
+      return `জ্বী! আমাদের উভয় প্ল্যানেই আপনার WordPress/WooCommerce, Shopify বা কাস্টম ওয়েবসাইটের প্রোডাক্ট সিঙ্ক এবং ১ ক্লিকে লাইভ ওয়েবসাইট চ্যাটবট যুক্ত করতে পারবেন।\n\nআপনার ওয়েবসাইটটি কি WordPress নাকি কাস্টম কোডে তৈরি?`;
     }
 
     // 2F. Ban risk / Meta official API / Message limit
@@ -780,7 +962,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('সমস্যা হবে') ||
       q.includes('লিমিট')
     ) {
-      return `আপনার পেজ ১০০% নিরাপদ থাকবে! আমরা মেটার অফিশিয়াল API ব্যবহার করি তাই ব্যান হওয়ার কোনো ঝুঁকি নেই এবং উভয় প্ল্যানেই আনলিমিটেড মেসেজ রিপ্লাই পাবেন।`;
+      return `আপনার পেজ ১০০% নিরাপদ থাকবে! আমরা মেটার অফিশিয়াল API ব্যবহার করি তাই ব্যান হওয়ার কোনো ঝুঁকি নেই এবং উভয় প্ল্যানেই আনলিমিটেড মেসেজ রিপ্লাই পাবেন।\n\nআপনি কি আপনার ফেসবুক পেজ নাকি হোয়াটসঅ্যাপ কানেক্ট করতে চাচ্ছেন?`;
     }
 
     // 2G-1. Dedicated Coupon / Promo Code / Discount / Offer inquiry
@@ -800,7 +982,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('অফার') ||
       q.includes('কমানো')
     ) {
-      return `জ্বী ভাইয়া! আমাদের ওয়েবসাইটে চেকআউটের সময় কুপন কোড WELCOME10 দিলে ১০% ছাড় এবং SAVE250 দিলে ৳২৫০ ডিসকাউন্ট পাবেন। এছাড়া শুরুতে ২ দিনের ফ্রি ট্রায়ালও নিতে পারেন!`;
+      return `জ্বী ভাইয়া, অবশ্যই আছে! আমাদের ওয়েবসাইটে চেকআউটের সময় কুপন কোড WELCOME10 দিলে ১০% ছাড় এবং SAVE250 দিলে ৳২৫০ ডিসকাউন্ট পাবেন।\n\nআপনি কোন প্ল্যানটি (Starter নাকি Pro) নেওয়ার কথা ভাবছেন? জানালে আমি ডিসকাউন্টসহ হিসাবটি বলে দিচ্ছি!`;
     }
 
     // 2G-2. Payment / bKash / Nagad inquiry
@@ -816,12 +998,12 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('রকেট') ||
       q.includes('পেমেন্ট')
     ) {
-      return `আমাদের ওয়েবসাইট (https://www.oneagentbd.online)-এর Billing মেনু থেকে বিকাশ, নগদ, রকেট বা উপায়-এ পেমেন্ট করে TrxID দিলেই প্ল্যান সাথে সাথে অটো অ্যাক্টিভ হয়ে যাবে।`;
+      return `আমাদের ওয়েবসাইট (https://www.oneagentbd.online)-এর Billing মেনু থেকে বিকাশ, নগদ, রকেট বা উপায়-এ পেমেন্ট করে TrxID দিলেই প্ল্যান সাথে সাথে অটো অ্যাক্টিভ হয়ে যাবে।\n\nআপনি কোন প্ল্যানটি অ্যাক্টিভ করতে চাচ্ছেন?`;
     }
 
     // 2H. Free trial inquiry
     if (q.includes('trial') || q.includes('trail') || q.includes('free') || q.includes('ট্রায়াল') || q.includes('ফ্রি')) {
-      return `জ্বী! আমাদের ওয়েবসাইটে (https://www.oneagentbd.online) নতুন অ্যাকাউন্ট খুললেই কোনো অগ্রিম পেমেন্ট ছাড়া ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল পাবেন।`;
+      return `জ্বী! আমাদের ওয়েবসাইটে (https://www.oneagentbd.online) নতুন অ্যাকাউন্ট খুললেই কোনো অগ্রিম পেমেন্ট ছাড়া ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল পাবেন।\n\nআপনি কি আজই ট্রায়ালটি চালু করে আপনার পেজে টেস্ট করে দেখতে চান?`;
     }
 
     // 2I. Setup / Connect / How it works inquiry
@@ -834,7 +1016,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('সেটআপ') ||
       q.includes('কাজ করে')
     ) {
-      return `মাত্র ২ মিনিটে সেটআপ করা যায়! https://www.oneagentbd.online ওয়েবসাইটে লগইন করে "Connect with Facebook"-এ ১ ক্লিক করে পেজ কানেক্ট ও বিজনেস ডিটেইলস সেভ করলেই অটো রিপ্লাই শুরু হবে।`;
+      return `মাত্র ২ মিনিটেই সেটআপ করা যায়! https://www.oneagentbd.online ওয়েবসাইটে লগইন করে "Connect with Facebook"-এ ১ ক্লিক করে পেজ কানেক্ট ও বিজনেস ডিটেইলস সেভ করলেই অটো রিপ্লাই শুরু হবে।\n\nসেটআপ করতে আপনার কি কোনো সাহায্য প্রয়োজন?`;
     }
 
     // 2J. General pricing / plan inquiry
@@ -854,7 +1036,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('খরচ') ||
       q.includes('চার্জ')
     ) {
-      return `আমাদের ২টি প্ল্যান রয়েছে: Starter AI Plan ৳১,২৫০/মাস (১টি এজেন্ট, সব চ্যানেল ও কুরিয়ার বুকিং) এবং Pro Business Plan ৳১,৯৫০/মাস (৩টি এজেন্ট, ভয়েস ও ছবির রিপ্লাইসহ আনলিমিটেড)। শুরুতে ২ দিনের ফ্রি ট্রায়াল আছে!`;
+      return `আমাদের ২টি প্ল্যান রয়েছে:\n• Starter AI Plan: ৳১,২৫০/মাস (১টি এজেন্ট, সব চ্যানেল ও কুরিয়ার বুকিং)\n• Pro Business Plan: ৳১,৯৫০/মাস (৩টি এজেন্ট, ভয়েস ও ছবির রিপ্লাইসহ আনলিমিটেড)\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল দিয়ে শুরু করতে চান, নাকি সরাসরি কোনো প্ল্যান নিবেন?`;
     }
 
     // 2K. Features / Services inquiry
@@ -868,7 +1050,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('বিস্তারিত') ||
       q.includes('details')
     ) {
-      return `আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই, ভয়েস ও ছবির উত্তর এবং অটো অর্ডার ও কুরিয়ার বুকিং সার্ভিস দিই। প্ল্যান শুরু মাত্র ৳১,২৫০/মাস থেকে (২ দিনের ফ্রি ট্রায়ালসহ)।`;
+      return `আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই, ভয়েস ও ছবির উত্তর এবং অটো অর্ডার ও কুরিয়ার বুকিং সার্ভিস দিই।\n\nআমাদের প্ল্যান শুরু মাত্র ৳১,২৫০/মাস থেকে (সাথে ২ দিনের ফ্রি ট্রায়াল)।\n\nআপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?`;
     }
 
     // 2L. Contact / Support inquiry
@@ -884,11 +1066,11 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('যোগাযোগ') ||
       q.includes('কথা বলতে')
     ) {
-      return `আমাদের হেল্পলাইন ও হোয়াটসঅ্যাপ নাম্বার: +8801601705804 (সকাল ৯টা – রাত ১১টা) এবং ওয়েবসাইট: https://www.oneagentbd.online। আপনার নাম্বারটি দিলেও আমরা কল করে সাহায্য করব!`;
+      return `আমাদের হেল্পলাইন ও হোয়াটসঅ্যাপ নাম্বার: +8801601705804 (সকাল ৯টা – রাত ১১টা) এবং ওয়েবসাইট: https://www.oneagentbd.online।\n\nআপনি চাইলে আপনার মোবাইল নাম্বারটি এখানে দিতে পারেন, আমাদের প্রতিনিধি সরাসরি কল করে সাহায্য করবে!`;
     }
 
     // Default SaaS greeting / overview
-    return `আসসালামু আলাইকুম! ${businessName}-এ স্বাগতম। আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ অটো AI রিপ্লাই ও অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি (প্ল্যান শুরু ৳১,২৫০/মাস, সাথে ২ দিনের ফ্রি ট্রায়াল)। কীভাবে সাহায্য করতে পারি?`;
+    return `আসসালামু আলাইকুম! ${businessName}-এ স্বাগতম। আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ স্মার্ট AI অটো-রিপ্লাই ও অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি।\n\nআমাদের প্ল্যান শুরু ৳১,২৫০/মাস থেকে এবং সাথে ২ দিনের ফ্রি ট্রায়াল সুবিধা রয়েছে।\n\nআপনি কি আপনার ফেসবুক পেজ বা ওয়েবসাইটের জন্য অটোমেশন সম্পর্কে জানতে চাচ্ছেন?`;
   }
 
   // 3. General Merchant Knowledge-Base Parser (for any Merchant's custom systemPrompt + Product Catalog)
@@ -1135,9 +1317,21 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     undefined;
 
   let voiceTranscript: string | undefined = undefined;
+  const isVoicePlaceholderText =
+    params.incomingMessage?.includes('[Voice Message]') ||
+    params.incomingMessage?.includes('Voice Message');
 
   // 1. If customer sent a voice note / audio
-  if (params.audioBase64) {
+  if (params.audioBase64 || isVoicePlaceholderText) {
+    if (!params.audioBase64) {
+      // Voice note attachment could not be downloaded or was empty — never guess a random answer!
+      return {
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: 'অস্পষ্ট ভয়েস মেসেজ',
+        isVoice: true
+      };
+    }
+
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
     const voiceResult = await callGeminiWithAudio(
       params.audioBase64,
@@ -1157,29 +1351,18 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       };
     }
 
-    if (voiceResult && voiceResult.transcript) {
-      // Audio was transcribed (e.g. by gemini-3.5-transcribe or Whisper); pass transcript to Text Reasoning Engine below!
+    if (voiceResult && voiceResult.transcript && !isUnclearVoiceText(voiceResult.transcript)) {
+      // Audio was clearly transcribed; pass verified transcript to Text Reasoning Engine below!
       voiceTranscript = voiceResult.transcript;
       params.incomingMessage = voiceResult.transcript;
       if (merchantProducts.length > 0) {
         matchedProduct = db.findProductForQuery(params.userId, voiceResult.transcript);
       }
     } else {
-      // Even if all external audio APIs were unreachable, give a helpful, concise Knowledge Base response instead of blaming sound quality
-      const fallbackQuery =
-        params.incomingMessage && !params.incomingMessage.includes('[Voice Message]')
-          ? params.incomingMessage
-          : 'আসসালামু আলাইকুম, আপনাদের সার্ভিস ও প্ল্যান সম্পর্কে জানতে চাই';
-      const kbVoiceFallback = buildSmartBanglaFallbackFromPrompt(
-        fallbackQuery,
-        combinedSystemPrompt,
-        businessName,
-        merchantProducts,
-        matchedProduct
-      );
+      // If the voice note could not be understood or transcribed, never guess or send an irrelevant ("ulta palta") reply!
       return {
-        replyText: kbVoiceFallback,
-        transcript: 'ভয়েস মেসেজ',
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: 'অস্পষ্ট ভয়েস মেসেজ',
         isVoice: true
       };
     }
@@ -1211,7 +1394,7 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
 
     if (matchedProduct) {
       return {
-        replyText: `ধন্যবাদ! আপনার পাঠানো ছবিটি আমাদের "${matchedProduct.name}"-এর সাথে মিলেছে (মূল্য: ৳${matchedProduct.price})। অর্ডার করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বার দিন!`,
+        replyText: `ধন্যবাদ! আপনার পাঠানো ছবিটি আমাদের "${matchedProduct.name}"-এর সাথে মিলেছে (মূল্য: ৳${matchedProduct.price})।\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বারটি দিন!`,
         isVoice: false,
         attachedImageUrl: matchedProduct.image_url,
         attachedProductName: matchedProduct.name,
@@ -1220,21 +1403,31 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     }
 
     return {
-      replyText: `ছবিটি পাঠানোর জন্য ধন্যবাদ! প্রোডাক্টটি স্টকে আছে। অর্ডার করতে আপনার নাম, ঠিকানা ও ফোন নাম্বার দিন।`,
+      replyText: `ছবিটি পাঠানোর জন্য ধন্যবাদ! প্রোডাক্টটি আমাদের স্টকে আছে।\n\nআপনি কি এটি অর্ডার করতে চাচ্ছেন নাকি এর দাম ও বিস্তারিত জানতে চান?`,
       isVoice: false
     };
   }
 
-  // 3. Intelligent Text Reasoning & Short, Concise Replies (Bangla + Banglish -> Short Bangla reply)
-  const languageDirective = `CRITICAL SHORT-REPLY & INTELLIGENT REASONING RULES (অবশ্যই পালনীয়):
-১. সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট উত্তর (STRICT SHORT REPLY RULE — সর্বোচ্চ ২ থেকে ৩ বাক্য / ২-৪ লাইন):
-   - কখনোই বিশাল বড় প্যারাগ্রাফ, রচনা বা লম্বা লিস্ট লিখবেন না! বড় মেসেজ পড়লে কাস্টমার বিরক্ত হয়।
-   - কাস্টমার ঠিক যেটুকু প্রশ্ন করেছে, শুধুমাত্র সেটুকুরই সরাসরি উত্তর দেবেন সর্বোচ্চ ২ থেকে ৩টি ছোট বাক্যে (২ থেকে ৪ লাইনের মধ্যে)।
-   - উদাহরণস্বরূপ: কাস্টমার যদি শুধু "১ বছরের জন্য নিলে কত পড়বে?" জিজ্ঞেস করে, তবে শুধু ১ বছরের দামটুকুই বলবেন (যেমন: "১ বছরের জন্য আমাদের Starter AI Plan ৳১৫,০০০ টাকা এবং Pro Business Plan ৳২৩,৪০০ টাকা। চেকআউটের সময় কুপন কোড ব্যবহার করে ডিসকাউন্টও পাবেন! আপনি কোন প্ল্যানটি নিতে চাচ্ছেন?")—অযথা সব ফিচারের লম্বা তালিকা লিখবেন না যতক্ষণ না কাস্টমার নিজে ফিচার জানতে চায়।
-২. যেকোনো প্রশ্নের অর্থ বুঝে উত্তর দেওয়া (Smart Intent & Unscripted Questions):
-   - কাস্টমার ঘুরিয়ে বা নতুন যেভাবেই প্রশ্ন করুক (যেমন কুপন কোড, ডিসকাউন্ট, কোন প্ল্যান ভালো হবে ইত্যাদি), প্রম্পটের বিজনেস ডিটেইলস বুঝে সরাসরি ও প্রাসঙ্গিক উত্তর দেবেন। কখনোই মুখস্থ লম্বা স্বাগতম মেসেজ কপি-পেস্ট করবেন না।
-৩. ভাষা ও ফরম্যাট (Language & Clean Formatting):
-   - সর্বদা সহজ, আন্তরিক ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
+  // 3. Intelligent Human-like Conversation, Paragraph Spacing & Context-Aware Follow-Up Question
+  const languageDirective = `CRITICAL HUMAN CONVERSATION, SPACING & FOLLOW-UP QUESTION RULES (অবশ্যই পালনীয়):
+১. মানুষের মতো ন্যাচারাল কথোপকথন (Talk Like a Real Human / ChatGPT Style):
+   - রোবটের মতো মুখস্থ বা একঘেয়ে উত্তর না দিয়ে একজন বুদ্ধিমান ও আন্তরিক মানুষের মতো কথা বলবেন।
+   - উত্তর সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট রাখবেন (সর্বোচ্চ ২ থেকে ৩টি ছোট বাক্য), যাতে কাস্টমার এক নজরেই পড়ে বুঝতে পারে।
+২. প্যারাগ্রাফ ও লাইন স্পেসিং (MANDATORY PARAGRAPH SPACING — টেক্সট বুঝে ফাঁকা জায়গা রাখা):
+   - কখনোই সব কথা একসাথে গাদাগাদি করে এক প্যারাগ্রাফে লিখবেন না!
+   - মূল উত্তর দেওয়ার পর অবশ্যই একটি খালি লাইন (Double Newline / \\n\\n) ফাঁকা রেখে পরবর্তী লাইন বা প্রশ্ন লিখবেন, যাতে মেসেজটি দেখতে পরিষ্কার ও সুন্দর লাগে।
+৩. উত্তর বুঝে শেষে ১টি প্রাসঙ্গিক প্রশ্ন করা (MANDATORY SMART FOLLOW-UP QUESTION):
+   - ChatGPT বা একজন দক্ষ সেলস এক্সিকিউটিভের মতো কাস্টমারের প্রশ্নের উত্তর দেওয়ার পর, সেই উত্তরের সাথে মিল রেখে সবশেষে নতুন প্যারাগ্রাফে কাস্টমারকে ১টি সুন্দর ও প্রাসঙ্গিক প্রশ্ন (Follow-up Question) করবেন যাতে কনভারসেশন চলতে থাকে!
+   - উদাহরণ ১ (সার্ভিস জানতে চাইলে):
+     "জ্বী, অবশ্যই! আমরা Facebook, WhatsApp, Instagram ও Website-এর জন্য ২৪/৭ স্মার্ট AI অটো-রিপ্লাই এবং অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি। আমাদের প্ল্যান মাত্র ৳১,২৫০/মাস থেকে শুরু (সাথে ২ দিনের ফ্রি ট্রায়াল)।
+
+     আপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?"
+   - উদাহরণ ২ (দাম বা মেয়াদ জানতে চাইলে):
+     "জ্বী ভাইয়া, ১ বছরের জন্য আমাদের Starter AI Plan ৳১৫,০০০ টাকা এবং Pro Business Plan ৳২৩,৪০০ টাকা। চেকআউটের সময় কুপন কোড ব্যবহার করলে ডিসকাউন্টও পাবেন!
+
+     আপনি কি প্রথমে আমাদের ২ দিনের ফ্রি ট্রায়াল দিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করবেন?"
+৪. পরিষ্কার ফরম্যাট (Clean Formatting):
+   - সর্বদা সহজ ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
 
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance =
@@ -1245,16 +1438,20 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
 
   let productPhotoDirective = '';
   if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
-    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন। ২-৩ বাক্যে জানান যে প্রোডাক্টটির ছবি পাঠানো হয়েছে এবং এর দাম ৳${matchedProduct.price} ${matchedProduct.currency}।`;
+    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন। সংক্ষেপে জানান যে প্রোডাক্টটির ছবি পাঠানো হয়েছে এবং এর দাম ৳${matchedProduct.price} ${matchedProduct.currency}, এরপর নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা।`;
   }
 
-  const systemInstruction = `You are the official, friendly human-like Customer Support & Sales AI Representative for "${businessName}".
-CRITICAL RULE: Keep every reply SHORT, natural, and conversational — strictly 2 to 3 sentences (2-4 lines maximum). Never dump long lists of features or long paragraphs unless the customer explicitly asks for full details. Answer ONLY what the customer asked in natural Bangla (বাংলা). Never output markdown asterisks (**).`;
+  const systemInstruction = `You are a warm, intelligent, human-like Customer Support & Sales Executive for "${businessName}" (conversational like ChatGPT).
+CRITICAL RULES:
+1. Keep every reply concise (2-3 short sentences total).
+2. Always separate your main answer and your closing follow-up question with an empty line (\\n\\n) so the text is never clumped together.
+3. Always end your reply with 1 natural, context-aware follow-up question in Bangla based on what the customer asked, keeping the conversation flowing like a real human.
+4. Never output markdown asterisks (**).`;
 
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
 ${combinedSystemPrompt}
 
-Reasoning, Brevity & Language Instructions:
+Human Conversation, Paragraph Spacing & Follow-Up Question Rules:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -1269,14 +1466,19 @@ ${recentHistory || '(No previous messages)'}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-4 lines) answering ONLY what the customer asked:`;
+Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct answer and a smart closing follow-up question):`;
 
   const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
 
   if (geminiReply) {
     return {
-      replyText: geminiReply,
+      replyText: ensureConversationalFollowUp(
+        geminiReply,
+        params.incomingMessage,
+        isOneAgentSaaS,
+        merchantProducts.length > 0
+      ),
       transcript: voiceTranscript,
       isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
@@ -1295,7 +1497,12 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
   );
 
   return {
-    replyText: smartBanglaReply,
+    replyText: ensureConversationalFollowUp(
+      smartBanglaReply,
+      params.incomingMessage,
+      isOneAgentSaaS,
+      merchantProducts.length > 0
+    ),
     transcript: voiceTranscript,
     isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,

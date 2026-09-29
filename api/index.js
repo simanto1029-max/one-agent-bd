@@ -4566,8 +4566,117 @@ function withTimeout(promise, ms) {
 }
 function formatCleanChatMessage(raw) {
   if (!raw) return "";
-  let text = raw.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/^#{1,6}\s*/gm, "").replace(/।।+/g, "\u0964").replace(/\n{3,}/g, "\n\n").trim();
-  return text;
+  let text = raw.replace(/\r\n/g, "\n").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/^#{1,6}\s*/gm, "").replace(/।।+/g, "\u0964").replace(/([।?!])(?=[^\s।?!\n"”')\]])/gu, "$1 ").trim();
+  const splitDenseParagraph = (para) => {
+    const trimmed = para.trim();
+    if (!trimmed) return [];
+    if (/^[•\-–—*০-৯0-9]+[.)]?\s/.test(trimmed)) {
+      return [trimmed];
+    }
+    const sentences = trimmed.split(/(?<=[।?!])\s+/u).map((s) => s.trim()).filter(Boolean);
+    if (sentences.length <= 1) {
+      return [trimmed];
+    }
+    if (sentences.length === 2) {
+      if (sentences[1].endsWith("?") || trimmed.length > 95) {
+        return [sentences[0], sentences[1]];
+      }
+      return [trimmed];
+    }
+    if (sentences.length === 3) {
+      if (sentences[2].endsWith("?")) {
+        return [`${sentences[0]} ${sentences[1]}`, sentences[2]];
+      }
+      return [sentences[0], `${sentences[1]} ${sentences[2]}`];
+    }
+    const lastSentence = sentences[sentences.length - 1];
+    const bodySentences = sentences.slice(0, -1);
+    const mid = Math.ceil(bodySentences.length / 2);
+    const para1 = bodySentences.slice(0, mid).join(" ");
+    const para2 = bodySentences.slice(mid).join(" ");
+    return [para1, para2, lastSentence].filter(Boolean);
+  };
+  const rawLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const expandedLines = [];
+  for (const line of rawLines) {
+    expandedLines.push(...splitDenseParagraph(line));
+  }
+  if (expandedLines.length > 1) {
+    const rebuilt = [];
+    for (let i = 0; i < expandedLines.length; i++) {
+      const curr = expandedLines[i];
+      const prev = i > 0 ? expandedLines[i - 1] : "";
+      const isCurrBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(curr);
+      const isPrevBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(prev);
+      if (i === 0) {
+        rebuilt.push(curr);
+      } else if (isCurrBullet && isPrevBullet) {
+        rebuilt.push("\n" + curr);
+      } else {
+        rebuilt.push("\n\n" + curr);
+      }
+    }
+    text = rebuilt.join("");
+  } else if (expandedLines.length === 1) {
+    text = expandedLines[0];
+  }
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+function ensureConversationalFollowUp(replyText, customerQuery, isOneAgentSaaS, hasProducts = false) {
+  const formatted = formatCleanChatMessage(replyText);
+  if (!formatted) return formatted;
+  if (/\?\s*(?:[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}])?\s*$/u.test(formatted)) {
+    return formatted;
+  }
+  if (formatted.includes("\u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE") || formatted.includes("\u09A8\u09BE\u09AE, \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE") || formatted.includes("\u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09A8") || formatted.includes("\u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8") || formatted.includes("\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AC\u09CB\u099D\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF")) {
+    return formatted;
+  }
+  const q = (customerQuery || "").toLowerCase();
+  const isEnglish = /^[a-z0-9\s.,?!'"-]+$/i.test(formatted) && !/[\u0980-\u09FF]/.test(formatted);
+  if (isEnglish) {
+    const enFollowUp = q.includes("price") || q.includes("plan") || q.includes("cost") ? "Would you like to start with our 2-Day Free Trial first, or activate a plan right away?" : "Which platform (Facebook Page, WhatsApp, or Website) are you looking to automate first?";
+    return `${formatted}
+
+${enFollowUp}`;
+  }
+  if (isOneAgentSaaS) {
+    if (q.includes("price") || q.includes("dam") || q.includes("koto") || q.includes("plan") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u099F\u09BE\u0995\u09BE")) {
+      return `${formatted}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09AC\u09C7\u09A8?`;
+    }
+    if (q.includes("trial") || q.includes("free") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
+      return `${formatted}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09A8\u09BE\u0995\u09BF \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u099F\u09BF \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+    }
+    if (q.includes("coupon") || q.includes("discount") || q.includes("\u0995\u09C1\u09AA\u09A8") || q.includes("\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F") || q.includes("\u099B\u09BE\u09DC")) {
+      return `${formatted}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF (Starter \u09A8\u09BE\u0995\u09BF Pro) \u09A8\u09C7\u0993\u09DF\u09BE\u09B0 \u0995\u09A5\u09BE \u09AD\u09BE\u09AC\u099B\u09C7\u09A8?`;
+    }
+    return `${formatted}
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C\u099F\u09BF \u09AE\u09C2\u09B2\u09A4 \u0995\u09CB\u09A8 \u09A7\u09B0\u09A8\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A8\u09BF\u09DF\u09C7 \u0995\u09BE\u099C \u0995\u09B0\u09C7?`;
+  }
+  if (hasProducts) {
+    return `${formatted}
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u0985\u09A8\u09CD\u09AF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+  }
+  return `${formatted}
+
+\u098F\u0987 \u09AC\u09BF\u09B7\u09DF\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0995\u09BF \u0986\u09B0 \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0986\u099B\u09C7, \u09A8\u09BE\u0995\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE\u099F\u09BF \u099C\u09BE\u09A8\u09BF\u09DF\u09C7 \u09A6\u09C7\u09AC\u09CB?`;
+}
+var UNCLEAR_VOICE_REPLY = `\u09AD\u09BE\u0987\u09DF\u09BE/\u0986\u09AA\u09C1, \u0986\u09AA\u09A8\u09BE\u09B0 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u099F\u09BF \u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AC\u09CB\u099D\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF\u0964
+
+\u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0986\u09B0\u09C7\u0995\u09AC\u09BE\u09B0 \u098F\u0995\u099F\u09C1 \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0\u09AD\u09BE\u09AC\u09C7 \u09AD\u09DF\u09C7\u09B8 \u09A6\u09BF\u09A8 \u0985\u09A5\u09AC\u09BE \u099F\u09C7\u0995\u09CD\u09B8\u099F\u09C7 \u09B2\u09BF\u0996\u09C7 \u099C\u09BE\u09A8\u09BE\u09A8, \u0986\u09AA\u09A8\u09BF \u09A0\u09BF\u0995 \u0995\u09CB\u09A8 \u09AC\u09BF\u09B7\u09DF\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8? \u{1F60A}`;
+function isUnclearVoiceText(str) {
+  if (!str) return true;
+  const cleaned = str.replace(/\[[^\]]*\]/g, "").replace(/\([^)]*\)/g, "").replace(/[.,?!।'"\-_*~`]/g, "").trim();
+  if (cleaned.length < 2) return true;
+  const lower = str.toLowerCase().trim();
+  return lower.includes("[unclear]") || lower.includes("unclear_audio") || lower === "unclear" || lower.includes("silent") || lower.includes("silence") || lower.includes("inaudible") || lower.includes("unintelligible") || lower.includes("no speech") || lower.includes("background noise") || lower.includes("only noise") || lower.includes("cannot understand") || lower.includes("could not understand") || lower.includes("not clear") || lower.includes("audio is unclear") || lower.includes("\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F") || lower.includes("\u09AC\u09CB\u099D\u09BE \u09AF\u09BE\u099A\u09CD\u099B\u09C7 \u09A8\u09BE") || lower.includes("\u09AC\u09CB\u099D\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF") || lower.includes("\u09B6\u09CB\u09A8\u09BE \u09AF\u09BE\u099A\u09CD\u099B\u09C7 \u09A8\u09BE") || lower.includes("\u09B6\u09CB\u09A8\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF") || lower.includes("\u0995\u09CB\u09A8\u09CB \u0995\u09A5\u09BE \u09B6\u09CB\u09A8\u09BE");
 }
 var CANDIDATE_MODELS = [
   "gemini-3-flash-preview",
@@ -4577,11 +4686,14 @@ var CANDIDATE_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-flash-latest"
 ];
-async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, businessName, recentHistory, catalogContext, customApiKey) {
+async function callGeminiWithAudio(audioBase64, audioMimeType, _systemPrompt, _businessName, _recentHistory, _catalogContext, customApiKey) {
   const clients = getGeminiClients(customApiKey);
   let normalizedBase64 = audioBase64;
   let normalizedMime = cleanAudioMimeType(audioMimeType);
   let rawBuffer = Buffer.from(audioBase64, "base64");
+  if (!rawBuffer || rawBuffer.length < 350) {
+    return { replyText: UNCLEAR_VOICE_REPLY, transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C" };
+  }
   try {
     const detectedMime = detectAudioMimeTypeFromBuffer(rawBuffer, normalizedMime);
     normalizedMime = detectedMime;
@@ -4604,42 +4716,29 @@ async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, bus
       adtsBase64 = adtsBuf.toString("base64");
     }
   }
-  const promptText = `System Instructions & Business Knowledge Base:
-${systemPrompt}
+  const promptText = `Listen carefully to this audio recording sent by a customer.
+Your ONLY task is to transcribe the exact spoken words in Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) or English.
 
-You are the official customer service AI assistant for ${businessName}.
-The customer sent a voice note / audio message.
-
-Merchant Product Catalog & Pricing:
-${catalogContext}
-
-TASK:
-1. Listen carefully to the customer's voice note (may be in Bangla, Banglish, or English).
-2. Transcribe accurately what the customer said in the audio.
-3. Formulate a SHORT, polite, direct customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF) based on the Business Knowledge Base above.
-4. STRICT LENGTH RULE: Keep your reply concise and conversational \u2014 maximum 2 to 3 short sentences (2-4 lines max). Answer ONLY what the customer asked in the voice note without dumping long lists or essays. Do not use ** markdown asterisks. Never repeat the customer's question.
-
-Previous Conversation History:
-${recentHistory || "(No previous messages)"}
+CRITICAL ANTI-HALLUCINATION RULES:
+1. Do NOT answer any question. Output ONLY the exact transcript of what the person said, or [UNCLEAR].
+2. If the audio is silent, very faint, only background noise, wind/static, coughing, breathing, music, mumbled, or if you cannot clearly hear and understand meaningful spoken words with high confidence, you MUST output strictly:
+TRANSCRIPT: [UNCLEAR]
+3. Never guess, invent, or hallucinate words that are not clearly spoken in the audio.
 
 OUTPUT FORMAT:
-TRANSCRIPT: <Accurate transcription of what the customer spoke>
-REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7)>`;
+TRANSCRIPT: <exact spoken words in Bangla/English, OR [UNCLEAR]>`;
   const parseAudioResponse = (rawText) => {
     const transcriptMatch = rawText.match(/TRANSCRIPT:\s*([\s\S]*?)(?=(REPLY:|$))/i);
     const replyMatch = rawText.match(/REPLY:\s*([\s\S]*)/i);
-    let transcript = transcriptMatch ? transcriptMatch[1].trim() : void 0;
-    let replyText = replyMatch ? replyMatch[1].trim() : rawText;
-    if (replyText.startsWith("REPLY:")) {
-      replyText = replyText.substring(6).trim();
+    let transcript = (transcriptMatch ? transcriptMatch[1] : rawText).replace(/^TRANSCRIPT:\s*/i, "").trim();
+    if (isUnclearVoiceText(transcript) || replyMatch && isUnclearVoiceText(replyMatch[1])) {
+      return {
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C",
+        isUnclear: true
+      };
     }
-    if (transcript && !replyMatch) {
-      replyText = "";
-    }
-    if (transcript && (transcript.toLowerCase().includes("silent") || transcript.toLowerCase().includes("unclear"))) {
-      transcript = void 0;
-    }
-    return { replyText: formatCleanChatMessage(replyText), transcript };
+    return { replyText: "", transcript };
   };
   const allProfiles = db.getProfiles() || [];
   const adminKey = allProfiles.find((p) => p.role === "admin" && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || "";
@@ -4668,7 +4767,7 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
       if (whisperRes.ok) {
         const wJson = await whisperRes.json();
         const wText = String(wJson?.text || "").trim();
-        if (wText) {
+        if (wText && !isUnclearVoiceText(wText)) {
           console.log(`[AI Service] Whisper transcribed voice note: "${wText}"`);
           return { replyText: "", transcript: wText };
         }
@@ -4700,13 +4799,19 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
                   }
                 ]
               }
-            ]
+            ],
+            config: {
+              temperature: 0.1
+            }
           }),
           14e3
         );
         const rawText = response.text?.trim();
         if (!rawText) continue;
         const parsed = parseAudioResponse(rawText);
+        if (parsed.isUnclear) {
+          return { replyText: UNCLEAR_VOICE_REPLY, transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C" };
+        }
         if (parsed.replyText || parsed.transcript) {
           return parsed;
         }
@@ -4729,7 +4834,7 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
                   }
                 },
                 {
-                  text: "Transcribe this customer voice message accurately."
+                  text: "Transcribe the spoken words in this customer voice message accurately. If the audio is silent, background noise only, or unintelligible, output ONLY [UNCLEAR]. Do not guess or invent words."
                 }
               ]
             }
@@ -4748,6 +4853,9 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
       }
       transcriptText = (transcriptText || transcribeRes.text || "").trim();
       if (transcriptText) {
+        if (isUnclearVoiceText(transcriptText)) {
+          return { replyText: UNCLEAR_VOICE_REPLY, transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C" };
+        }
         console.log(`[AI Service] gemini-3.5-transcribe succeeded: "${transcriptText}"`);
         return { replyText: "", transcript: transcriptText };
       }
@@ -4776,11 +4884,13 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
                         data: normalizedBase64
                       }
                     },
-                    { text: isTranscribeModel ? "Transcribe this audio." : promptText }
+                    {
+                      text: isTranscribeModel ? "Transcribe the spoken words accurately. If silent, background noise, or unintelligible, output ONLY [UNCLEAR]." : promptText
+                    }
                   ]
                 }
               ],
-              ...isTranscribeModel ? {} : { generationConfig: { temperature: 0.35 } }
+              ...isTranscribeModel ? {} : { generationConfig: { temperature: 0.1 } }
             })
           }),
           14e3
@@ -4790,11 +4900,18 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
           const parts = data?.candidates?.[0]?.content?.parts || [];
           const audioTrans = parts.map((p) => p?.audioTranscription?.text || "").join(" ").trim();
           if (audioTrans) {
+            if (isUnclearVoiceText(audioTrans)) {
+              return { replyText: UNCLEAR_VOICE_REPLY, transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C" };
+            }
             return { replyText: "", transcript: audioTrans };
           }
           const rawText = parts.map((p) => p?.text || "").join("").trim();
           if (rawText) {
-            return parseAudioResponse(rawText);
+            const parsed = parseAudioResponse(rawText);
+            if (parsed.isUnclear) {
+              return { replyText: UNCLEAR_VOICE_REPLY, transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C" };
+            }
+            return parsed;
           }
         }
       } catch (restErr) {
@@ -4810,7 +4927,7 @@ async function callGeminiWithImage(imageBase64, imageMimeType, customerText, sys
   const promptText = `System Instructions & Business Knowledge Base:
 ${systemPrompt}
 
-You are the customer service AI assistant for ${businessName}.
+You are a warm, smart, human-like Customer Service & Sales Executive for ${businessName}.
 The customer sent an image/photo along with the text: "${customerText || "\u098F\u0987 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
 
 Merchant Product Catalog & Price List:
@@ -4819,13 +4936,15 @@ ${catalogContext}
 TASK:
 1. Examine the image sent by the customer carefully.
 2. Identify what is shown in the image (product from catalog, screenshot, payment slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
-3. Reply in SHORT, clear, polite natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF \u2014 \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 / \u09E8-\u09EA \u09B2\u09BE\u0987\u09A8\u09C7). Give the exact price or answer directly without writing a long essay. Do not use ** markdown asterisks.
+3. Reply naturally like a real human in concise Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF \u2014 \u09E8 \u09A5\u09C7\u0995\u09C7 \u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7).
+4. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+5. End with 1 smart, relevant follow-up question in a new paragraph (\u09AF\u09C7\u09AE\u09A8: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0995\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8 \u09A8\u09BE\u0995\u09BF \u0985\u09A8\u09CD\u09AF \u0995\u09CB\u09A8\u09CB \u09B8\u09BE\u0987\u099C/\u0995\u09BE\u09B2\u09BE\u09B0 \u0996\u09C1\u0981\u099C\u099B\u09C7\u09A8?). Do not use ** markdown asterisks.
 
 Recent Conversation History:
 ${recentHistory || "(No previous messages)"}
 
 Customer Question: "${customerText || "\u098F\u099F\u09BE\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
-Assistant Reply (in concise Bangla, 2-3 sentences max):`;
+Assistant Reply (in concise Bangla with paragraph spacing and a follow-up question):`;
   for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
       try {
@@ -5033,54 +5152,100 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
     const isThreeMonths = q.includes("3 mas") || q.includes("3 month") || q.includes("\u09E9 \u09AE\u09BE\u09B8") || q.includes("\u09A4\u09BF\u09A8 \u09AE\u09BE\u09B8");
     const isTwoMonths = q.includes("2 mas") || q.includes("2 month") || q.includes("\u09E8 \u09AE\u09BE\u09B8") || q.includes("\u09A6\u09C1\u0987 \u09AE\u09BE\u09B8");
     if (isYearly) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (WELCOME10) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09B2\u09C7 \u09E7\u09E6% \u099B\u09BE\u09DC \u09AA\u09BE\u09AC\u09C7\u09A8! \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+
+\u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (WELCOME10) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09B2\u09C7 \u0986\u09AA\u09A8\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09E7\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09BE\u09AC\u09C7\u09A8!
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (isSixMonths) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09EC \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09ED,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u0993 \u0995\u09C1\u09AA\u09A8 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7!`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09EC \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09ED,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+
+\u0986\u09AA\u09A8\u09BF \u099A\u09BE\u0987\u09B2\u09C7 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8 \u0985\u09A5\u09AC\u09BE \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7 \u0995\u09C1\u09AA\u09A8 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u09A8\u09C7\u0993\u09DF\u09BE\u09B0 \u0995\u09A5\u09BE \u09AD\u09BE\u09AC\u099B\u09C7\u09A8?`;
     }
     if (isThreeMonths) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E9 \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E9,\u09ED\u09EB\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09EB,\u09EE\u09EB\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7\u0993 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E9 \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E9,\u09ED\u09EB\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09EB,\u09EE\u09EB\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B8\u09AC \u09AB\u09BF\u099A\u09BE\u09B0 \u09AF\u09BE\u099A\u09BE\u0987 \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
     if (isTwoMonths) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E8,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E9,\u09EF\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AC\u09BE \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09A4\u09C7 \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8: https://www.oneagentbd.online`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF Starter AI Plan \u09F3\u09E8,\u09EB\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E9,\u09EF\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AA\u09C7\u099C\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (q.includes("voice") || q.includes("audio") || q.includes("chobi") || q.includes("photo") || q.includes("image") || q.includes("picture") || q.includes("\u09AD\u09DF\u09C7\u09B8") || q.includes("\u0985\u09A1\u09BF\u0993") || q.includes("\u099B\u09AC\u09BF")) {
-      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AC\u09BE\u0982\u09B2\u09BE \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u09C7 \u098F\u099F\u09BF \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+      return `\u099C\u09CD\u09AC\u09C0, \u0985\u09AC\u09B6\u09CD\u09AF\u0987! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AC\u09BE\u0982\u09B2\u09BE \u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE \u0993 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C\u09C7 \u098F\u099F\u09BF \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
     if (q.includes("comment") || q.includes("\u0995\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u09AA\u09CB\u09B8\u09CD\u099F")) {
-      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C\u09C7\u09B0 \u09AA\u09CB\u09B8\u09CD\u099F\u09C7 \u0995\u09C7\u0989 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09B2\u09C7 AI \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0995\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09A6\u09C7\u09DF \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0987\u09A8\u09AC\u0995\u09CD\u09B8\u09C7 (DM-\u098F) \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09AE\u09C7\u09B8\u09C7\u099C \u09AA\u09BE\u09A0\u09BF\u09DF\u09C7 \u09A6\u09C7\u09DF\u0964`;
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C\u09C7\u09B0 \u09AA\u09CB\u09B8\u09CD\u099F\u09C7 \u0995\u09C7\u0989 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09B2\u09C7 AI \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0995\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09A6\u09C7\u09DF \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0987\u09A8\u09AC\u0995\u09CD\u09B8\u09C7 (DM-\u098F) \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09AA\u09BE\u09A0\u09BF\u09DF\u09C7 \u09A6\u09C7\u09DF\u0964
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C\u099F\u09BF \u0995\u09BF \u09AE\u09C2\u09B2\u09A4 \u0987-\u0995\u09AE\u09BE\u09B0\u09CD\u09B8 \u09AC\u09BE \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09B8\u09C7\u09B2\u09BF\u0982 \u09AA\u09C7\u099C?`;
     }
     if (q.includes("courier") || q.includes("steadfast") || q.includes("pathao") || q.includes("redx") || q.includes("\u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0") || q.includes("\u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2") || q.includes("order") && !q.includes("kivabe kinbo")) {
-      return `\u099A\u09CD\u09AF\u09BE\u099F\u09C7\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7\u0987 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A8\u09BF\u09DF\u09C7 AI \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09AC\u09C1\u0995 \u0995\u09B0\u09C7 \u098F\u09AC\u0982 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09C7\u0995\u09C7 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 Steadfast, Pathao \u09AC\u09BE RedX \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0\u09C7 \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF \u0995\u09B0\u09BE \u09AF\u09BE\u09DF!`;
+      return `\u099A\u09CD\u09AF\u09BE\u099F\u09C7\u09B0 \u09AD\u09C7\u09A4\u09B0\u09C7\u0987 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A8\u09BF\u09DF\u09C7 AI \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09AC\u09C1\u0995 \u0995\u09B0\u09C7 \u09A8\u09C7\u09DF\u0964
+
+\u098F\u09B0\u09AA\u09B0 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09C7\u0995\u09C7 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 Steadfast, Pathao \u09AC\u09BE RedX \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0\u09C7 \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8!
+
+\u0986\u09AA\u09A8\u09BF \u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0995\u09CB\u09A8 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8\u099F\u09BF \u09AC\u09C7\u09B6\u09BF \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7\u09A8?`;
     }
     if (q.includes("website") || q.includes("wordpress") || q.includes("woocommerce") || q.includes("shopify") || q.includes("\u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F") || q.includes("\u0993\u09AF\u09BC\u09C7\u09AC\u09B8\u09BE\u0987\u099F")) {
-      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09AA\u09A8\u09BE\u09B0 WordPress/WooCommerce, Shopify \u09AC\u09BE \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09B8\u09BF\u0999\u09CD\u0995 \u098F\u09AC\u0982 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 \u09B2\u09BE\u0987\u09AD \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u0964`;
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09AA\u09A8\u09BE\u09B0 WordPress/WooCommerce, Shopify \u09AC\u09BE \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09B8\u09BF\u0999\u09CD\u0995 \u098F\u09AC\u0982 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7 \u09B2\u09BE\u0987\u09AD \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8\u0964
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u099F\u09BF \u0995\u09BF WordPress \u09A8\u09BE\u0995\u09BF \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0995\u09CB\u09A1\u09C7 \u09A4\u09C8\u09B0\u09BF?`;
     }
     if (q.includes("ban") || q.includes("risk") || q.includes("limit") || q.includes("official") || q.includes("\u09AC\u09CD\u09AF\u09BE\u09A8") || q.includes("\u099D\u09C1\u0981\u0995\u09BF") || q.includes("\u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09B9\u09AC\u09C7") || q.includes("\u09B2\u09BF\u09AE\u09BF\u099F")) {
-      return `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C \u09E7\u09E6\u09E6% \u09A8\u09BF\u09B0\u09BE\u09AA\u09A6 \u09A5\u09BE\u0995\u09AC\u09C7! \u0986\u09AE\u09B0\u09BE \u09AE\u09C7\u099F\u09BE\u09B0 \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BF \u09A4\u09BE\u0987 \u09AC\u09CD\u09AF\u09BE\u09A8 \u09B9\u0993\u09DF\u09BE\u09B0 \u0995\u09CB\u09A8\u09CB \u099D\u09C1\u0981\u0995\u09BF \u09A8\u09C7\u0987 \u098F\u09AC\u0982 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964`;
+      return `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C \u09E7\u09E6\u09E6% \u09A8\u09BF\u09B0\u09BE\u09AA\u09A6 \u09A5\u09BE\u0995\u09AC\u09C7! \u0986\u09AE\u09B0\u09BE \u09AE\u09C7\u099F\u09BE\u09B0 \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BF \u09A4\u09BE\u0987 \u09AC\u09CD\u09AF\u09BE\u09A8 \u09B9\u0993\u09DF\u09BE\u09B0 \u0995\u09CB\u09A8\u09CB \u099D\u09C1\u0981\u0995\u09BF \u09A8\u09C7\u0987 \u098F\u09AC\u0982 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09A8\u09BE\u0995\u09BF \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (q.includes("coupon") || q.includes("cupon") || q.includes("copon") || q.includes("promo") || q.includes("discount") || q.includes("offer") || q.includes("kom") || q.includes("\u0995\u09C1\u09AA\u09A8") || q.includes("\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F") || q.includes("\u09AA\u09CD\u09B0\u09CB\u09AE\u09CB") || q.includes("\u099B\u09BE\u09DC") || q.includes("\u099B\u09BE\u09A1\u09BC") || q.includes("\u0985\u09AB\u09BE\u09B0") || q.includes("\u0995\u09AE\u09BE\u09A8\u09CB")) {
-      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 WELCOME10 \u09A6\u09BF\u09B2\u09C7 \u09E7\u09E6% \u099B\u09BE\u09DC \u098F\u09AC\u0982 SAVE250 \u09A6\u09BF\u09B2\u09C7 \u09F3\u09E8\u09EB\u09E6 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AA\u09BE\u09AC\u09C7\u09A8\u0964 \u098F\u099B\u09BE\u09DC\u09BE \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u0993 \u09A8\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u0986\u099B\u09C7! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 WELCOME10 \u09A6\u09BF\u09B2\u09C7 \u09E7\u09E6% \u099B\u09BE\u09DC \u098F\u09AC\u0982 SAVE250 \u09A6\u09BF\u09B2\u09C7 \u09F3\u09E8\u09EB\u09E6 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AA\u09BE\u09AC\u09C7\u09A8\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF (Starter \u09A8\u09BE\u0995\u09BF Pro) \u09A8\u09C7\u0993\u09DF\u09BE\u09B0 \u0995\u09A5\u09BE \u09AD\u09BE\u09AC\u099B\u09C7\u09A8? \u099C\u09BE\u09A8\u09BE\u09B2\u09C7 \u0986\u09AE\u09BF \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u09B8\u09B9 \u09B9\u09BF\u09B8\u09BE\u09AC\u099F\u09BF \u09AC\u09B2\u09C7 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`;
     }
     if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("upay") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09B0\u0995\u09C7\u099F") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F")) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online)-\u098F\u09B0 Billing \u09AE\u09C7\u09A8\u09C1 \u09A5\u09C7\u0995\u09C7 \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6, \u09B0\u0995\u09C7\u099F \u09AC\u09BE \u0989\u09AA\u09BE\u09DF-\u098F \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 TrxID \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u099F\u09CB \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online)-\u098F\u09B0 Billing \u09AE\u09C7\u09A8\u09C1 \u09A5\u09C7\u0995\u09C7 \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6, \u09B0\u0995\u09C7\u099F \u09AC\u09BE \u0989\u09AA\u09BE\u09DF-\u098F \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 TrxID \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u099F\u09CB \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
     }
     if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
-      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 (https://www.oneagentbd.online) \u09A8\u09A4\u09C1\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09B2\u09C7\u0987 \u0995\u09CB\u09A8\u09CB \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u099B\u09BE\u09DC\u09BE \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964`;
+      return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 (https://www.oneagentbd.online) \u09A8\u09A4\u09C1\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09B2\u09C7\u0987 \u0995\u09CB\u09A8\u09CB \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u099B\u09BE\u09DC\u09BE \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09AA\u09BE\u09AC\u09C7\u09A8\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u099C\u0987 \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u099F\u09BF \u099A\u09BE\u09B2\u09C1 \u0995\u09B0\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09C7\u099C\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8?`;
     }
     if (q.includes("connect") || q.includes("setup") || q.includes("kivabe") || q.includes("\u0995\u09BF\u09AD\u09BE\u09AC\u09C7") || q.includes("\u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F") || q.includes("\u09B8\u09C7\u099F\u0986\u09AA") || q.includes("\u0995\u09BE\u099C \u0995\u09B0\u09C7")) {
-      return `\u09AE\u09BE\u09A4\u09CD\u09B0 \u09E8 \u09AE\u09BF\u09A8\u09BF\u099F\u09C7 \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09BE \u09AF\u09BE\u09DF! https://www.oneagentbd.online \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 "Connect with Facebook"-\u098F \u09E7 \u0995\u09CD\u09B2\u09BF\u0995 \u0995\u09B0\u09C7 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0993 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8 \u09B8\u09C7\u09AD \u0995\u09B0\u09B2\u09C7\u0987 \u0985\u099F\u09CB \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B6\u09C1\u09B0\u09C1 \u09B9\u09AC\u09C7\u0964`;
+      return `\u09AE\u09BE\u09A4\u09CD\u09B0 \u09E8 \u09AE\u09BF\u09A8\u09BF\u099F\u09C7\u0987 \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09BE \u09AF\u09BE\u09DF! https://www.oneagentbd.online \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 "Connect with Facebook"-\u098F \u09E7 \u0995\u09CD\u09B2\u09BF\u0995 \u0995\u09B0\u09C7 \u09AA\u09C7\u099C \u0995\u09BE\u09A8\u09C7\u0995\u09CD\u099F \u0993 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8 \u09B8\u09C7\u09AD \u0995\u09B0\u09B2\u09C7\u0987 \u0985\u099F\u09CB \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B6\u09C1\u09B0\u09C1 \u09B9\u09AC\u09C7\u0964
+
+\u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0995\u09BF \u0995\u09CB\u09A8\u09CB \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8?`;
     }
     if (q.includes("price") || q.includes("dam") || q.includes("koto") || q.includes("plan") || q.includes("package") || q.includes("taka") || q.includes("starter") || q.includes("pro") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C") || q.includes("\u0996\u09B0\u099A") || q.includes("\u099A\u09BE\u09B0\u09CD\u099C")) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7: Starter AI Plan \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982) \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987\u09B8\u09B9 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1)\u0964 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u0986\u099B\u09C7!`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:
+\u2022 Starter AI Plan: \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E7\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09B8\u09AC \u099A\u09CD\u09AF\u09BE\u09A8\u09C7\u09B2 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)
+\u2022 Pro Business Plan: \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987\u09B8\u09B9 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1)
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09B0\u09C1 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09A8\u09BF\u09AC\u09C7\u09A8?`;
     }
     if (q.includes("service") || q.includes("feature") || q.includes("ki ki") || q.includes("\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8") || q.includes("\u09AB\u09BF\u099A\u09BE\u09B0") || q.includes("\u0995\u09BF \u0995\u09BF") || q.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4") || q.includes("details")) {
-      return `\u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u0987\u0964 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 (\u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u09B8\u09B9)\u0964`;
+      return `\u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u0985\u099F\u09CB \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u098F\u09AC\u0982 \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u0987\u0964
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 (\u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964
+
+\u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AA\u09C7\u099C\u099F\u09BF \u09AE\u09C2\u09B2\u09A4 \u0995\u09CB\u09A8 \u09A7\u09B0\u09A8\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A8\u09BF\u09DF\u09C7 \u0995\u09BE\u099C \u0995\u09B0\u09C7?`;
     }
     if (q.includes("number") || q.includes("phone") || q.includes("call") || q.includes("contact") || q.includes("support") || q.includes("\u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0") || q.includes("\u09AB\u09CB\u09A8") || q.includes("\u0995\u09B2") || q.includes("\u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997") || q.includes("\u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7")) {
-      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0: +8801601705804 (\u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u2013 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE) \u098F\u09AC\u0982 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F: https://www.oneagentbd.online\u0964 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09B2\u09C7\u0993 \u0986\u09AE\u09B0\u09BE \u0995\u09B2 \u0995\u09B0\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09AC!`;
+      return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0: +8801601705804 (\u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u2013 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE) \u098F\u09AC\u0982 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F: https://www.oneagentbd.online\u0964
+
+\u0986\u09AA\u09A8\u09BF \u099A\u09BE\u0987\u09B2\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u098F\u0996\u09BE\u09A8\u09C7 \u09A6\u09BF\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u09A8\u09BF\u09A7\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09B2 \u0995\u09B0\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09AC\u09C7!`;
     }
-    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u0985\u099F\u09CB AI \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF (\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8, \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964 \u0995\u09C0\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF?`;
+    return `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! ${businessName}-\u098F \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AE\u09B0\u09BE Facebook, Instagram, WhatsApp \u0993 Website-\u098F \u09E8\u09EA/\u09ED \u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u0993 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964
+
+\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 \u098F\u09AC\u0982 \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
   }
   const cleanLines = Array.from(
     new Set(
@@ -5188,7 +5353,15 @@ async function generateAIReply(params) {
 ${oneAgentExtendedKnowledge}` : ""}`;
   const effectiveApiKey = (params.overrideApiKey && !isDeadSeedKey(params.overrideApiKey) ? params.overrideApiKey.trim() : "") || (profile?.llm_api_key && !isDeadSeedKey(profile.llm_api_key) ? profile.llm_api_key.trim() : "") || (db.getSettings()?.default_llm_api_key || "").trim() || void 0;
   let voiceTranscript = void 0;
-  if (params.audioBase64) {
+  const isVoicePlaceholderText = params.incomingMessage?.includes("[Voice Message]") || params.incomingMessage?.includes("Voice Message");
+  if (params.audioBase64 || isVoicePlaceholderText) {
+    if (!params.audioBase64) {
+      return {
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C",
+        isVoice: true
+      };
+    }
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
     const voiceResult = await callGeminiWithAudio(
       params.audioBase64,
@@ -5206,24 +5379,16 @@ ${oneAgentExtendedKnowledge}` : ""}`;
         isVoice: true
       };
     }
-    if (voiceResult && voiceResult.transcript) {
+    if (voiceResult && voiceResult.transcript && !isUnclearVoiceText(voiceResult.transcript)) {
       voiceTranscript = voiceResult.transcript;
       params.incomingMessage = voiceResult.transcript;
       if (merchantProducts.length > 0) {
         matchedProduct = db.findProductForQuery(params.userId, voiceResult.transcript);
       }
     } else {
-      const fallbackQuery = params.incomingMessage && !params.incomingMessage.includes("[Voice Message]") ? params.incomingMessage : "\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE, \u0986\u09AA\u09A8\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987";
-      const kbVoiceFallback = buildSmartBanglaFallbackFromPrompt(
-        fallbackQuery,
-        combinedSystemPrompt,
-        businessName,
-        merchantProducts,
-        matchedProduct
-      );
       return {
-        replyText: kbVoiceFallback,
-        transcript: "\u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C",
+        replyText: UNCLEAR_VOICE_REPLY,
+        transcript: "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C",
         isVoice: true
       };
     }
@@ -5251,7 +5416,9 @@ ${oneAgentExtendedKnowledge}` : ""}`;
     }
     if (matchedProduct) {
       return {
-        replyText: `\u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AE\u09BF\u09B2\u09C7\u099B\u09C7 (\u09AE\u09C2\u09B2\u09CD\u09AF: \u09F3${matchedProduct.price})\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8!`,
+        replyText: `\u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AE\u09BF\u09B2\u09C7\u099B\u09C7 (\u09AE\u09C2\u09B2\u09CD\u09AF: \u09F3${matchedProduct.price})\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8? \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u09A6\u09BF\u09A8!`,
         isVoice: false,
         attachedImageUrl: matchedProduct.image_url,
         attachedProductName: matchedProduct.name,
@@ -5259,19 +5426,31 @@ ${oneAgentExtendedKnowledge}` : ""}`;
       };
     }
     return {
-      replyText: `\u099B\u09AC\u09BF\u099F\u09BF \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB\u09B0 \u099C\u09A8\u09CD\u09AF \u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6! \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF \u09B8\u09CD\u099F\u0995\u09C7 \u0986\u099B\u09C7\u0964 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964`,
+      replyText: `\u099B\u09AC\u09BF\u099F\u09BF \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB\u09B0 \u099C\u09A8\u09CD\u09AF \u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6! \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09CD\u099F\u0995\u09C7 \u0986\u099B\u09C7\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09A8\u09BE\u0995\u09BF \u098F\u09B0 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8?`,
       isVoice: false
     };
   }
-  const languageDirective = `CRITICAL SHORT-REPLY & INTELLIGENT REASONING RULES (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
-\u09E7. \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4 \u0993 \u099F\u09C1-\u09A6\u09CD\u09AF-\u09AA\u09DF\u09C7\u09A8\u09CD\u099F \u0989\u09A4\u09CD\u09A4\u09B0 (STRICT SHORT REPLY RULE \u2014 \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8 \u09A5\u09C7\u0995\u09C7 \u09E9 \u09AC\u09BE\u0995\u09CD\u09AF / \u09E8-\u09EA \u09B2\u09BE\u0987\u09A8):
-   - \u0995\u0996\u09A8\u09CB\u0987 \u09AC\u09BF\u09B6\u09BE\u09B2 \u09AC\u09DC \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB, \u09B0\u099A\u09A8\u09BE \u09AC\u09BE \u09B2\u09AE\u09CD\u09AC\u09BE \u09B2\u09BF\u09B8\u09CD\u099F \u09B2\u09BF\u0996\u09AC\u09C7\u09A8 \u09A8\u09BE! \u09AC\u09DC \u09AE\u09C7\u09B8\u09C7\u099C \u09AA\u09DC\u09B2\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BF\u09B0\u0995\u09CD\u09A4 \u09B9\u09DF\u0964
-   - \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A0\u09BF\u0995 \u09AF\u09C7\u099F\u09C1\u0995\u09C1 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7\u099B\u09C7, \u09B6\u09C1\u09A7\u09C1\u09AE\u09BE\u09A4\u09CD\u09B0 \u09B8\u09C7\u099F\u09C1\u0995\u09C1\u09B0\u0987 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8 \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8 \u09A5\u09C7\u0995\u09C7 \u09E9\u099F\u09BF \u099B\u09CB\u099F \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 (\u09E8 \u09A5\u09C7\u0995\u09C7 \u09EA \u09B2\u09BE\u0987\u09A8\u09C7\u09B0 \u09AE\u09A7\u09CD\u09AF\u09C7)\u0964
-   - \u0989\u09A6\u09BE\u09B9\u09B0\u09A3\u09B8\u09CD\u09AC\u09B0\u09C2\u09AA: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AF\u09A6\u09BF \u09B6\u09C1\u09A7\u09C1 "\u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09A8\u09BF\u09B2\u09C7 \u0995\u09A4 \u09AA\u09DC\u09AC\u09C7?" \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09C7, \u09A4\u09AC\u09C7 \u09B6\u09C1\u09A7\u09C1 \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u09A6\u09BE\u09AE\u099F\u09C1\u0995\u09C1\u0987 \u09AC\u09B2\u09AC\u09C7\u09A8 (\u09AF\u09C7\u09AE\u09A8: "\u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09BE\u09AC\u09C7\u09A8! \u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?")\u2014\u0985\u09AF\u09A5\u09BE \u09B8\u09AC \u09AB\u09BF\u099A\u09BE\u09B0\u09C7\u09B0 \u09B2\u09AE\u09CD\u09AC\u09BE \u09A4\u09BE\u09B2\u09BF\u0995\u09BE \u09B2\u09BF\u0996\u09AC\u09C7\u09A8 \u09A8\u09BE \u09AF\u09A4\u0995\u09CD\u09B7\u09A3 \u09A8\u09BE \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A8\u09BF\u099C\u09C7 \u09AB\u09BF\u099A\u09BE\u09B0 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09DF\u0964
-\u09E8. \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u0993\u09DF\u09BE (Smart Intent & Unscripted Questions):
-   - \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0998\u09C1\u09B0\u09BF\u09DF\u09C7 \u09AC\u09BE \u09A8\u09A4\u09C1\u09A8 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 (\u09AF\u09C7\u09AE\u09A8 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1, \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F, \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09AD\u09BE\u09B2\u09CB \u09B9\u09AC\u09C7 \u0987\u09A4\u09CD\u09AF\u09BE\u09A6\u09BF), \u09AA\u09CD\u09B0\u09AE\u09CD\u09AA\u099F\u09C7\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8 \u09AC\u09C1\u099D\u09C7 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0993 \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 \u09AE\u09C1\u0996\u09B8\u09CD\u09A5 \u09B2\u09AE\u09CD\u09AC\u09BE \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE \u09AE\u09C7\u09B8\u09C7\u099C \u0995\u09AA\u09BF-\u09AA\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964
-\u09E9. \u09AD\u09BE\u09B7\u09BE \u0993 \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F (Language & Clean Formatting):
-   - \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09B9\u099C, \u0986\u09A8\u09CD\u09A4\u09B0\u09BF\u0995 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 ** \u09AC\u09BE # \u099A\u09BF\u09B9\u09CD\u09A8 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964`;
+  const languageDirective = `CRITICAL HUMAN CONVERSATION, SPACING & FOLLOW-UP QUESTION RULES (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
+\u09E7. \u09AE\u09BE\u09A8\u09C1\u09B7\u09C7\u09B0 \u09AE\u09A4\u09CB \u09A8\u09CD\u09AF\u09BE\u099A\u09BE\u09B0\u09BE\u09B2 \u0995\u09A5\u09CB\u09AA\u0995\u09A5\u09A8 (Talk Like a Real Human / ChatGPT Style):
+   - \u09B0\u09CB\u09AC\u099F\u09C7\u09B0 \u09AE\u09A4\u09CB \u09AE\u09C1\u0996\u09B8\u09CD\u09A5 \u09AC\u09BE \u098F\u0995\u0998\u09C7\u09DF\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A8\u09BE \u09A6\u09BF\u09DF\u09C7 \u098F\u0995\u099C\u09A8 \u09AC\u09C1\u09A6\u09CD\u09A7\u09BF\u09AE\u09BE\u09A8 \u0993 \u0986\u09A8\u09CD\u09A4\u09B0\u09BF\u0995 \u09AE\u09BE\u09A8\u09C1\u09B7\u09C7\u09B0 \u09AE\u09A4\u09CB \u0995\u09A5\u09BE \u09AC\u09B2\u09AC\u09C7\u09A8\u0964
+   - \u0989\u09A4\u09CD\u09A4\u09B0 \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4 \u0993 \u099F\u09C1-\u09A6\u09CD\u09AF-\u09AA\u09DF\u09C7\u09A8\u09CD\u099F \u09B0\u09BE\u0996\u09AC\u09C7\u09A8 (\u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8 \u09A5\u09C7\u0995\u09C7 \u09E9\u099F\u09BF \u099B\u09CB\u099F \u09AC\u09BE\u0995\u09CD\u09AF), \u09AF\u09BE\u09A4\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u098F\u0995 \u09A8\u099C\u09B0\u09C7\u0987 \u09AA\u09DC\u09C7 \u09AC\u09C1\u099D\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964
+\u09E8. \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB \u0993 \u09B2\u09BE\u0987\u09A8 \u09B8\u09CD\u09AA\u09C7\u09B8\u09BF\u0982 (MANDATORY PARAGRAPH SPACING \u2014 \u099F\u09C7\u0995\u09CD\u09B8\u099F \u09AC\u09C1\u099D\u09C7 \u09AB\u09BE\u0981\u0995\u09BE \u099C\u09BE\u09DF\u0997\u09BE \u09B0\u09BE\u0996\u09BE):
+   - \u0995\u0996\u09A8\u09CB\u0987 \u09B8\u09AC \u0995\u09A5\u09BE \u098F\u0995\u09B8\u09BE\u09A5\u09C7 \u0997\u09BE\u09A6\u09BE\u0997\u09BE\u09A6\u09BF \u0995\u09B0\u09C7 \u098F\u0995 \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8 \u09A8\u09BE!
+   - \u09AE\u09C2\u09B2 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u0993\u09DF\u09BE\u09B0 \u09AA\u09B0 \u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u098F\u0995\u099F\u09BF \u0996\u09BE\u09B2\u09BF \u09B2\u09BE\u0987\u09A8 (Double Newline / \\n\\n) \u09AB\u09BE\u0981\u0995\u09BE \u09B0\u09C7\u0996\u09C7 \u09AA\u09B0\u09AC\u09B0\u09CD\u09A4\u09C0 \u09B2\u09BE\u0987\u09A8 \u09AC\u09BE \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8, \u09AF\u09BE\u09A4\u09C7 \u09AE\u09C7\u09B8\u09C7\u099C\u099F\u09BF \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0 \u0993 \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u09B2\u09BE\u0997\u09C7\u0964
+\u09E9. \u0989\u09A4\u09CD\u09A4\u09B0 \u09AC\u09C1\u099D\u09C7 \u09B6\u09C7\u09B7\u09C7 \u09E7\u099F\u09BF \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09BE (MANDATORY SMART FOLLOW-UP QUESTION):
+   - ChatGPT \u09AC\u09BE \u098F\u0995\u099C\u09A8 \u09A6\u0995\u09CD\u09B7 \u09B8\u09C7\u09B2\u09B8 \u098F\u0995\u09CD\u09B8\u09BF\u0995\u09BF\u0989\u099F\u09BF\u09AD\u09C7\u09B0 \u09AE\u09A4\u09CB \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u0993\u09DF\u09BE\u09B0 \u09AA\u09B0, \u09B8\u09C7\u0987 \u0989\u09A4\u09CD\u09A4\u09B0\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AE\u09BF\u09B2 \u09B0\u09C7\u0996\u09C7 \u09B8\u09AC\u09B6\u09C7\u09B7\u09C7 \u09A8\u09A4\u09C1\u09A8 \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u0995\u09C7 \u09E7\u099F\u09BF \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0993 \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 (Follow-up Question) \u0995\u09B0\u09AC\u09C7\u09A8 \u09AF\u09BE\u09A4\u09C7 \u0995\u09A8\u09AD\u09BE\u09B0\u09B8\u09C7\u09B6\u09A8 \u099A\u09B2\u09A4\u09C7 \u09A5\u09BE\u0995\u09C7!
+   - \u0989\u09A6\u09BE\u09B9\u09B0\u09A3 \u09E7 (\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7):
+     "\u099C\u09CD\u09AC\u09C0, \u0985\u09AC\u09B6\u09CD\u09AF\u0987! \u0986\u09AE\u09B0\u09BE Facebook, WhatsApp, Instagram \u0993 Website-\u098F\u09B0 \u099C\u09A8\u09CD\u09AF \u09E8\u09EA/\u09ED \u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u098F\u09AC\u0982 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A6\u09BF\u09DF\u09C7 \u09A5\u09BE\u0995\u09BF\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09AE\u09BE\u09A4\u09CD\u09B0 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u09A5\u09C7\u0995\u09C7 \u09B6\u09C1\u09B0\u09C1 (\u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964
+
+     \u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09AC\u09BE \u09AA\u09C7\u099C\u099F\u09BF \u09AE\u09C2\u09B2\u09A4 \u0995\u09CB\u09A8 \u09A7\u09B0\u09A8\u09C7\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09A8\u09BF\u09DF\u09C7 \u0995\u09BE\u099C \u0995\u09B0\u09C7?"
+   - \u0989\u09A6\u09BE\u09B9\u09B0\u09A3 \u09E8 (\u09A6\u09BE\u09AE \u09AC\u09BE \u09AE\u09C7\u09DF\u09BE\u09A6 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7):
+     "\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE, \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 Starter AI Plan \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro Business Plan \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE\u0964 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09B2\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09BE\u09AC\u09C7\u09A8!
+
+     \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A6\u09BF\u09DF\u09C7 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A8\u09BE\u0995\u09BF \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u0995\u09B0\u09AC\u09C7\u09A8?"
+\u09EA. \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0 \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F (Clean Formatting):
+   - \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09B9\u099C \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 ** \u09AC\u09BE # \u099A\u09BF\u09B9\u09CD\u09A8 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964`;
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance = "ORDER CONFIRMATION: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7 \u09AC\u09BE \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09B2\u09C7 \u09B8\u0982\u0995\u09CD\u09B7\u09C7\u09AA\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C1\u09A8\u0964";
   if (orderSettings && orderSettings.enabled && orderSettings.instructions) {
@@ -5281,14 +5460,18 @@ Collect name, 11-digit mobile number, and address to finalize order.`;
   }
   let productPhotoDirective = "";
   if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
-    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u099B\u09AC\u09BF \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8\u0964 \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u099C\u09BE\u09A8\u09BE\u09A8 \u09AF\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u099B\u09AC\u09BF \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7 \u098F\u09AC\u0982 \u098F\u09B0 \u09A6\u09BE\u09AE \u09F3${matchedProduct.price} ${matchedProduct.currency}\u0964`;
+    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u099B\u09AC\u09BF \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8\u0964 \u09B8\u0982\u0995\u09CD\u09B7\u09C7\u09AA\u09C7 \u099C\u09BE\u09A8\u09BE\u09A8 \u09AF\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u099B\u09AC\u09BF \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7 \u098F\u09AC\u0982 \u098F\u09B0 \u09A6\u09BE\u09AE \u09F3${matchedProduct.price} ${matchedProduct.currency}, \u098F\u09B0\u09AA\u09B0 \u09A8\u09A4\u09C1\u09A8 \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB\u09C7 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09C1\u09A8 \u09A4\u09BF\u09A8\u09BF \u098F\u099F\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u09A8 \u0995\u09BF\u09A8\u09BE\u0964`;
   }
-  const systemInstruction = `You are the official, friendly human-like Customer Support & Sales AI Representative for "${businessName}".
-CRITICAL RULE: Keep every reply SHORT, natural, and conversational \u2014 strictly 2 to 3 sentences (2-4 lines maximum). Never dump long lists of features or long paragraphs unless the customer explicitly asks for full details. Answer ONLY what the customer asked in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE). Never output markdown asterisks (**).`;
+  const systemInstruction = `You are a warm, intelligent, human-like Customer Support & Sales Executive for "${businessName}" (conversational like ChatGPT).
+CRITICAL RULES:
+1. Keep every reply concise (2-3 short sentences total).
+2. Always separate your main answer and your closing follow-up question with an empty line (\\n\\n) so the text is never clumped together.
+3. Always end your reply with 1 natural, context-aware follow-up question in Bangla based on what the customer asked, keeping the conversation flowing like a real human.
+4. Never output markdown asterisks (**).`;
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
 ${combinedSystemPrompt}
 
-Reasoning, Brevity & Language Instructions:
+Human Conversation, Paragraph Spacing & Follow-Up Question Rules:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -5303,12 +5486,17 @@ ${recentHistory || "(No previous messages)"}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-4 lines) answering ONLY what the customer asked:`;
+Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct answer and a smart closing follow-up question):`;
   const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
   if (geminiReply) {
     return {
-      replyText: geminiReply,
+      replyText: ensureConversationalFollowUp(
+        geminiReply,
+        params.incomingMessage,
+        isOneAgentSaaS,
+        merchantProducts.length > 0
+      ),
       transcript: voiceTranscript,
       isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : void 0,
@@ -5324,7 +5512,12 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
     matchedProduct
   );
   return {
-    replyText: smartBanglaReply,
+    replyText: ensureConversationalFollowUp(
+      smartBanglaReply,
+      params.incomingMessage,
+      isOneAgentSaaS,
+      merchantProducts.length > 0
+    ),
     transcript: voiceTranscript,
     isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : void 0,
@@ -8162,15 +8355,15 @@ CRITICAL ON-WEBSITE CONTEXT RULE (MUST OBEY):
 function sanitizeWebsiteBotReply(text) {
   if (!text) return text;
   let cleaned = text.replace(/oneagentbd\.com/gi, "oneagentbd.online").replace(/বিস্তারিত জানতে আমাদের ওয়েবসাইট\s*(\([^)]*\))?\s*ভিজিট করুন[।.!]*/gi, "").replace(/বিস্তারিত জানতে আমাদের ওয়েবসাইট\s*(\([^)]*\))?\s*ভিজিট করুন[।.!]*/gi, "").replace(/আমাদের ওয়েবসাইট\s*(\([^)]*\))?\s*ভিজিট করুন[।.!]*/gi, "").replace(/আমাদের ওয়েবসাইট\s*(\([^)]*\))?\s*ভিজিট করুন[।.!]*/gi, "").replace(/for more details,?\s*visit our website\s*(\([^)]*\))?[.,!]*/gi, "").replace(/visit our website\s*(\([^)]*\))?\s*(for more details|to learn more)?[.,!]*/gi, "").trim();
-  return cleaned || text.replace(/oneagentbd\.com/gi, "oneagentbd.online");
+  return formatCleanChatMessage(cleaned || text.replace(/oneagentbd\.com/gi, "oneagentbd.online"));
 }
 function getSaasBilingualFallback(question, lang, hasImage, hasAudio) {
   const q = (question || "").toLowerCase();
   if (hasImage && (!q || q.length < 3)) {
-    return lang === "en" ? "I have received and analyzed your image! With One Agent BD, our Multimodal AI recognizes product photos, payment screenshots, and website setups automatically. We offer two plans: Starter AI Plan (1,250 TK/month) and Pro Business Plan (1,950 TK/month), plus a 2-Day Free Trial. How can I help you with this image?" : "\u0986\u09AE\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u09AA\u09C7\u09DF\u09C7\u099B\u09BF \u098F\u09AC\u0982 \u09AC\u09BF\u09B6\u09CD\u09B2\u09C7\u09B7\u09A3 \u0995\u09B0\u09C7\u099B\u09BF! \u{1F4F8} One Agent BD-\u098F\u09B0 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF\u09AE\u09CB\u09A1\u09BE\u09B2 AI \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF, \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09A8\u09B6\u099F \u098F\u09AC\u0982 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09C7\u099F\u0986\u09AA \u09B8\u09CD\u09AC\u09DF\u0982\u0995\u09CD\u09B0\u09BF\u09DF\u09AD\u09BE\u09AC\u09C7 \u09AC\u09C1\u099D\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7: Starter AI Plan (\u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8) \u098F\u09AC\u0982 Pro Business Plan (\u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8), \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u0964 \u098F\u0987 \u099B\u09AC\u09BF\u099F\u09BF \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0995\u09CB\u09A8\u09CB \u09AC\u09BF\u09B6\u09C7\u09B7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u09A5\u09BE\u0995\u09B2\u09C7 \u099C\u09BE\u09A8\u09BE\u09A8!";
+    return lang === "en" ? "I have received and analyzed your image! \u{1F4F8}\n\nWith One Agent BD, our Multimodal AI recognizes product photos, payment screenshots, and website setups automatically.\n\nHow can I help you with this image?" : "\u0986\u09AE\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u09AA\u09C7\u09DF\u09C7\u099B\u09BF! \u{1F4F8}\n\nOne Agent BD-\u098F\u09B0 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF\u09AE\u09CB\u09A1\u09BE\u09B2 AI \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF, \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09A8\u09B6\u099F \u098F\u09AC\u0982 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09B8\u09C7\u099F\u0986\u09AA \u09B8\u09CD\u09AC\u09DF\u0982\u0995\u09CD\u09B0\u09BF\u09DF\u09AD\u09BE\u09AC\u09C7 \u09AC\u09C1\u099D\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964\n\n\u098F\u0987 \u099B\u09AC\u09BF\u099F\u09BF \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0995\u09C0 \u099C\u09BE\u09A8\u09BE\u09B0 \u0986\u099B\u09C7 \u09AC\u09B2\u09C1\u09A8?";
   }
   if (hasAudio && (!q || q.length < 3)) {
-    return lang === "en" ? "I have listened to your voice message! \u{1F3A4} One Agent BD supports real-time Voice AI on WhatsApp, Messenger, Instagram, and Website Chatbots. You can start with our 2-Day Free Trial, or choose our Starter AI Plan (1,250 TK/mo) or Pro Business Plan (1,950 TK/mo). Let me know what details you need!" : "\u0986\u09AE\u09BF \u0986\u09AA\u09A8\u09BE\u09B0 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u099F\u09BF \u09AE\u09A8\u09CB\u09AF\u09CB\u0997 \u09A6\u09BF\u09DF\u09C7 \u09B6\u09C1\u09A8\u09C7\u099B\u09BF! \u{1F3A4} One Agent BD-\u098F\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F, WhatsApp, Messenger \u098F\u09AC\u0982 Instagram-\u098F \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09B0\u09BE \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09AC\u09BE \u099B\u09AC\u09BF \u09AA\u09BE\u09A0\u09BE\u09B2\u09C7 AI \u09A4\u09BE \u09B6\u09C1\u09A8\u09C7 \u0993 \u09AC\u09C1\u099D\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09DF\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u098F\u09AC\u0982 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2)\u0964 \u0986\u09B0 \u0995\u09C0 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09A8 \u09AC\u09B2\u09C1\u09A8!";
+    return UNCLEAR_VOICE_REPLY;
   }
   if (q.includes("price") || q.includes("cost") || q.includes("plan") || q.includes("package") || q.includes("dam") || q.includes("koto") || q.includes("taka") || q.includes("tk") || q.includes("1250") || q.includes("1950") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4") || q.includes("\u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8") || q.includes("\u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C")) {
     return lang === "en" ? "One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan \u2014 1,250 TK/month (Includes WhatsApp, Messenger, Instagram & Website AI Chatbot, 50 Products, Auto Order & Courier Booking).\n2) Pro Business Plan \u2014 1,950 TK/month (Includes 3 AI Agents, Voice & Image AI Recognition, Unlimited Products, Multi-Store Sync & Priority 24/7 Support).\nYou can also apply a Coupon Code at checkout!" : "One Agent BD-\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09B8\u09B9 \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B0\u09DF\u09C7\u099B\u09C7:\n\u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 (WhatsApp, Messenger, Instagram \u098F\u09AC\u0982 Website AI Chatbot, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0993 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982)\u0964\n\u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8 (\u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u0993 \u099B\u09AC\u09BF\u09B0 AI \u09B0\u09BF\u0995\u0997\u09A8\u09BF\u09B6\u09A8, \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u098F\u09AC\u0982 \u09AE\u09BE\u09B2\u09CD\u099F\u09BF-\u09B8\u09CD\u099F\u09CB\u09B0 \u09B8\u09BF\u0999\u09CD\u0995)\u0964\n\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09B8\u09AE\u09DF \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 (Coupon Code) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0\u09C7\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u0993 \u09B0\u09DF\u09C7\u099B\u09C7!";
@@ -8427,47 +8620,92 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
             }
           });
         }
+        let effectiveQueryText = rawText;
         if (hasAudio && audioBase64) {
           const cleanAudioB64 = audioBase64.includes(",") ? audioBase64.split(",")[1] : audioBase64;
-          const detectedAudioMime = detectAudioMimeTypeFromBuffer(
-            Buffer.from(cleanAudioB64, "base64"),
-            audioMimeType || "audio/webm"
-          );
-          parts.push({
-            inlineData: {
-              data: cleanAudioB64,
-              mimeType: detectedAudioMime
+          const audioBuf = Buffer.from(cleanAudioB64, "base64");
+          if (!audioBuf || audioBuf.length < 350) {
+            aiReplyText = UNCLEAR_VOICE_REPLY;
+          } else {
+            const detectedAudioMime = detectAudioMimeTypeFromBuffer(
+              audioBuf,
+              audioMimeType || "audio/webm"
+            );
+            if (!effectiveQueryText) {
+              for (const model of CANDIDATE_MODELS) {
+                try {
+                  const transRes = await ai.models.generateContent({
+                    model,
+                    contents: {
+                      parts: [
+                        {
+                          inlineData: {
+                            data: cleanAudioB64,
+                            mimeType: detectedAudioMime
+                          }
+                        },
+                        {
+                          text: "Listen carefully to this voice message. Transcribe ONLY the exact spoken words in Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) or English. If the audio is silent, background noise, coughing, mumbled, or you cannot clearly understand what was spoken with high confidence, output strictly: [UNCLEAR]. Do not guess or invent words."
+                        }
+                      ]
+                    },
+                    config: { temperature: 0.1 }
+                  });
+                  const tText = (transRes.text || "").replace(/^TRANSCRIPT:\s*/i, "").trim();
+                  if (tText) {
+                    if (isUnclearVoiceText(tText)) {
+                      aiReplyText = UNCLEAR_VOICE_REPLY;
+                    } else {
+                      effectiveQueryText = tText;
+                    }
+                    break;
+                  }
+                } catch {
+                }
+              }
+              if (!effectiveQueryText && !aiReplyText) {
+                aiReplyText = UNCLEAR_VOICE_REPLY;
+              }
             }
-          });
+          }
         }
-        const promptText = `${baseKnowledge}
+        if (!aiReplyText) {
+          const promptText = `${baseKnowledge}
 
 ${languageDirective}
 
-IMPORTANT REMINDER:
-- The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8" or "Visit our website". Answer directly in this chat or tell them to check the Pricing section right on this page!
-- Official domain is oneagentbd.online (never say oneagentbd.com).
+IMPORTANT REMINDER & HUMAN CONVERSATION RULES:
+- The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8" or "Visit our website".
+- Talk naturally like a real human (conversational like ChatGPT).
+- Keep your answer concise (2-3 short sentences).
+- MANDATORY PARAGRAPH SPACING: Put an empty line (\\n\\n) between your main answer and your closing follow-up question! Never cram everything into one single block of text.
+- MANDATORY FOLLOW-UP QUESTION: Always end your reply (in a new paragraph after \\n\\n) with 1 smart, relevant follow-up question based on what the visitor asked!
 
 ${recentHistoryText ? `Recent Conversation History:
 ${recentHistoryText}
 ` : ""}
 ${hasImage ? "The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n" : ""}
-${hasAudio ? "The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question concisely in 2-3 short sentences.\n" : ""}
-Visitor Message: "${rawText || (hasAudio ? "[Voice Message Attached - Please listen and reply concisely]" : "[Image Attached - Please analyze and reply concisely]")}"
+Visitor Message: "${effectiveQueryText || "[Image Attached - Please analyze and reply concisely]"}"
 
-Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences max) following the CRITICAL LANGUAGE MATCHING RULE above:`;
-        parts.push({ text: promptText });
-        for (const model of CANDIDATE_MODELS) {
-          try {
-            const response = await ai.models.generateContent({
-              model,
-              contents: parts.length === 1 ? promptText : { parts }
-            });
-            if (response.text?.trim()) {
-              aiReplyText = sanitizeWebsiteBotReply(response.text.trim());
-              break;
+Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevant closing follow-up question:`;
+          parts.push({ text: promptText });
+          for (const model of CANDIDATE_MODELS) {
+            try {
+              const response = await ai.models.generateContent({
+                model,
+                contents: parts.length === 1 ? promptText : { parts }
+              });
+              if (response.text?.trim()) {
+                aiReplyText = ensureConversationalFollowUp(
+                  sanitizeWebsiteBotReply(response.text.trim()),
+                  effectiveQueryText || rawText,
+                  isSaasOfficial,
+                  merchantProducts.length > 0
+                );
+                break;
+              }
+            } catch (mErr) {
             }
-          } catch (mErr) {
           }
         }
       } catch (geminiErr) {
@@ -8475,16 +8713,32 @@ Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences
       }
     }
     if (!aiReplyText) {
-      if (isSaasOfficial) {
-        aiReplyText = getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio);
+      if (hasAudio && (!rawText || isUnclearVoiceText(rawText))) {
+        aiReplyText = UNCLEAR_VOICE_REPLY;
+      } else if (isSaasOfficial) {
+        aiReplyText = ensureConversationalFollowUp(
+          getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio),
+          rawText,
+          true,
+          false
+        );
       } else {
         const q = rawText.toLowerCase();
         if (q.includes("plan") || q.includes("saas") || q.includes("one agent") || q.includes("1250") || q.includes("1950") || q.includes("website") || q.includes("trial")) {
-          aiReplyText = getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio);
+          aiReplyText = ensureConversationalFollowUp(
+            getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio),
+            rawText,
+            true,
+            false
+          );
         } else if (hasImage) {
-          aiReplyText = detectedLang === "en" ? `Thank you for sending the image! \u{1F4F8} At ${config.business_name}, we have received your photo. Would you like to know the price, stock availability, or place an order for this item?` : `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u0986\u09AE\u09B0\u09BE \u09AA\u09C7\u09DF\u09C7\u099B\u09BF! \u{1F4F8} ${config.business_name}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u0987 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u09A6\u09BE\u09AE, \u09B8\u09CD\u099F\u0995 \u09A8\u09BE\u0995\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+          aiReplyText = detectedLang === "en" ? `Thank you for sending the image! \u{1F4F8} At ${config.business_name}, we have received your photo.
+
+Would you like to know the price, stock availability, or place an order for this item?` : `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u099B\u09AC\u09BF\u099F\u09BF \u0986\u09AE\u09B0\u09BE \u09AA\u09C7\u09DF\u09C7\u099B\u09BF! \u{1F4F8} ${config.business_name}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09BF \u098F\u0987 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u09A6\u09BE\u09AE, \u09B8\u09CD\u099F\u0995 \u09A8\u09BE\u0995\u09BF \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
         } else if (hasAudio) {
-          aiReplyText = detectedLang === "en" ? `Thank you for your voice message! \u{1F3A4} We have received your audio at ${config.business_name}. Please let us know if you'd like to check product prices or confirm an order!` : `\u0986\u09AA\u09A8\u09BE\u09B0 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u099F\u09BF \u0986\u09AE\u09B0\u09BE \u09B6\u09C1\u09A8\u09C7\u099B\u09BF! \u{1F3A4} ${config.business_name}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u09AC\u09BE \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0\u099F\u09BF \u099C\u09BE\u09A8\u09BE\u09A8!`;
+          aiReplyText = UNCLEAR_VOICE_REPLY;
         } else if (q.includes("offer") || q.includes("price") || q.includes("cost") || q.includes("dam") || q.includes("koto") || q.includes("\u09A6\u09BE\u09AE") || q.includes("\u0995\u09A4")) {
           const prodList = merchantProducts.length > 0 ? merchantProducts.slice(0, 3).map((p) => `${p.name} (\u09F3${p.price})`).join(", ") : "";
           aiReplyText = detectedLang === "en" ? `Welcome to ${config.business_name}! \u{1F31F} ${prodList ? `Our popular items include: ${prodList}. ` : ""}Which product's price and details would you like to know?` : `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! \u{1F31F} ${config.business_name}-\u098F \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE\u0964 ${prodList ? `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u099C\u09A8\u09AA\u09CD\u09B0\u09BF\u09DF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09B8\u09AE\u09C2\u09B9: ${prodList}\u0964 ` : ""}\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8\u09C7\u09B0 \u09A6\u09BE\u09AE \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
@@ -8974,14 +9228,18 @@ aiChatRouter.post("/hero-query", async (req, res) => {
 
 Channel UI: ${platform === "whatsapp" ? "WhatsApp Business" : "Facebook Messenger"}
 ${languageInstruction}
-CRITICAL REMINDER: The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8"). Answer directly in this chat!
+CRITICAL REMINDER & CONVERSATION STYLE:
+1. The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F \u09AD\u09BF\u099C\u09BF\u099F \u0995\u09B0\u09C1\u09A8"). Answer directly in this chat!
+2. Talk naturally like a real human (conversational like ChatGPT).
+3. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+4. Always end your reply with 1 smart, context-aware follow-up question based on what the visitor asked!
 
 Previous conversation:
 ${formattedHistory || "(No previous messages)"}
 
 Visitor asks: "${trimmedMsg}"
 
-Generate a direct, helpful, and concise response:`;
+Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing and 1 closing follow-up question):`;
         for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
@@ -8990,7 +9248,11 @@ Generate a direct, helpful, and concise response:`;
             });
             const reply = response.text?.trim();
             if (reply) {
-              return res.json({ reply: sanitizeWebsiteBotReply(reply), source: "gemini", detectedLanguage: lang });
+              return res.json({
+                reply: ensureConversationalFollowUp(sanitizeWebsiteBotReply(reply), trimmedMsg, true, false),
+                source: "gemini",
+                detectedLanguage: lang
+              });
             }
           } catch (modelErr) {
             console.warn(`[Hero AI Chat] Model ${model} failed:`, modelErr?.message || modelErr);
@@ -9000,7 +9262,7 @@ Generate a direct, helpful, and concise response:`;
     } catch (geminiErr) {
       console.warn("[Hero AI Chat] Gemini API error, using knowledge matcher:", geminiErr);
     }
-    const fallbackReply = getSaasIntelligentFallback(trimmedMsg, lang);
+    const fallbackReply = ensureConversationalFollowUp(getSaasIntelligentFallback(trimmedMsg, lang), trimmedMsg, true, false);
     return res.json({ reply: fallbackReply, source: "knowledge-base", detectedLanguage: lang });
   } catch (err) {
     console.error("[Hero AI Chat] Internal error:", err);
@@ -9083,7 +9345,7 @@ Respond directly as ${businessName}'s AI agent:`;
         }
         if (reply2) {
           return res.json({
-            reply: reply2,
+            reply: ensureConversationalFollowUp(formatCleanChatMessage(reply2), trimmedMsg, false, true),
             detectedOrder: detectedOrder2,
             source: "gemini"
           });

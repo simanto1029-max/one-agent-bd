@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db/database.js';
-import { getCandidateGeminiKeys, CANDIDATE_MODELS } from '../services/aiService.js';
+import {
+  getCandidateGeminiKeys,
+  CANDIDATE_MODELS,
+  formatCleanChatMessage,
+  ensureConversationalFollowUp
+} from '../services/aiService.js';
 import {
   detectLanguageMode,
   ONE_AGENT_SAAS_KNOWLEDGE,
@@ -136,14 +141,18 @@ aiChatRouter.post('/hero-query', async (req: Request, res: Response) => {
 
 Channel UI: ${platform === 'whatsapp' ? 'WhatsApp Business' : 'Facebook Messenger'}
 ${languageInstruction}
-CRITICAL REMINDER: The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন"). Answer directly in this chat!
+CRITICAL REMINDER & CONVERSATION STYLE:
+1. The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন"). Answer directly in this chat!
+2. Talk naturally like a real human (conversational like ChatGPT).
+3. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+4. Always end your reply with 1 smart, context-aware follow-up question based on what the visitor asked!
 
 Previous conversation:
 ${formattedHistory || '(No previous messages)'}
 
 Visitor asks: "${trimmedMsg}"
 
-Generate a direct, helpful, and concise response:`;
+Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing and 1 closing follow-up question):`;
 
         for (const model of CANDIDATE_MODELS) {
           try {
@@ -154,7 +163,11 @@ Generate a direct, helpful, and concise response:`;
 
             const reply = response.text?.trim();
             if (reply) {
-              return res.json({ reply: sanitizeWebsiteBotReply(reply), source: 'gemini', detectedLanguage: lang });
+              return res.json({
+                reply: ensureConversationalFollowUp(sanitizeWebsiteBotReply(reply), trimmedMsg, true, false),
+                source: 'gemini',
+                detectedLanguage: lang
+              });
             }
           } catch (modelErr: any) {
             console.warn(`[Hero AI Chat] Model ${model} failed:`, modelErr?.message || modelErr);
@@ -165,7 +178,7 @@ Generate a direct, helpful, and concise response:`;
       console.warn('[Hero AI Chat] Gemini API error, using knowledge matcher:', geminiErr);
     }
 
-    const fallbackReply = getSaasIntelligentFallback(trimmedMsg, lang);
+    const fallbackReply = ensureConversationalFollowUp(getSaasIntelligentFallback(trimmedMsg, lang), trimmedMsg, true, false);
     return res.json({ reply: fallbackReply, source: 'knowledge-base', detectedLanguage: lang });
   } catch (err: any) {
     console.error('[Hero AI Chat] Internal error:', err);
@@ -269,7 +282,7 @@ Respond directly as ${businessName}'s AI agent:`;
 
         if (reply) {
           return res.json({
-            reply,
+            reply: ensureConversationalFollowUp(formatCleanChatMessage(reply), trimmedMsg, false, true),
             detectedOrder,
             source: 'gemini'
           });

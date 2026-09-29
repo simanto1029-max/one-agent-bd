@@ -3,7 +3,14 @@ import { db, Message, Order } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
 import { GoogleGenAI } from '@google/genai';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
-import { getCandidateGeminiKeys, CANDIDATE_MODELS } from '../services/aiService.js';
+import {
+  getCandidateGeminiKeys,
+  CANDIDATE_MODELS,
+  formatCleanChatMessage,
+  ensureConversationalFollowUp,
+  UNCLEAR_VOICE_REPLY,
+  isUnclearVoiceText
+} from '../services/aiService.js';
 import { detectAudioMimeTypeFromBuffer } from '../services/audioDownloader.js';
 
 export const widgetRouter = Router();
@@ -240,7 +247,7 @@ export function sanitizeWebsiteBotReply(text: string): string {
     .replace(/visit our website\s*(\([^)]*\))?\s*(for more details|to learn more)?[.,!]*/gi, '')
     .trim();
 
-  return cleaned || text.replace(/oneagentbd\.com/gi, 'oneagentbd.online');
+  return formatCleanChatMessage(cleaned || text.replace(/oneagentbd\.com/gi, 'oneagentbd.online'));
 }
 
 function getSaasBilingualFallback(
@@ -254,15 +261,13 @@ function getSaasBilingualFallback(
   // If image was uploaded and Gemini fallback triggered
   if (hasImage && (!q || q.length < 3)) {
     return lang === 'en'
-      ? 'I have received and analyzed your image! With One Agent BD, our Multimodal AI recognizes product photos, payment screenshots, and website setups automatically. We offer two plans: Starter AI Plan (1,250 TK/month) and Pro Business Plan (1,950 TK/month), plus a 2-Day Free Trial. How can I help you with this image?'
-      : 'আমি আপনার পাঠানো ছবিটি পেয়েছি এবং বিশ্লেষণ করেছি! 📸 One Agent BD-এর মাল্টিমোডাল AI প্রোডাক্টের ছবি, পেমেন্ট স্ক্রিনশট এবং ওয়েবসাইট সেটআপ স্বয়ংক্রিয়ভাবে বুঝতে পারে। আমাদের ২টি প্ল্যান রয়েছে: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল। এই ছবিটি সম্পর্কে আপনার কোনো বিশেষ প্রশ্ন থাকলে জানান!';
+      ? 'I have received and analyzed your image! 📸\n\nWith One Agent BD, our Multimodal AI recognizes product photos, payment screenshots, and website setups automatically.\n\nHow can I help you with this image?'
+      : 'আমি আপনার পাঠানো ছবিটি পেয়েছি! 📸\n\nOne Agent BD-এর মাল্টিমোডাল AI প্রোডাক্টের ছবি, পেমেন্ট স্ক্রিনশট এবং ওয়েবসাইট সেটআপ স্বয়ংক্রিয়ভাবে বুঝতে পারে।\n\nএই ছবিটি সম্পর্কে আপনার কী জানার আছে বলুন?';
   }
 
-  // If voice note was sent and Gemini fallback triggered
+  // If voice note was sent and could not be transcribed/understood -> never guess a random answer!
   if (hasAudio && (!q || q.length < 3)) {
-    return lang === 'en'
-      ? 'I have listened to your voice message! 🎤 One Agent BD supports real-time Voice AI on WhatsApp, Messenger, Instagram, and Website Chatbots. You can start with our 2-Day Free Trial, or choose our Starter AI Plan (1,250 TK/mo) or Pro Business Plan (1,950 TK/mo). Let me know what details you need!'
-      : 'আমি আপনার ভয়েস মেসেজটি মনোযোগ দিয়ে শুনেছি! 🎤 One Agent BD-এর মাধ্যমে আপনার ওয়েবসাইট, WhatsApp, Messenger এবং Instagram-এ কাস্টমাররা ভয়েস মেসেজ বা ছবি পাঠালে AI তা শুনে ও বুঝে সাথে সাথে উত্তর দেয়। আমাদের প্ল্যান ৳১,২৫০/মাস এবং ৳১,৯৫০/মাস (সাথে ২ দিনের ফ্রি ট্রায়াল)। আর কী জানতে চান বলুন!';
+    return UNCLEAR_VOICE_REPLY;
   }
 
   // Pricing & Plans
@@ -683,49 +688,96 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
         }
 
         // Attach Voice Audio inlineData if present
+        let effectiveQueryText = rawText;
         if (hasAudio && audioBase64) {
           const cleanAudioB64 = audioBase64.includes(',') ? audioBase64.split(',')[1] : audioBase64;
-          const detectedAudioMime = detectAudioMimeTypeFromBuffer(
-            Buffer.from(cleanAudioB64, 'base64'),
-            audioMimeType || 'audio/webm'
-          );
-          parts.push({
-            inlineData: {
-              data: cleanAudioB64,
-              mimeType: detectedAudioMime
+          const audioBuf = Buffer.from(cleanAudioB64, 'base64');
+          if (!audioBuf || audioBuf.length < 350) {
+            aiReplyText = UNCLEAR_VOICE_REPLY;
+          } else {
+            const detectedAudioMime = detectAudioMimeTypeFromBuffer(
+              audioBuf,
+              audioMimeType || 'audio/webm'
+            );
+            // Stage 1: If no browser transcript was captured, transcribe audio with zero business bias first
+            if (!effectiveQueryText) {
+              for (const model of CANDIDATE_MODELS) {
+                try {
+                  const transRes = await ai.models.generateContent({
+                    model,
+                    contents: {
+                      parts: [
+                        {
+                          inlineData: {
+                            data: cleanAudioB64,
+                            mimeType: detectedAudioMime
+                          }
+                        },
+                        {
+                          text: 'Listen carefully to this voice message. Transcribe ONLY the exact spoken words in Bangla (বাংলা) or English. If the audio is silent, background noise, coughing, mumbled, or you cannot clearly understand what was spoken with high confidence, output strictly: [UNCLEAR]. Do not guess or invent words.'
+                        }
+                      ]
+                    },
+                    config: { temperature: 0.1 }
+                  });
+                  const tText = (transRes.text || '').replace(/^TRANSCRIPT:\s*/i, '').trim();
+                  if (tText) {
+                    if (isUnclearVoiceText(tText)) {
+                      aiReplyText = UNCLEAR_VOICE_REPLY;
+                    } else {
+                      effectiveQueryText = tText;
+                    }
+                    break;
+                  }
+                } catch {
+                  // Try next model
+                }
+              }
+              if (!effectiveQueryText && !aiReplyText) {
+                aiReplyText = UNCLEAR_VOICE_REPLY;
+              }
             }
-          });
+          }
         }
 
-        const promptText = `${baseKnowledge}
+        if (!aiReplyText) {
+          const promptText = `${baseKnowledge}
 
 ${languageDirective}
 
-IMPORTANT REMINDER:
-- The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন" or "Visit our website". Answer directly in this chat or tell them to check the Pricing section right on this page!
-- Official domain is oneagentbd.online (never say oneagentbd.com).
+IMPORTANT REMINDER & HUMAN CONVERSATION RULES:
+- The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন" or "Visit our website".
+- Talk naturally like a real human (conversational like ChatGPT).
+- Keep your answer concise (2-3 short sentences).
+- MANDATORY PARAGRAPH SPACING: Put an empty line (\\n\\n) between your main answer and your closing follow-up question! Never cram everything into one single block of text.
+- MANDATORY FOLLOW-UP QUESTION: Always end your reply (in a new paragraph after \\n\\n) with 1 smart, relevant follow-up question based on what the visitor asked!
 
 ${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}
 ${hasImage ? 'The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n' : ''}
-${hasAudio ? 'The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question concisely in 2-3 short sentences.\n' : ''}
-Visitor Message: "${rawText || (hasAudio ? '[Voice Message Attached - Please listen and reply concisely]' : '[Image Attached - Please analyze and reply concisely]')}"
+Visitor Message: "${effectiveQueryText || '[Image Attached - Please analyze and reply concisely]'}"
 
-Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences max) following the CRITICAL LANGUAGE MATCHING RULE above:`;
+Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevant closing follow-up question:`;
 
-        parts.push({ text: promptText });
+          parts.push({ text: promptText });
 
-        for (const model of CANDIDATE_MODELS) {
-          try {
-            const response = await ai.models.generateContent({
-              model,
-              contents: parts.length === 1 ? promptText : { parts }
-            });
-            if (response.text?.trim()) {
-              aiReplyText = sanitizeWebsiteBotReply(response.text.trim());
-              break;
+          for (const model of CANDIDATE_MODELS) {
+            try {
+              const response = await ai.models.generateContent({
+                model,
+                contents: parts.length === 1 ? promptText : { parts }
+              });
+              if (response.text?.trim()) {
+                aiReplyText = ensureConversationalFollowUp(
+                  sanitizeWebsiteBotReply(response.text.trim()),
+                  effectiveQueryText || rawText,
+                  isSaasOfficial,
+                  merchantProducts.length > 0
+                );
+                break;
+              }
+            } catch (mErr: any) {
+              // Try next model
             }
-          } catch (mErr: any) {
-            // Try next model
           }
         }
       } catch (geminiErr: any) {
@@ -735,8 +787,15 @@ Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences
 
     // Intelligent Bilingual Fallback if Gemini is unavailable
     if (!aiReplyText) {
-      if (isSaasOfficial) {
-        aiReplyText = getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio);
+      if (hasAudio && (!rawText || isUnclearVoiceText(rawText))) {
+        aiReplyText = UNCLEAR_VOICE_REPLY;
+      } else if (isSaasOfficial) {
+        aiReplyText = ensureConversationalFollowUp(
+          getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio),
+          rawText,
+          true,
+          false
+        );
       } else {
         const q = rawText.toLowerCase();
         if (
@@ -748,17 +807,19 @@ Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences
           q.includes('website') ||
           q.includes('trial')
         ) {
-          aiReplyText = getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio);
+          aiReplyText = ensureConversationalFollowUp(
+            getSaasBilingualFallback(rawText, detectedLang, hasImage, hasAudio),
+            rawText,
+            true,
+            false
+          );
         } else if (hasImage) {
           aiReplyText =
             detectedLang === 'en'
-              ? `Thank you for sending the image! 📸 At ${config.business_name}, we have received your photo. Would you like to know the price, stock availability, or place an order for this item?`
-              : `আপনার পাঠানো ছবিটি আমরা পেয়েছি! 📸 ${config.business_name}-এ আপনাকে স্বাগতম। আপনি কি এই প্রোডাক্টটির দাম, স্টক নাকি অর্ডার করার নিয়ম জানতে চাচ্ছেন?`;
+              ? `Thank you for sending the image! 📸 At ${config.business_name}, we have received your photo.\n\nWould you like to know the price, stock availability, or place an order for this item?`
+              : `আপনার পাঠানো ছবিটি আমরা পেয়েছি! 📸 ${config.business_name}-এ আপনাকে স্বাগতম।\n\nআপনি কি এই প্রোডাক্টটির দাম, স্টক নাকি অর্ডার করার নিয়ম জানতে চাচ্ছেন?`;
         } else if (hasAudio) {
-          aiReplyText =
-            detectedLang === 'en'
-              ? `Thank you for your voice message! 🎤 We have received your audio at ${config.business_name}. Please let us know if you'd like to check product prices or confirm an order!`
-              : `আপনার ভয়েস মেসেজটি আমরা শুনেছি! 🎤 ${config.business_name}-এ আপনাকে স্বাগতম। প্রোডাক্টের দাম বা অর্ডার কনফার্ম করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বারটি জানান!`;
+          aiReplyText = UNCLEAR_VOICE_REPLY;
         } else if (
           q.includes('offer') ||
           q.includes('price') ||
