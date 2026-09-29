@@ -26,10 +26,12 @@ import {
   CheckCheck,
   Zap,
   ShieldCheck,
-  ArrowUpRight
+  ArrowUpRight,
+  FileText,
+  X
 } from 'lucide-react';
 import { api } from '../../api';
-import { Conversation, Channel, Product } from '../../types';
+import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
 import { BrowserAudioRecorder, blobToBase64 } from '../../utils/audioRecorder';
 
 interface UnifiedInboxProps {
@@ -80,6 +82,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   // Image preview modal
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
+  // Conversation Summarize state
+  const [conversationSummary, setConversationSummary] = useState<ConversationSummaryResult | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [showSummaryPanel, setShowSummaryPanel] = useState(false);
+
   // Auto-scroll ref
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const threadContainerRef = useRef<HTMLDivElement>(null);
@@ -117,8 +124,34 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   }, [conversations, selectedConvKey]);
 
   useEffect(() => {
+    setConversationSummary(null);
+    setShowSummaryPanel(false);
+  }, [selectedConvKey]);
+
+  useEffect(() => {
     scrollToBottom(false);
   }, [selectedConvKey, selectedConv?.messages.length]);
+
+  const handleSummarizeConversation = async () => {
+    if (!selectedConv || summarizing) return;
+    try {
+      setShowSummaryPanel(true);
+      setSummarizing(true);
+      const res = await api.summarizeConversation({
+        customerId: selectedConv.customerId,
+        customerName: selectedConv.customerName,
+        platform: selectedConv.platform,
+        channelId: selectedConv.channelId
+      });
+      setConversationSummary(res);
+    } catch (err: any) {
+      console.error('Failed to summarize conversation:', err);
+      setInboxToast(err?.message || 'Could not generate conversation summary.');
+      setTimeout(() => setInboxToast(null), 3500);
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   const loadInbox = async () => {
     try {
@@ -707,12 +740,214 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
 
               {/* Right Header Controls */}
               <div className="flex items-center gap-2 shrink-0">
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/50 border border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 text-[11px] font-bold whitespace-nowrap">
+                <button
+                  id="conversation-summarize-btn"
+                  type="button"
+                  onClick={handleSummarizeConversation}
+                  disabled={summarizing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 disabled:opacity-60 text-white text-[11px] sm:text-xs font-extrabold shadow-xs shadow-[#7F22FE]/25 transition-all cursor-pointer whitespace-nowrap"
+                  title="এই কাস্টমারের সাথে কী কী কথা হয়েছে এবং কনভারসেশন কোন পর্যায়ে আছে তা এক ক্লিকে দেখুন"
+                >
+                  {summarizing ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  ) : (
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>{summarizing ? 'Summarizing...' : 'Conversation Summarize'}</span>
+                </button>
+
+                <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/50 border border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 text-[11px] font-bold whitespace-nowrap">
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>AI Auto-Reply Active</span>
                 </div>
               </div>
             </div>
+
+            {/* Collapsible Conversation Summary & Stage Analysis Banner */}
+            {showSummaryPanel && (
+              <div className="border-b border-violet-200/80 dark:border-violet-900/60 bg-gradient-to-br from-violet-50/90 via-white to-purple-50/60 dark:from-violet-950/40 dark:via-neutral-900 dark:to-neutral-900 px-4 sm:px-5 py-3.5 space-y-3 max-h-[52vh] overflow-y-auto">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center shadow-xs shadow-[#7F22FE]/25 shrink-0">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
+                        <span>AI Conversation Summary &amp; Stage</span>
+                        {conversationSummary && (
+                          <span
+                            className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                              conversationSummary.stageKey === 'delivered'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/60'
+                                : conversationSummary.stageKey === 'order_confirmed'
+                                ? 'bg-purple-100 text-[#7F22FE] dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300/60'
+                                : conversationSummary.stageKey === 'awaiting_order_details'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/60'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300/60'
+                            }`}
+                          >
+                            {conversationSummary.stageLabel}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        কাস্টমারের সাথে কী কথোপকথন হয়েছে এবং চ্যাটটি এখন কোন পর্যায়ে আছে তার বিস্তারিত রিপোর্ট
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSummarizeConversation}
+                      disabled={summarizing}
+                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold text-neutral-700 dark:text-neutral-200 hover:border-[#7F22FE] hover:text-[#7F22FE] transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Re-generate Summary"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${summarizing ? 'animate-spin' : ''}`} />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSummaryPanel(false)}
+                      className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                      title="Close Summary"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {summarizing && !conversationSummary ? (
+                  <div className="py-5 flex items-center justify-center gap-2.5 text-xs font-bold text-[#7F22FE] dark:text-purple-300">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>কাস্টমারের সম্পূর্ণ চ্যাট বিশ্লেষণ করে সামারি ও বর্তমান পর্যায় তৈরি করা হচ্ছে...</span>
+                  </div>
+                ) : conversationSummary ? (
+                  <div className="space-y-3">
+                    {/* 4-Step Conversation Stage Progress Bar */}
+                    <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold">
+                        <span className="text-neutral-500 dark:text-neutral-400">
+                          কনভারসেশন পর্যায় (Current Stage):
+                        </span>
+                        <span className="text-[#7F22FE] dark:text-purple-300">
+                          ধাপ {conversationSummary.stageStep}/৪ — {conversationSummary.stageLabel}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 text-[10px] font-bold">
+                        {[
+                          { step: 1, label: '১. নতুন জিজ্ঞাসা' },
+                          { step: 2, label: '২. দাম ও আলোচনা' },
+                          { step: 3, label: '৩. অর্ডারের তথ্য বাকি' },
+                          {
+                            step: 4,
+                            label:
+                              conversationSummary.stageKey === 'delivered'
+                                ? '৪. ডেলিভারি সম্পন্ন'
+                                : '৪. অর্ডার কনফার্মড'
+                          }
+                        ].map((item) => {
+                          const isDone = conversationSummary.stageStep >= item.step;
+                          const isCurrent = conversationSummary.stageStep === item.step;
+                          return (
+                            <div
+                              key={item.step}
+                              className={`px-2 py-1.5 rounded-lg text-center border transition-all ${
+                                isCurrent
+                                  ? 'bg-[#7F22FE] text-white border-[#7F22FE] shadow-2xs'
+                                  : isDone
+                                  ? 'bg-violet-100/80 dark:bg-violet-950/60 text-[#7F22FE] dark:text-purple-300 border-violet-200 dark:border-violet-800'
+                                  : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-400 border-neutral-200/60 dark:border-neutral-800'
+                              }`}
+                            >
+                              {item.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                        {conversationSummary.stageDescription}
+                      </p>
+                    </div>
+
+                    {/* Main Conversation Summary & Key Points */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+                      <div className="lg:col-span-2 p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
+                        <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5 text-[#7F22FE]" />
+                          <span>কী কী কথা হয়েছে (Conversation Summary):</span>
+                        </div>
+                        <p className="text-xs text-neutral-700 dark:text-neutral-200 leading-relaxed">
+                          {conversationSummary.summaryText}
+                        </p>
+                        {conversationSummary.keyPoints.length > 0 && (
+                          <ul className="space-y-1 pt-1 border-t border-neutral-100 dark:border-neutral-700/60">
+                            {conversationSummary.keyPoints.map((pt, idx) => (
+                              <li
+                                key={idx}
+                                className="text-[11px] text-neutral-600 dark:text-neutral-300 flex items-start gap-1.5"
+                              >
+                                <span className="text-[#7F22FE] font-bold mt-0.5">•</span>
+                                <span>{pt}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {/* Extracted Details & Recommended Next Action */}
+                      <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2 flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200">
+                            শনাক্তকৃত তথ্য ও চাহিদা:
+                          </div>
+                          <div className="text-[11px] text-neutral-600 dark:text-neutral-300 space-y-1">
+                            <div>
+                              <span className="font-bold text-neutral-500">আগ্রহের বিষয়: </span>
+                              <span className="font-semibold text-neutral-900 dark:text-white">
+                                {conversationSummary.customerIntent}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-bold text-neutral-500">ফোন নাম্বার: </span>
+                              <span className="font-mono font-semibold text-neutral-900 dark:text-white">
+                                {conversationSummary.extractedPhone || 'এখনো দেয়নি'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-bold text-neutral-500">ঠিকানা: </span>
+                              <span className="text-neutral-800 dark:text-neutral-200">
+                                {conversationSummary.extractedAddress || 'এখনো দেয়নি'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-bold text-neutral-500">মেসেজ সংখ্যা: </span>
+                              <span>
+                                মোট {conversationSummary.stats.totalMessages}টি (কাস্টমার:{' '}
+                                {conversationSummary.stats.customerMessages}, AI:{' '}
+                                {conversationSummary.stats.aiReplies})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-neutral-100 dark:border-neutral-700/60">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                            পরবর্তী করণীয় (Next Action):
+                          </span>
+                          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+                            {conversationSummary.nextAction}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             {/* Messages Thread Container */}
             <div

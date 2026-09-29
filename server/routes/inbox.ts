@@ -3,6 +3,7 @@ import { db, Message } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
 import { handleInboundWebhook } from '../services/metaService.js';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
+import { summarizeConversation } from '../services/aiService.js';
 
 export const inboxRouter = Router();
 
@@ -155,6 +156,63 @@ inboxRouter.post('/reply', (req: Request, res: Response) => {
   });
 
   return res.status(201).json(outbound);
+});
+
+// POST /api/inbox/summarize - AI Conversation Summary & Stage Analysis
+inboxRouter.post('/summarize', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId, customerName, platform } = req.body;
+  if (!customerId || !platform) {
+    return res.status(400).json({ error: 'customerId and platform are required' });
+  }
+
+  const allUserMessages = db.getMessages(user.id);
+  const convMessages = allUserMessages.filter(
+    (m) => m.platform === platform && m.customer_id === customerId
+  );
+
+  if (convMessages.length === 0) {
+    return res.status(404).json({ error: 'No messages found for this conversation' });
+  }
+
+  // Find matching orders for this customer
+  const userOrders = db.getOrders(user.id);
+  const matchingOrders = userOrders.filter((o) => {
+    const cleanMsgId = String(customerId).replace(/\D/g, '');
+    const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, '') : '';
+    const phoneMatch =
+      cleanOrderPhone.length >= 8 &&
+      cleanMsgId.length >= 8 &&
+      (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
+    const nameMatch = Boolean(
+      o.customer_name &&
+        customerName &&
+        o.customer_name.toLowerCase().trim() === String(customerName).toLowerCase().trim()
+    );
+    return phoneMatch || nameMatch;
+  });
+
+  matchingOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const latestOrder = matchingOrders[0];
+
+  const summaryResult = await summarizeConversation({
+    userId: user.id,
+    customerId,
+    customerName: customerName || convMessages[convMessages.length - 1]?.customer_name || customerId,
+    platform,
+    messages: convMessages,
+    latestOrderId: latestOrder?.id,
+    latestOrderStatus: latestOrder?.status,
+    orderPhone: latestOrder?.customer_phone,
+    orderAddress: latestOrder?.customer_address,
+    orderProductSummary: latestOrder?.product_summary
+  });
+
+  return res.json(summaryResult);
 });
 
 // POST /api/inbox/simulate-inbound - Simulate incoming message to test AI reply in inbox

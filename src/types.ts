@@ -187,6 +187,33 @@ export interface Conversation {
   latestOrderStatus?: string;
 }
 
+export interface ConversationSummaryResult {
+  customerName: string;
+  customerId: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram';
+  stageKey: 'new_inquiry' | 'discussion' | 'awaiting_order_details' | 'order_confirmed' | 'delivered';
+  stageStep: 1 | 2 | 3 | 4;
+  stageLabel: string;
+  stageDescription: string;
+  summaryText: string;
+  keyPoints: string[];
+  customerIntent: string;
+  extractedPhone?: string;
+  extractedAddress?: string;
+  nextAction: string;
+  stats: {
+    totalMessages: number;
+    customerMessages: number;
+    aiReplies: number;
+    humanReplies: number;
+    hasVoice: boolean;
+    hasImage: boolean;
+    orderId?: string;
+    orderStatus?: string;
+  };
+  generatedAt: string;
+}
+
 export interface Product {
   id: string;
   user_id: string;

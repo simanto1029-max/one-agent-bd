@@ -6,6 +6,7 @@ import {
   Coupon,
   Channel,
   Conversation,
+  ConversationSummaryResult,
   Message,
   ContactLead,
   AdminMetrics,
@@ -788,6 +789,18 @@ export const api = {
     messageText: string;
   }): Promise<Message> {
     return this.sendManualReply(data);
+  },
+
+  async summarizeConversation(data: {
+    customerId: string;
+    customerName?: string;
+    platform: 'whatsapp' | 'messenger' | 'instagram';
+    channelId?: string;
+  }): Promise<ConversationSummaryResult> {
+    return fetchJson<ConversationSummaryResult>('/api/inbox/summarize', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   },
 
   async simulateInboundMessage(data: {

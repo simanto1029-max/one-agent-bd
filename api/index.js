@@ -5748,6 +5748,201 @@ Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct
     attachedProductPrice: matchedProduct?.price
   };
 }
+async function summarizeConversation(params) {
+  const { userId, customerId, customerName, platform, messages } = params;
+  const profile = db.getProfileById(userId);
+  const effectiveApiKey = (profile?.llm_api_key && !isDeadSeedKey(profile.llm_api_key) ? profile.llm_api_key.trim() : "") || (db.getSettings()?.default_llm_api_key || "").trim() || void 0;
+  const inboundMessages = messages.filter((m) => m.direction === "inbound");
+  const outboundMessages = messages.filter((m) => m.direction === "outbound");
+  const aiRepliesCount = outboundMessages.filter((m) => m.is_ai_reply).length;
+  const humanRepliesCount = outboundMessages.filter((m) => !m.is_ai_reply).length;
+  const hasVoice = messages.some((m) => Boolean(m.has_voice || m.audio_base64 || m.transcription));
+  const hasImage = messages.some((m) => Boolean(m.has_image || m.image_url || m.image_base64));
+  const allCustomerText = inboundMessages.map((m) => m.transcription || m.message_text || "").join(" \n ");
+  const allConvoText = messages.map((m) => `${m.direction === "inbound" ? "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0" : m.is_ai_reply ? "AI" : "\u098F\u099C\u09C7\u09A8\u09CD\u099F"}: ${m.transcription || m.message_text || ""}`).join("\n");
+  const phoneMatch = allCustomerText.match(/(?:\+?88)?(01[3-9]\d{8})/) || customerId.match(/(?:\+?88)?(01[3-9]\d{8})/);
+  const extractedPhone = params.orderPhone || (phoneMatch ? phoneMatch[1] : void 0);
+  let extractedAddress = params.orderAddress;
+  if (!extractedAddress) {
+    for (const msg of inboundMessages) {
+      const txt = (msg.transcription || msg.message_text || "").trim();
+      if (/(ঠিকানা|address|রোড|বাসা|হাউজ|থানা|জেলা|ঢাকা|চট্টগ্রাম|সিলেট|রাজশাহী|খুলনা|বরিশাল|রংপুর|ময়মনসিংহ|মিরপুর|উত্তরা|ধানমন্ডি|গুলশান|বনানী|গাজীপুর|নারায়ণগঞ্জ)/i.test(
+        txt
+      ) && txt.length >= 10) {
+        extractedAddress = txt.slice(0, 120);
+      }
+    }
+  }
+  const lowerCustomer = allCustomerText.toLowerCase();
+  let customerIntent = params.orderProductSummary || "";
+  if (!customerIntent) {
+    const userProducts = db.getProducts(userId) || [];
+    for (const p of userProducts) {
+      if (lowerCustomer.includes(p.name.toLowerCase())) {
+        customerIntent = `${p.name} (\u09F3${p.price})`;
+        break;
+      }
+    }
+  }
+  if (!customerIntent) {
+    if (/starter|pro|plan|সাবস্ক্রিপশন|প্ল্যান|প্যাকেজ|ট্রায়াল|trial/i.test(allCustomerText)) {
+      customerIntent = "\u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0993 \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8";
+    } else if (/price|dam|koto|দাম|কত|মূল্য|টাকা/i.test(allCustomerText)) {
+      customerIntent = "\u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u09A4\u09A5\u09CD\u09AF";
+    } else if (/delivery|courier|ডেলিভারি|কুরিয়ার|পাঠানো/i.test(allCustomerText)) {
+      customerIntent = "\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u099A\u09BE\u09B0\u09CD\u099C \u0993 \u09B8\u09AE\u09DF\u09B8\u09C0\u09AE\u09BE";
+    } else if (/order|কিনব|অর্ডার|নিতে চাই|নিবো/i.test(allCustomerText)) {
+      customerIntent = "\u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE\u09C7\u09B6\u09A8";
+    } else if (hasImage) {
+      customerIntent = "\u099B\u09AC\u09BF \u09AA\u09BE\u09A0\u09BF\u09DF\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09A6\u09BE\u09AE \u0993 \u09B8\u09CD\u099F\u0995 \u099C\u09BF\u099C\u09CD\u099E\u09BE\u09B8\u09BE";
+    } else if (hasVoice) {
+      customerIntent = "\u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F/\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BF\u099C\u09CD\u099E\u09BE\u09B8\u09BE";
+    } else {
+      const lastCustMsg = inboundMessages[inboundMessages.length - 1];
+      const preview = (lastCustMsg?.transcription || lastCustMsg?.message_text || "\u09B8\u09BE\u09A7\u09BE\u09B0\u09A3 \u099C\u09BF\u099C\u09CD\u099E\u09BE\u09B8\u09BE").slice(0, 65);
+      customerIntent = preview;
+    }
+  }
+  let stageKey = "new_inquiry";
+  let stageStep = 1;
+  let stageLabel = "\u09AA\u09CD\u09B0\u09BE\u09A5\u09AE\u09BF\u0995 \u099C\u09BF\u099C\u09CD\u099E\u09BE\u09B8\u09BE (New Inquiry)";
+  let stageDescription = "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09AC\u09C7\u09AE\u09BE\u09A4\u09CD\u09B0 \u09AE\u09C7\u09B8\u09C7\u099C \u09A6\u09BF\u09DF\u09C7\u099B\u09C7\u09A8, \u09AA\u09CD\u09B0\u09BE\u09A5\u09AE\u09BF\u0995 \u0995\u09A5\u09CB\u09AA\u0995\u09A5\u09A8 \u09B6\u09C1\u09B0\u09C1 \u09B9\u09DF\u09C7\u099B\u09C7\u0964";
+  let nextAction = "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09DF\u09C7 \u09A4\u09BE\u0995\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0989\u09CE\u09B8\u09BE\u09B9\u09BF\u09A4 \u0995\u09B0\u09C1\u09A8\u0964";
+  const hasOrderIntent = /অর্ডার|order|কিনব|নিতে চাই|নিবো|কনফার্ম|confirm|পাঠান|ডেলিভারি দিন|লাগবে/i.test(allCustomerText) || Boolean(extractedPhone && extractedAddress);
+  const isAskingPriceOrDetails = /price|dam|koto|দাম|কত|মূল্য|টাকা|বিস্তারিত|details|সাইজ|কালার|ডেলিভারি|কুপন|ডিসকাউন্ট|প্ল্যান/i.test(
+    allCustomerText
+  ) || inboundMessages.length >= 2;
+  if (params.latestOrderStatus === "delivered") {
+    stageKey = "delivered";
+    stageStep = 4;
+    stageLabel = "\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 (Order Delivered)";
+    stageDescription = `\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF (${params.latestOrderId || "Confirmed"}) \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u09B9\u09DF\u09C7\u099B\u09C7\u0964`;
+    nextAction = "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0995\u09BE\u099B\u09C7 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u09B0\u09BF\u09AD\u09BF\u0989 \u09AC\u09BE \u09AB\u09BF\u09A1\u09AC\u09CD\u09AF\u09BE\u0995 \u099A\u09BE\u0987\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8 \u098F\u09AC\u0982 \u09A8\u09A4\u09C1\u09A8 \u0985\u09AB\u09BE\u09B0 \u099C\u09BE\u09A8\u09BE\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8\u0964";
+  } else if (params.latestOrderId || extractedPhone && extractedAddress && hasOrderIntent) {
+    stageKey = "order_confirmed";
+    stageStep = 4;
+    stageLabel = "\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE\u09A1 (Order Confirmed)";
+    stageDescription = params.latestOrderId ? `\u098F\u0987 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u09B9\u09DF\u09C7\u099B\u09C7 (Order ID: ${params.latestOrderId}, Status: ${params.latestOrderStatus || "pending"})\u0964` : "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u09C0\u09DF \u09A4\u09A5\u09CD\u09AF (\u09AB\u09CB\u09A8 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u0993 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE) \u09AA\u09CD\u09B0\u09A6\u09BE\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u09A8\u0964";
+    nextAction = "\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09A1\u09CD\u09AF\u09BE\u09B6\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09C7\u0995\u09C7 \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0\u09C7 (Steadfast/Pathao/RedX) \u09AA\u09BE\u09B0\u09CD\u09B8\u09C7\u09B2\u099F\u09BF \u09AC\u09C1\u0995\u09BF\u0982 \u0993 \u09A1\u09BF\u09B8\u09AA\u09CD\u09AF\u09BE\u099A \u0995\u09B0\u09C1\u09A8\u0964";
+  } else if (hasOrderIntent) {
+    stageKey = "awaiting_order_details";
+    stageStep = 3;
+    stageLabel = "\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u0986\u0997\u09CD\u09B0\u09B9\u09C0 \u2014 \u09A4\u09A5\u09CD\u09AF\u09C7\u09B0 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE\u09DF (High Intent)";
+    const missing = [];
+    if (!extractedPhone) missing.push("\u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0");
+    if (!extractedAddress) missing.push("\u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09A0\u09BF\u0995\u09BE\u09A8\u09BE");
+    stageDescription = missing.length > 0 ? `\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F/\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8\u099F\u09BF \u09A8\u09BF\u09A4\u09C7 \u0986\u0997\u09CD\u09B0\u09B9\u09C0, \u09A4\u09AC\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u0995\u09B0\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u098F\u0996\u09A8\u09CB ${missing.join(" \u0993 ")} \u09A6\u09C7\u0993\u09DF\u09BE \u09AC\u09BE\u0995\u09BF \u0986\u099B\u09C7\u0964` : "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09BE\u09B0 \u099A\u09C2\u09DC\u09BE\u09A8\u09CD\u09A4 \u09AA\u09B0\u09CD\u09AF\u09BE\u09DF\u09C7 \u09B0\u09DF\u09C7\u099B\u09C7\u09A8\u0964";
+    nextAction = missing.length > 0 ? `\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u0995\u09BE\u099B \u09A5\u09C7\u0995\u09C7 ${missing.join(" \u098F\u09AC\u0982 ")} \u099A\u09C7\u09DF\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C7 \u09A8\u09BF\u09A8\u0964` : "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u0995\u09A5\u09BE \u09AC\u09B2\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u09AB\u09BE\u0987\u09A8\u09BE\u09B2 \u0995\u09B0\u09C1\u09A8\u0964";
+  } else if (isAskingPriceOrDetails) {
+    stageKey = "discussion";
+    stageStep = 2;
+    stageLabel = "\u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u0986\u09B2\u09CB\u099A\u09A8\u09BE \u099A\u09B2\u099B\u09C7 (Active Discussion)";
+    stageDescription = "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F/\u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8\u09C7\u09B0 \u09A6\u09BE\u09AE, \u09AB\u09BF\u099A\u09BE\u09B0 \u09AC\u09BE \u09A1\u09C7\u09B2\u09BF\u09AD\u09BE\u09B0\u09BF \u09A8\u09BF\u09DF\u09AE \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8 \u098F\u09AC\u0982 AI \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09DF\u09C7\u099B\u09C7\u0964";
+    nextAction = "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u0995\u09C7 \u09AB\u09B2\u09CB-\u0986\u09AA \u09AE\u09C7\u09B8\u09C7\u099C \u09AA\u09BE\u09A0\u09BE\u09A8 \u0985\u09A5\u09AC\u09BE \u09AC\u09BF\u09B6\u09C7\u09B7 \u0995\u09CB\u09A8\u09CB \u099B\u09BE\u09DC/\u0985\u09AB\u09BE\u09B0 \u099C\u09BE\u09A8\u09BF\u09DF\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09A4\u09C7 \u09AC\u09B2\u09C1\u09A8\u0964";
+  }
+  const buildDeterministicKeyPoints = () => {
+    const pts = [];
+    const recentInbound = inboundMessages.slice(-4);
+    const recentOutbound = outboundMessages.slice(-3);
+    if (recentInbound.length > 0) {
+      const custQuestions = recentInbound.map((m) => m.transcription ? `\u09AD\u09DF\u09C7\u09B8: "${m.transcription}"` : `"${m.message_text.slice(0, 90)}"`).join(", ");
+      pts.push(`\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8: ${custQuestions}`);
+    }
+    if (recentOutbound.length > 0) {
+      const lastReply = recentOutbound[recentOutbound.length - 1];
+      const cleanReply = lastReply.message_text.replace(/\s+/g, " ").slice(0, 130);
+      pts.push(
+        `${lastReply.is_ai_reply ? "AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987" : "\u098F\u099C\u09C7\u09A8\u09CD\u099F"} \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09DF\u09C7\u099B\u09C7: "${cleanReply}${lastReply.message_text.length > 130 ? "..." : ""}"`
+      );
+    }
+    pts.push(`\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8 \u0985\u09AC\u09B8\u09CD\u09A5\u09BE: ${stageLabel} \u2014 ${stageDescription}`);
+    return pts;
+  };
+  let summaryText = "";
+  let keyPoints = buildDeterministicKeyPoints();
+  try {
+    const recentTranscript = messages.slice(-14).map((m) => {
+      const sender = m.direction === "inbound" ? `Customer (${customerName})` : m.is_ai_reply ? "AI Agent" : "Human Agent";
+      const content = m.transcription ? `[Voice Note: ${m.transcription}]` : m.message_text;
+      return `${sender}: ${content}`;
+    }).join("\n");
+    const prompt = `\u09A8\u09BF\u099A\u09C7\u09B0 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u099A\u09CD\u09AF\u09BE\u099F \u0995\u09A8\u09AD\u09BE\u09B0\u09B8\u09C7\u09B6\u09A8\u099F\u09BF \u09AE\u09A8\u09CB\u09AF\u09CB\u0997 \u09A6\u09BF\u09DF\u09C7 \u09AA\u09DC\u09C1\u09A8 \u098F\u09AC\u0982 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4 \u09B8\u09BE\u09AE\u09BE\u09B0\u09BF (Summary) \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09C1\u09A8\u0964
+
+\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09A8\u09BE\u09AE: ${customerName} (${platform})
+\u09AE\u09CB\u099F \u09AE\u09C7\u09B8\u09C7\u099C: ${messages.length}\u099F\u09BF
+\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u099F\u09BE\u09B8: ${params.latestOrderId ? `\u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE\u09A1 (${params.latestOrderStatus})` : "\u098F\u0996\u09A8\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF \u09B9\u09DF\u09A8\u09BF"}
+\u09B6\u09A8\u09BE\u0995\u09CD\u09A4\u0995\u09C3\u09A4 \u09AA\u09B0\u09CD\u09AF\u09BE\u09DF (Stage): ${stageLabel}
+
+\u099A\u09CD\u09AF\u09BE\u099F \u09B9\u09BF\u09B8\u09CD\u099F\u09CD\u09B0\u09BF:
+${recentTranscript}
+
+\u09A8\u09BF\u099A\u09C7\u09B0 \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F\u09C7 \u09B6\u09C1\u09A7\u09C1\u09AE\u09BE\u09A4\u09CD\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0\u09AD\u09BE\u09AC\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8 (\u0995\u09CB\u09A8\u09CB ** \u09AC\u09BE \u0985\u09A4\u09BF\u09B0\u09BF\u0995\u09CD\u09A4 \u09AE\u09BE\u09B0\u09CD\u0995\u09A1\u09BE\u0989\u09A8 \u099A\u09BF\u09B9\u09CD\u09A8 \u09A6\u09C7\u09AC\u09C7\u09A8 \u09A8\u09BE):
+SUMMARY: (\u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09B6\u09C1\u09B0\u09C1 \u09A5\u09C7\u0995\u09C7 \u09B6\u09C7\u09B7 \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u0995\u09C0 \u0995\u09C0 \u0995\u09A5\u09BE \u09B9\u09DF\u09C7\u099B\u09C7 \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0995\u09C0 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09A4\u09BE\u09B0 \u09B8\u09BE\u09B0\u09B8\u0982\u0995\u09CD\u09B7\u09C7\u09AA \u09B2\u09BF\u0996\u09C1\u09A8)
+POINT_1: (\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AA\u09CD\u09B0\u09A7\u09BE\u09A8\u09A4 \u0995\u09C0 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09C7\u099B\u09C7\u09A8 \u09AC\u09BE \u0995\u09C0 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8)
+POINT_2: (AI \u09AC\u09BE \u098F\u099C\u09C7\u09A8\u09CD\u099F \u09A4\u09BE\u0995\u09C7 \u0995\u09C0 \u09A4\u09A5\u09CD\u09AF \u09AC\u09BE \u09B8\u09AE\u09BE\u09A7\u09BE\u09A8 \u09A6\u09BF\u09DF\u09C7\u099B\u09C7)
+POINT_3: (\u0995\u09A8\u09AD\u09BE\u09B0\u09B8\u09C7\u09B6\u09A8\u099F\u09BF \u098F\u0996\u09A8 \u0995\u09CB\u09A8 \u09AA\u09B0\u09CD\u09AF\u09BE\u09DF\u09C7 \u0986\u099B\u09C7 \u098F\u09AC\u0982 \u0995\u09C0 \u09AC\u09BE\u0995\u09BF \u0986\u099B\u09C7)
+NEXT_STEP: (\u09AE\u09BE\u09B0\u09CD\u099A\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u098F\u0996\u09A8 \u09AA\u09B0\u09AC\u09B0\u09CD\u09A4\u09C0 \u0995\u09B0\u09A3\u09C0\u09DF \u0995\u09C0 - \u09E7 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7)`;
+    const aiRaw = await callGemini(
+      prompt,
+      effectiveApiKey,
+      "You are an expert e-commerce & SaaS CRM conversation analyst. Always respond in clean, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)."
+    );
+    if (aiRaw) {
+      const sumMatch = aiRaw.match(/SUMMARY:\s*([\s\S]*?)(?=(POINT_1:|POINT_2:|NEXT_STEP:|$))/i);
+      const p1Match = aiRaw.match(/POINT_1:\s*([^\n]+)/i);
+      const p2Match = aiRaw.match(/POINT_2:\s*([^\n]+)/i);
+      const p3Match = aiRaw.match(/POINT_3:\s*([^\n]+)/i);
+      const nextMatch = aiRaw.match(/NEXT_STEP:\s*([^\n]+)/i);
+      if (sumMatch && sumMatch[1].trim().length > 10) {
+        summaryText = sumMatch[1].replace(/\n+/g, " ").trim();
+      } else {
+        summaryText = aiRaw.replace(/(SUMMARY:|POINT_1:|POINT_2:|POINT_3:|NEXT_STEP:)/gi, "").split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 2).join(" ");
+      }
+      const extractedPts = [p1Match?.[1]?.trim(), p2Match?.[1]?.trim(), p3Match?.[1]?.trim()].filter(
+        (x) => Boolean(x && x.length > 4)
+      );
+      if (extractedPts.length >= 2) {
+        keyPoints = extractedPts;
+      }
+      if (nextMatch?.[1]?.trim() && nextMatch[1].trim().length > 5) {
+        nextAction = nextMatch[1].trim();
+      }
+    }
+  } catch (err) {
+    console.warn("[AI Service] Conversation summarize LLM fallback:", err?.message || err);
+  }
+  if (!summaryText) {
+    const firstMsg = inboundMessages[0]?.transcription || inboundMessages[0]?.message_text || "";
+    const lastMsg = inboundMessages[inboundMessages.length - 1]?.transcription || inboundMessages[inboundMessages.length - 1]?.message_text || "";
+    summaryText = inboundMessages.length > 1 && firstMsg !== lastMsg ? `${customerName} \u09AE\u09C2\u09B2\u09A4 "${customerIntent}" \u09AC\u09BF\u09B7\u09DF\u09C7 \u0995\u09A5\u09BE \u09AC\u09B2\u09C7\u099B\u09C7\u09A8\u0964 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09A4\u09BF\u09A8\u09BF "${firstMsg.slice(0, 60)}" \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09BF\u09B2\u09C7\u09A8 \u098F\u09AC\u0982 \u09B8\u09B0\u09CD\u09AC\u09B6\u09C7\u09B7 "${lastMsg.slice(0, 70)}" \u09B2\u09BF\u0996\u09C7\u099B\u09C7\u09A8\u0964 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 AI \u098F\u099C\u09C7\u09A8\u09CD\u099F \u09A4\u09BE\u09B0 \u09AA\u09CD\u09B0\u09A4\u09BF\u099F\u09BF \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u09A4\u09BE\u09CE\u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09DF\u09C7\u099B\u09C7 \u098F\u09AC\u0982 \u0995\u09A8\u09AD\u09BE\u09B0\u09B8\u09C7\u09B6\u09A8\u099F\u09BF \u098F\u0996\u09A8 "${stageLabel}" \u09AA\u09B0\u09CD\u09AF\u09BE\u09DF\u09C7 \u09B0\u09DF\u09C7\u099B\u09C7\u0964` : `${customerName} \u099A\u09CD\u09AF\u09BE\u099F\u09C7 "${(lastMsg || firstMsg || customerIntent).slice(0, 80)}" \u09AC\u09BF\u09B7\u09DF\u09C7 \u09AE\u09C7\u09B8\u09C7\u099C \u09A6\u09BF\u09DF\u09C7\u099B\u09C7\u09A8 \u098F\u09AC\u0982 AI \u09B8\u09CD\u09AC\u09DF\u0982\u0995\u09CD\u09B0\u09BF\u09DF\u09AD\u09BE\u09AC\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09AA\u09CD\u09B0\u09A6\u09BE\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964 \u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u099A\u09CD\u09AF\u09BE\u099F\u099F\u09BF "${stageLabel}" \u09AA\u09B0\u09CD\u09AF\u09BE\u09DF\u09C7 \u0986\u099B\u09C7\u0964`;
+  }
+  return {
+    customerName,
+    customerId,
+    platform,
+    stageKey,
+    stageStep,
+    stageLabel,
+    stageDescription,
+    summaryText,
+    keyPoints,
+    customerIntent,
+    extractedPhone,
+    extractedAddress,
+    nextAction,
+    stats: {
+      totalMessages: messages.length,
+      customerMessages: inboundMessages.length,
+      aiReplies: aiRepliesCount,
+      humanReplies: humanRepliesCount,
+      hasVoice,
+      hasImage,
+      orderId: params.latestOrderId,
+      orderStatus: params.latestOrderStatus
+    },
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
 
 // server/services/metaService.ts
 init_orderDetectionService();
@@ -7257,6 +7452,48 @@ inboxRouter.post("/reply", (req, res) => {
     created_at: (/* @__PURE__ */ new Date()).toISOString()
   });
   return res.status(201).json(outbound);
+});
+inboxRouter.post("/summarize", async (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { customerId, customerName, platform } = req.body;
+  if (!customerId || !platform) {
+    return res.status(400).json({ error: "customerId and platform are required" });
+  }
+  const allUserMessages = db.getMessages(user.id);
+  const convMessages = allUserMessages.filter(
+    (m) => m.platform === platform && m.customer_id === customerId
+  );
+  if (convMessages.length === 0) {
+    return res.status(404).json({ error: "No messages found for this conversation" });
+  }
+  const userOrders = db.getOrders(user.id);
+  const matchingOrders = userOrders.filter((o) => {
+    const cleanMsgId = String(customerId).replace(/\D/g, "");
+    const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, "") : "";
+    const phoneMatch = cleanOrderPhone.length >= 8 && cleanMsgId.length >= 8 && (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
+    const nameMatch = Boolean(
+      o.customer_name && customerName && o.customer_name.toLowerCase().trim() === String(customerName).toLowerCase().trim()
+    );
+    return phoneMatch || nameMatch;
+  });
+  matchingOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const latestOrder = matchingOrders[0];
+  const summaryResult = await summarizeConversation({
+    userId: user.id,
+    customerId,
+    customerName: customerName || convMessages[convMessages.length - 1]?.customer_name || customerId,
+    platform,
+    messages: convMessages,
+    latestOrderId: latestOrder?.id,
+    latestOrderStatus: latestOrder?.status,
+    orderPhone: latestOrder?.customer_phone,
+    orderAddress: latestOrder?.customer_address,
+    orderProductSummary: latestOrder?.product_summary
+  });
+  return res.json(summaryResult);
 });
 inboxRouter.post("/simulate-inbound", async (req, res) => {
   const user = getAuthenticatedUser(req);

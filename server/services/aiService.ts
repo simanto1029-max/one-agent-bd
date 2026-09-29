@@ -1645,3 +1645,307 @@ Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct
     attachedProductPrice: matchedProduct?.price
   };
 }
+
+export interface SummarizeConversationParams {
+  userId: string;
+  customerId: string;
+  customerName: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram';
+  messages: Message[];
+  latestOrderId?: string;
+  latestOrderStatus?: string;
+  orderPhone?: string;
+  orderAddress?: string;
+  orderProductSummary?: string;
+}
+
+export interface SummarizeConversationResult {
+  customerName: string;
+  customerId: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram';
+  stageKey: 'new_inquiry' | 'discussion' | 'awaiting_order_details' | 'order_confirmed' | 'delivered';
+  stageStep: 1 | 2 | 3 | 4;
+  stageLabel: string;
+  stageDescription: string;
+  summaryText: string;
+  keyPoints: string[];
+  customerIntent: string;
+  extractedPhone?: string;
+  extractedAddress?: string;
+  nextAction: string;
+  stats: {
+    totalMessages: number;
+    customerMessages: number;
+    aiReplies: number;
+    humanReplies: number;
+    hasVoice: boolean;
+    hasImage: boolean;
+    orderId?: string;
+    orderStatus?: string;
+  };
+  generatedAt: string;
+}
+
+export async function summarizeConversation(
+  params: SummarizeConversationParams
+): Promise<SummarizeConversationResult> {
+  const { userId, customerId, customerName, platform, messages } = params;
+  const profile = db.getProfileById(userId);
+  const effectiveApiKey =
+    (profile?.llm_api_key && !isDeadSeedKey(profile.llm_api_key) ? profile.llm_api_key.trim() : '') ||
+    ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
+    undefined;
+
+  const inboundMessages = messages.filter((m) => m.direction === 'inbound');
+  const outboundMessages = messages.filter((m) => m.direction === 'outbound');
+  const aiRepliesCount = outboundMessages.filter((m) => m.is_ai_reply).length;
+  const humanRepliesCount = outboundMessages.filter((m) => !m.is_ai_reply).length;
+  const hasVoice = messages.some((m) => Boolean(m.has_voice || m.audio_base64 || m.transcription));
+  const hasImage = messages.some((m) => Boolean(m.has_image || m.image_url || m.image_base64));
+
+  const allCustomerText = inboundMessages
+    .map((m) => m.transcription || m.message_text || '')
+    .join(' \n ');
+  const allConvoText = messages
+    .map((m) => `${m.direction === 'inbound' ? 'কাস্টমার' : m.is_ai_reply ? 'AI' : 'এজেন্ট'}: ${m.transcription || m.message_text || ''}`)
+    .join('\n');
+
+  // Extract phone number from conversation or customerId or order
+  const phoneMatch =
+    allCustomerText.match(/(?:\+?88)?(01[3-9]\d{8})/) ||
+    customerId.match(/(?:\+?88)?(01[3-9]\d{8})/);
+  const extractedPhone = params.orderPhone || (phoneMatch ? phoneMatch[1] : undefined);
+
+  // Extract possible address if mentioned
+  let extractedAddress = params.orderAddress;
+  if (!extractedAddress) {
+    for (const msg of inboundMessages) {
+      const txt = (msg.transcription || msg.message_text || '').trim();
+      if (
+        /(ঠিকানা|address|রোড|বাসা|হাউজ|থানা|জেলা|ঢাকা|চট্টগ্রাম|সিলেট|রাজশাহী|খুলনা|বরিশাল|রংপুর|ময়মনসিংহ|মিরপুর|উত্তরা|ধানমন্ডি|গুলশান|বনানী|গাজীপুর|নারায়ণগঞ্জ)/i.test(
+          txt
+        ) &&
+        txt.length >= 10
+      ) {
+        extractedAddress = txt.slice(0, 120);
+      }
+    }
+  }
+
+  // Detect Customer Intent / Topic
+  const lowerCustomer = allCustomerText.toLowerCase();
+  let customerIntent = params.orderProductSummary || '';
+  if (!customerIntent) {
+    const userProducts = db.getProducts(userId) || [];
+    for (const p of userProducts) {
+      if (lowerCustomer.includes(p.name.toLowerCase())) {
+        customerIntent = `${p.name} (৳${p.price})`;
+        break;
+      }
+    }
+  }
+  if (!customerIntent) {
+    if (/starter|pro|plan|সাবস্ক্রিপশন|প্ল্যান|প্যাকেজ|ট্রায়াল|trial/i.test(allCustomerText)) {
+      customerIntent = 'সাবস্ক্রিপশন প্ল্যান ও অটো-রিপ্লাই সার্ভিস';
+    } else if (/price|dam|koto|দাম|কত|মূল্য|টাকা/i.test(allCustomerText)) {
+      customerIntent = 'প্রোডাক্টের দাম ও বিস্তারিত তথ্য';
+    } else if (/delivery|courier|ডেলিভারি|কুরিয়ার|পাঠানো/i.test(allCustomerText)) {
+      customerIntent = 'ডেলিভারি চার্জ ও সময়সীমা';
+    } else if (/order|কিনব|অর্ডার|নিতে চাই|নিবো/i.test(allCustomerText)) {
+      customerIntent = 'প্রোডাক্ট অর্ডার কনফার্মেশন';
+    } else if (hasImage) {
+      customerIntent = 'ছবি পাঠিয়ে প্রোডাক্টের দাম ও স্টক জিজ্ঞাসা';
+    } else if (hasVoice) {
+      customerIntent = 'ভয়েস মেসেজে প্রোডাক্ট/সার্ভিস সম্পর্কে জিজ্ঞাসা';
+    } else {
+      const lastCustMsg = inboundMessages[inboundMessages.length - 1];
+      const preview = (lastCustMsg?.transcription || lastCustMsg?.message_text || 'সাধারণ জিজ্ঞাসা').slice(0, 65);
+      customerIntent = preview;
+    }
+  }
+
+  // Determine exact Stage (1 to 4)
+  let stageKey: SummarizeConversationResult['stageKey'] = 'new_inquiry';
+  let stageStep: 1 | 2 | 3 | 4 = 1;
+  let stageLabel = 'প্রাথমিক জিজ্ঞাসা (New Inquiry)';
+  let stageDescription = 'কাস্টমার সবেমাত্র মেসেজ দিয়েছেন, প্রাথমিক কথোপকথন শুরু হয়েছে।';
+  let nextAction = 'কাস্টমারের প্রশ্নের উত্তর দিয়ে তাকে অর্ডারের জন্য উৎসাহিত করুন।';
+
+  const hasOrderIntent =
+    /অর্ডার|order|কিনব|নিতে চাই|নিবো|কনফার্ম|confirm|পাঠান|ডেলিভারি দিন|লাগবে/i.test(allCustomerText) ||
+    Boolean(extractedPhone && extractedAddress);
+
+  const isAskingPriceOrDetails =
+    /price|dam|koto|দাম|কত|মূল্য|টাকা|বিস্তারিত|details|সাইজ|কালার|ডেলিভারি|কুপন|ডিসকাউন্ট|প্ল্যান/i.test(
+      allCustomerText
+    ) || inboundMessages.length >= 2;
+
+  if (params.latestOrderStatus === 'delivered') {
+    stageKey = 'delivered';
+    stageStep = 4;
+    stageLabel = 'ডেলিভারি সম্পন্ন (Order Delivered)';
+    stageDescription = `কাস্টমারের অর্ডারটি (${params.latestOrderId || 'Confirmed'}) সফলভাবে ডেলিভারি সম্পন্ন হয়েছে।`;
+    nextAction = 'কাস্টমারের কাছে প্রোডাক্টের রিভিউ বা ফিডব্যাক চাইতে পারেন এবং নতুন অফার জানাতে পারেন।';
+  } else if (params.latestOrderId || (extractedPhone && extractedAddress && hasOrderIntent)) {
+    stageKey = 'order_confirmed';
+    stageStep = 4;
+    stageLabel = 'অর্ডার কনফার্মড (Order Confirmed)';
+    stageDescription = params.latestOrderId
+      ? `এই কাস্টমারের অর্ডার কনফার্ম হয়েছে (Order ID: ${params.latestOrderId}, Status: ${params.latestOrderStatus || 'pending'})।`
+      : 'কাস্টমার অর্ডার কনফার্ম করার জন্য প্রয়োজনীয় তথ্য (ফোন নাম্বার ও ঠিকানা) প্রদান করেছেন।';
+    nextAction = 'অর্ডার ড্যাশবোর্ড থেকে কুরিয়ারে (Steadfast/Pathao/RedX) পার্সেলটি বুকিং ও ডিসপ্যাচ করুন।';
+  } else if (hasOrderIntent) {
+    stageKey = 'awaiting_order_details';
+    stageStep = 3;
+    stageLabel = 'অর্ডার করতে আগ্রহী — তথ্যের অপেক্ষায় (High Intent)';
+    const missing: string[] = [];
+    if (!extractedPhone) missing.push('মোবাইল নাম্বার');
+    if (!extractedAddress) missing.push('ডেলিভারি ঠিকানা');
+    stageDescription =
+      missing.length > 0
+        ? `কাস্টমার প্রোডাক্ট/সার্ভিসটি নিতে আগ্রহী, তবে অর্ডার সম্পন্ন করার জন্য এখনো ${missing.join(' ও ')} দেওয়া বাকি আছে।`
+        : 'কাস্টমার অর্ডার করার চূড়ান্ত পর্যায়ে রয়েছেন।';
+    nextAction =
+      missing.length > 0
+        ? `কাস্টমারের কাছ থেকে ${missing.join(' এবং ')} চেয়ে অর্ডারটি কনফার্ম করে নিন।`
+        : 'কাস্টমারের সাথে কথা বলে অর্ডারটি ফাইনাল করুন।';
+  } else if (isAskingPriceOrDetails) {
+    stageKey = 'discussion';
+    stageStep = 2;
+    stageLabel = 'দাম ও বিস্তারিত আলোচনা চলছে (Active Discussion)';
+    stageDescription = 'কাস্টমার প্রোডাক্ট/সার্ভিসের দাম, ফিচার বা ডেলিভারি নিয়ম সম্পর্কে বিস্তারিত জানতে চেয়েছেন এবং AI উত্তর দিয়েছে।';
+    nextAction = 'কাস্টমারকে ফলো-আপ মেসেজ পাঠান অথবা বিশেষ কোনো ছাড়/অফার জানিয়ে অর্ডার কনফার্ম করতে বলুন।';
+  }
+
+  // Build deterministic key points from actual conversation messages
+  const buildDeterministicKeyPoints = (): string[] => {
+    const pts: string[] = [];
+    const recentInbound = inboundMessages.slice(-4);
+    const recentOutbound = outboundMessages.slice(-3);
+
+    if (recentInbound.length > 0) {
+      const custQuestions = recentInbound
+        .map((m) => (m.transcription ? `ভয়েস: "${m.transcription}"` : `"${m.message_text.slice(0, 90)}"`))
+        .join(', ');
+      pts.push(`কাস্টমার জানতে চেয়েছেন: ${custQuestions}`);
+    }
+
+    if (recentOutbound.length > 0) {
+      const lastReply = recentOutbound[recentOutbound.length - 1];
+      const cleanReply = lastReply.message_text.replace(/\s+/g, ' ').slice(0, 130);
+      pts.push(
+        `${lastReply.is_ai_reply ? 'AI অটো-রিপ্লাই' : 'এজেন্ট'} উত্তর দিয়েছে: "${cleanReply}${lastReply.message_text.length > 130 ? '...' : ''}"`
+      );
+    }
+
+    pts.push(`বর্তমান অবস্থা: ${stageLabel} — ${stageDescription}`);
+    return pts;
+  };
+
+  let summaryText = '';
+  let keyPoints = buildDeterministicKeyPoints();
+
+  // Call LLM to generate a rich, natural Bangla summary of the conversation
+  try {
+    const recentTranscript = messages
+      .slice(-14)
+      .map((m) => {
+        const sender = m.direction === 'inbound' ? `Customer (${customerName})` : m.is_ai_reply ? 'AI Agent' : 'Human Agent';
+        const content = m.transcription ? `[Voice Note: ${m.transcription}]` : m.message_text;
+        return `${sender}: ${content}`;
+      })
+      .join('\n');
+
+    const prompt = `নিচের কাস্টমার চ্যাট কনভারসেশনটি মনোযোগ দিয়ে পড়ুন এবং বাংলায় সংক্ষিপ্ত সামারি (Summary) তৈরি করুন।
+
+কাস্টমারের নাম: ${customerName} (${platform})
+মোট মেসেজ: ${messages.length}টি
+অর্ডার স্ট্যাটাস: ${params.latestOrderId ? `অর্ডার কনফার্মড (${params.latestOrderStatus})` : 'এখনো অর্ডার এন্ট্রি হয়নি'}
+শনাক্তকৃত পর্যায় (Stage): ${stageLabel}
+
+চ্যাট হিস্ট্রি:
+${recentTranscript}
+
+নিচের ফরম্যাটে শুধুমাত্র বাংলায় পরিষ্কারভাবে উত্তর দিন (কোনো ** বা অতিরিক্ত মার্কডাউন চিহ্ন দেবেন না):
+SUMMARY: (২-৩ বাক্যে কাস্টমারের সাথে শুরু থেকে শেষ পর্যন্ত কী কী কথা হয়েছে এবং কাস্টমার কী চাচ্ছেন তার সারসংক্ষেপ লিখুন)
+POINT_1: (কাস্টমার প্রধানত কী জিজ্ঞেস করেছেন বা কী চেয়েছেন)
+POINT_2: (AI বা এজেন্ট তাকে কী তথ্য বা সমাধান দিয়েছে)
+POINT_3: (কনভারসেশনটি এখন কোন পর্যায়ে আছে এবং কী বাকি আছে)
+NEXT_STEP: (মার্চেন্টের এখন পরবর্তী করণীয় কী - ১ বাক্যে)`;
+
+    const aiRaw = await callGemini(
+      prompt,
+      effectiveApiKey,
+      'You are an expert e-commerce & SaaS CRM conversation analyst. Always respond in clean, natural Bangla (বাংলা).'
+    );
+
+    if (aiRaw) {
+      const sumMatch = aiRaw.match(/SUMMARY:\s*([\s\S]*?)(?=(POINT_1:|POINT_2:|NEXT_STEP:|$))/i);
+      const p1Match = aiRaw.match(/POINT_1:\s*([^\n]+)/i);
+      const p2Match = aiRaw.match(/POINT_2:\s*([^\n]+)/i);
+      const p3Match = aiRaw.match(/POINT_3:\s*([^\n]+)/i);
+      const nextMatch = aiRaw.match(/NEXT_STEP:\s*([^\n]+)/i);
+
+      if (sumMatch && sumMatch[1].trim().length > 10) {
+        summaryText = sumMatch[1].replace(/\n+/g, ' ').trim();
+      } else {
+        summaryText = aiRaw
+          .replace(/(SUMMARY:|POINT_1:|POINT_2:|POINT_3:|NEXT_STEP:)/gi, '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(0, 2)
+          .join(' ');
+      }
+
+      const extractedPts = [p1Match?.[1]?.trim(), p2Match?.[1]?.trim(), p3Match?.[1]?.trim()].filter(
+        (x): x is string => Boolean(x && x.length > 4)
+      );
+      if (extractedPts.length >= 2) {
+        keyPoints = extractedPts;
+      }
+      if (nextMatch?.[1]?.trim() && nextMatch[1].trim().length > 5) {
+        nextAction = nextMatch[1].trim();
+      }
+    }
+  } catch (err: any) {
+    console.warn('[AI Service] Conversation summarize LLM fallback:', err?.message || err);
+  }
+
+  if (!summaryText) {
+    const firstMsg = inboundMessages[0]?.transcription || inboundMessages[0]?.message_text || '';
+    const lastMsg = inboundMessages[inboundMessages.length - 1]?.transcription || inboundMessages[inboundMessages.length - 1]?.message_text || '';
+    summaryText =
+      inboundMessages.length > 1 && firstMsg !== lastMsg
+        ? `${customerName} মূলত "${customerIntent}" বিষয়ে কথা বলেছেন। শুরুতে তিনি "${firstMsg.slice(0, 60)}" জানতে চেয়েছিলেন এবং সর্বশেষ "${lastMsg.slice(0, 70)}" লিখেছেন। আমাদের AI এজেন্ট তার প্রতিটি প্রশ্নের তাৎক্ষণিক উত্তর দিয়েছে এবং কনভারসেশনটি এখন "${stageLabel}" পর্যায়ে রয়েছে।`
+        : `${customerName} চ্যাটে "${(lastMsg || firstMsg || customerIntent).slice(0, 80)}" বিষয়ে মেসেজ দিয়েছেন এবং AI স্বয়ংক্রিয়ভাবে উত্তর প্রদান করেছে। বর্তমানে চ্যাটটি "${stageLabel}" পর্যায়ে আছে।`;
+  }
+
+  return {
+    customerName,
+    customerId,
+    platform,
+    stageKey,
+    stageStep,
+    stageLabel,
+    stageDescription,
+    summaryText,
+    keyPoints,
+    customerIntent,
+    extractedPhone,
+    extractedAddress,
+    nextAction,
+    stats: {
+      totalMessages: messages.length,
+      customerMessages: inboundMessages.length,
+      aiReplies: aiRepliesCount,
+      humanReplies: humanRepliesCount,
+      hasVoice,
+      hasImage,
+      orderId: params.latestOrderId,
+      orderStatus: params.latestOrderStatus
+    },
+    generatedAt: new Date().toISOString()
+  };
+}
+
