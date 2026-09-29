@@ -67,6 +67,10 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [alsoConnectLinkedIg, setAlsoConnectLinkedIg] = useState<boolean>(true);
   const [step, setStep] = useState<'auth' | 'select'>('auth');
   const [metaAppId, setMetaAppId] = useState<string>('');
+  const [waConnectTab, setWaConnectTab] = useState<'auto' | 'manual'>('auto');
+  const [manualWaName, setManualWaName] = useState<string>('');
+  const [manualWaPhoneId, setManualWaPhoneId] = useState<string>('');
+  const [manualWaToken, setManualWaToken] = useState<string>('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -220,6 +224,30 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
     } catch (err: any) {
       setLoading(false);
       setError(err.message || 'WhatsApp পপ-আপ ওপেন করতে সমস্যা হয়েছে।');
+    }
+  };
+
+  const handleManualWhatsAppConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualWaPhoneId.trim() || !manualWaToken.trim()) {
+      setError('অনুগ্রহ করে WhatsApp নাম্বার / Phone Number ID এবং Access Token দিন।');
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const created = await api.createChannel({
+        platform: 'whatsapp',
+        name: manualWaName.trim() || `WhatsApp (${manualWaPhoneId.trim()})`,
+        identifier: manualWaPhoneId.trim(),
+        access_token: manualWaToken.trim()
+      });
+      onSuccess(created);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'WhatsApp নাম্বার কানেক্ট করতে সমস্যা হয়েছে।');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -424,63 +452,152 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           </div>
         )}
 
-        {/* STEP 1: Single Button Login */}
+        {/* STEP 1: Single Button Login or Direct Number Connect */}
         {step === 'auth' && (
           <div className="space-y-4">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={handleSingleClickMetaLogin}
-              className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 ${info.btnClass}`}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Connecting to Meta...</span>
-                </>
-              ) : (
-                <>
-                  <Icon className="w-4 h-4" />
-                  <span>{info.btnLabel}</span>
-                </>
-              )}
-            </button>
-
             {platform === 'whatsapp' && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
-                <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                  <strong>নতুন বা অন্য WhatsApp নাম্বার যুক্ত করার নিয়ম:</strong><br />
-                  ১) প্রথমে নিচের <strong>WhatsApp Manager ↗</strong> বাটনে গিয়ে আপনার নাম্বারটি মেটা বিজনেসে যুক্ত করুন।<br />
-                  ২) এরপর <strong>Switch / Select Business &amp; Number</strong> বাটনে ক্লিক করে পপ-আপে <em>&ldquo;Edit previous settings&rdquo;</em> থেকে নাম্বারটি সিলেক্ট করুন:
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href="https://business.facebook.com/wa/manage/phone-numbers/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                    <span>১. WhatsApp Manager-এ নাম্বার অ্যাড করুন ↗</span>
-                  </a>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleWhatsAppEmbeddedSignup}
-                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
-                  >
-                    ২. Re-Select Number
-                  </button>
-                </div>
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                <button
+                  type="button"
+                  onClick={() => setWaConnectTab('auto')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    waConnectTab === 'auto'
+                      ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  }`}
+                >
+                  ১. Meta Auto-Connect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaConnectTab('manual')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    waConnectTab === 'manual'
+                      ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  }`}
+                >
+                  ২. নাম্বার / API দিয়ে কানেক্ট
+                </button>
               </div>
             )}
 
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
-                <span>১০০% অটোমেটিক কানেকশন — শুধু অ্যাকাউন্ট ও পেজ সিলেক্ট করুন</span>
-              </p>
-            </div>
+            {platform === 'whatsapp' && waConnectTab === 'manual' ? (
+              <form onSubmit={handleManualWhatsAppConnect} className="space-y-3 text-left">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    WhatsApp Business Name / মোবাইল নাম্বার
+                  </label>
+                  <input
+                    type="text"
+                    value={manualWaName}
+                    onChange={(e) => setManualWaName(e.target.value)}
+                    placeholder="যেমন: My Shop (+88017XXXXXXXX)"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    WhatsApp Phone Number ID (বা নাম্বার) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualWaPhoneId}
+                    onChange={(e) => setManualWaPhoneId(e.target.value)}
+                    placeholder="Meta WhatsApp Manager থেকে Phone Number ID দিন"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    WhatsApp Access Token *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={manualWaToken}
+                    onChange={(e) => setManualWaToken(e.target.value)}
+                    placeholder="System User / Permanent Access Token দিন"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Connect WhatsApp Number Now</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleSingleClickMetaLogin}
+                  className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 ${info.btnClass}`}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Connecting to Meta...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon className="w-4 h-4" />
+                      <span>{info.btnLabel}</span>
+                    </>
+                  )}
+                </button>
+
+                {platform === 'whatsapp' && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5 text-left">
+                    <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
+                      <strong>নতুন WhatsApp নাম্বার OTP/QR দিয়ে কীভাবে যুক্ত করবেন?</strong><br />
+                      ১) মেটার নিয়মে নাম্বার ও OTP ভেরিফাই করতে নিচের <strong>১. WhatsApp Manager ↗</strong> বাটনে গিয়ে <strong>+ Add phone number</strong>-এ আপনার নাম্বার যুক্ত করুন।<br />
+                      ২) এরপর <strong>২. Re-Select Number</strong> বাটনে ক্লিক করলে ফেসবুক পপ-আপে <em>&ldquo;Continue&rdquo;</em> না চাপিয়ে বাম পাশের <strong>&ldquo;Edit settings&rdquo;</strong> বাটনে ক্লিক করে নতুন নাম্বারটি টিক দিন:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href="https://business.facebook.com/wa/manage/phone-numbers/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
+                      >
+                        <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                        <span>১. WhatsApp Manager (+ Add Number) ↗</span>
+                      </a>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={handleWhatsAppEmbeddedSignup}
+                        className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
+                      >
+                        ২. Re-Select Number
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
+                    <span>১০০% অটোমেটিক কানেকশন — শুধু অ্যাকাউন্ট ও পেজ সিলেক্ট করুন</span>
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 

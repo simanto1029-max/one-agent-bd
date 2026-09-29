@@ -162,36 +162,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   };
 
   // Single-Click Connect Handler for each of the 3 horizontal boxes
-  const handleConnectClick = async (targetPlatform: 'messenger' | 'instagram' | 'whatsapp') => {
+  const handleConnectClick = (targetPlatform: 'messenger' | 'instagram' | 'whatsapp') => {
     setError(null);
     setSuccessMessage(null);
     setAutoConnectPlatform(targetPlatform);
     setIsAutoConnectModalOpen(true);
-
-    try {
-      const pending = await api.getMetaPendingAssets();
-      const hasAssets =
-        targetPlatform === 'whatsapp'
-          ? Boolean(pending.whatsappNumbers && pending.whatsappNumbers.length > 0)
-          : Boolean(pending.pages && pending.pages.length > 0);
-
-      if (!hasAssets) {
-        const res = await api.getMetaAuthUrl(targetPlatform);
-        if (res.authUrl) {
-          const width = 600;
-          const height = 700;
-          const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
-          const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
-          window.open(
-            res.authUrl,
-            'oneagentbd_meta_oauth',
-            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
-          );
-        }
-      }
-    } catch {
-      // Modal handles fallback UI if popup was blocked or Meta App ID not yet configured
-    }
   };
 
   // Verify Channel Connection Health with Meta Graph API
