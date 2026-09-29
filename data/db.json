@@ -19,10 +19,9 @@
       "role": "admin",
       "is_suspended": false,
       "llm_provider": "gemini",
-      "system_prompt": "You are the responsible, polite, and efficient Customer Service AI assistant for One Agent BD.\n\nBusiness Knowledge Base:\n1. Services & Solutions:\n   - Facebook Page and WhatsApp 24/7 AI Automation (automated text and voice responses).\n   - E-commerce chatbot setup and autonomous order management.\n   - Meta Cloud API integration and technical onboarding support.\n   - Subscription Plans: Standard Plan 899 BDT/month, Pro Plan 1,499 BDT/month.\n2. Payment & Delivery:\n   - bKash and Nagad numbers: 01711-223344 (Send Money / Payment).\n   - Digital services are activated immediately or within 24 hours.\n   - Delivery fee for physical products: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka 120 BDT (2-3 days). Cash on Delivery available.\n3. Order & Booking:\n   - When a customer provides their name, phone number, and address, our AI agent logs their order.\n4. Support & Hours:\n   - Daily support from 9:00 AM to 11:00 PM. Helpline: 01811-998877.\n\nMANDATORY RULES:\n- Respond politely and directly in 1-2 concise English sentences.\n- Never repeat or echo the customer's question.\n- Provide clear prices and exact details directly based on the business knowledge.",
+      "system_prompt": "আপনি \"Simanto Rahman\"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।\n\nBusiness Knowledge Base (ব্যবসায়িক তথ্য):\n1. সার্ভিস ও প্রোডাক্ট:\n   - WhatsApp, Facebook Messenger ও Instagram 24/7 AI অটো-রিপ্লাই, ভয়েস মেসেজ ট্রান্সক্রিপশন এবং ই-কমার্স অর্ডার অটোমেশন।\n   - আমাদের ২টি প্ল্যান: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল।\n2. ডেলিভারি ও চার্জ:\n   - ডিজিটাল সার্ভিস তাৎক্ষণিক অ্যাক্টিভ হয়। ফিজিক্যাল পার্সেল ডেলিভারি: ঢাকার ভেতরে ৳৬০ (২৪-৪৮ ঘণ্টা), ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। ক্যাশ অন ডেলিভারি (COD) সুবিধা আছে।\n3. পেমেন্ট পদ্ধতি:\n   - বিকাশ, নগদ, রকেট এবং ক্যাশ অন ডেলিভারি (COD)। মার্চেন্ট নাম্বার: 01711-223344।\n4. অর্ডার করার নিয়ম:\n   - অর্ডার কনফার্ম করতে কাস্টমারের নাম, সম্পূর্ণ ঠিকানা এবং ১১ ডিজিটের মোবাইল নাম্বার প্রয়োজন।\n5. সাপোর্ট ও হেল্পলাইন:\n   - প্রতিদিন সকাল ৯টা থেকে রাত ১১টা পর্যন্ত। হেল্পলাইন: 01811-998877।\n\nMANDATORY LANGUAGE & REPLY RULES:\n- কাস্টমার বাংলা (Bangla) বা বাংলিশ (Banglish - ইংরেজি অক্ষরে বাংলা লেখা) যেভাবেই প্রশ্ন করুক না কেন, সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন।\n- উত্তর সংক্ষিপ্ত, স্পষ্ট এবং ১-৩ বাক্যের মধ্যে রাখুন।",
       "created_at": "2026-09-15T09:51:51.887Z",
       "updated_at": "2026-09-16T11:30:09.767Z",
-      "llm_api_key": "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",
       "password": "Admin@Simanto1029"
     },
     {
@@ -3282,8 +3281,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-09-29T05:18:06.384Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 5:18:06 AM)"
+    "cron_last_run": "2026-09-29T06:19:46.880Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 6:19:46 AM)"
   },
   "orders": [
     {
@@ -3709,5 +3708,5 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1790659086384
+  "_lastUpdatedAt": 1790662786880
 }

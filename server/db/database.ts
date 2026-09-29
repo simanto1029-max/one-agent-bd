@@ -565,8 +565,8 @@ const initialData: DatabaseSchema = {
       is_suspended: false,
       llm_provider: 'gemini',
       system_prompt: 'You are an executive AI assistant for One Agent BD. Respond with concise, accurate information.',
-      created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z'
     },
     {
       id: 'usr_demo_002',
@@ -576,29 +576,19 @@ const initialData: DatabaseSchema = {
       password: 'Admin@Simanto1029',
       is_suspended: false,
       llm_provider: 'gemini',
-      system_prompt: `You are the responsible, polite, and efficient Customer Service AI assistant for One Agent BD.
+      system_prompt: `আপনি "One Agent BD"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।
 
-Business Knowledge Base:
-1. Services & Solutions:
-   - Facebook Page and WhatsApp 24/7 AI Automation (automated text and voice responses).
-   - E-commerce chatbot setup and autonomous order management.
-   - Meta Cloud API integration and technical onboarding support.
-   - Subscription Plan: All-in-One Plan 1,450 BDT/month (30 days) with 2-day free trial.
-2. Payment & Delivery:
-   - bKash and Nagad numbers: 01711-223344 (Send Money / Payment).
-   - Digital services are activated immediately or within 24 hours.
-   - Delivery fee for physical products: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka 120 BDT (2-3 days). Cash on Delivery available.
-3. Order & Booking:
-   - When a customer provides their name, phone number, and address, our AI agent logs their order.
-4. Support & Hours:
-   - Daily support from 9:00 AM to 11:00 PM. Helpline: 01811-998877.
+Business Knowledge Base (ব্যবসায়িক তথ্য):
+1. সার্ভিস ও প্রোডাক্ট:
+   - WhatsApp, Facebook Messenger ও Instagram 24/7 AI অটো-রিপ্লাই, ভয়েস মেসেজ ট্রান্সক্রিপশন এবং ই-কমার্স অর্ডার অটোমেশন।
+   - আমাদের ২টি প্ল্যান: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল।
+2. পেমেন্ট ও সাপোর্ট:
+   - বিকাশ, নগদ ও রকেট গেটওয়ে (pay.oneagentbd.online)। হেল্পলাইন: +8801601705804।
 
-MANDATORY RULES:
-- Respond politely and directly in 1-2 concise English sentences.
-- Never repeat or echo the customer's question.
-- Provide clear prices and exact details directly based on the business knowledge.`,
-      created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-      updated_at: new Date().toISOString()
+MANDATORY LANGUAGE & SHORT REPLY RULES:
+- কাস্টমার বাংলা, বাংলিশ বা ভয়েস মেসেজে যেভাবেই প্রশ্ন করুক, সর্বদা সহজ ও প্রাকৃতিক বাংলা ভাষায় সর্বোচ্চ ২-৩ বাক্যে সংক্ষিপ্ত উত্তর দিন।`,
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z'
     }
   ],
   plans: [
@@ -831,9 +821,15 @@ class Database {
           p.role = 'admin';
           if (!p.password) p.password = 'Admin@Simanto1029';
         }
+        // Strip old revoked demo OpenAI key so it never blocks Gemini or overwrites user settings
+        if (p.llm_api_key && p.llm_api_key.trim().startsWith('sk-proj-wJiInvQ')) {
+          delete p.llm_api_key;
+        }
         if (
           !p.system_prompt ||
-          p.system_prompt.includes('You are a warm, professional customer support AI agent for our business.')
+          p.system_prompt.includes('You are a warm, professional customer support AI agent for our business.') ||
+          p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month') ||
+          p.system_prompt.includes('Subscription Plans: Standard Plan 899 BDT/month')
         ) {
           p.system_prompt = `আপনি "${p.full_name || 'One Agent BD'}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।
 
@@ -1041,32 +1037,48 @@ MANDATORY LANGUAGE & REPLY RULES:
       localMap.set(p.id, p);
     }
 
+    const hasInMemoryWrites = this.lastLocalWriteAt > 0;
+
     incoming.profiles = incoming.profiles.map((remoteProf) => {
       const localProf = localMap.get(remoteProf.id);
       if (!localProf) return remoteProf;
-      const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
-      const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
-      if (localTime >= remoteTime) {
-        return {
-          ...remoteProf,
-          ...localProf,
-          llm_api_key: localProf.llm_api_key !== undefined ? localProf.llm_api_key : remoteProf.llm_api_key,
-          system_prompt: localProf.system_prompt || remoteProf.system_prompt,
-          llm_provider: localProf.llm_provider || remoteProf.llm_provider
-        };
+
+      const cleanLocalKey =
+        localProf.llm_api_key && !localProf.llm_api_key.trim().startsWith('sk-proj-wJiInvQ')
+          ? localProf.llm_api_key.trim()
+          : '';
+      const cleanRemoteKey =
+        remoteProf.llm_api_key && !remoteProf.llm_api_key.trim().startsWith('sk-proj-wJiInvQ')
+          ? remoteProf.llm_api_key.trim()
+          : '';
+
+      if (hasInMemoryWrites) {
+        const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
+        const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
+        if (localTime >= remoteTime) {
+          return {
+            ...remoteProf,
+            ...localProf,
+            llm_api_key: cleanLocalKey || cleanRemoteKey,
+            system_prompt: localProf.system_prompt || remoteProf.system_prompt,
+            llm_provider: localProf.llm_provider || remoteProf.llm_provider
+          };
+        }
       }
-      // Even if remote is newer, never lose a non-empty local llm_api_key if remote has none
-      if (localProf.llm_api_key && !remoteProf.llm_api_key) {
-        return {
-          ...remoteProf,
-          llm_api_key: localProf.llm_api_key
-        };
-      }
-      return remoteProf;
+
+      // On cold start (hasInMemoryWrites === false), remote Supabase profile is authoritative;
+      // only fall back to cleanLocalKey if remote has no key at all.
+      return {
+        ...remoteProf,
+        llm_api_key: cleanRemoteKey || cleanLocalKey
+      };
     });
 
     if ((this.data.settings as any)?.default_llm_api_key && !(incoming.settings as any)?.default_llm_api_key) {
-      (incoming.settings as any).default_llm_api_key = (this.data.settings as any).default_llm_api_key;
+      const localSysKey = String((this.data.settings as any).default_llm_api_key).trim();
+      if (!localSysKey.startsWith('sk-proj-wJiInvQ')) {
+        (incoming.settings as any).default_llm_api_key = localSysKey;
+      }
     }
 
     return incoming;

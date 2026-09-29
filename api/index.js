@@ -179,8 +179,8 @@ var init_database = __esm({
           is_suspended: false,
           llm_provider: "gemini",
           system_prompt: "You are an executive AI assistant for One Agent BD. Respond with concise, accurate information.",
-          created_at: new Date(Date.now() - 30 * 864e5).toISOString(),
-          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+          created_at: "2025-01-01T00:00:00.000Z",
+          updated_at: "2025-01-01T00:00:00.000Z"
         },
         {
           id: "usr_demo_002",
@@ -190,29 +190,19 @@ var init_database = __esm({
           password: "Admin@Simanto1029",
           is_suspended: false,
           llm_provider: "gemini",
-          system_prompt: `You are the responsible, polite, and efficient Customer Service AI assistant for One Agent BD.
+          system_prompt: `\u0986\u09AA\u09A8\u09BF "One Agent BD"-\u098F\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09B8\u09C7\u09B2\u09B8 AI \u0985\u09CD\u09AF\u09BE\u09B8\u09BF\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F\u0964
 
-Business Knowledge Base:
-1. Services & Solutions:
-   - Facebook Page and WhatsApp 24/7 AI Automation (automated text and voice responses).
-   - E-commerce chatbot setup and autonomous order management.
-   - Meta Cloud API integration and technical onboarding support.
-   - Subscription Plan: All-in-One Plan 1,450 BDT/month (30 days) with 2-day free trial.
-2. Payment & Delivery:
-   - bKash and Nagad numbers: 01711-223344 (Send Money / Payment).
-   - Digital services are activated immediately or within 24 hours.
-   - Delivery fee for physical products: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka 120 BDT (2-3 days). Cash on Delivery available.
-3. Order & Booking:
-   - When a customer provides their name, phone number, and address, our AI agent logs their order.
-4. Support & Hours:
-   - Daily support from 9:00 AM to 11:00 PM. Helpline: 01811-998877.
+Business Knowledge Base (\u09AC\u09CD\u09AF\u09AC\u09B8\u09BE\u09DF\u09BF\u0995 \u09A4\u09A5\u09CD\u09AF):
+1. \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F:
+   - WhatsApp, Facebook Messenger \u0993 Instagram 24/7 AI \u0985\u099F\u09CB-\u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u099F\u09CD\u09B0\u09BE\u09A8\u09CD\u09B8\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u098F\u09AC\u0982 \u0987-\u0995\u09AE\u09BE\u09B0\u09CD\u09B8 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0985\u099F\u09CB\u09AE\u09C7\u09B6\u09A8\u0964
+   - \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09E8\u099F\u09BF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: Starter AI Plan (\u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8) \u098F\u09AC\u0982 Pro Business Plan (\u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8), \u09B8\u09BE\u09A5\u09C7 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u0964
+2. \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0993 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F:
+   - \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6 \u0993 \u09B0\u0995\u09C7\u099F \u0997\u09C7\u099F\u0993\u09DF\u09C7 (pay.oneagentbd.online)\u0964 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8: +8801601705804\u0964
 
-MANDATORY RULES:
-- Respond politely and directly in 1-2 concise English sentences.
-- Never repeat or echo the customer's question.
-- Provide clear prices and exact details directly based on the business knowledge.`,
-          created_at: new Date(Date.now() - 1 * 864e5).toISOString(),
-          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+MANDATORY LANGUAGE & SHORT REPLY RULES:
+- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE, \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AC\u09BE \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u09C7 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09B9\u099C \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF \u09B8\u09B0\u09CD\u09AC\u09CB\u099A\u09CD\u099A \u09E8-\u09E9 \u09AC\u09BE\u0995\u09CD\u09AF\u09C7 \u09B8\u0982\u0995\u09CD\u09B7\u09BF\u09AA\u09CD\u09A4 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964`,
+          created_at: "2025-01-01T00:00:00.000Z",
+          updated_at: "2025-01-01T00:00:00.000Z"
         }
       ],
       plans: [
@@ -439,7 +429,10 @@ MANDATORY RULES:
               p.role = "admin";
               if (!p.password) p.password = "Admin@Simanto1029";
             }
-            if (!p.system_prompt || p.system_prompt.includes("You are a warm, professional customer support AI agent for our business.")) {
+            if (p.llm_api_key && p.llm_api_key.trim().startsWith("sk-proj-wJiInvQ")) {
+              delete p.llm_api_key;
+            }
+            if (!p.system_prompt || p.system_prompt.includes("You are a warm, professional customer support AI agent for our business.") || p.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") || p.system_prompt.includes("Subscription Plans: Standard Plan 899 BDT/month")) {
               p.system_prompt = `\u0986\u09AA\u09A8\u09BF "${p.full_name || "One Agent BD"}"-\u098F\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09B8\u09C7\u09B2\u09B8 AI \u0985\u09CD\u09AF\u09BE\u09B8\u09BF\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F\u0964
 
 Business Knowledge Base (\u09AC\u09CD\u09AF\u09AC\u09B8\u09BE\u09DF\u09BF\u0995 \u09A4\u09A5\u09CD\u09AF):
@@ -622,30 +615,35 @@ MANDATORY LANGUAGE & REPLY RULES:
         for (const p of this.data.profiles) {
           localMap.set(p.id, p);
         }
+        const hasInMemoryWrites = this.lastLocalWriteAt > 0;
         incoming.profiles = incoming.profiles.map((remoteProf) => {
           const localProf = localMap.get(remoteProf.id);
           if (!localProf) return remoteProf;
-          const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
-          const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
-          if (localTime >= remoteTime) {
-            return {
-              ...remoteProf,
-              ...localProf,
-              llm_api_key: localProf.llm_api_key !== void 0 ? localProf.llm_api_key : remoteProf.llm_api_key,
-              system_prompt: localProf.system_prompt || remoteProf.system_prompt,
-              llm_provider: localProf.llm_provider || remoteProf.llm_provider
-            };
+          const cleanLocalKey = localProf.llm_api_key && !localProf.llm_api_key.trim().startsWith("sk-proj-wJiInvQ") ? localProf.llm_api_key.trim() : "";
+          const cleanRemoteKey = remoteProf.llm_api_key && !remoteProf.llm_api_key.trim().startsWith("sk-proj-wJiInvQ") ? remoteProf.llm_api_key.trim() : "";
+          if (hasInMemoryWrites) {
+            const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
+            const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
+            if (localTime >= remoteTime) {
+              return {
+                ...remoteProf,
+                ...localProf,
+                llm_api_key: cleanLocalKey || cleanRemoteKey,
+                system_prompt: localProf.system_prompt || remoteProf.system_prompt,
+                llm_provider: localProf.llm_provider || remoteProf.llm_provider
+              };
+            }
           }
-          if (localProf.llm_api_key && !remoteProf.llm_api_key) {
-            return {
-              ...remoteProf,
-              llm_api_key: localProf.llm_api_key
-            };
-          }
-          return remoteProf;
+          return {
+            ...remoteProf,
+            llm_api_key: cleanRemoteKey || cleanLocalKey
+          };
         });
         if (this.data.settings?.default_llm_api_key && !incoming.settings?.default_llm_api_key) {
-          incoming.settings.default_llm_api_key = this.data.settings.default_llm_api_key;
+          const localSysKey = String(this.data.settings.default_llm_api_key).trim();
+          if (!localSysKey.startsWith("sk-proj-wJiInvQ")) {
+            incoming.settings.default_llm_api_key = localSysKey;
+          }
         }
         return incoming;
       }
@@ -4239,6 +4237,71 @@ import fs3 from "fs";
 import path2 from "path";
 import os2 from "os";
 var execAsync = promisify(exec);
+function mp4ToAdtsAac(buf) {
+  try {
+    const stszIdx = buf.indexOf(Buffer.from("stsz", "latin1"));
+    const stcoIdx = buf.indexOf(Buffer.from("stco", "latin1"));
+    if (stszIdx === -1 || stcoIdx === -1) return null;
+    const sampleSize = buf.readUInt32BE(stszIdx + 8);
+    const sampleCount = buf.readUInt32BE(stszIdx + 12);
+    if (sampleCount === 0 || sampleCount > 5e4) return null;
+    const sizes = [];
+    for (let i = 0; i < sampleCount; i++) {
+      const sz = sampleSize !== 0 ? sampleSize : buf.readUInt32BE(stszIdx + 16 + i * 4);
+      if (sz <= 0 || sz > buf.length) return null;
+      sizes.push(sz);
+    }
+    const firstChunkOffset = buf.readUInt32BE(stcoIdx + 12);
+    if (firstChunkOffset >= buf.length) return null;
+    let profile = 1;
+    let freqIdx = 4;
+    let chanCfg = 1;
+    const esdsIdx = buf.indexOf(Buffer.from("esds", "latin1"));
+    if (esdsIdx !== -1) {
+      for (let i = esdsIdx + 8; i < Math.min(buf.length - 4, esdsIdx + 64); i++) {
+        if (buf[i] === 5) {
+          let lenPos = i + 1;
+          while (lenPos < buf.length && (buf[lenPos] & 128) !== 0) lenPos++;
+          const ascPos = lenPos + 1;
+          if (ascPos + 1 < buf.length) {
+            const b0 = buf[ascPos];
+            const b1 = buf[ascPos + 1];
+            const audioObjectType = b0 >> 3 & 31;
+            const samplingFreqIndex = (b0 & 7) << 1 | b1 >> 7 & 1;
+            const channelConfiguration = b1 >> 3 & 15;
+            if (audioObjectType >= 1 && audioObjectType <= 4 && samplingFreqIndex <= 12 && channelConfiguration >= 1 && channelConfiguration <= 2) {
+              profile = audioObjectType - 1;
+              freqIdx = samplingFreqIndex;
+              chanCfg = channelConfiguration;
+              break;
+            }
+          }
+        }
+      }
+    }
+    const outChunks = [];
+    let offset = firstChunkOffset;
+    for (let i = 0; i < sampleCount; i++) {
+      const frameLen = sizes[i];
+      if (offset + frameLen > buf.length) break;
+      const adtsLen = frameLen + 7;
+      const header = Buffer.alloc(7);
+      header[0] = 255;
+      header[1] = 241;
+      header[2] = (profile & 3) << 6 | (freqIdx & 15) << 2 | chanCfg >> 2 & 1;
+      header[3] = (chanCfg & 3) << 6 | adtsLen >> 11 & 3;
+      header[4] = adtsLen >> 3 & 255;
+      header[5] = (adtsLen & 7) << 5 | 31;
+      header[6] = 252;
+      outChunks.push(header, buf.subarray(offset, offset + frameLen));
+      offset += frameLen;
+    }
+    if (outChunks.length === 0) return null;
+    return Buffer.concat(outChunks);
+  } catch {
+    return null;
+  }
+}
 function detectAudioMimeTypeFromBuffer(buf, fallbackMime) {
   if (buf && buf.length >= 12) {
     const header4 = buf.subarray(0, 4).toString("latin1");
@@ -4282,12 +4345,25 @@ function cleanAudioMimeType(rawMime) {
 }
 async function convertToWav(inputBuffer, originalMime) {
   const detectedOriginalMime = detectAudioMimeTypeFromBuffer(inputBuffer, originalMime);
-  if (process.env.VERCEL) {
+  const fallbackWithoutFfmpeg = () => {
+    if (detectedOriginalMime === "audio/mp4") {
+      const adtsBuffer = mp4ToAdtsAac(inputBuffer);
+      if (adtsBuffer && adtsBuffer.length > 16) {
+        return {
+          buffer: adtsBuffer,
+          base64: adtsBuffer.toString("base64"),
+          mimeType: "audio/aac"
+        };
+      }
+    }
     return {
       buffer: inputBuffer,
       base64: inputBuffer.toString("base64"),
       mimeType: detectedOriginalMime
     };
+  };
+  if (process.env.VERCEL) {
+    return fallbackWithoutFfmpeg();
   }
   const id = Math.random().toString(36).slice(2, 9);
   const tempInput = path2.join(os2.tmpdir(), `audio_in_${Date.now()}_${id}.tmp`);
@@ -4303,18 +4379,10 @@ async function convertToWav(inputBuffer, originalMime) {
         mimeType: "audio/wav"
       };
     }
-    return {
-      buffer: inputBuffer,
-      base64: inputBuffer.toString("base64"),
-      mimeType: detectedOriginalMime
-    };
+    return fallbackWithoutFfmpeg();
   } catch (err) {
-    console.warn(`[AudioDownloader] ffmpeg not available, using native ${detectedOriginalMime} format`);
-    return {
-      buffer: inputBuffer,
-      base64: inputBuffer.toString("base64"),
-      mimeType: detectedOriginalMime
-    };
+    console.warn(`[AudioDownloader] ffmpeg not available, using fallback for ${detectedOriginalMime}`);
+    return fallbackWithoutFfmpeg();
   } finally {
     fs3.promises.unlink(tempInput).catch(() => {
     });
@@ -4445,18 +4513,21 @@ async function downloadWhatsAppImage(mediaId, accessToken) {
 }
 
 // server/services/aiService.ts
+function isDeadSeedKey(key) {
+  return Boolean(key && key.trim().startsWith("sk-proj-wJiInvQ"));
+}
 function getCandidateGeminiKeys(customApiKey) {
   const defaultSystemKey = (db.getSettings()?.default_llm_api_key || "").trim();
   const allProfiles = db.getProfiles() || [];
-  const adminKeys = allProfiles.filter((p) => p.role === "admin" && p.llm_api_key?.trim()).map((p) => p.llm_api_key.trim());
-  const anyProfileKeys = allProfiles.filter((p) => p.llm_api_key?.trim()).map((p) => p.llm_api_key.trim());
+  const adminKeys = allProfiles.filter((p) => p.role === "admin" && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key)).map((p) => p.llm_api_key.trim());
+  const anyProfileKeys = allProfiles.filter((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key)).map((p) => p.llm_api_key.trim());
   return Array.from(
     new Set(
       [
         customApiKey?.trim(),
-        defaultSystemKey,
         ...adminKeys,
         ...anyProfileKeys,
+        defaultSystemKey,
         process.env.GEMINI_API_KEY?.trim(),
         process.env.VITE_GEMINI_API_KEY?.trim(),
         process.env.GOOGLE_API_KEY?.trim()
@@ -4499,29 +4570,39 @@ function formatCleanChatMessage(raw) {
   return text;
 }
 var CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
+  "gemini-3-flash-preview",
   "gemini-3.8-flash",
-  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-3.1-flash-lite-preview",
+  "gemini-2.5-flash-lite",
   "gemini-flash-latest"
 ];
 async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, businessName, recentHistory, catalogContext, customApiKey) {
   const clients = getGeminiClients(customApiKey);
   let normalizedBase64 = audioBase64;
   let normalizedMime = cleanAudioMimeType(audioMimeType);
+  let rawBuffer = Buffer.from(audioBase64, "base64");
   try {
-    const rawBuffer = Buffer.from(audioBase64, "base64");
-    normalizedMime = detectAudioMimeTypeFromBuffer(rawBuffer, normalizedMime);
+    const detectedMime = detectAudioMimeTypeFromBuffer(rawBuffer, normalizedMime);
+    normalizedMime = detectedMime;
     const isWav = rawBuffer.subarray(0, 4).toString("latin1") === "RIFF";
     if (!isWav) {
       const converted = await convertToWav(rawBuffer, normalizedMime);
       normalizedBase64 = converted.base64;
       normalizedMime = converted.mimeType;
+      rawBuffer = converted.buffer;
     } else {
       normalizedMime = "audio/wav";
     }
   } catch (err) {
     console.warn("[AI Service] Audio conversion warning, using detected MIME:", err?.message || err);
+  }
+  let adtsBase64 = null;
+  if (normalizedMime === "audio/mp4") {
+    const adtsBuf = mp4ToAdtsAac(Buffer.from(audioBase64, "base64"));
+    if (adtsBuf && adtsBuf.length > 16) {
+      adtsBase64 = adtsBuf.toString("base64");
+    }
   }
   const promptText = `System Instructions & Business Knowledge Base:
 ${systemPrompt}
@@ -4535,7 +4616,7 @@ ${catalogContext}
 TASK:
 1. Listen carefully to the customer's voice note (may be in Bangla, Banglish, or English).
 2. Transcribe accurately what the customer said in the audio.
-3. Formulate a SHORT, polite, direct customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF).
+3. Formulate a SHORT, polite, direct customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF) based on the Business Knowledge Base above.
 4. STRICT LENGTH RULE: Keep your reply concise and conversational \u2014 maximum 2 to 3 short sentences (2-4 lines max). Answer ONLY what the customer asked in the voice note without dumping long lists or essays. Do not use ** markdown asterisks. Never repeat the customer's question.
 
 Previous Conversation History:
@@ -4552,13 +4633,54 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
     if (replyText.startsWith("REPLY:")) {
       replyText = replyText.substring(6).trim();
     }
-    if (transcript && (transcript.toLowerCase().includes("silent") || transcript.includes("unclear"))) {
-      transcript = "\u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C";
+    if (transcript && !replyMatch) {
+      replyText = "";
+    }
+    if (transcript && (transcript.toLowerCase().includes("silent") || transcript.toLowerCase().includes("unclear"))) {
+      transcript = void 0;
     }
     return { replyText: formatCleanChatMessage(replyText), transcript };
   };
+  const allProfiles = db.getProfiles() || [];
+  const adminKey = allProfiles.find((p) => p.role === "admin" && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || "";
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || "";
+  const trimmedCustomKey = (customApiKey && !isDeadSeedKey(customApiKey) ? customApiKey.trim() : "") || (db.getSettings()?.default_llm_api_key || "").trim() || adminKey || anyKey || "";
+  if (trimmedCustomKey.startsWith("gsk_") || trimmedCustomKey.startsWith("sk-") && !trimmedCustomKey.startsWith("sk-or-") && !trimmedCustomKey.startsWith("sk-ant-")) {
+    try {
+      const isGroq = trimmedCustomKey.startsWith("gsk_");
+      const whisperEndpoint = isGroq ? "https://api.groq.com/openai/v1/audio/transcriptions" : "https://api.openai.com/v1/audio/transcriptions";
+      const whisperModel = isGroq ? "whisper-large-v3-turbo" : "whisper-1";
+      const ext = normalizedMime.includes("wav") ? "wav" : normalizedMime.includes("ogg") ? "ogg" : normalizedMime.includes("mp3") ? "mp3" : "m4a";
+      const formData = new FormData();
+      const audioBlob = new Blob([new Uint8Array(Buffer.from(audioBase64, "base64"))], {
+        type: normalizedMime === "audio/aac" ? "audio/mp4" : normalizedMime
+      });
+      formData.append("file", audioBlob, `voice.${ext}`);
+      formData.append("model", whisperModel);
+      const whisperRes = await withTimeout(
+        fetch(whisperEndpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${trimmedCustomKey}` },
+          body: formData
+        }),
+        12e3
+      );
+      if (whisperRes.ok) {
+        const wJson = await whisperRes.json();
+        const wText = String(wJson?.text || "").trim();
+        if (wText) {
+          console.log(`[AI Service] Whisper transcribed voice note: "${wText}"`);
+          return { replyText: "", transcript: wText };
+        }
+      }
+    } catch (wErr) {
+      console.warn("[AI Service] Whisper transcription warning:", wErr?.message || wErr);
+    }
+  }
   for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
+      const mimeToSend = modelName.includes("3.8") && normalizedMime === "audio/mp4" && adtsBase64 ? "audio/aac" : normalizedMime;
+      const dataToSend = modelName.includes("3.8") && normalizedMime === "audio/mp4" && adtsBase64 ? adtsBase64 : normalizedBase64;
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -4569,8 +4691,8 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
                 parts: [
                   {
                     inlineData: {
-                      mimeType: normalizedMime,
-                      data: normalizedBase64
+                      mimeType: mimeToSend,
+                      data: dataToSend
                     }
                   },
                   {
@@ -4584,16 +4706,60 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
         );
         const rawText = response.text?.trim();
         if (!rawText) continue;
-        return parseAudioResponse(rawText);
+        const parsed = parseAudioResponse(rawText);
+        if (parsed.replyText || parsed.transcript) {
+          return parsed;
+        }
       } catch (err) {
-        console.warn(`[AI Service] Audio model ${modelName} (${normalizedMime}) error:`, err?.message || err);
+        console.warn(`[AI Service] Audio model ${modelName} (${mimeToSend}) error:`, err?.message || err);
       }
+    }
+    try {
+      const transcribeRes = await withTimeout(
+        ai.models.generateContent({
+          model: "gemini-3.5-transcribe",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: normalizedMime,
+                    data: normalizedBase64
+                  }
+                },
+                {
+                  text: "Transcribe this customer voice message accurately."
+                }
+              ]
+            }
+          ]
+        }),
+        12e3
+      );
+      const parts = transcribeRes.candidates?.[0]?.content?.parts || [];
+      let transcriptText = "";
+      for (const part of parts) {
+        if (part?.audioTranscription?.text) {
+          transcriptText += part.audioTranscription.text + " ";
+        } else if (part?.text) {
+          transcriptText += part.text + " ";
+        }
+      }
+      transcriptText = (transcriptText || transcribeRes.text || "").trim();
+      if (transcriptText) {
+        console.log(`[AI Service] gemini-3.5-transcribe succeeded: "${transcriptText}"`);
+        return { replyText: "", transcript: transcriptText };
+      }
+    } catch (transErr) {
+      console.warn("[AI Service] gemini-3.5-transcribe warning:", transErr?.message || transErr);
     }
   }
   const directKeys = getCandidateGeminiKeys(customApiKey).filter((k) => k.startsWith("AIza"));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
+    for (const restModel of ["gemini-3-flash-preview", "gemini-3.5-transcribe", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
       try {
+        const isTranscribeModel = restModel === "gemini-3.5-transcribe";
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
           fetch(restUrl, {
@@ -4610,18 +4776,23 @@ REPLY: <Short, direct, helpful customer reply in Bangla (\u09B8\u09B0\u09CD\u09A
                         data: normalizedBase64
                       }
                     },
-                    { text: promptText }
+                    { text: isTranscribeModel ? "Transcribe this audio." : promptText }
                   ]
                 }
               ],
-              generationConfig: { temperature: 0.35 }
+              ...isTranscribeModel ? {} : { generationConfig: { temperature: 0.35 } }
             })
           }),
           14e3
         );
         if (restRes.ok) {
           const data = await restRes.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("").trim();
+          const parts = data?.candidates?.[0]?.content?.parts || [];
+          const audioTrans = parts.map((p) => p?.audioTranscription?.text || "").join(" ").trim();
+          if (audioTrans) {
+            return { replyText: "", transcript: audioTrans };
+          }
+          const rawText = parts.map((p) => p?.text || "").join("").trim();
           if (rawText) {
             return parseAudioResponse(rawText);
           }
@@ -4689,7 +4860,7 @@ Assistant Reply (in concise Bangla, 2-3 sentences max):`;
   }
   const directKeys = getCandidateGeminiKeys(customApiKey).filter((k) => k.startsWith("AIza"));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
+    for (const restModel of ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -4730,9 +4901,9 @@ Assistant Reply (in concise Bangla, 2-3 sentences max):`;
 }
 async function callGemini(fullPrompt, customApiKey, systemInstruction) {
   const allProfiles = db.getProfiles() || [];
-  const adminKey = allProfiles.find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim() || "";
-  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim())?.llm_api_key?.trim() || "";
-  const trimmedKey = customApiKey?.trim() || (db.getSettings()?.default_llm_api_key || "").trim() || adminKey || anyKey || "";
+  const adminKey = allProfiles.find((p) => p.role === "admin" && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || "";
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || "";
+  const trimmedKey = (customApiKey && !isDeadSeedKey(customApiKey) ? customApiKey.trim() : "") || (db.getSettings()?.default_llm_api_key || "").trim() || adminKey || anyKey || "";
   if (trimmedKey.startsWith("gsk_")) {
     try {
       const groqRes = await withTimeout(
@@ -4762,7 +4933,7 @@ async function callGemini(fullPrompt, customApiKey, systemInstruction) {
       console.warn("[AI Service] Groq call warning:", err?.message || err);
     }
   }
-  if (trimmedKey.startsWith("sk-") && !trimmedKey.startsWith("sk-ant-")) {
+  if (trimmedKey.startsWith("sk-") && !trimmedKey.startsWith("sk-ant-") && !isDeadSeedKey(trimmedKey)) {
     try {
       const isOpenRouter = trimmedKey.startsWith("sk-or-");
       const endpoint = isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
@@ -4818,7 +4989,7 @@ async function callGemini(fullPrompt, customApiKey, systemInstruction) {
   }
   const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith("AIza"));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
+    for (const restModel of ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -5015,7 +5186,8 @@ async function generateAIReply(params) {
   }
   const combinedSystemPrompt = `${systemPrompt}${oneAgentExtendedKnowledge ? `
 ${oneAgentExtendedKnowledge}` : ""}`;
-  const effectiveApiKey = params.overrideApiKey && params.overrideApiKey.trim() || profile?.llm_api_key && profile.llm_api_key.trim() || (db.getSettings()?.default_llm_api_key || "").trim() || void 0;
+  const effectiveApiKey = (params.overrideApiKey && !isDeadSeedKey(params.overrideApiKey) ? params.overrideApiKey.trim() : "") || (profile?.llm_api_key && !isDeadSeedKey(profile.llm_api_key) ? profile.llm_api_key.trim() : "") || (db.getSettings()?.default_llm_api_key || "").trim() || void 0;
+  let voiceTranscript = void 0;
   if (params.audioBase64) {
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
     const voiceResult = await callGeminiWithAudio(
@@ -5034,11 +5206,27 @@ ${oneAgentExtendedKnowledge}` : ""}`;
         isVoice: true
       };
     }
-    return {
-      replyText: `\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C\u099F\u09BF \u09AA\u09C7\u09DF\u09C7\u099B\u09BF, \u09A4\u09AC\u09C7 \u09B8\u09BE\u0989\u09A8\u09CD\u09A1 \u098F\u0995\u099F\u09C1 \u0985\u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u099B\u09BF\u09B2\u0964 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0986\u09B0\u09C7\u0995\u09AC\u09BE\u09B0 \u09AD\u09DF\u09C7\u09B8 \u09A6\u09BF\u09A8 \u0985\u09A5\u09AC\u09BE \u099F\u09C7\u0995\u09CD\u09B8\u099F\u09C7 \u099C\u09BE\u09A8\u09BE\u09A8, \u0986\u09AE\u09BF \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u099A\u09CD\u099B\u09BF!`,
-      transcript: "\u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09B8\u09BF\u09AD \u09B9\u09DF\u09C7\u099B\u09C7",
-      isVoice: true
-    };
+    if (voiceResult && voiceResult.transcript) {
+      voiceTranscript = voiceResult.transcript;
+      params.incomingMessage = voiceResult.transcript;
+      if (merchantProducts.length > 0) {
+        matchedProduct = db.findProductForQuery(params.userId, voiceResult.transcript);
+      }
+    } else {
+      const fallbackQuery = params.incomingMessage && !params.incomingMessage.includes("[Voice Message]") ? params.incomingMessage : "\u0986\u09B8\u09B8\u09BE\u09B2\u09BE\u09AE\u09C1 \u0986\u09B2\u09BE\u0987\u0995\u09C1\u09AE, \u0986\u09AA\u09A8\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8 \u0993 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u0987";
+      const kbVoiceFallback = buildSmartBanglaFallbackFromPrompt(
+        fallbackQuery,
+        combinedSystemPrompt,
+        businessName,
+        merchantProducts,
+        matchedProduct
+      );
+      return {
+        replyText: kbVoiceFallback,
+        transcript: "\u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C",
+        isVoice: true
+      };
+    }
   }
   if (params.imageBase64) {
     console.log(`[AI Service] Processing customer image inquiry for customer ${params.customerId}`);
@@ -5121,7 +5309,8 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
   if (geminiReply) {
     return {
       replyText: geminiReply,
-      isVoice: false,
+      transcript: voiceTranscript,
+      isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : void 0,
       attachedProductName: matchedProduct?.name,
       attachedProductPrice: matchedProduct?.price
@@ -5136,7 +5325,8 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
   );
   return {
     replyText: smartBanglaReply,
-    isVoice: false,
+    transcript: voiceTranscript,
+    isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : void 0,
     attachedProductName: matchedProduct?.name,
     attachedProductPrice: matchedProduct?.price
@@ -6464,15 +6654,19 @@ settingsRouter.get("/llm", (req, res) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const sysSettings = db.getSettings();
-  const savedKey = user.llm_api_key && user.llm_api_key.trim() || (user.role === "admin" ? (sysSettings?.default_llm_api_key || "").trim() : "");
-  const savedPrompt = (user.system_prompt && !user.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !user.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") ? user.system_prompt : "") || (user.role === "admin" && sysSettings?.default_system_prompt ? sysSettings.default_system_prompt : user.system_prompt);
+  const rawUserKey = (user.llm_api_key || "").trim();
+  const rawSysKey = user.role === "admin" ? (sysSettings?.default_llm_api_key || "").trim() : "";
+  const cleanUserKey = rawUserKey.startsWith("sk-proj-wJiInvQ") ? "" : rawUserKey;
+  const cleanSysKey = rawSysKey.startsWith("sk-proj-wJiInvQ") ? "" : rawSysKey;
+  const savedKey = cleanUserKey || cleanSysKey;
+  const savedPrompt = (user.system_prompt && !user.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !user.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") && !user.system_prompt.includes("Subscription Plans: Standard Plan 899 BDT/month") ? user.system_prompt : "") || (user.role === "admin" && sysSettings?.default_system_prompt ? sysSettings.default_system_prompt : user.system_prompt);
   return res.json({
     llm_provider: user.llm_provider || "gemini",
     llm_api_key: savedKey,
     system_prompt: savedPrompt,
     has_custom_key: Boolean(savedKey),
     masked_key: savedKey ? `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${savedKey.slice(-4)}` : null,
-    default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY)
+    default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY || cleanSysKey)
   });
 });
 settingsRouter.put("/llm", async (req, res) => {
@@ -6487,7 +6681,8 @@ settingsRouter.put("/llm", async (req, res) => {
   if (clear_api_key === true) {
     updates.llm_api_key = "";
   } else if (typeof llm_api_key === "string" && llm_api_key.trim().length > 0) {
-    updates.llm_api_key = llm_api_key.trim();
+    const trimmed = llm_api_key.trim();
+    updates.llm_api_key = trimmed.startsWith("sk-proj-wJiInvQ") ? "" : trimmed;
   }
   const updated = db.updateProfile(user.id, updates);
   if (user.role === "admin") {
@@ -7684,7 +7879,6 @@ adminRouter.delete("/notifications/:id", (req, res) => {
 });
 
 // server/routes/aiChat.ts
-init_database();
 import { Router as Router12 } from "express";
 import { GoogleGenAI as GoogleGenAI4 } from "@google/genai";
 
@@ -8180,8 +8374,8 @@ widgetRouter.post("/chat", async (req, res) => {
       }
     }
     const sysSettings = db.getSettings();
-    const adminKeyFromProfile = db.getProfiles().find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim();
-    const apiKey = profile?.llm_api_key && profile.llm_api_key.trim() || sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim() || adminKeyFromProfile || process.env.GEMINI_API_KEY;
+    const candidateKeys = getCandidateGeminiKeys(profile?.llm_api_key);
+    const apiKey = candidateKeys[0] || process.env.GEMINI_API_KEY;
     const activePlans = db.getPlans().filter((p) => p.is_active);
     const livePlansContext = activePlans.length > 0 ? `
 LIVE ADMIN PRICING PLANS & SYSTEM SETTINGS:
@@ -8235,10 +8429,14 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
         }
         if (hasAudio && audioBase64) {
           const cleanAudioB64 = audioBase64.includes(",") ? audioBase64.split(",")[1] : audioBase64;
+          const detectedAudioMime = detectAudioMimeTypeFromBuffer(
+            Buffer.from(cleanAudioB64, "base64"),
+            audioMimeType || "audio/webm"
+          );
           parts.push({
             inlineData: {
               data: cleanAudioB64,
-              mimeType: audioMimeType || "audio/webm"
+              mimeType: detectedAudioMime
             }
           });
         }
@@ -8254,19 +8452,12 @@ ${recentHistoryText ? `Recent Conversation History:
 ${recentHistoryText}
 ` : ""}
 ${hasImage ? "The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n" : ""}
-${hasAudio ? "The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question.\n" : ""}
-Visitor Message: "${rawText || (hasAudio ? "[Voice Message Attached - Please listen and reply]" : "[Image Attached - Please analyze and reply]")}"
+${hasAudio ? "The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question concisely in 2-3 short sentences.\n" : ""}
+Visitor Message: "${rawText || (hasAudio ? "[Voice Message Attached - Please listen and reply concisely]" : "[Image Attached - Please analyze and reply concisely]")}"
 
-Provide a helpful, accurate, and friendly response (2-4 concise sentences or bullet points) following the CRITICAL LANGUAGE MATCHING RULE above:`;
+Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences max) following the CRITICAL LANGUAGE MATCHING RULE above:`;
         parts.push({ text: promptText });
-        const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-2.5-flash-lite",
-          "gemini-3.8-flash",
-          "gemini-3.1-flash-lite",
-          "gemini-flash-latest"
-        ];
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,
@@ -8730,9 +8921,8 @@ widgetRouter.get("/embed.js", (req, res) => {
 // server/routes/aiChat.ts
 var aiChatRouter = Router12();
 function getGeminiClient2() {
-  const sysSettings = db.getSettings();
-  const adminKey = db.getProfiles().find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim();
-  const apiKey = sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim() || adminKey || process.env.GEMINI_API_KEY;
+  const keys = getCandidateGeminiKeys();
+  const apiKey = keys[0] || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return null;
   }
@@ -8792,14 +8982,7 @@ ${formattedHistory || "(No previous messages)"}
 Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, and concise response:`;
-        const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-2.5-flash-lite",
-          "gemini-3.8-flash",
-          "gemini-3.1-flash-lite",
-          "gemini-flash-latest"
-        ];
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,
@@ -8873,15 +9056,8 @@ ${formattedHistory || "(No previous messages)"}
 Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
-        const candidateModels = [
-          "gemini-2.5-flash",
-          "gemini-2.5-flash-lite",
-          "gemini-3.8-flash",
-          "gemini-3.1-flash-lite",
-          "gemini-flash-latest"
-        ];
         let reply2 = void 0;
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,

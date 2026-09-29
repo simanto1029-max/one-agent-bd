@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db/database.js';
+import { getCandidateGeminiKeys, CANDIDATE_MODELS } from '../services/aiService.js';
 import {
   detectLanguageMode,
   ONE_AGENT_SAAS_KNOWLEDGE,
@@ -11,15 +12,8 @@ import {
 export const aiChatRouter = Router();
 
 function getGeminiClient(): GoogleGenAI | null {
-  const sysSettings = db.getSettings() as any;
-  const adminKey = db
-    .getProfiles()
-    .find((p) => p.role === 'admin' && p.llm_api_key?.trim())
-    ?.llm_api_key?.trim();
-  const apiKey =
-    (sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim()) ||
-    adminKey ||
-    process.env.GEMINI_API_KEY;
+  const keys = getCandidateGeminiKeys();
+  const apiKey = keys[0] || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return null;
   }
@@ -151,14 +145,7 @@ Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, and concise response:`;
 
-        const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-          'gemini-3.8-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-flash-latest'
-        ];
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,
@@ -251,16 +238,9 @@ Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
 
-        const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-          'gemini-3.8-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-flash-latest'
-        ];
         let reply: string | undefined = undefined;
 
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,

@@ -18,6 +18,84 @@ export interface DownloadedAudio {
 }
 
 /**
+ * Pure-TypeScript MP4/M4A (ftypmp42 / isom) to ADTS AAC converter for Vercel Serverless
+ * where ffmpeg is not installed. Extracts AAC frames using stsz box and prepends 7-byte ADTS headers.
+ */
+export function mp4ToAdtsAac(buf: Buffer): Buffer | null {
+  try {
+    const stszIdx = buf.indexOf(Buffer.from('stsz', 'latin1'));
+    const stcoIdx = buf.indexOf(Buffer.from('stco', 'latin1'));
+    if (stszIdx === -1 || stcoIdx === -1) return null;
+
+    const sampleSize = buf.readUInt32BE(stszIdx + 8);
+    const sampleCount = buf.readUInt32BE(stszIdx + 12);
+    if (sampleCount === 0 || sampleCount > 50000) return null;
+
+    const sizes: number[] = [];
+    for (let i = 0; i < sampleCount; i++) {
+      const sz = sampleSize !== 0 ? sampleSize : buf.readUInt32BE(stszIdx + 16 + i * 4);
+      if (sz <= 0 || sz > buf.length) return null;
+      sizes.push(sz);
+    }
+
+    const firstChunkOffset = buf.readUInt32BE(stcoIdx + 12);
+    if (firstChunkOffset >= buf.length) return null;
+
+    // Parse AudioSpecificConfig (0x05 tag inside esds) if present, otherwise default to 44.1kHz mono AAC-LC
+    let profile = 1; // AAC-LC (objectType 2 -> profile = objectType - 1 = 1)
+    let freqIdx = 4; // 44100 Hz
+    let chanCfg = 1; // 1 channel (mono)
+
+    const esdsIdx = buf.indexOf(Buffer.from('esds', 'latin1'));
+    if (esdsIdx !== -1) {
+      for (let i = esdsIdx + 8; i < Math.min(buf.length - 4, esdsIdx + 64); i++) {
+        if (buf[i] === 0x05) {
+          let lenPos = i + 1;
+          while (lenPos < buf.length && (buf[lenPos] & 0x80) !== 0) lenPos++;
+          const ascPos = lenPos + 1;
+          if (ascPos + 1 < buf.length) {
+            const b0 = buf[ascPos];
+            const b1 = buf[ascPos + 1];
+            const audioObjectType = (b0 >> 3) & 0x1f;
+            const samplingFreqIndex = ((b0 & 0x07) << 1) | ((b1 >> 7) & 0x01);
+            const channelConfiguration = (b1 >> 3) & 0x0f;
+            if (audioObjectType >= 1 && audioObjectType <= 4 && samplingFreqIndex <= 12 && channelConfiguration >= 1 && channelConfiguration <= 2) {
+              profile = audioObjectType - 1;
+              freqIdx = samplingFreqIndex;
+              chanCfg = channelConfiguration;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    const outChunks: Buffer[] = [];
+    let offset = firstChunkOffset;
+    for (let i = 0; i < sampleCount; i++) {
+      const frameLen = sizes[i];
+      if (offset + frameLen > buf.length) break;
+      const adtsLen = frameLen + 7;
+      const header = Buffer.alloc(7);
+      header[0] = 0xff;
+      header[1] = 0xf1; // MPEG-4, Layer 0, no CRC
+      header[2] = ((profile & 0x03) << 6) | ((freqIdx & 0x0f) << 2) | ((chanCfg >> 2) & 0x01);
+      header[3] = ((chanCfg & 0x03) << 6) | ((adtsLen >> 11) & 0x03);
+      header[4] = (adtsLen >> 3) & 0xff;
+      header[5] = ((adtsLen & 0x07) << 5) | 0x1f;
+      header[6] = 0xfc;
+      outChunks.push(header, buf.subarray(offset, offset + frameLen));
+      offset += frameLen;
+    }
+
+    if (outChunks.length === 0) return null;
+    return Buffer.concat(outChunks);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Detect actual audio MIME type by inspecting magic bytes of the binary buffer.
  * Crucial for Vercel Serverless where ffmpeg is not installed: Gemini natively
  * decodes audio/mp4, audio/ogg, audio/mp3, audio/aac, audio/webm, and audio/wav
@@ -92,13 +170,27 @@ export async function convertToWav(
 ): Promise<{ buffer: Buffer; base64: string; mimeType: string }> {
   const detectedOriginalMime = detectAudioMimeTypeFromBuffer(inputBuffer, originalMime);
 
-  // If on Vercel Serverless, skip spawning ffmpeg (not installed) and use native Gemini audio MIME support
-  if (process.env.VERCEL) {
+  const fallbackWithoutFfmpeg = () => {
+    if (detectedOriginalMime === 'audio/mp4') {
+      const adtsBuffer = mp4ToAdtsAac(inputBuffer);
+      if (adtsBuffer && adtsBuffer.length > 16) {
+        return {
+          buffer: adtsBuffer,
+          base64: adtsBuffer.toString('base64'),
+          mimeType: 'audio/aac'
+        };
+      }
+    }
     return {
       buffer: inputBuffer,
       base64: inputBuffer.toString('base64'),
       mimeType: detectedOriginalMime
     };
+  };
+
+  // If on Vercel Serverless, skip spawning ffmpeg (not installed) and use pure-TS ADTS AAC or native Gemini audio MIME
+  if (process.env.VERCEL) {
+    return fallbackWithoutFfmpeg();
   }
 
   const id = Math.random().toString(36).slice(2, 9);
@@ -117,18 +209,10 @@ export async function convertToWav(
         mimeType: 'audio/wav'
       };
     }
-    return {
-      buffer: inputBuffer,
-      base64: inputBuffer.toString('base64'),
-      mimeType: detectedOriginalMime
-    };
+    return fallbackWithoutFfmpeg();
   } catch (err: any) {
-    console.warn(`[AudioDownloader] ffmpeg not available, using native ${detectedOriginalMime} format`);
-    return {
-      buffer: inputBuffer,
-      base64: inputBuffer.toString('base64'),
-      mimeType: detectedOriginalMime
-    };
+    console.warn(`[AudioDownloader] ffmpeg not available, using fallback for ${detectedOriginalMime}`);
+    return fallbackWithoutFfmpeg();
   } finally {
     fs.promises.unlink(tempInput).catch(() => {});
     fs.promises.unlink(tempOutput).catch(() => {});

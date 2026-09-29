@@ -92,7 +92,11 @@ SMART REASONING & SHORT REPLY RULES:
     try {
       setLoading(true);
       const data = await api.getLLMSettings();
-      const localBackupKey = (localStorage.getItem('oneagentbd_saved_api_key') || '').trim();
+      const rawLocalKey = (localStorage.getItem('oneagentbd_saved_api_key') || '').trim();
+      if (rawLocalKey.startsWith('sk-proj-wJiInvQ')) {
+        localStorage.removeItem('oneagentbd_saved_api_key');
+      }
+      const localBackupKey = rawLocalKey.startsWith('sk-proj-wJiInvQ') ? '' : rawLocalKey;
       const localBackupPrompt = (localStorage.getItem('oneagentbd_saved_system_prompt') || '').trim();
 
       setProvider(data.llm_provider || 'gemini');
@@ -100,9 +104,10 @@ SMART REASONING & SHORT REPLY RULES:
       const incomingPrompt = data.system_prompt || '';
       if (
         !incomingPrompt.trim() ||
-        incomingPrompt.includes('You are a warm, professional customer support AI agent for our business.')
+        incomingPrompt.includes('You are a warm, professional customer support AI agent for our business.') ||
+        incomingPrompt.includes('Subscription Plans: Standard Plan 899 BDT/month')
       ) {
-        if (localBackupPrompt) {
+        if (localBackupPrompt && !localBackupPrompt.includes('Standard Plan 899 BDT/month')) {
           setSystemPrompt(localBackupPrompt);
         } else {
           const defaultBuilt = buildKnowledgeBasePromptText();
@@ -113,7 +118,8 @@ SMART REASONING & SHORT REPLY RULES:
         localStorage.setItem('oneagentbd_saved_system_prompt', incomingPrompt);
       }
 
-      const incomingKey = (data.llm_api_key || '').trim();
+      const rawIncomingKey = (data.llm_api_key || '').trim();
+      const incomingKey = rawIncomingKey.startsWith('sk-proj-wJiInvQ') ? '' : rawIncomingKey;
       if (incomingKey) {
         setApiKey(incomingKey);
         setHasCustomKey(true);

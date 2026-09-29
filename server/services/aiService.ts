@@ -1,24 +1,28 @@
 import { GoogleGenAI } from '@google/genai';
 import { db, Message, Product } from '../db/database.js';
-import { cleanAudioMimeType, convertToWav, detectAudioMimeTypeFromBuffer } from './audioDownloader.js';
+import { cleanAudioMimeType, convertToWav, detectAudioMimeTypeFromBuffer, mp4ToAdtsAac } from './audioDownloader.js';
+
+function isDeadSeedKey(key?: string): boolean {
+  return Boolean(key && key.trim().startsWith('sk-proj-wJiInvQ'));
+}
 
 export function getCandidateGeminiKeys(customApiKey?: string): string[] {
   const defaultSystemKey = ((db.getSettings() as any)?.default_llm_api_key || '').trim();
   const allProfiles = db.getProfiles() || [];
   const adminKeys = allProfiles
-    .filter((p) => p.role === 'admin' && p.llm_api_key?.trim())
+    .filter((p) => p.role === 'admin' && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))
     .map((p) => p.llm_api_key!.trim());
   const anyProfileKeys = allProfiles
-    .filter((p) => p.llm_api_key?.trim())
+    .filter((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))
     .map((p) => p.llm_api_key!.trim());
 
   return Array.from(
     new Set(
       [
         customApiKey?.trim(),
-        defaultSystemKey,
         ...adminKeys,
         ...anyProfileKeys,
+        defaultSystemKey,
         process.env.GEMINI_API_KEY?.trim(),
         process.env.VITE_GEMINI_API_KEY?.trim(),
         process.env.GOOGLE_API_KEY?.trim()
@@ -102,16 +106,17 @@ export interface GenerateReplyResult {
   attachedProductPrice?: number;
 }
 
-// Supported Gemini models in priority order (supports both Google AI Studio AIzaSy keys & build environment)
+// Supported Gemini models in priority order (gemini-3-flash-preview natively supports audio/mp4, audio/aac, audio/ogg, audio/wav)
 export const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
+  'gemini-3-flash-preview',
   'gemini-3.8-flash',
-  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash-lite',
   'gemini-flash-latest'
 ];
 
-// Call Google Gemini Multimodal API with Audio Input
+// Call Google Gemini Multimodal API with Audio Input (plus gemini-3.5-transcribe & Whisper fallback)
 async function callGeminiWithAudio(
   audioBase64: string,
   audioMimeType: string,
@@ -125,21 +130,32 @@ async function callGeminiWithAudio(
 
   let normalizedBase64 = audioBase64;
   let normalizedMime = cleanAudioMimeType(audioMimeType);
+  let rawBuffer: Buffer = Buffer.from(audioBase64, 'base64');
 
   try {
-    const rawBuffer = Buffer.from(audioBase64, 'base64');
     // Detect actual binary format from magic bytes first
-    normalizedMime = detectAudioMimeTypeFromBuffer(rawBuffer, normalizedMime);
+    const detectedMime = detectAudioMimeTypeFromBuffer(rawBuffer, normalizedMime);
+    normalizedMime = detectedMime;
     const isWav = rawBuffer.subarray(0, 4).toString('latin1') === 'RIFF';
     if (!isWav) {
       const converted = await convertToWav(rawBuffer, normalizedMime);
       normalizedBase64 = converted.base64;
       normalizedMime = converted.mimeType;
+      rawBuffer = converted.buffer;
     } else {
       normalizedMime = 'audio/wav';
     }
   } catch (err: any) {
     console.warn('[AI Service] Audio conversion warning, using detected MIME:', err?.message || err);
+  }
+
+  // Also prepare an ADTS AAC fallback if normalizedMime is still audio/mp4
+  let adtsBase64: string | null = null;
+  if (normalizedMime === 'audio/mp4') {
+    const adtsBuf = mp4ToAdtsAac(Buffer.from(audioBase64, 'base64'));
+    if (adtsBuf && adtsBuf.length > 16) {
+      adtsBase64 = adtsBuf.toString('base64');
+    }
   }
 
   const promptText = `System Instructions & Business Knowledge Base:
@@ -154,7 +170,7 @@ ${catalogContext}
 TASK:
 1. Listen carefully to the customer's voice note (may be in Bangla, Banglish, or English).
 2. Transcribe accurately what the customer said in the audio.
-3. Formulate a SHORT, polite, direct customer service response in natural Bangla (বাংলা ভাষায়).
+3. Formulate a SHORT, polite, direct customer service response in natural Bangla (বাংলা ভাষায়) based on the Business Knowledge Base above.
 4. STRICT LENGTH RULE: Keep your reply concise and conversational — maximum 2 to 3 short sentences (2-4 lines max). Answer ONLY what the customer asked in the voice note without dumping long lists or essays. Do not use ** markdown asterisks. Never repeat the customer's question.
 
 Previous Conversation History:
@@ -174,15 +190,82 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
     if (replyText.startsWith('REPLY:')) {
       replyText = replyText.substring(6).trim();
     }
-    if (transcript && (transcript.toLowerCase().includes('silent') || transcript.includes('unclear'))) {
-      transcript = 'অস্পষ্ট ভয়েস মেসেজ';
+    // If Gemini returned only a transcript without a REPLY: block, let generateAIReply answer it
+    if (transcript && !replyMatch) {
+      replyText = '';
+    }
+    if (transcript && (transcript.toLowerCase().includes('silent') || transcript.toLowerCase().includes('unclear'))) {
+      transcript = undefined;
     }
 
     return { replyText: formatCleanChatMessage(replyText), transcript };
   };
 
+  // 1. Try Groq Whisper or OpenAI Whisper transcription if the merchant provided a gsk_ or sk- key
+  const allProfiles = db.getProfiles() || [];
+  const adminKey = allProfiles.find((p) => p.role === 'admin' && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
+  const trimmedCustomKey =
+    (customApiKey && !isDeadSeedKey(customApiKey) ? customApiKey.trim() : '') ||
+    ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
+    adminKey ||
+    anyKey ||
+    '';
+
+  if (trimmedCustomKey.startsWith('gsk_') || (trimmedCustomKey.startsWith('sk-') && !trimmedCustomKey.startsWith('sk-or-') && !trimmedCustomKey.startsWith('sk-ant-'))) {
+    try {
+      const isGroq = trimmedCustomKey.startsWith('gsk_');
+      const whisperEndpoint = isGroq
+        ? 'https://api.groq.com/openai/v1/audio/transcriptions'
+        : 'https://api.openai.com/v1/audio/transcriptions';
+      const whisperModel = isGroq ? 'whisper-large-v3-turbo' : 'whisper-1';
+      const ext = normalizedMime.includes('wav')
+        ? 'wav'
+        : normalizedMime.includes('ogg')
+          ? 'ogg'
+          : normalizedMime.includes('mp3')
+            ? 'mp3'
+            : 'm4a';
+      const formData = new FormData();
+      const audioBlob = new Blob([new Uint8Array(Buffer.from(audioBase64, 'base64'))], {
+        type: normalizedMime === 'audio/aac' ? 'audio/mp4' : normalizedMime
+      });
+      formData.append('file', audioBlob, `voice.${ext}`);
+      formData.append('model', whisperModel);
+      const whisperRes = await withTimeout(
+        fetch(whisperEndpoint, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${trimmedCustomKey}` },
+          body: formData
+        }),
+        12000
+      );
+      if (whisperRes.ok) {
+        const wJson: any = await whisperRes.json();
+        const wText = String(wJson?.text || '').trim();
+        if (wText) {
+          console.log(`[AI Service] Whisper transcribed voice note: "${wText}"`);
+          return { replyText: '', transcript: wText };
+        }
+      }
+    } catch (wErr: any) {
+      console.warn('[AI Service] Whisper transcription warning:', wErr?.message || wErr);
+    }
+  }
+
+  // 2. Try Multimodal Audio-to-Reply across Gemini candidate models via @google/genai SDK
   for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
+      // gemini-3.8-flash prefers audio/aac over raw audio/mp4 container
+      const mimeToSend =
+        modelName.includes('3.8') && normalizedMime === 'audio/mp4' && adtsBase64
+          ? 'audio/aac'
+          : normalizedMime;
+      const dataToSend =
+        modelName.includes('3.8') && normalizedMime === 'audio/mp4' && adtsBase64
+          ? adtsBase64
+          : normalizedBase64;
+
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -193,8 +276,8 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
                 parts: [
                   {
                     inlineData: {
-                      mimeType: normalizedMime,
-                      data: normalizedBase64
+                      mimeType: mimeToSend,
+                      data: dataToSend
                     }
                   },
                   {
@@ -209,18 +292,65 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
 
         const rawText = response.text?.trim();
         if (!rawText) continue;
-        return parseAudioResponse(rawText);
+        const parsed = parseAudioResponse(rawText);
+        if (parsed.replyText || parsed.transcript) {
+          return parsed;
+        }
       } catch (err: any) {
-        console.warn(`[AI Service] Audio model ${modelName} (${normalizedMime}) error:`, err?.message || err);
+        console.warn(`[AI Service] Audio model ${modelName} (${mimeToSend}) error:`, err?.message || err);
       }
+    }
+
+    // 3. Dedicated Audio Transcription fallback via gemini-3.5-transcribe
+    try {
+      const transcribeRes = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.5-transcribe',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: normalizedMime,
+                    data: normalizedBase64
+                  }
+                },
+                {
+                  text: 'Transcribe this customer voice message accurately.'
+                }
+              ]
+            }
+          ]
+        }),
+        12000
+      );
+
+      const parts = (transcribeRes.candidates?.[0]?.content?.parts || []) as any[];
+      let transcriptText = '';
+      for (const part of parts) {
+        if (part?.audioTranscription?.text) {
+          transcriptText += part.audioTranscription.text + ' ';
+        } else if (part?.text) {
+          transcriptText += part.text + ' ';
+        }
+      }
+      transcriptText = (transcriptText || transcribeRes.text || '').trim();
+      if (transcriptText) {
+        console.log(`[AI Service] gemini-3.5-transcribe succeeded: "${transcriptText}"`);
+        return { replyText: '', transcript: transcriptText };
+      }
+    } catch (transErr: any) {
+      console.warn('[AI Service] gemini-3.5-transcribe warning:', transErr?.message || transErr);
     }
   }
 
-  // Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
+  // 4. Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
   const directKeys = getCandidateGeminiKeys(customApiKey).filter((k) => k.startsWith('AIza'));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
+    for (const restModel of ['gemini-3-flash-preview', 'gemini-3.5-transcribe', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
       try {
+        const isTranscribeModel = restModel === 'gemini-3.5-transcribe';
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
           fetch(restUrl, {
@@ -237,19 +367,27 @@ REPLY: <Short, direct, helpful customer reply in Bangla (সর্বোচ্�
                         data: normalizedBase64
                       }
                     },
-                    { text: promptText }
+                    { text: isTranscribeModel ? 'Transcribe this audio.' : promptText }
                   ]
                 }
               ],
-              generationConfig: { temperature: 0.35 }
+              ...(isTranscribeModel ? {} : { generationConfig: { temperature: 0.35 } })
             })
           }),
           14000
         );
         if (restRes.ok) {
           const data: any = await restRes.json();
-          const rawText = data?.candidates?.[0]?.content?.parts
-            ?.map((p: any) => p?.text || '')
+          const parts = data?.candidates?.[0]?.content?.parts || [];
+          const audioTrans = parts
+            .map((p: any) => p?.audioTranscription?.text || '')
+            .join(' ')
+            .trim();
+          if (audioTrans) {
+            return { replyText: '', transcript: audioTrans };
+          }
+          const rawText = parts
+            .map((p: any) => p?.text || '')
             .join('')
             .trim();
           if (rawText) {
@@ -336,7 +474,7 @@ Assistant Reply (in concise Bangla, 2-3 sentences max):`;
   // Direct REST API fallback for Image
   const directKeys = getCandidateGeminiKeys(customApiKey).filter((k) => k.startsWith('AIza'));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
+    for (const restModel of ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -383,11 +521,11 @@ Assistant Reply (in concise Bangla, 2-3 sentences max):`;
 // Call Google Gemini, OpenAI, or Groq API for Text with Reliable Multi-Model Fallback
 async function callGemini(fullPrompt: string, customApiKey?: string, systemInstruction?: string): Promise<string | null> {
   const allProfiles = db.getProfiles() || [];
-  const adminKey = allProfiles.find((p) => p.role === 'admin' && p.llm_api_key?.trim())?.llm_api_key?.trim() || '';
-  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim())?.llm_api_key?.trim() || '';
+  const adminKey = allProfiles.find((p) => p.role === 'admin' && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
 
   const trimmedKey =
-    customApiKey?.trim() ||
+    (customApiKey && !isDeadSeedKey(customApiKey) ? customApiKey.trim() : '') ||
     ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
     adminKey ||
     anyKey ||
@@ -425,7 +563,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
   }
 
   // 2. If the merchant provided an OpenAI API key (starts with sk- and not sk-ant-)
-  if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-')) {
+  if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-') && !isDeadSeedKey(trimmedKey)) {
     try {
       const isOpenRouter = trimmedKey.startsWith('sk-or-');
       const endpoint = isOpenRouter
@@ -489,7 +627,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
   // 4. Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
   const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith('AIza'));
   for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
+    for (const restModel of ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -991,10 +1129,12 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   const combinedSystemPrompt = `${systemPrompt}${oneAgentExtendedKnowledge ? `\n${oneAgentExtendedKnowledge}` : ''}`;
 
   const effectiveApiKey =
-    (params.overrideApiKey && params.overrideApiKey.trim()) ||
-    (profile?.llm_api_key && profile.llm_api_key.trim()) ||
+    (params.overrideApiKey && !isDeadSeedKey(params.overrideApiKey) ? params.overrideApiKey.trim() : '') ||
+    (profile?.llm_api_key && !isDeadSeedKey(profile.llm_api_key) ? profile.llm_api_key.trim() : '') ||
     ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
     undefined;
+
+  let voiceTranscript: string | undefined = undefined;
 
   // 1. If customer sent a voice note / audio
   if (params.audioBase64) {
@@ -1017,11 +1157,32 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       };
     }
 
-    return {
-      replyText: `আসসালামু আলাইকুম! আপনার ভয়েস মেসেজটি পেয়েছি, তবে সাউন্ড একটু অস্পষ্ট ছিল। অনুগ্রহ করে আরেকবার ভয়েস দিন অথবা টেক্সটে জানান, আমি সাথে সাথে উত্তর দিচ্ছি!`,
-      transcript: 'ভয়েস মেসেজ রিসিভ হয়েছে',
-      isVoice: true
-    };
+    if (voiceResult && voiceResult.transcript) {
+      // Audio was transcribed (e.g. by gemini-3.5-transcribe or Whisper); pass transcript to Text Reasoning Engine below!
+      voiceTranscript = voiceResult.transcript;
+      params.incomingMessage = voiceResult.transcript;
+      if (merchantProducts.length > 0) {
+        matchedProduct = db.findProductForQuery(params.userId, voiceResult.transcript);
+      }
+    } else {
+      // Even if all external audio APIs were unreachable, give a helpful, concise Knowledge Base response instead of blaming sound quality
+      const fallbackQuery =
+        params.incomingMessage && !params.incomingMessage.includes('[Voice Message]')
+          ? params.incomingMessage
+          : 'আসসালামু আলাইকুম, আপনাদের সার্ভিস ও প্ল্যান সম্পর্কে জানতে চাই';
+      const kbVoiceFallback = buildSmartBanglaFallbackFromPrompt(
+        fallbackQuery,
+        combinedSystemPrompt,
+        businessName,
+        merchantProducts,
+        matchedProduct
+      );
+      return {
+        replyText: kbVoiceFallback,
+        transcript: 'ভয়েস মেসেজ',
+        isVoice: true
+      };
+    }
   }
 
   // 2. If customer sent an image / photo
@@ -1116,7 +1277,8 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
   if (geminiReply) {
     return {
       replyText: geminiReply,
-      isVoice: false,
+      transcript: voiceTranscript,
+      isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
       attachedProductName: matchedProduct?.name,
       attachedProductPrice: matchedProduct?.price
@@ -1134,7 +1296,8 @@ Write a SHORT, direct, natural Bangla reply (strictly 2-3 sentences / maximum 2-
 
   return {
     replyText: smartBanglaReply,
-    isVoice: false,
+    transcript: voiceTranscript,
+    isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
     attachedProductName: matchedProduct?.name,
     attachedProductPrice: matchedProduct?.price

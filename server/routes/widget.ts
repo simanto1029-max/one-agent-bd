@@ -3,6 +3,8 @@ import { db, Message, Order } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
 import { GoogleGenAI } from '@google/genai';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
+import { getCandidateGeminiKeys, CANDIDATE_MODELS } from '../services/aiService.js';
+import { detectAudioMimeTypeFromBuffer } from '../services/audioDownloader.js';
 
 export const widgetRouter = Router();
 
@@ -592,15 +594,8 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
       }
     }
     const sysSettings = db.getSettings() as any;
-    const adminKeyFromProfile = db
-      .getProfiles()
-      .find((p) => p.role === 'admin' && p.llm_api_key?.trim())
-      ?.llm_api_key?.trim();
-    const apiKey =
-      (profile?.llm_api_key && profile.llm_api_key.trim()) ||
-      (sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim()) ||
-      adminKeyFromProfile ||
-      process.env.GEMINI_API_KEY;
+    const candidateKeys = getCandidateGeminiKeys(profile?.llm_api_key);
+    const apiKey = candidateKeys[0] || process.env.GEMINI_API_KEY;
     const activePlans = db.getPlans().filter((p) => p.is_active);
     const livePlansContext =
       activePlans.length > 0
@@ -690,10 +685,14 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
         // Attach Voice Audio inlineData if present
         if (hasAudio && audioBase64) {
           const cleanAudioB64 = audioBase64.includes(',') ? audioBase64.split(',')[1] : audioBase64;
+          const detectedAudioMime = detectAudioMimeTypeFromBuffer(
+            Buffer.from(cleanAudioB64, 'base64'),
+            audioMimeType || 'audio/webm'
+          );
           parts.push({
             inlineData: {
               data: cleanAudioB64,
-              mimeType: audioMimeType || 'audio/webm'
+              mimeType: detectedAudioMime
             }
           });
         }
@@ -708,22 +707,14 @@ IMPORTANT REMINDER:
 
 ${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}
 ${hasImage ? 'The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n' : ''}
-${hasAudio ? 'The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question.\n' : ''}
-Visitor Message: "${rawText || (hasAudio ? '[Voice Message Attached - Please listen and reply]' : '[Image Attached - Please analyze and reply]')}"
+${hasAudio ? 'The visitor has sent a voice message. Listen carefully to the spoken audio and answer their question concisely in 2-3 short sentences.\n' : ''}
+Visitor Message: "${rawText || (hasAudio ? '[Voice Message Attached - Please listen and reply concisely]' : '[Image Attached - Please analyze and reply concisely]')}"
 
-Provide a helpful, accurate, and friendly response (2-4 concise sentences or bullet points) following the CRITICAL LANGUAGE MATCHING RULE above:`;
+Provide a SHORT, helpful, accurate, and friendly response (2-3 concise sentences max) following the CRITICAL LANGUAGE MATCHING RULE above:`;
 
         parts.push({ text: promptText });
 
-        const candidateModels = [
-          'gemini-2.5-flash',
-          'gemini-2.5-flash-lite',
-          'gemini-3.8-flash',
-          'gemini-3.1-flash-lite',
-          'gemini-flash-latest'
-        ];
-
-        for (const model of candidateModels) {
+        for (const model of CANDIDATE_MODELS) {
           try {
             const response = await ai.models.generateContent({
               model,

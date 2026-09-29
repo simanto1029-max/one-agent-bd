@@ -72,14 +72,17 @@ settingsRouter.get('/llm', (req: Request, res: Response) => {
   }
 
   const sysSettings = db.getSettings() as any;
-  const savedKey =
-    (user.llm_api_key && user.llm_api_key.trim()) ||
-    (user.role === 'admin' ? (sysSettings?.default_llm_api_key || '').trim() : '');
+  const rawUserKey = (user.llm_api_key || '').trim();
+  const rawSysKey = user.role === 'admin' ? (sysSettings?.default_llm_api_key || '').trim() : '';
+  const cleanUserKey = rawUserKey.startsWith('sk-proj-wJiInvQ') ? '' : rawUserKey;
+  const cleanSysKey = rawSysKey.startsWith('sk-proj-wJiInvQ') ? '' : rawSysKey;
+  const savedKey = cleanUserKey || cleanSysKey;
 
   const savedPrompt =
     (user.system_prompt &&
       !user.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
-      !user.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
+      !user.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month') &&
+      !user.system_prompt.includes('Subscription Plans: Standard Plan 899 BDT/month')
       ? user.system_prompt
       : '') ||
     (user.role === 'admin' && sysSettings?.default_system_prompt ? sysSettings.default_system_prompt : user.system_prompt);
@@ -90,7 +93,7 @@ settingsRouter.get('/llm', (req: Request, res: Response) => {
     system_prompt: savedPrompt,
     has_custom_key: Boolean(savedKey),
     masked_key: savedKey ? `••••••••${savedKey.slice(-4)}` : null,
-    default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY)
+    default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY || cleanSysKey)
   });
 });
 
@@ -110,7 +113,8 @@ settingsRouter.put('/llm', async (req: Request, res: Response) => {
   if (clear_api_key === true) {
     updates.llm_api_key = '';
   } else if (typeof llm_api_key === 'string' && llm_api_key.trim().length > 0) {
-    updates.llm_api_key = llm_api_key.trim();
+    const trimmed = llm_api_key.trim();
+    updates.llm_api_key = trimmed.startsWith('sk-proj-wJiInvQ') ? '' : trimmed;
   }
 
   const updated = db.updateProfile(user.id, updates);
