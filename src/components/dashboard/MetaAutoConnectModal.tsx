@@ -447,28 +447,30 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
             </button>
 
             {platform === 'whatsapp' && (
-              <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
                 <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                  আপনার মেটা বিজনেসে এখনো নাম্বার যুক্ত করা না থাকলে নিচে ক্লিক করে <strong>ফোনের চালু থাকা WhatsApp Business অ্যাপ (QR Code)</strong> অথবা <strong>নতুন নাম্বার (OTP)</strong> যুক্ত করুন:
+                  <strong>নতুন বা অন্য WhatsApp নাম্বার যুক্ত করার নিয়ম:</strong><br />
+                  ১) প্রথমে নিচের <strong>WhatsApp Manager ↗</strong> বাটনে গিয়ে আপনার নাম্বারটি মেটা বিজনেসে যুক্ত করুন।<br />
+                  ২) এরপর <strong>Switch / Select Business &amp; Number</strong> বাটনে ক্লিক করে পপ-আপে <em>&ldquo;Edit previous settings&rdquo;</em> থেকে নাম্বারটি সিলেক্ট করুন:
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleWhatsAppEmbeddedSignup}
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>+ Add Existing / New Number (QR / OTP)</span>
-                  </button>
                   <a
                     href="https://business.facebook.com/wa/manage/phone-numbers/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all"
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
                   >
-                    WhatsApp Manager ↗
+                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                    <span>১. WhatsApp Manager-এ নাম্বার অ্যাড করুন ↗</span>
                   </a>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleWhatsAppEmbeddedSignup}
+                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
+                  >
+                    ২. Re-Select Number
+                  </button>
                 </div>
               </div>
             )}
@@ -619,28 +621,28 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
             )}
 
             {platform === 'whatsapp' && (
-              <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
                 <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                  তালিকায় আপনার কাঙ্ক্ষিত নাম্বারটি নেই? নিচের বাটনে ক্লিক করে মেটার পপ-আপে <strong>নতুন নাম্বার (OTP)</strong> অথবা <strong>ফোনে চালু থাকা WhatsApp Business অ্যাপ (QR Code)</strong> যুক্ত করুন:
+                  তালিকায় আপনার কাঙ্ক্ষিত নাম্বারটি নেই? প্রথমে <strong>Meta WhatsApp Manager ↗</strong>-এ গিয়ে নাম্বার যুক্ত করুন, তারপর <strong>Re-Select / Switch Account</strong> বাটনে ক্লিক করে পপ-আপে <em>&ldquo;Edit previous settings&rdquo;</em> সিলেক্ট করুন:
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleWhatsAppEmbeddedSignup}
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>+ Add New / Existing WhatsApp Number (QR / OTP)</span>
-                  </button>
                   <a
                     href="https://business.facebook.com/wa/manage/phone-numbers/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all"
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
                   >
-                    Meta WhatsApp Manager ↗
+                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                    <span>১. Meta WhatsApp Manager (+ Add Number) ↗</span>
                   </a>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleWhatsAppEmbeddedSignup}
+                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
+                  >
+                    ২. Re-Select Number
+                  </button>
                 </div>
               </div>
             )}
