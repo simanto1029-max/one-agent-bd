@@ -190,53 +190,37 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Launch Meta Official WhatsApp Embedded Signup (Supports adding new number via OTP or existing WhatsApp Business App via QR Code)
-  const handleWhatsAppEmbeddedSignup = () => {
-    setError(null);
-    if (window.FB && metaAppId) {
+  // Launch Meta Official WhatsApp Onboarding via Server-Side OAuth Dialog (Never fails with "JSSDK option is not toggled")
+  const handleWhatsAppEmbeddedSignup = async () => {
+    try {
       setLoading(true);
-      window.FB.login(
-        (response: any) => {
-          if (response?.authResponse?.accessToken) {
-            api
-              .exchangeMetaToken(response.authResponse.accessToken, 'whatsapp')
-              .then((outcome) => {
-                setPages(outcome.pages || []);
-                setWhatsappNumbers(outcome.whatsappNumbers || []);
-                if (outcome.whatsappNumbers && outcome.whatsappNumbers.length > 0) {
-                  setSelectedAssetId(outcome.whatsappNumbers[0].id);
-                  setStep('select');
-                } else {
-                  setError(
-                    'নতুন নাম্বারটি এখনো পাওয়া যায়নি। পপ-আপে নাম্বার ভেরিফাই সম্পন্ন করে আবার চেষ্টা করুন।'
-                  );
-                }
-              })
-              .catch((err: any) => {
-                setError(err.message || 'WhatsApp নাম্বার সিঙ্ক করতে সমস্যা হয়েছে।');
-              })
-              .finally(() => {
-                setLoading(false);
-              });
-          } else {
-            setLoading(false);
-          }
-        },
-        {
-          scope: 'whatsapp_business_management,whatsapp_business_messaging,business_management',
-          extras: {
-            feature: 'whatsapp_embedded_signup',
-            version: 2,
-            featureType: 'whatsapp_business_app_onboarding',
-            sessionInfoVersion: 2
-          }
-        }
-      );
-      return;
-    }
+      setError(null);
+      const res = await api.getMetaAuthUrl('whatsapp', true);
+      if (res.authUrl) {
+        const width = 620;
+        const height = 720;
+        const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+        const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
 
-    // Fallback: Open official OAuth / Meta WhatsApp Manager onboarding
-    handleSingleClickMetaLogin();
+        const popup = window.open(
+          res.authUrl,
+          'oneagentbd_meta_wa_onboarding',
+          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+        );
+
+        if (!popup) {
+          window.location.href = res.authUrl;
+        } else {
+          setLoading(false);
+        }
+        return;
+      }
+      setLoading(false);
+      handleSingleClickMetaLogin();
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'WhatsApp পপ-আপ ওপেন করতে সমস্যা হয়েছে।');
+    }
   };
 
   // Single Automatic Login Handler (tries OAuth Popup / FB SDK seamlessly)

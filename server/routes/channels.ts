@@ -107,7 +107,8 @@ channelsRouter.get('/meta/auth-url', (req: Request, res: Response) => {
   }
 
   const platform = (req.query.platform as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
-  const result = metaOAuthService.generateAuthUrl(user.id, platform, req);
+  const onboarding = req.query.onboarding === 'true' || req.query.onboarding === '1';
+  const result = metaOAuthService.generateAuthUrl(user.id, platform, req, onboarding);
   return res.json(result);
 });
 

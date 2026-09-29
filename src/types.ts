@@ -276,6 +276,7 @@ export interface SystemSettings {
   meta_description: string;
   meta_app_id?: string;
   meta_app_secret?: string;
+  meta_config_id?: string;
   meta_verify_token?: string;
   cron_last_run?: string;
   cron_status?: string;

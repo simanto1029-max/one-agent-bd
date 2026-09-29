@@ -704,6 +704,19 @@ export const AdminSettings: React.FC = () => {
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
               />
             </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Meta Login Configuration ID (Optional — for WhatsApp QR / Coexistence &amp; Embedded Signup)
+              </label>
+              <input
+                type="text"
+                value={settings.meta_config_id || ''}
+                onChange={(e) => setSettings({ ...settings, meta_config_id: e.target.value })}
+                placeholder="e.g. 123456789012345 (from Facebook Login for Business > Configurations)"
+                className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">

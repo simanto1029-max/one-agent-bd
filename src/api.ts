@@ -490,8 +490,11 @@ export const api = {
     });
   },
 
-  async getMetaAuthUrl(platform: 'messenger' | 'instagram' | 'whatsapp'): Promise<{ isConfigured?: boolean; configured?: boolean; authUrl?: string; state?: string; message?: string }> {
-    return fetchJson(`/api/channels/meta/auth-url?platform=${platform}`);
+  async getMetaAuthUrl(
+    platform: 'messenger' | 'instagram' | 'whatsapp',
+    onboarding: boolean = false
+  ): Promise<{ isConfigured?: boolean; configured?: boolean; authUrl?: string; state?: string; message?: string }> {
+    return fetchJson(`/api/channels/meta/auth-url?platform=${platform}${onboarding ? '&onboarding=true' : ''}`);
   },
 
   async exchangeMetaToken(

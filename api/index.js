@@ -3268,6 +3268,10 @@ var MetaOAuthService = class {
     const settings = db.getSettings();
     return this.customAppSecret || settings?.meta_app_secret || process.env.META_APP_SECRET || "";
   }
+  getConfigId() {
+    const settings = db.getSettings();
+    return (settings?.meta_config_id || process.env.META_CONFIG_ID || "").trim();
+  }
   getVerifyToken() {
     const settings = db.getSettings();
     return settings?.meta_verify_token || process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || process.env.MESSENGER_VERIFY_TOKEN || "one_agent_bd_verify_token";
@@ -3316,7 +3320,7 @@ var MetaOAuthService = class {
   /**
    * Generates official Meta OAuth Authorization URL
    */
-  generateAuthUrl(userId, platform, req) {
+  generateAuthUrl(userId, platform, req, onboarding = false) {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
     const redirectUri = this.getRedirectUri(req);
@@ -3336,11 +3340,21 @@ var MetaOAuthService = class {
     } else if (platform === "whatsapp") {
       scopes = "pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,whatsapp_business_management,whatsapp_business_messaging";
     }
+    const configId = this.getConfigId();
+    const configParam = platform === "whatsapp" && onboarding && configId ? `&config_id=${encodeURIComponent(configId)}` : "";
+    const extrasParam = platform === "whatsapp" && onboarding ? `${configParam}&auth_type=rerequest&extras=${encodeURIComponent(
+      JSON.stringify({
+        feature: "whatsapp_embedded_signup",
+        version: 2,
+        featureType: "whatsapp_business_app_onboarding",
+        sessionInfoVersion: 2
+      })
+    )}` : onboarding ? "&auth_type=rerequest" : "";
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
       appId
     )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
       scopes
-    )}&response_type=code&state=${encodeURIComponent(state)}`;
+    )}&response_type=code&state=${encodeURIComponent(state)}${extrasParam}`;
     return {
       authUrl,
       state,
@@ -6300,7 +6314,8 @@ channelsRouter.get("/meta/auth-url", (req, res) => {
     });
   }
   const platform = req.query.platform || "messenger";
-  const result = metaOAuthService.generateAuthUrl(user.id, platform, req);
+  const onboarding = req.query.onboarding === "true" || req.query.onboarding === "1";
+  const result = metaOAuthService.generateAuthUrl(user.id, platform, req, onboarding);
   return res.json(result);
 });
 channelsRouter.get(["/meta/callback", "/meta/callback/"], async (req, res) => {
