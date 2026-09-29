@@ -1,14 +1,23 @@
 import { db, Order } from '../db/database.js';
 import { GoogleGenAI } from '@google/genai';
 
-let geminiClient: GoogleGenAI | null = null;
-
-function getGeminiClient(): GoogleGenAI {
-  if (!geminiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    geminiClient = new GoogleGenAI({ apiKey: apiKey || '' });
-  }
-  return geminiClient;
+function getGeminiClient(userId?: string): GoogleGenAI {
+  const userProfile = userId ? db.getProfileById(userId) : undefined;
+  const sysSettings = db.getSettings() as any;
+  const adminKey = db
+    .getProfiles()
+    .find((p) => p.role === 'admin' && p.llm_api_key?.trim())
+    ?.llm_api_key?.trim();
+  const apiKey =
+    (userProfile?.llm_api_key && userProfile.llm_api_key.trim()) ||
+    (sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim()) ||
+    adminKey ||
+    process.env.GEMINI_API_KEY ||
+    '';
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+  });
 }
 
 export interface OrderDetectionParams {
@@ -149,7 +158,7 @@ export async function detectAndRecordOrder(params: OrderDetectionParams): Promis
 
   // Try LLM structured parsing via Gemini
   try {
-    const ai = getGeminiClient();
+    const ai = getGeminiClient(userId);
     const reqFieldsList = [
       orderSettings.required_fields.customer_name ? 'Customer full name' : null,
       orderSettings.required_fields.customer_phone ? 'Bangladeshi mobile phone number (11-digit)' : null,
@@ -195,12 +204,21 @@ If the required criteria are NOT yet met (e.g. customer hasn't provided address/
 
 Respond ONLY with valid JSON, no markdown formatting.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: extractionPrompt
-    });
-
-    const responseText = response.text?.trim() || '';
+    let responseText = '';
+    for (const modelName of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: extractionPrompt
+        });
+        if (response.text?.trim()) {
+          responseText = response.text.trim();
+          break;
+        }
+      } catch {
+        // try next model
+      }
+    }
     const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
 

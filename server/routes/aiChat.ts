@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { db } from '../db/database.js';
 import {
   detectLanguageMode,
   ONE_AGENT_SAAS_KNOWLEDGE,
@@ -9,17 +10,23 @@ import {
 
 export const aiChatRouter = Router();
 
-let geminiClient: GoogleGenAI | null = null;
-
 function getGeminiClient(): GoogleGenAI | null {
-  if (!geminiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return null;
-    }
-    geminiClient = new GoogleGenAI({ apiKey });
+  const sysSettings = db.getSettings() as any;
+  const adminKey = db
+    .getProfiles()
+    .find((p) => p.role === 'admin' && p.llm_api_key?.trim())
+    ?.llm_api_key?.trim();
+  const apiKey =
+    (sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim()) ||
+    adminKey ||
+    process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return null;
   }
-  return geminiClient;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+  });
 }
 
 function getSaasIntelligentFallback(question: string, lang: 'bn' | 'en'): string {
@@ -145,9 +152,10 @@ Visitor asks: "${trimmedMsg}"
 Generate a direct, helpful, and concise response:`;
 
         const candidateModels = [
-          'gemini-3.6-flash',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
           'gemini-3.8-flash',
-          'gemini-3.5-flash-lite',
+          'gemini-3.1-flash-lite',
           'gemini-flash-latest'
         ];
         for (const model of candidateModels) {
@@ -244,9 +252,10 @@ Customer message: "${trimmedMsg}"
 Respond directly as ${businessName}'s AI agent:`;
 
         const candidateModels = [
-          'gemini-3.6-flash',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
           'gemini-3.8-flash',
-          'gemini-3.5-flash-lite',
+          'gemini-3.1-flash-lite',
           'gemini-flash-latest'
         ];
         let reply: string | undefined = undefined;

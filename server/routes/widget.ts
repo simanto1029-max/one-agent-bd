@@ -541,7 +541,7 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
     const detectedLang = detectLanguageMode(rawText);
     const cleanVisitorId = (visitorId || `web_vis_${Date.now()}`).trim();
     const config = getWidgetConfig(targetUserId);
-    const effectiveOwnerId = isSaasOfficial ? 'usr_admin_1' : targetUserId;
+    const effectiveOwnerId = isSaasOfficial ? 'usr_admin_001' : targetUserId;
 
     // Save inbound message to merchant/admin inbox
     let channelId = 'chn_website_default';
@@ -575,8 +575,10 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
       db.createMessage(inboundMsg);
     }
 
-    // Build context for Gemini (links saas_official to Admin usr_admin_1 profile & live Admin settings)
-    const profile = db.getProfileById(effectiveOwnerId);
+    // Build context for Gemini (links saas_official to Admin profile & live Admin settings)
+    const profile =
+      db.getProfileById(effectiveOwnerId) ||
+      (isSaasOfficial ? db.getProfiles().find((p) => p.role === 'admin') : undefined);
     if (!isSaasOfficial) {
       const sub = db.getSubscriptionByUserId(effectiveOwnerId);
       const isExpired = !sub || (sub.status !== 'active' && sub.status !== 'trialing') || new Date(sub.end_date) <= new Date();
@@ -589,8 +591,16 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
         });
       }
     }
-    const apiKey = (profile?.llm_api_key && profile.llm_api_key.trim()) || process.env.GEMINI_API_KEY;
-    const sysSettings = db.getSettings();
+    const sysSettings = db.getSettings() as any;
+    const adminKeyFromProfile = db
+      .getProfiles()
+      .find((p) => p.role === 'admin' && p.llm_api_key?.trim())
+      ?.llm_api_key?.trim();
+    const apiKey =
+      (profile?.llm_api_key && profile.llm_api_key.trim()) ||
+      (sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim()) ||
+      adminKeyFromProfile ||
+      process.env.GEMINI_API_KEY;
     const activePlans = db.getPlans().filter((p) => p.is_active);
     const livePlansContext =
       activePlans.length > 0
@@ -706,9 +716,10 @@ Provide a helpful, accurate, and friendly response (2-4 concise sentences or bul
         parts.push({ text: promptText });
 
         const candidateModels = [
-          'gemini-3.6-flash',
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
           'gemini-3.8-flash',
-          'gemini-3.5-flash-lite',
+          'gemini-3.1-flash-lite',
           'gemini-flash-latest'
         ];
 

@@ -2,19 +2,27 @@ import { GoogleGenAI } from '@google/genai';
 import { db, Message, Product } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav } from './audioDownloader.js';
 
-function getCandidateGeminiKeys(customApiKey?: string): string[] {
-  const adminProfile = db.getProfileById('usr_admin_001');
+export function getCandidateGeminiKeys(customApiKey?: string): string[] {
   const defaultSystemKey = ((db.getSettings() as any)?.default_llm_api_key || '').trim();
+  const allProfiles = db.getProfiles() || [];
+  const adminKeys = allProfiles
+    .filter((p) => p.role === 'admin' && p.llm_api_key?.trim())
+    .map((p) => p.llm_api_key!.trim());
+  const anyProfileKeys = allProfiles
+    .filter((p) => p.llm_api_key?.trim())
+    .map((p) => p.llm_api_key!.trim());
+
   return Array.from(
     new Set(
       [
         customApiKey?.trim(),
         defaultSystemKey,
-        adminProfile?.llm_api_key?.trim(),
+        ...adminKeys,
+        ...anyProfileKeys,
         process.env.GEMINI_API_KEY?.trim(),
         process.env.VITE_GEMINI_API_KEY?.trim(),
         process.env.GOOGLE_API_KEY?.trim()
-      ].filter((k): k is string => Boolean(k && k.length > 10 && !k.startsWith('sk-')))
+      ].filter((k): k is string => Boolean(k && k.length > 10 && !k.startsWith('sk-') && !k.startsWith('gsk_')))
     )
   );
 }
@@ -94,11 +102,12 @@ export interface GenerateReplyResult {
   attachedProductPrice?: number;
 }
 
-// Supported Gemini models in priority order (includes gemini-2.5-flash for user AIzaSy keys + gemini-3.6-flash)
-const CANDIDATE_MODELS = [
+// Supported Gemini models in priority order (supports both Google AI Studio AIzaSy keys & build environment)
+export const CANDIDATE_MODELS = [
   'gemini-2.5-flash',
-  'gemini-3.6-flash',
+  'gemini-2.5-flash-lite',
   'gemini-3.8-flash',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest'
 ];
 
@@ -142,7 +151,7 @@ ${catalogContext}
 TASK:
 1. Listen carefully to the voice note (may be in Bangla, Banglish, or English).
 2. Transcribe accurately what the customer said in the audio.
-3. Formulate a polite, helpful, well-formatted customer service response in natural Bangla (বাংলা ভাষায়). Answer the customer's question directly using the Business Knowledge Base and Catalog above. Do not use ** markdown asterisks. Never repeat or echo the customer's question.
+3. Formulate a polite, helpful, well-formatted customer service response in natural Bangla (বাংলা ভাষায়). Understand the customer's intent and answer their question using reasoning from the Business Knowledge Base and Catalog above. Do not use ** markdown asterisks. Never repeat or echo the customer's question.
 
 Previous Conversation History:
 ${recentHistory || '(No previous messages)'}
@@ -151,8 +160,8 @@ OUTPUT FORMAT:
 TRANSCRIPT: <Accurate transcription of what the customer spoke>
 REPLY: <Polite, helpful customer reply in Bangla (বাংলায়)>`;
 
-  for (const ai of clients.slice(0, 2)) {
-    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+  for (const ai of clients.slice(0, 3)) {
+    for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -172,12 +181,9 @@ REPLY: <Polite, helpful customer reply in Bangla (বাংলায়)>`;
                   }
                 ]
               }
-            ],
-            config: {
-              thinkingConfig: { thinkingBudget: 0 }
-            }
+            ]
           }),
-          5500
+          14000
         );
 
         const rawText = response.text?.trim();
@@ -223,15 +229,15 @@ async function callGeminiWithImage(
 ${systemPrompt}
 
 You are the customer service AI assistant for ${businessName}.
-The customer sent an image/photo of a product they are asking about along with the text: "${customerText || 'এই প্রোডাক্টটির দাম কত এবং বিস্তারিত জানাবেন?'}"
+The customer sent an image/photo along with the text: "${customerText || 'এই প্রোডাক্টটির দাম কত এবং বিস্তারিত জানাবেন?'}"
 
 Merchant Product Catalog & Price List:
 ${catalogContext}
 
 TASK:
-1. Examine the image sent by the customer.
-2. Identify which product from the Merchant Product Catalog matches this item (or describe its category and key features).
-3. Provide the exact price in BDT and specifications according to the catalog and business knowledge base.
+1. Examine the image sent by the customer carefully.
+2. Identify what is shown in the image (product from catalog, screenshot, payment slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
+3. Provide the exact details, price in BDT, or helpful guidance according to the business knowledge base.
 4. Reply in clear, polite, well-formatted natural Bangla (বাংলা ভাষায়). Do not use ** markdown asterisks.
 
 Recent Conversation History:
@@ -240,8 +246,8 @@ ${recentHistory || '(No previous messages)'}
 Customer Question: "${customerText || 'এটার দাম কত এবং বিস্তারিত জানাবেন?'}"
 Assistant Reply (in Bangla):`;
 
-  for (const ai of clients.slice(0, 2)) {
-    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+  for (const ai of clients.slice(0, 3)) {
+    for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -261,12 +267,9 @@ Assistant Reply (in Bangla):`;
                   }
                 ]
               }
-            ],
-            config: {
-              thinkingConfig: { thinkingBudget: 0 }
-            }
+            ]
           }),
-          5500
+          14000
         );
 
         const reply = response.text?.trim();
@@ -280,34 +283,74 @@ Assistant Reply (in Bangla):`;
   return null;
 }
 
-// Call Google Gemini or OpenAI API for Text with Fast Fallback Loop (avoids Vercel timeouts during 503 spikes)
+// Call Google Gemini, OpenAI, or Groq API for Text with Reliable Multi-Model Fallback
 async function callGemini(fullPrompt: string, customApiKey?: string, systemInstruction?: string): Promise<string | null> {
+  const allProfiles = db.getProfiles() || [];
+  const adminKey = allProfiles.find((p) => p.role === 'admin' && p.llm_api_key?.trim())?.llm_api_key?.trim() || '';
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim())?.llm_api_key?.trim() || '';
+
   const trimmedKey =
     customApiKey?.trim() ||
     ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
-    db.getProfileById('usr_admin_001')?.llm_api_key?.trim() ||
+    adminKey ||
+    anyKey ||
     '';
 
-  // If the merchant provided an OpenAI API key (starts with sk- and not sk-ant-), call OpenAI directly
-  if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-')) {
+  // 1. If the merchant provided a Groq API key (starts with gsk_)
+  if (trimmedKey.startsWith('gsk_')) {
     try {
-      const openAiRes = await withTimeout(
-        fetch('https://api.openai.com/v1/chat/completions', {
+      const groqRes = await withTimeout(
+        fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${trimmedKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'llama-3.3-70b-versatile',
             messages: [
               ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
               { role: 'user', content: fullPrompt }
             ],
-            temperature: 0.35
+            temperature: 0.4
           })
         }),
-        6000
+        12000
+      );
+      if (groqRes.ok) {
+        const json: any = await groqRes.json();
+        const text = json?.choices?.[0]?.message?.content?.trim();
+        if (text) return formatCleanChatMessage(text);
+      }
+    } catch (err: any) {
+      console.warn('[AI Service] Groq call warning:', err?.message || err);
+    }
+  }
+
+  // 2. If the merchant provided an OpenAI API key (starts with sk- and not sk-ant-)
+  if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-')) {
+    try {
+      const isOpenRouter = trimmedKey.startsWith('sk-or-');
+      const endpoint = isOpenRouter
+        ? 'https://openrouter.ai/api/v1/chat/completions'
+        : 'https://api.openai.com/v1/chat/completions';
+      const openAiRes = await withTimeout(
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${trimmedKey}`
+          },
+          body: JSON.stringify({
+            model: isOpenRouter ? 'google/gemini-2.5-flash' : 'gpt-4o-mini',
+            messages: [
+              ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+              { role: 'user', content: fullPrompt }
+            ],
+            temperature: 0.4
+          })
+        }),
+        12000
       );
       if (openAiRes.ok) {
         const json: any = await openAiRes.json();
@@ -315,14 +358,14 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
         if (text) return formatCleanChatMessage(text);
       }
     } catch (err: any) {
-      console.warn('[AI Service] OpenAI call warning:', err?.message || err);
+      console.warn('[AI Service] OpenAI/OpenRouter call warning:', err?.message || err);
     }
   }
 
+  // 3. Call Google Gemini via @google/genai SDK across candidate keys and models
   const clients = getGeminiClients(trimmedKey);
-  let consecutive503 = 0;
 
-  for (const ai of clients.slice(0, 2)) {
+  for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
@@ -331,25 +374,51 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
             contents: fullPrompt,
             config: {
               ...(systemInstruction ? { systemInstruction } : {}),
-              thinkingConfig: { thinkingBudget: 0 },
-              temperature: 0.35
+              temperature: 0.4
             }
           }),
-          5500
+          14000
         );
 
         const reply = response.text?.trim();
         if (reply) return formatCleanChatMessage(reply);
       } catch (err: any) {
         const msg = String(err?.message || err || '');
-        console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 120));
-        if (err?.status === 503 || msg.includes('503') || msg.includes('high demand') || msg.includes('UNAVAILABLE')) {
-          consecutive503++;
-          // If 2 models in a row return 503 UNAVAILABLE, fail fast so the local knowledge engine answers immediately (<1.5s)
-          if (consecutive503 >= 2) {
-            return null;
-          }
+        console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 160));
+      }
+    }
+  }
+
+  // 4. Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
+  const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith('AIza'));
+  for (const key of directKeys.slice(0, 2)) {
+    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
+      try {
+        const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
+        const restRes = await withTimeout(
+          fetch(restUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...(systemInstruction
+                ? { systemInstruction: { parts: [{ text: systemInstruction }] } }
+                : {}),
+              contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+              generationConfig: { temperature: 0.4 }
+            })
+          }),
+          12000
+        );
+        if (restRes.ok) {
+          const data: any = await restRes.json();
+          const text = data?.candidates?.[0]?.content?.parts
+            ?.map((p: any) => p?.text || '')
+            .join('')
+            .trim();
+          if (text) return formatCleanChatMessage(text);
         }
+      } catch (restErr: any) {
+        console.warn(`[AI Service] Direct REST ${restModel} warning:`, restErr?.message || restErr);
       }
     }
   }
@@ -479,23 +548,40 @@ function buildSmartBanglaFallbackFromPrompt(
       return `আপনার পেজ ১০০% নিরাপদ থাকবে! 🛡️\n\n• আমরা মেটার ১০০% অফিশিয়াল Cloud & Graph API ব্যবহার করি, তাই আপনার ফেসবুক পেজ বা হোয়াটসঅ্যাপ নাম্বার ব্যান বা রেস্ট্রিক্টেড হওয়ার ০% ঝুঁকিও নেই।\n• এবং আমাদের উভয় প্ল্যানেই আনলিমিটেড মেসেজ রিপ্লাই (প্রতি মেসেজে আলাদা কোনো টাকা কাটে না)!`;
     }
 
-    // 2G. Payment / bKash / Nagad / Discount / Coupon inquiry
+    // 2G-1. Dedicated Coupon / Promo Code / Discount / Offer inquiry
+    if (
+      q.includes('coupon') ||
+      q.includes('cupon') ||
+      q.includes('copon') ||
+      q.includes('promo') ||
+      q.includes('discount') ||
+      q.includes('offer') ||
+      q.includes('kom') ||
+      q.includes('কুপন') ||
+      q.includes('ডিসকাউন্ট') ||
+      q.includes('প্রোমো') ||
+      q.includes('ছাড়') ||
+      q.includes('ছাড়') ||
+      q.includes('অফার') ||
+      q.includes('কমানো')
+    ) {
+      return `জ্বী ভাইয়া! আমাদের সাবস্ক্রিপশন প্ল্যানে ডিসকাউন্ট ও কুপন কোড সুবিধা রয়েছে: 🎁\n\n🎟️ ১) কুপন কোড ব্যবহার: আমাদের ওয়েবসাইট (https://www.oneagentbd.online) থেকে যেকোনো প্ল্যান নেওয়ার সময় চেকআউট পেজে "Have a Coupon / Promo Code?" বক্সে কুপন কোড বসিয়ে সাথে সাথে ডিসকাউন্ট পাবেন (যেমন নতুন মার্চেন্টদের জন্য স্পেশাল কোড: WELCOME10 দিয়ে ১০% ছাড় অথবা SAVE250 দিয়ে ৳২৫০ ছাড়)।\n🎁 ২) ২ দিনের ফ্রি ট্রায়াল: কোনো পেমেন্ট ছাড়াই শুরুতে ২ দিন সম্পূর্ণ ফ্রিতে আমাদের সব প্রিমিয়াম ফিচার টেস্ট করে দেখতে পারবেন!\n📞 ৩) স্পেশাল কাস্টম অফার বা বার্ষিক প্যাকেজে অতিরিক্ত ছাড়ের জন্য আমাদের অফিসিয়াল হোয়াটসঅ্যাপে (+8801601705804) মেসেজ বা কল করতে পারেন।\n\nআপনি কোন প্ল্যানটি (Starter ৳১,২৫০ নাকি Pro ৳১,৯৫০) নিতে চাচ্ছেন?`;
+    }
+
+    // 2G-2. Payment / bKash / Nagad inquiry
     if (
       q.includes('bkash') ||
       q.includes('nagad') ||
       q.includes('rocket') ||
+      q.includes('upay') ||
       q.includes('payment') ||
       q.includes('pay') ||
-      q.includes('coupon') ||
-      q.includes('discount') ||
       q.includes('বিকাশ') ||
       q.includes('নগদ') ||
-      q.includes('পেমেন্ট') ||
-      q.includes('ডিসকাউন্ট') ||
-      q.includes('কুপন') ||
-      q.includes('ছাড়')
+      q.includes('রকেট') ||
+      q.includes('পেমেন্ট')
     ) {
-      return `আমাদের পেমেন্ট করার নিয়ম একদম সহজ:\n\n💳 ১) আমাদের ওয়েবসাইট (https://www.oneagentbd.online)-এ লগইন করে "Billing & Plan" মেনুতে যান।\n📲 ২) বিকাশ (bKash), নগদ (Nagad), রকেট (Rocket) বা উপায় (Upay)-এর মাধ্যমে পেমেন্ট করে Transaction ID (TrxID) দিলেই প্ল্যান সাথে সাথে অ্যাক্টিভ হয়ে যাবে।\n🎟️ ৩) পেমেন্টের সময় Coupon Code বক্সে প্রোমো কোড ব্যবহার করে ডিসকাউন্টও পেতে পারেন!`;
+      return `আমাদের পেমেন্ট করার নিয়ম একদম সহজ:\n\n💳 ১) আমাদের ওয়েবসাইট (https://www.oneagentbd.online)-এ লগইন করে "Billing & Plan" মেনুতে যান।\n📲 ২) বিকাশ (bKash), নগদ (Nagad), রকেট (Rocket) বা উপায় (Upay)-এর মাধ্যমে পেমেন্ট করে Transaction ID (TrxID) দিলেই প্ল্যান সাথে সাথে অটোমেটিক অ্যাক্টিভ হয়ে যাবে।\n🎟️ ৩) পেমেন্টের সময় Coupon Code বক্সে প্রোমো কোড (যেমন WELCOME10) ব্যবহার করে ডিসকাউন্টও পেতে পারেন!`;
     }
 
     // 2H. Free trial inquiry
@@ -672,20 +758,77 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   const profile = db.getProfileById(params.userId);
   const businessName = params.channelName || profile?.full_name || 'One Agent BD';
 
-  // Use overrideSystemPrompt (if testing live in Settings) or user's saved system_prompt
+  // Resolve the best custom system_prompt (if admin channel, also check default_system_prompt or other admin profiles)
+  const defaultSavedPrompt = ((db.getSettings() as any)?.default_system_prompt || '').trim();
+  const adminCustomPrompt =
+    profile?.role === 'admin'
+      ? db
+          .getProfiles()
+          .find(
+            (p) =>
+              p.role === 'admin' &&
+              p.system_prompt &&
+              !p.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
+              !p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
+          )?.system_prompt || ''
+      : '';
+
   const rawSystemPrompt =
     (params.overrideSystemPrompt && params.overrideSystemPrompt.trim()) ||
+    (profile?.system_prompt &&
+      !profile.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
+      !profile.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
+      ? profile.system_prompt.trim()
+      : '') ||
+    defaultSavedPrompt ||
+    adminCustomPrompt ||
     (profile?.system_prompt && profile.system_prompt.trim()) ||
     `You are the polite, helpful customer service AI agent for ${businessName}.`;
 
   // Sanitize any legacy "English only" instructions inside saved prompts so Bangla replies always work
   const systemPrompt = rawSystemPrompt
-    .replace(/in 1-2 clear English sentences/gi, 'in 1-3 clear, polite Bangla (বাংলা) sentences')
-    .replace(/in 1-2 clear, courteous English sentences/gi, 'in 1-3 clear, courteous Bangla (বাংলা) sentences')
-    .replace(/in 1-2 polite, clear English sentences/gi, 'in 1-3 polite, clear Bangla (বাংলা) sentences')
-    .replace(/in 1-2 informative, concise English sentences/gi, 'in 1-3 informative, concise Bangla (বাংলা) sentences')
+    .replace(/in 1-2 clear English sentences/gi, 'in clear, natural Bangla (বাংলা)')
+    .replace(/in 1-2 clear, courteous English sentences/gi, 'in clear, courteous Bangla (বাংলা)')
+    .replace(/in 1-2 polite, clear English sentences/gi, 'in polite, clear Bangla (বাংলা)')
+    .replace(/in 1-2 informative, concise English sentences/gi, 'in informative, natural Bangla (বাংলা)')
     .replace(/in clear, friendly English/gi, 'in clear, friendly Bangla (বাংলা)')
-    .replace(/in 1-2 concise English sentences/gi, 'in 1-3 concise Bangla (বাংলা) sentences');
+    .replace(/in 1-2 concise English sentences/gi, 'in natural Bangla (বাংলা)')
+    .replace(/Respond politely and directly in 1-2 concise English sentences\./gi, 'কাস্টমারের প্রশ্নের অর্থ বুঝে সর্বদা সুন্দর ও স্বাভাবিক বাংলায় উত্তর দিন।');
+
+  const isOneAgentSaaS =
+    businessName.toLowerCase().includes('one agent') ||
+    systemPrompt.includes('Starter AI Plan') ||
+    systemPrompt.includes('oneagentbd.online') ||
+    profile?.role === 'admin';
+
+  // If this is One Agent BD's official business or admin channel, enrich with complete SaaS details & live coupons
+  const activeCoupons = (db.getCoupons() || []).filter((c) => c.is_active);
+  const couponSummary =
+    activeCoupons.length > 0
+      ? activeCoupons
+          .slice(0, 4)
+          .map(
+            (c) =>
+              `${c.code} (${c.discount_type === 'percentage' ? `${c.discount_value}% ছাড়` : `৳${c.discount_value} ছাড়`})`
+          )
+          .join(', ')
+      : 'WELCOME10 (১০% ডিসকাউন্ট), SAVE250 (৳২৫০ ডিসকাউন্ট)';
+
+  const oneAgentExtendedKnowledge = isOneAgentSaaS
+    ? `
+[ONE AGENT BD COMPLETE SAAS KNOWLEDGE BASE — FOR ANSWERING ANY UNSCRIPTED QUESTION]:
+- প্ল্যাটফর্মের কাজ: One Agent BD হলো বাংলাদেশের অল-ইন-ওয়ান AI Sales, Auto-Reply ও Order Management SaaS প্ল্যাটফর্ম। এটি Facebook Page, Instagram, WhatsApp এবং Website-এ ২৪/৭ মানুষের মতো স্মার্টভাবে কাস্টমারদের মেসেজ ও কমেন্টের উত্তর দেয় এবং অর্ডার কনফার্ম করে।
+- কাদের জন্য উপযুক্ত: যেকোনো F-Commerce বা E-Commerce পেজ (কাপড়, ফ্যাশন, গ্যাজেট, কসমেটিকস, খাবার/রেস্টুরেন্ট, আইটি সার্ভিস, ক্লিনিক বা যেকোনো অনলাইন বিজনেস) যারা একা মেসেজ সামলাতে হিমশিম খাচ্ছেন বা রাত-দিন ২৪ ঘণ্টা সেলস বাড়াতে চান। কোডিং বা টেকনিক্যাল কোনো জ্ঞানেরই প্রয়োজন নেই—মাত্র ২ মিনিটে ১ ক্লিকেই সেটআপ করা যায়।
+- ২টি অফিসিয়াল প্ল্যান ও দাম:
+  ১) Starter AI Plan — ৳১,২৫০ টাকা/মাস (২ মাস ৳২,৫০০ | ৩ মাস ৳৩,৭৫০ | ৬ মাস ৳৭,৫০০ | ১ বছর/১২ মাস ৳১৫,০০০ টাকা):
+     • ১টি AI এজেন্ট, Facebook, Instagram, WhatsApp ও Website চ্যাটবট, ৫০টি প্রোডাক্ট ক্যাটালগ, অটো কমেন্ট রিপ্লাই, অটো অর্ডার গ্রহণ এবং ১-ক্লিকে Steadfast, Pathao ও RedX কুরিয়ার বুকিং।
+  ২) Pro Business Plan — ৳১,৯৫০ টাকা/মাস (২ মাস ৳৩,৯০০ | ৩ মাস ৳৫,৮৫০ | ৬ মাস ৳১১,৭০০ | ১ বছর/১২ মাস ৳২৩,৪০০ টাকা):
+     • ৩টি AI এজেন্ট, ভয়েস মেসেজ শুনে উত্তর (Voice AI), কাস্টমারের পাঠানো প্রোডাক্টের ছবি দেখে দাম ও বিবরণ বলা (Image Recognition AI), আনলিমিটেড প্রোডাক্ট ক্যাটালগ ও ওয়েবসাইট/Shopify/WooCommerce সিঙ্ক এবং ২৪/৭ ভিআইপি সাপোর্ট।
+- ফ্রি ট্রায়াল: যেকোনো নতুন ইউজার ওয়েবসাইটে (https://www.oneagentbd.online) অ্যাকাউন্ট খুলেই ২ দিনের (৪৮ ঘণ্টা) সম্পূর্ণ ফ্রি ট্রায়াল নিয়ে সব ফিচার টেস্ট করতে পারবেন (কোনো অগ্রিম পেমেন্ট লাগবে না)।
+- কুপন কোড ও ডিসকাউন্ট (Coupon & Discount Policy): কাস্টমার কুপন কোড বা ডিসকাউন্ট চাইলে জানাবেন যে চেকআউটের সময় প্রোমো কোড বক্সে কুপন কোড ব্যবহার করে ডিসকাউন্ট নেওয়া যায়। বর্তমানে সচল কুপন কোডসমূহ: ${couponSummary}। এছাড়া ওয়েবসাইটের লাইভ চ্যাটবট থেকে বিজনেস রিভিউ/মাসিক সেলস জানিয়ে ১৫% ইনস্ট্যান্ট কুপন কোড জেনারেট করা যায় কিংবা বড় প্যাকেজে স্পেশাল ছাড়ের জন্য সাপোর্টে (+8801601705804) কথা বলা যাবে।
+- নিরাপত্তা ও মেসেজ লিমিট: মেটার ১০০% অফিসিয়াল Graph ও Cloud API ব্যবহার করা হয়, তাই পেজ বা আইডি ব্যান হওয়ার ০% ঝুঁকিও নেই। উভয় প্ল্যানেই আনলিমিটেড মেসেজ রিপ্লাই (প্রতি মেসেজে আলাদা কোনো চার্জ নেই)।
+- পেমেন্ট ও সাপোর্ট: বিকাশ, নগদ, রকেট ও উপায় (pay.oneagentbd.online)-এর মাধ্যমে পেমেন্ট করে TrxID দিলেই প্ল্যান সাথে সাথে অটোমেটিক অ্যাক্টিভ হয়। সাপোর্ট ও হেল্পলাইন (সকাল ৯টা – রাত ১১টা): +8801601705804 (WhatsApp/Call), ইমেইল: support.oneagentbd@gmail.com, ওয়েবসাইট: https://www.oneagentbd.online।`
+    : '';
 
   // Get merchant product catalog for context (strictly isolated per merchant)
   const merchantProducts = db.getProducts(params.userId) || [];
@@ -700,10 +843,10 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
           .join('\n')
       : `(কোনো আলাদা প্রোডাক্ট ক্যাটালগ যোগ করা হয়নি — উপরের Business Knowledge Base / System Instructions অনুযায়ী উত্তর দিন)`;
 
-  // Build context history
+  // Build context history (up to last 8 messages for multi-turn conversation memory)
   const recentHistory = (params.history || [])
     .filter((m) => m.message_text && !m.message_text.startsWith('[Attachment]'))
-    .slice(-5)
+    .slice(-8)
     .map((m) => `${m.direction === 'inbound' ? 'Customer' : 'Assistant'}: ${m.message_text}`)
     .join('\n');
 
@@ -748,13 +891,15 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
   }
 
+  const combinedSystemPrompt = `${systemPrompt}${oneAgentExtendedKnowledge ? `\n${oneAgentExtendedKnowledge}` : ''}`;
+
   // 1. If customer sent a voice note / audio
   if (params.audioBase64) {
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
     const voiceResult = await callGeminiWithAudio(
       params.audioBase64,
       params.audioMimeType || 'audio/ogg',
-      systemPrompt,
+      combinedSystemPrompt,
       businessName,
       recentHistory,
       catalogContext,
@@ -783,7 +928,7 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       params.imageBase64,
       params.imageMimeType || 'image/jpeg',
       params.incomingMessage,
-      systemPrompt,
+      combinedSystemPrompt,
       businessName,
       catalogContext,
       recentHistory,
@@ -816,12 +961,20 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     };
   }
 
-  // 3. Normal text message processing (Bangla + Banglish -> Bangla reply)
-  const languageDirective = `CRITICAL MANDATORY LANGUAGE & FORMATTING RULES (অবশ্যই পালনীয়):
-- কাস্টমার বাংলা (Bangla script), বাংলিশ (Banglish - ইংরেজি অক্ষরে বাংলা লেখা যেমন: "1 bochorer jonno koto", "dam koto", "ki ki service ache", "order korbo kivabe", "hello") অথবা যেভাবেই প্রশ্ন করুক না কেন, সর্বদা পরিষ্কার, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (Bengali script: বাংলায়) উত্তর দেবেন।
-- কাস্টমার ঠিক যে প্রশ্নটি করেছে, সরাসরি সেই প্রশ্নের সঠিক উত্তর আগে দেবেন। অপ্রাসঙ্গিক কথা বা অন্য টপিক টেনে আনবেন না।
-- যদি মাসিক প্ল্যান বা প্যাকেজের দাম দেওয়া থাকে (যেমন Starter ৳১,২৫০/মাস ও Pro ৳১,৯৫০/মাস) এবং কাস্টমার ২ মাস, ৩ মাস, ৬ মাস বা ১ বছরের (১২ মাসের) খরচ জানতে চায়, তবে মাসের সংখ্যা দিয়ে গুণ করে সঠিক মোট খরচটি (যেমন ১ বছরে Starter প্ল্যান: ১,২৫০ × ১২ = ৳১৫,০০০ টাকা এবং Pro প্ল্যান: ১,৯৫০ × ১২ = ৳২৩,৪০০ টাকা) পরিষ্কারভাবে হিসাব করে জানাবেন।
-- মেসেজ ফরম্যাট (Message Formatting): মেসেঞ্জার ও হোয়াটসঅ্যাপে পড়ার সুবিধার জন্য উত্তরটি সুন্দর লাইন ব্রেক (নতুন লাইন) এবং বুলেট পয়েন্ট (• বা ✅) দিয়ে সাজিয়ে লিখবেন। কখনোই এক প্যারাগ্রাফে সব গাদাগাদি করে লিখবেন না এবং কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
+  // 3. Intelligent Text Reasoning & Dynamic Question Answering (Bangla + Banglish -> Bangla reply)
+  const languageDirective = `CRITICAL INTELLIGENT REASONING & LANGUAGE RULES (অবশ্যই পালনীয়):
+১. যেকোনো প্রশ্নের অর্থ বুঝে উত্তর দেওয়া (Smart Intent & Contextual Reasoning):
+   - কাস্টমার সবসময় একই ভাষায় বা প্রম্পটে যেভাবে লেখা আছে হুবহু সেভাবে প্রশ্ন করবে না। তারা ঘুরিয়ে প্রশ্ন করতে পারে, নিজের সমস্যার কথা বলতে পারে, অথবা বাংলা, বাংলিশ (Banglish) বা কথ্য ভাষায় যেকোনো নতুন প্রশ্ন করতে পারে।
+   - আপনাকে প্রম্পটের বিজনেস ডিটেইলস (Business Knowledge Base) ও ক্যাটালগের সব তথ্য ভালোভাবে বুঝে কাস্টমারের প্রশ্নের মূল উদ্দেশ্য (Intent) ধরতে হবে এবং একজন দক্ষ, বুদ্ধিমান মানুষের মতো প্রাসঙ্গিক ও সুন্দর উত্তর দিতে হবে।
+২. প্রম্পটে সরাসরি লেখা নেই এমন প্রশ্নের সমাধান (Handling Unscripted / Indirect Questions):
+   - কাস্টমার যদি এমন কোনো প্রশ্ন করে যা বিজনেস ডিটেইলসে সরাসরি শব্দে-শব্দে লেখা নেই (যেমন: "কুপন কোড বা ডিসকাউন্ট আছে কি?", "দাম কি একটু কমানো যাবে?", "আমার পেজের জন্য কোনটা ভালো হবে?", "এটা কীভাবে আমার কাজে লাগবে?" বা অন্য যেকোনো প্রশ্ন):
+   - কখনোই প্রশ্নটি এড়িয়ে যাবেন না, কখনোই "আমি জানি না" বলবেন না এবং কখনোই হুবহু মুখস্থ স্বাগতম মেসেজ (Generic Greeting) কপি-পেস্ট করবেন না!
+   - প্রথমে কাস্টমার ঠিক যে বিষয়ে জানতে চেয়েছে সেটির সরাসরি, আন্তরিক ও বুদ্ধিদীপ্ত উত্তর দিন বিজনেসের তথ্যের আলোকে, এবং প্রয়োজনে প্রাসঙ্গিক পরামর্শ বা সাপোর্ট নাম্বার দিন।
+৩. ভাষা ও হিসাব (Language & Price Calculation):
+   - কাস্টমার বাংলা, বাংলিশ বা যেভাবেই প্রশ্ন করুক, সর্বদা পরিষ্কার, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন।
+   - যদি মাসিক প্ল্যান বা প্যাকেজের দাম দেওয়া থাকে (যেমন Starter ৳১,২৫০/মাস ও Pro ৳১,৯৫০/মাস) এবং কাস্টমার ২ মাস, ৩ মাস, ৬ মাস বা ১ বছরের (১২ মাসের) খরচ জানতে চায়, তবে মাসের সংখ্যা দিয়ে গুণ করে সঠিক মোট খরচটি পরিষ্কারভাবে হিসাব করে জানাবেন।
+৪. মেসেজ ফরম্যাট (Clean Chat Formatting):
+   - মেসেঞ্জার ও হোয়াটসঅ্যাপে পড়ার সুবিধার জন্য উত্তরটি সুন্দর লাইন ব্রেক (নতুন লাইন) এবং প্রয়োজনে বুলেট পয়েন্ট (• বা ✅) দিয়ে সাজিয়ে লিখবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
 
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance =
@@ -835,14 +988,14 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন। বাংলায় জানান যে আপনি প্রোডাক্টটির অফিসিয়াল ছবি যুক্ত করেছেন এবং এর মূল বিবরণ (${matchedProduct.description}) ও সঠিক দাম (৳${matchedProduct.price} ${matchedProduct.currency}) উল্লেখ করুন।`;
   }
 
-  const systemInstruction = `You are the official, warm, and highly intelligent Customer Support & Sales AI Representative for "${businessName}".
-Always follow the merchant's Business Knowledge Base and Product Catalog strictly.
-Reply in clean, well-formatted Bangla (বাংলা স্ক্রিপ্টে) with proper line breaks and bullet points (•) when listing prices or features. Never output raw markdown asterisks (**).`;
+  const systemInstruction = `You are the official, warm, and highly intelligent human-like Customer Support & Sales AI Representative for "${businessName}".
+You deeply understand the merchant's Business Knowledge Base and Product Catalog.
+When a customer asks ANY question (even if phrased indirectly, in Banglish, or about a scenario not explicitly listed word-for-word), analyze the business details, reason logically, and give a tailored, helpful, natural Bangla (বাংলা) response that directly answers their specific question. Never give a generic unrelated template. Never output raw markdown asterisks (**).`;
 
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
-${systemPrompt}
+${combinedSystemPrompt}
 
-Language & Formatting Instructions:
+Reasoning, Language & Formatting Instructions:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -857,7 +1010,7 @@ ${recentHistory || '(No previous messages)'}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a direct, accurate, well-formatted Bangla reply that directly answers the customer's question above:`;
+Think about what the customer is specifically asking above, and write a direct, intelligent, well-formatted Bangla reply that answers their question naturally based on the business details:`;
 
   const effectiveApiKey =
     (params.overrideApiKey && params.overrideApiKey.trim()) ||
@@ -881,7 +1034,7 @@ Write a direct, accurate, well-formatted Bangla reply that directly answers the 
   // 4. Smart Knowledge-Aware Bangla Fallback (uses user's systemPrompt + catalog)
   const smartBanglaReply = buildSmartBanglaFallbackFromPrompt(
     params.incomingMessage,
-    systemPrompt,
+    combinedSystemPrompt,
     businessName,
     merchantProducts,
     matchedProduct

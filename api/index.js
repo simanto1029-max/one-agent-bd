@@ -1,4 +1,4 @@
-// One Agent BD - Vercel Serverless Entry Point (ESM Bundle v2)
+// One Agent BD - Vercel Serverless Entry Point (ESM Bundle)
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -372,6 +372,7 @@ MANDATORY RULES:
         this.lastSupabaseSyncAt = 0;
         this.pendingFlushPromise = null;
         this.useNumericPayloadSchema = false;
+        this.lastLocalWriteAt = 0;
         this.data = this.loadData();
       }
       getSupabaseConfig() {
@@ -495,6 +496,8 @@ MANDATORY LANGUAGE & REPLY RULES:
         }
       }
       persist() {
+        this.lastLocalWriteAt = Date.now();
+        this.data._lastUpdatedAt = this.lastLocalWriteAt;
         this.saveData(this.data);
         this.isDirty = true;
         if (this.getSupabaseConfig()) {
@@ -513,22 +516,44 @@ MANDATORY LANGUAGE & REPLY RULES:
         }
         return headers;
       }
+      buildCompactCloudSnapshot() {
+        const snapshot = {
+          ...this.data,
+          _lastUpdatedAt: this.lastLocalWriteAt || this.data._lastUpdatedAt || Date.now()
+        };
+        if (Array.isArray(this.data.messages) && this.data.messages.length > 0) {
+          const cutoffIdx = Math.max(0, this.data.messages.length - 5);
+          snapshot.messages = this.data.messages.map((m, idx) => {
+            if (idx < cutoffIdx && (m.audio_base64 || m.image_base64)) {
+              const { audio_base64, image_base64, ...rest } = m;
+              return rest;
+            }
+            return m;
+          });
+        }
+        return snapshot;
+      }
       async pushToSupabase() {
         const cfg = this.getSupabaseConfig();
         if (!cfg) return;
         this.isDirty = false;
-        const headers = this.getSupabaseHeaders(cfg.key, {
+        const upsertHeaders = this.getSupabaseHeaders(cfg.key, {
           "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal"
         });
+        const patchHeaders = this.getSupabaseHeaders(cfg.key, {
+          "Content-Type": "application/json",
+          Prefer: "return=minimal"
+        });
         const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-        const tryPost = async (bodyObj) => {
+        const snapshot = this.buildCompactCloudSnapshot();
+        const tryRequest = async (urlPath, method, hdrs, bodyObj) => {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 5e3);
           try {
-            return await fetch(`${cfg.url}/rest/v1/app_state`, {
-              method: "POST",
-              headers,
+            return await fetch(`${cfg.url}${urlPath}`, {
+              method,
+              headers: hdrs,
               body: JSON.stringify(bodyObj),
               signal: controller.signal
             });
@@ -536,67 +561,153 @@ MANDATORY LANGUAGE & REPLY RULES:
             clearTimeout(timer);
           }
         };
-        if (this.useNumericPayloadSchema) {
-          const res = await tryPost({ id: 1, payload: this.data, updated_at: nowIso });
-          if (!res.ok) {
-            const errText = await res.text().catch(() => "");
-            throw new Error(`Supabase upsert HTTP ${res.status}: ${errText}`);
-          }
-          this.lastSupabaseSyncAt = Date.now();
-          return;
-        }
-        const response = await tryPost({
-          id: "main",
-          state_data: this.data,
+        tryRequest("/rest/v1/system_settings?on_conflict=key", "POST", upsertHeaders, {
+          key: "app_state_backup",
+          value: snapshot,
           updated_at: nowIso
+        }).catch(() => {
         });
-        if (!response.ok) {
-          const fallbackRes = await tryPost({
+        if (this.useNumericPayloadSchema) {
+          let res = await tryRequest("/rest/v1/app_state?on_conflict=id", "POST", upsertHeaders, {
             id: 1,
-            payload: this.data,
+            payload: snapshot,
             updated_at: nowIso
           });
-          if (fallbackRes.ok) {
-            this.useNumericPayloadSchema = true;
+          if (!res.ok) {
+            res = await tryRequest("/rest/v1/app_state?id=eq.1", "PATCH", patchHeaders, {
+              payload: snapshot,
+              updated_at: nowIso
+            });
+          }
+          if (res.ok) {
             this.lastSupabaseSyncAt = Date.now();
             return;
           }
-          const errText = await fallbackRes.text().catch(() => "");
-          throw new Error(`Supabase upsert HTTP ${fallbackRes.status}: ${errText}`);
         }
-        this.lastSupabaseSyncAt = Date.now();
+        let response = await tryRequest("/rest/v1/app_state?on_conflict=id", "POST", upsertHeaders, {
+          id: "main",
+          state_data: snapshot,
+          updated_at: nowIso
+        });
+        if (!response.ok) {
+          response = await tryRequest("/rest/v1/app_state?id=eq.main", "PATCH", patchHeaders, {
+            state_data: snapshot,
+            updated_at: nowIso
+          });
+        }
+        if (response.ok) {
+          this.lastSupabaseSyncAt = Date.now();
+          return;
+        }
+        let fallbackRes = await tryRequest("/rest/v1/app_state?on_conflict=id", "POST", upsertHeaders, {
+          id: 1,
+          payload: snapshot,
+          updated_at: nowIso
+        });
+        if (!fallbackRes.ok) {
+          fallbackRes = await tryRequest("/rest/v1/app_state?id=eq.1", "PATCH", patchHeaders, {
+            payload: snapshot,
+            updated_at: nowIso
+          });
+        }
+        if (fallbackRes.ok) {
+          this.useNumericPayloadSchema = true;
+          this.lastSupabaseSyncAt = Date.now();
+          return;
+        }
+      }
+      mergeLocalNewerProfiles(incoming) {
+        if (!this.data?.profiles || !incoming?.profiles) return incoming;
+        const localMap = /* @__PURE__ */ new Map();
+        for (const p of this.data.profiles) {
+          localMap.set(p.id, p);
+        }
+        incoming.profiles = incoming.profiles.map((remoteProf) => {
+          const localProf = localMap.get(remoteProf.id);
+          if (!localProf) return remoteProf;
+          const localTime = localProf.updated_at ? new Date(localProf.updated_at).getTime() : 0;
+          const remoteTime = remoteProf.updated_at ? new Date(remoteProf.updated_at).getTime() : 0;
+          if (localTime >= remoteTime) {
+            return {
+              ...remoteProf,
+              ...localProf,
+              llm_api_key: localProf.llm_api_key !== void 0 ? localProf.llm_api_key : remoteProf.llm_api_key,
+              system_prompt: localProf.system_prompt || remoteProf.system_prompt,
+              llm_provider: localProf.llm_provider || remoteProf.llm_provider
+            };
+          }
+          if (localProf.llm_api_key && !remoteProf.llm_api_key) {
+            return {
+              ...remoteProf,
+              llm_api_key: localProf.llm_api_key
+            };
+          }
+          return remoteProf;
+        });
+        if (this.data.settings?.default_llm_api_key && !incoming.settings?.default_llm_api_key) {
+          incoming.settings.default_llm_api_key = this.data.settings.default_llm_api_key;
+        }
+        return incoming;
       }
       async syncFromSupabase(force = false) {
         const cfg = this.getSupabaseConfig();
         if (!cfg) return;
+        if (!force && this.lastLocalWriteAt > 0 && Date.now() - this.lastLocalWriteAt < 1e4) {
+          return;
+        }
         if (!force && !IS_VERCEL && Date.now() - this.lastSupabaseSyncAt < 2e3) {
           return;
         }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5e3);
         try {
-          const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&limit=1`, {
+          let rawState = null;
+          const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&order=updated_at.desc&limit=1`, {
             method: "GET",
             headers: this.getSupabaseHeaders(cfg.key, {
               Accept: "application/json"
             }),
             signal: controller.signal
           });
-          if (!response.ok) return;
-          const rows = await response.json();
-          if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
-            const row = rows[0];
-            if ("payload" in row || typeof row.id === "number") {
-              this.useNumericPayloadSchema = true;
+          if (response.ok) {
+            const rows = await response.json();
+            if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
+              const row = rows[0];
+              if ("payload" in row || typeof row.id === "number") {
+                this.useNumericPayloadSchema = true;
+              }
+              rawState = row.state_data || row.payload;
+            } else if (Array.isArray(rows) && rows.length === 0) {
+              await this.pushToSupabase();
+              return;
             }
-            const rawState = row.state_data || row.payload;
-            if (rawState && typeof rawState === "object") {
-              this.data = this.normalizeSchema(rawState);
-              this.saveData(this.data);
-              this.lastSupabaseSyncAt = Date.now();
+          }
+          if (!rawState) {
+            const sysRes = await fetch(
+              `${cfg.url}/rest/v1/system_settings?key=eq.app_state_backup&select=*&limit=1`,
+              {
+                method: "GET",
+                headers: this.getSupabaseHeaders(cfg.key, { Accept: "application/json" }),
+                signal: controller.signal
+              }
+            );
+            if (sysRes.ok) {
+              const sysRows = await sysRes.json();
+              if (Array.isArray(sysRows) && sysRows.length > 0 && sysRows[0]?.value) {
+                rawState = sysRows[0].value;
+              }
             }
-          } else if (Array.isArray(rows) && rows.length === 0) {
-            await this.pushToSupabase();
+          }
+          if (rawState && typeof rawState === "object") {
+            const remoteTs = Number(rawState._lastUpdatedAt || 0);
+            if (this.lastLocalWriteAt > 0 && remoteTs > 0 && this.lastLocalWriteAt > remoteTs) {
+              await this.pushToSupabase();
+              return;
+            }
+            const normalized = this.normalizeSchema(rawState);
+            this.data = this.mergeLocalNewerProfiles(normalized);
+            this.saveData(this.data);
+            this.lastSupabaseSyncAt = Date.now();
           }
         } catch (err) {
           console.warn("[Supabase Sync] Pull warning:", err?.message || err);
@@ -1331,12 +1442,15 @@ __export(orderDetectionService_exports, {
   hasOrderSignals: () => hasOrderSignals
 });
 import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
-function getGeminiClient() {
-  if (!geminiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    geminiClient = new GoogleGenAI2({ apiKey: apiKey || "" });
-  }
-  return geminiClient;
+function getGeminiClient(userId) {
+  const userProfile = userId ? db.getProfileById(userId) : void 0;
+  const sysSettings = db.getSettings();
+  const adminKey = db.getProfiles().find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim();
+  const apiKey = userProfile?.llm_api_key && userProfile.llm_api_key.trim() || sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim() || adminKey || process.env.GEMINI_API_KEY || "";
+  return new GoogleGenAI2({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+  });
 }
 function hasOrderSignals(text, aiReply, userId) {
   const combined = `${text} ${aiReply || ""}`.toLowerCase();
@@ -1445,7 +1559,7 @@ async function detectAndRecordOrder(params) {
   console.log(`[Order Detection] Order signals detected in message from customer ${customerId} (${customerName})`);
   let extracted = null;
   try {
-    const ai = getGeminiClient();
+    const ai = getGeminiClient(userId);
     const reqFieldsList = [
       orderSettings.required_fields.customer_name ? "Customer full name" : null,
       orderSettings.required_fields.customer_phone ? "Bangladeshi mobile phone number (11-digit)" : null,
@@ -1489,11 +1603,20 @@ If the required criteria are NOT yet met (e.g. customer hasn't provided address/
 {"is_order": false}
 
 Respond ONLY with valid JSON, no markdown formatting.`;
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: extractionPrompt
-    });
-    const responseText = response.text?.trim() || "";
+    let responseText = "";
+    for (const modelName of ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"]) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: extractionPrompt
+        });
+        if (response.text?.trim()) {
+          responseText = response.text.trim();
+          break;
+        }
+      } catch {
+      }
+    }
     const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleanJson);
     if (parsed && parsed.is_order) {
@@ -1587,11 +1710,9 @@ Respond ONLY with valid JSON, no markdown formatting.`;
   console.log(`[Order Detection] New Order created successfully: ID ${savedOrder.id}, Amount: BDT ${savedOrder.total_amount}, Customer: ${savedOrder.customer_name}`);
   return savedOrder;
 }
-var geminiClient;
 var init_orderDetectionService = __esm({
   "server/services/orderDetectionService.ts"() {
     init_database();
-    geminiClient = null;
   }
 });
 
@@ -4255,19 +4376,27 @@ async function downloadWhatsAppImage(mediaId, accessToken) {
 }
 
 // server/services/aiService.ts
-function getGeminiClients(customApiKey) {
-  const adminProfile = db.getProfileById("usr_admin_001");
-  const candidateKeys = Array.from(
+function getCandidateGeminiKeys(customApiKey) {
+  const defaultSystemKey = (db.getSettings()?.default_llm_api_key || "").trim();
+  const allProfiles = db.getProfiles() || [];
+  const adminKeys = allProfiles.filter((p) => p.role === "admin" && p.llm_api_key?.trim()).map((p) => p.llm_api_key.trim());
+  const anyProfileKeys = allProfiles.filter((p) => p.llm_api_key?.trim()).map((p) => p.llm_api_key.trim());
+  return Array.from(
     new Set(
       [
         customApiKey?.trim(),
-        adminProfile?.llm_api_key?.trim(),
+        defaultSystemKey,
+        ...adminKeys,
+        ...anyProfileKeys,
         process.env.GEMINI_API_KEY?.trim(),
         process.env.VITE_GEMINI_API_KEY?.trim(),
         process.env.GOOGLE_API_KEY?.trim()
-      ].filter((k) => Boolean(k && k.length > 10))
+      ].filter((k) => Boolean(k && k.length > 10 && !k.startsWith("sk-") && !k.startsWith("gsk_")))
     )
   );
+}
+function getGeminiClients(customApiKey) {
+  const candidateKeys = getCandidateGeminiKeys(customApiKey);
   if (candidateKeys.length === 0) {
     return [
       new GoogleGenAI({
@@ -4301,8 +4430,10 @@ function formatCleanChatMessage(raw) {
   return text;
 }
 var CANDIDATE_MODELS = [
-  "gemini-3.6-flash",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
   "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
   "gemini-flash-latest"
 ];
 async function callGeminiWithAudio(audioBase64, audioMimeType, systemPrompt, businessName, recentHistory, catalogContext, customApiKey) {
@@ -4333,7 +4464,7 @@ ${catalogContext}
 TASK:
 1. Listen carefully to the voice note (may be in Bangla, Banglish, or English).
 2. Transcribe accurately what the customer said in the audio.
-3. Formulate a polite, helpful, well-formatted customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Answer the customer's question directly using the Business Knowledge Base and Catalog above. Do not use ** markdown asterisks. Never repeat or echo the customer's question.
+3. Formulate a polite, helpful, well-formatted customer service response in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Understand the customer's intent and answer their question using reasoning from the Business Knowledge Base and Catalog above. Do not use ** markdown asterisks. Never repeat or echo the customer's question.
 
 Previous Conversation History:
 ${recentHistory || "(No previous messages)"}
@@ -4341,8 +4472,8 @@ ${recentHistory || "(No previous messages)"}
 OUTPUT FORMAT:
 TRANSCRIPT: <Accurate transcription of what the customer spoke>
 REPLY: <Polite, helpful customer reply in Bangla (\u09AC\u09BE\u0982\u09B2\u09BE\u09DF)>`;
-  for (const ai of clients.slice(0, 2)) {
-    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+  for (const ai of clients.slice(0, 3)) {
+    for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -4362,12 +4493,9 @@ REPLY: <Polite, helpful customer reply in Bangla (\u09AC\u09BE\u0982\u09B2\u09BE
                   }
                 ]
               }
-            ],
-            config: {
-              thinkingConfig: { thinkingBudget: 0 }
-            }
+            ]
           }),
-          5500
+          14e3
         );
         const rawText = response.text?.trim();
         if (!rawText) continue;
@@ -4395,15 +4523,15 @@ async function callGeminiWithImage(imageBase64, imageMimeType, customerText, sys
 ${systemPrompt}
 
 You are the customer service AI assistant for ${businessName}.
-The customer sent an image/photo of a product they are asking about along with the text: "${customerText || "\u098F\u0987 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
+The customer sent an image/photo along with the text: "${customerText || "\u098F\u0987 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
 
 Merchant Product Catalog & Price List:
 ${catalogContext}
 
 TASK:
-1. Examine the image sent by the customer.
-2. Identify which product from the Merchant Product Catalog matches this item (or describe its category and key features).
-3. Provide the exact price in BDT and specifications according to the catalog and business knowledge base.
+1. Examine the image sent by the customer carefully.
+2. Identify what is shown in the image (product from catalog, screenshot, payment slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
+3. Provide the exact details, price in BDT, or helpful guidance according to the business knowledge base.
 4. Reply in clear, polite, well-formatted natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF). Do not use ** markdown asterisks.
 
 Recent Conversation History:
@@ -4411,8 +4539,8 @@ ${recentHistory || "(No previous messages)"}
 
 Customer Question: "${customerText || "\u098F\u099F\u09BE\u09B0 \u09A6\u09BE\u09AE \u0995\u09A4 \u098F\u09AC\u0982 \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8?"}"
 Assistant Reply (in Bangla):`;
-  for (const ai of clients.slice(0, 2)) {
-    for (const modelName of CANDIDATE_MODELS.slice(0, 2)) {
+  for (const ai of clients.slice(0, 3)) {
+    for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -4432,12 +4560,9 @@ Assistant Reply (in Bangla):`;
                   }
                 ]
               }
-            ],
-            config: {
-              thinkingConfig: { thinkingBudget: 0 }
-            }
+            ]
           }),
-          5500
+          14e3
         );
         const reply = response.text?.trim();
         if (reply) return formatCleanChatMessage(reply);
@@ -4449,9 +4574,72 @@ Assistant Reply (in Bangla):`;
   return null;
 }
 async function callGemini(fullPrompt, customApiKey, systemInstruction) {
-  const clients = getGeminiClients(customApiKey);
-  let consecutive503 = 0;
-  for (const ai of clients.slice(0, 2)) {
+  const allProfiles = db.getProfiles() || [];
+  const adminKey = allProfiles.find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim() || "";
+  const anyKey = allProfiles.find((p) => p.llm_api_key?.trim())?.llm_api_key?.trim() || "";
+  const trimmedKey = customApiKey?.trim() || (db.getSettings()?.default_llm_api_key || "").trim() || adminKey || anyKey || "";
+  if (trimmedKey.startsWith("gsk_")) {
+    try {
+      const groqRes = await withTimeout(
+        fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${trimmedKey}`
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              ...systemInstruction ? [{ role: "system", content: systemInstruction }] : [],
+              { role: "user", content: fullPrompt }
+            ],
+            temperature: 0.4
+          })
+        }),
+        12e3
+      );
+      if (groqRes.ok) {
+        const json = await groqRes.json();
+        const text = json?.choices?.[0]?.message?.content?.trim();
+        if (text) return formatCleanChatMessage(text);
+      }
+    } catch (err) {
+      console.warn("[AI Service] Groq call warning:", err?.message || err);
+    }
+  }
+  if (trimmedKey.startsWith("sk-") && !trimmedKey.startsWith("sk-ant-")) {
+    try {
+      const isOpenRouter = trimmedKey.startsWith("sk-or-");
+      const endpoint = isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
+      const openAiRes = await withTimeout(
+        fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${trimmedKey}`
+          },
+          body: JSON.stringify({
+            model: isOpenRouter ? "google/gemini-2.5-flash" : "gpt-4o-mini",
+            messages: [
+              ...systemInstruction ? [{ role: "system", content: systemInstruction }] : [],
+              { role: "user", content: fullPrompt }
+            ],
+            temperature: 0.4
+          })
+        }),
+        12e3
+      );
+      if (openAiRes.ok) {
+        const json = await openAiRes.json();
+        const text = json?.choices?.[0]?.message?.content?.trim();
+        if (text) return formatCleanChatMessage(text);
+      }
+    } catch (err) {
+      console.warn("[AI Service] OpenAI/OpenRouter call warning:", err?.message || err);
+    }
+  }
+  const clients = getGeminiClients(trimmedKey);
+  for (const ai of clients.slice(0, 3)) {
     for (const modelName of CANDIDATE_MODELS) {
       try {
         const response = await withTimeout(
@@ -4460,23 +4648,43 @@ async function callGemini(fullPrompt, customApiKey, systemInstruction) {
             contents: fullPrompt,
             config: {
               ...systemInstruction ? { systemInstruction } : {},
-              thinkingConfig: { thinkingBudget: 0 },
-              temperature: 0.35
+              temperature: 0.4
             }
           }),
-          5500
+          14e3
         );
         const reply = response.text?.trim();
         if (reply) return formatCleanChatMessage(reply);
       } catch (err) {
         const msg = String(err?.message || err || "");
-        console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 120));
-        if (err?.status === 503 || msg.includes("503") || msg.includes("high demand") || msg.includes("UNAVAILABLE")) {
-          consecutive503++;
-          if (consecutive503 >= 2) {
-            return null;
-          }
+        console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 160));
+      }
+    }
+  }
+  const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith("AIza"));
+  for (const key of directKeys.slice(0, 2)) {
+    for (const restModel of ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"]) {
+      try {
+        const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
+        const restRes = await withTimeout(
+          fetch(restUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {},
+              contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+              generationConfig: { temperature: 0.4 }
+            })
+          }),
+          12e3
+        );
+        if (restRes.ok) {
+          const data = await restRes.json();
+          const text = data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("").trim();
+          if (text) return formatCleanChatMessage(text);
         }
+      } catch (restErr) {
+        console.warn(`[AI Service] Direct REST ${restModel} warning:`, restErr?.message || restErr);
       }
     }
   }
@@ -4569,12 +4777,21 @@ function buildSmartBanglaFallbackFromPrompt(incomingMessage, systemPrompt, busin
 \u2022 \u0986\u09AE\u09B0\u09BE \u09AE\u09C7\u099F\u09BE\u09B0 \u09E7\u09E6\u09E6% \u0985\u09AB\u09BF\u09B6\u09BF\u09DF\u09BE\u09B2 Cloud & Graph API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BF, \u09A4\u09BE\u0987 \u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09C7\u09B8\u09AC\u09C1\u0995 \u09AA\u09C7\u099C \u09AC\u09BE \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09AC\u09CD\u09AF\u09BE\u09A8 \u09AC\u09BE \u09B0\u09C7\u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0995\u09CD\u099F\u09C7\u09A1 \u09B9\u0993\u09DF\u09BE\u09B0 \u09E6% \u099D\u09C1\u0981\u0995\u09BF\u0993 \u09A8\u09C7\u0987\u0964
 \u2022 \u098F\u09AC\u0982 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 (\u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09C7\u09B8\u09C7\u099C\u09C7 \u0986\u09B2\u09BE\u09A6\u09BE \u0995\u09CB\u09A8\u09CB \u099F\u09BE\u0995\u09BE \u0995\u09BE\u099F\u09C7 \u09A8\u09BE)!`;
     }
-    if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("payment") || q.includes("pay") || q.includes("coupon") || q.includes("discount") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F") || q.includes("\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F") || q.includes("\u0995\u09C1\u09AA\u09A8") || q.includes("\u099B\u09BE\u09DC")) {
+    if (q.includes("coupon") || q.includes("cupon") || q.includes("copon") || q.includes("promo") || q.includes("discount") || q.includes("offer") || q.includes("kom") || q.includes("\u0995\u09C1\u09AA\u09A8") || q.includes("\u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F") || q.includes("\u09AA\u09CD\u09B0\u09CB\u09AE\u09CB") || q.includes("\u099B\u09BE\u09DC") || q.includes("\u099B\u09BE\u09A1\u09BC") || q.includes("\u0985\u09AB\u09BE\u09B0") || q.includes("\u0995\u09AE\u09BE\u09A8\u09CB")) {
+      return `\u099C\u09CD\u09AC\u09C0 \u09AD\u09BE\u0987\u09DF\u09BE! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09BE\u09AC\u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09B6\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0993 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE \u09B0\u09DF\u09C7\u099B\u09C7: \u{1F381}
+
+\u{1F39F}\uFE0F \u09E7) \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0: \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online) \u09A5\u09C7\u0995\u09C7 \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09A8\u09C7\u0993\u09DF\u09BE\u09B0 \u09B8\u09AE\u09DF \u099A\u09C7\u0995\u0986\u0989\u099F \u09AA\u09C7\u099C\u09C7 "Have a Coupon / Promo Code?" \u09AC\u0995\u09CD\u09B8\u09C7 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09B8\u09BF\u09DF\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09AA\u09BE\u09AC\u09C7\u09A8 (\u09AF\u09C7\u09AE\u09A8 \u09A8\u09A4\u09C1\u09A8 \u09AE\u09BE\u09B0\u09CD\u099A\u09C7\u09A8\u09CD\u099F\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09B8\u09CD\u09AA\u09C7\u09B6\u09BE\u09B2 \u0995\u09CB\u09A1: WELCOME10 \u09A6\u09BF\u09DF\u09C7 \u09E7\u09E6% \u099B\u09BE\u09DC \u0985\u09A5\u09AC\u09BE SAVE250 \u09A6\u09BF\u09DF\u09C7 \u09F3\u09E8\u09EB\u09E6 \u099B\u09BE\u09DC)\u0964
+\u{1F381} \u09E8) \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2: \u0995\u09CB\u09A8\u09CB \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u099B\u09BE\u09DC\u09BE\u0987 \u09B6\u09C1\u09B0\u09C1\u09A4\u09C7 \u09E8 \u09A6\u09BF\u09A8 \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF\u09A4\u09C7 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09B8\u09AC \u09AA\u09CD\u09B0\u09BF\u09AE\u09BF\u09DF\u09BE\u09AE \u09AB\u09BF\u099A\u09BE\u09B0 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09C7 \u09A6\u09C7\u0996\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8!
+\u{1F4DE} \u09E9) \u09B8\u09CD\u09AA\u09C7\u09B6\u09BE\u09B2 \u0995\u09BE\u09B8\u09CD\u099F\u09AE \u0985\u09AB\u09BE\u09B0 \u09AC\u09BE \u09AC\u09BE\u09B0\u09CD\u09B7\u09BF\u0995 \u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C\u09C7 \u0985\u09A4\u09BF\u09B0\u09BF\u0995\u09CD\u09A4 \u099B\u09BE\u09DC\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 (+8801601705804) \u09AE\u09C7\u09B8\u09C7\u099C \u09AC\u09BE \u0995\u09B2 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8\u0964
+
+\u0986\u09AA\u09A8\u09BF \u0995\u09CB\u09A8 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u099F\u09BF (Starter \u09F3\u09E7,\u09E8\u09EB\u09E6 \u09A8\u09BE\u0995\u09BF Pro \u09F3\u09E7,\u09EF\u09EB\u09E6) \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u099A\u09CD\u099B\u09C7\u09A8?`;
+    }
+    if (q.includes("bkash") || q.includes("nagad") || q.includes("rocket") || q.includes("upay") || q.includes("payment") || q.includes("pay") || q.includes("\u09AC\u09BF\u0995\u09BE\u09B6") || q.includes("\u09A8\u0997\u09A6") || q.includes("\u09B0\u0995\u09C7\u099F") || q.includes("\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F")) {
       return `\u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09BE\u09B0 \u09A8\u09BF\u09DF\u09AE \u098F\u0995\u09A6\u09AE \u09B8\u09B9\u099C:
 
 \u{1F4B3} \u09E7) \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F (https://www.oneagentbd.online)-\u098F \u09B2\u0997\u0987\u09A8 \u0995\u09B0\u09C7 "Billing & Plan" \u09AE\u09C7\u09A8\u09C1\u09A4\u09C7 \u09AF\u09BE\u09A8\u0964
-\u{1F4F2} \u09E8) \u09AC\u09BF\u0995\u09BE\u09B6 (bKash), \u09A8\u0997\u09A6 (Nagad), \u09B0\u0995\u09C7\u099F (Rocket) \u09AC\u09BE \u0989\u09AA\u09BE\u09DF (Upay)-\u098F\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE\u09C7 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 Transaction ID (TrxID) \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964
-\u{1F39F}\uFE0F \u09E9) \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF Coupon Code \u09AC\u0995\u09CD\u09B8\u09C7 \u09AA\u09CD\u09B0\u09CB\u09AE\u09CB \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09C7\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
+\u{1F4F2} \u09E8) \u09AC\u09BF\u0995\u09BE\u09B6 (bKash), \u09A8\u0997\u09A6 (Nagad), \u09B0\u0995\u09C7\u099F (Rocket) \u09AC\u09BE \u0989\u09AA\u09BE\u09DF (Upay)-\u098F\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE\u09C7 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 Transaction ID (TrxID) \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u0964
+\u{1F39F}\uFE0F \u09E9) \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF Coupon Code \u09AC\u0995\u09CD\u09B8\u09C7 \u09AA\u09CD\u09B0\u09CB\u09AE\u09CB \u0995\u09CB\u09A1 (\u09AF\u09C7\u09AE\u09A8 WELCOME10) \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F\u0993 \u09AA\u09C7\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8!`;
     }
     if (q.includes("trial") || q.includes("trail") || q.includes("free") || q.includes("\u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2") || q.includes("\u09AB\u09CD\u09B0\u09BF")) {
       return `\u099C\u09CD\u09AC\u09C0! \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 \u09A8\u09A4\u09C1\u09A8 \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09B2\u09C7\u0987 \u09AA\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 (\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2\u2014\u0995\u09CB\u09A8\u09CB \u0995\u09CD\u09B0\u09C7\u09A1\u09BF\u099F \u0995\u09BE\u09B0\u09CD\u09A1 \u09AC\u09BE \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B2\u09BE\u0997\u09AC\u09C7 \u09A8\u09BE\u0964
@@ -4705,13 +4922,35 @@ ${kbOverview}
 async function generateAIReply(params) {
   const profile = db.getProfileById(params.userId);
   const businessName = params.channelName || profile?.full_name || "One Agent BD";
-  const rawSystemPrompt = params.overrideSystemPrompt && params.overrideSystemPrompt.trim() || profile?.system_prompt && profile.system_prompt.trim() || `You are the polite, helpful customer service AI agent for ${businessName}.`;
-  const systemPrompt = rawSystemPrompt.replace(/in 1-2 clear English sentences/gi, "in 1-3 clear, polite Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 clear, courteous English sentences/gi, "in 1-3 clear, courteous Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 polite, clear English sentences/gi, "in 1-3 polite, clear Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in 1-2 informative, concise English sentences/gi, "in 1-3 informative, concise Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences").replace(/in clear, friendly English/gi, "in clear, friendly Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 concise English sentences/gi, "in 1-3 concise Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) sentences");
+  const defaultSavedPrompt = (db.getSettings()?.default_system_prompt || "").trim();
+  const adminCustomPrompt = profile?.role === "admin" ? db.getProfiles().find(
+    (p) => p.role === "admin" && p.system_prompt && !p.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !p.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month")
+  )?.system_prompt || "" : "";
+  const rawSystemPrompt = params.overrideSystemPrompt && params.overrideSystemPrompt.trim() || (profile?.system_prompt && !profile.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !profile.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") ? profile.system_prompt.trim() : "") || defaultSavedPrompt || adminCustomPrompt || profile?.system_prompt && profile.system_prompt.trim() || `You are the polite, helpful customer service AI agent for ${businessName}.`;
+  const systemPrompt = rawSystemPrompt.replace(/in 1-2 clear English sentences/gi, "in clear, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 clear, courteous English sentences/gi, "in clear, courteous Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 polite, clear English sentences/gi, "in polite, clear Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 informative, concise English sentences/gi, "in informative, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in clear, friendly English/gi, "in clear, friendly Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/in 1-2 concise English sentences/gi, "in natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE)").replace(/Respond politely and directly in 1-2 concise English sentences\./gi, "\u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0993 \u09B8\u09CD\u09AC\u09BE\u09AD\u09BE\u09AC\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8\u0964");
+  const isOneAgentSaaS = businessName.toLowerCase().includes("one agent") || systemPrompt.includes("Starter AI Plan") || systemPrompt.includes("oneagentbd.online") || profile?.role === "admin";
+  const activeCoupons = (db.getCoupons() || []).filter((c) => c.is_active);
+  const couponSummary = activeCoupons.length > 0 ? activeCoupons.slice(0, 4).map(
+    (c) => `${c.code} (${c.discount_type === "percentage" ? `${c.discount_value}% \u099B\u09BE\u09DC` : `\u09F3${c.discount_value} \u099B\u09BE\u09DC`})`
+  ).join(", ") : "WELCOME10 (\u09E7\u09E6% \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F), SAVE250 (\u09F3\u09E8\u09EB\u09E6 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F)";
+  const oneAgentExtendedKnowledge = isOneAgentSaaS ? `
+[ONE AGENT BD COMPLETE SAAS KNOWLEDGE BASE \u2014 FOR ANSWERING ANY UNSCRIPTED QUESTION]:
+- \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u099F\u09AB\u09B0\u09CD\u09AE\u09C7\u09B0 \u0995\u09BE\u099C: One Agent BD \u09B9\u09B2\u09CB \u09AC\u09BE\u0982\u09B2\u09BE\u09A6\u09C7\u09B6\u09C7\u09B0 \u0985\u09B2-\u0987\u09A8-\u0993\u09DF\u09BE\u09A8 AI Sales, Auto-Reply \u0993 Order Management SaaS \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u099F\u09AB\u09B0\u09CD\u09AE\u0964 \u098F\u099F\u09BF Facebook Page, Instagram, WhatsApp \u098F\u09AC\u0982 Website-\u098F \u09E8\u09EA/\u09ED \u09AE\u09BE\u09A8\u09C1\u09B7\u09C7\u09B0 \u09AE\u09A4\u09CB \u09B8\u09CD\u09AE\u09BE\u09B0\u09CD\u099F\u09AD\u09BE\u09AC\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09A6\u09C7\u09B0 \u09AE\u09C7\u09B8\u09C7\u099C \u0993 \u0995\u09AE\u09C7\u09A8\u09CD\u099F\u09C7\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09DF \u098F\u09AC\u0982 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C7\u0964
+- \u0995\u09BE\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0989\u09AA\u09AF\u09C1\u0995\u09CD\u09A4: \u09AF\u09C7\u0995\u09CB\u09A8\u09CB F-Commerce \u09AC\u09BE E-Commerce \u09AA\u09C7\u099C (\u0995\u09BE\u09AA\u09DC, \u09AB\u09CD\u09AF\u09BE\u09B6\u09A8, \u0997\u09CD\u09AF\u09BE\u099C\u09C7\u099F, \u0995\u09B8\u09AE\u09C7\u099F\u09BF\u0995\u09B8, \u0996\u09BE\u09AC\u09BE\u09B0/\u09B0\u09C7\u09B8\u09CD\u099F\u09C1\u09B0\u09C7\u09A8\u09CD\u099F, \u0986\u0987\u099F\u09BF \u09B8\u09BE\u09B0\u09CD\u09AD\u09BF\u09B8, \u0995\u09CD\u09B2\u09BF\u09A8\u09BF\u0995 \u09AC\u09BE \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u0985\u09A8\u09B2\u09BE\u0987\u09A8 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8) \u09AF\u09BE\u09B0\u09BE \u098F\u0995\u09BE \u09AE\u09C7\u09B8\u09C7\u099C \u09B8\u09BE\u09AE\u09B2\u09BE\u09A4\u09C7 \u09B9\u09BF\u09AE\u09B6\u09BF\u09AE \u0996\u09BE\u099A\u09CD\u099B\u09C7\u09A8 \u09AC\u09BE \u09B0\u09BE\u09A4-\u09A6\u09BF\u09A8 \u09E8\u09EA \u0998\u09A3\u09CD\u099F\u09BE \u09B8\u09C7\u09B2\u09B8 \u09AC\u09BE\u09DC\u09BE\u09A4\u09C7 \u099A\u09BE\u09A8\u0964 \u0995\u09CB\u09A1\u09BF\u0982 \u09AC\u09BE \u099F\u09C7\u0995\u09A8\u09BF\u0995\u09CD\u09AF\u09BE\u09B2 \u0995\u09CB\u09A8\u09CB \u099C\u09CD\u099E\u09BE\u09A8\u09C7\u09B0\u0987 \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8 \u09A8\u09C7\u0987\u2014\u09AE\u09BE\u09A4\u09CD\u09B0 \u09E8 \u09AE\u09BF\u09A8\u09BF\u099F\u09C7 \u09E7 \u0995\u09CD\u09B2\u09BF\u0995\u09C7\u0987 \u09B8\u09C7\u099F\u0986\u09AA \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u0964
+- \u09E8\u099F\u09BF \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u0993 \u09A6\u09BE\u09AE:
+  \u09E7) Starter AI Plan \u2014 \u09F3\u09E7,\u09E8\u09EB\u09E6 \u099F\u09BE\u0995\u09BE/\u09AE\u09BE\u09B8 (\u09E8 \u09AE\u09BE\u09B8 \u09F3\u09E8,\u09EB\u09E6\u09E6 | \u09E9 \u09AE\u09BE\u09B8 \u09F3\u09E9,\u09ED\u09EB\u09E6 | \u09EC \u09AE\u09BE\u09B8 \u09F3\u09ED,\u09EB\u09E6\u09E6 | \u09E7 \u09AC\u099B\u09B0/\u09E7\u09E8 \u09AE\u09BE\u09B8 \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE):
+     \u2022 \u09E7\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, Facebook, Instagram, WhatsApp \u0993 Website \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F, \u09EB\u09E6\u099F\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997, \u0985\u099F\u09CB \u0995\u09AE\u09C7\u09A8\u09CD\u099F \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987, \u0985\u099F\u09CB \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0997\u09CD\u09B0\u09B9\u09A3 \u098F\u09AC\u0982 \u09E7-\u0995\u09CD\u09B2\u09BF\u0995\u09C7 Steadfast, Pathao \u0993 RedX \u0995\u09C1\u09B0\u09BF\u09DF\u09BE\u09B0 \u09AC\u09C1\u0995\u09BF\u0982\u0964
+  \u09E8) Pro Business Plan \u2014 \u09F3\u09E7,\u09EF\u09EB\u09E6 \u099F\u09BE\u0995\u09BE/\u09AE\u09BE\u09B8 (\u09E8 \u09AE\u09BE\u09B8 \u09F3\u09E9,\u09EF\u09E6\u09E6 | \u09E9 \u09AE\u09BE\u09B8 \u09F3\u09EB,\u09EE\u09EB\u09E6 | \u09EC \u09AE\u09BE\u09B8 \u09F3\u09E7\u09E7,\u09ED\u09E6\u09E6 | \u09E7 \u09AC\u099B\u09B0/\u09E7\u09E8 \u09AE\u09BE\u09B8 \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE):
+     \u2022 \u09E9\u099F\u09BF AI \u098F\u099C\u09C7\u09A8\u09CD\u099F, \u09AD\u09DF\u09C7\u09B8 \u09AE\u09C7\u09B8\u09C7\u099C \u09B6\u09C1\u09A8\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 (Voice AI), \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u09C7\u09B0 \u099B\u09AC\u09BF \u09A6\u09C7\u0996\u09C7 \u09A6\u09BE\u09AE \u0993 \u09AC\u09BF\u09AC\u09B0\u09A3 \u09AC\u09B2\u09BE (Image Recognition AI), \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u0993 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F/Shopify/WooCommerce \u09B8\u09BF\u0999\u09CD\u0995 \u098F\u09AC\u0982 \u09E8\u09EA/\u09ED \u09AD\u09BF\u0986\u0987\u09AA\u09BF \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F\u0964
+- \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2: \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09A8\u09A4\u09C1\u09A8 \u0987\u0989\u099C\u09BE\u09B0 \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7 (https://www.oneagentbd.online) \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0996\u09C1\u09B2\u09C7\u0987 \u09E8 \u09A6\u09BF\u09A8\u09C7\u09B0 (\u09EA\u09EE \u0998\u09A3\u09CD\u099F\u09BE) \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09CD\u09B0\u09BF \u099F\u09CD\u09B0\u09BE\u09DF\u09BE\u09B2 \u09A8\u09BF\u09DF\u09C7 \u09B8\u09AC \u09AB\u09BF\u099A\u09BE\u09B0 \u099F\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09AC\u09C7\u09A8 (\u0995\u09CB\u09A8\u09CB \u0985\u0997\u09CD\u09B0\u09BF\u09AE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B2\u09BE\u0997\u09AC\u09C7 \u09A8\u09BE)\u0964
+- \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u0993 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F (Coupon & Discount Policy): \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09BE \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u099A\u09BE\u0987\u09B2\u09C7 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8 \u09AF\u09C7 \u099A\u09C7\u0995\u0986\u0989\u099F\u09C7\u09B0 \u09B8\u09AE\u09DF \u09AA\u09CD\u09B0\u09CB\u09AE\u09CB \u0995\u09CB\u09A1 \u09AC\u0995\u09CD\u09B8\u09C7 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C7 \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u09A8\u09C7\u0993\u09DF\u09BE \u09AF\u09BE\u09DF\u0964 \u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u099A\u09B2 \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1\u09B8\u09AE\u09C2\u09B9: ${couponSummary}\u0964 \u098F\u099B\u09BE\u09DC\u09BE \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F\u09C7\u09B0 \u09B2\u09BE\u0987\u09AD \u099A\u09CD\u09AF\u09BE\u099F\u09AC\u099F \u09A5\u09C7\u0995\u09C7 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09B0\u09BF\u09AD\u09BF\u0989/\u09AE\u09BE\u09B8\u09BF\u0995 \u09B8\u09C7\u09B2\u09B8 \u099C\u09BE\u09A8\u09BF\u09DF\u09C7 \u09E7\u09EB% \u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F \u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u099C\u09C7\u09A8\u09BE\u09B0\u09C7\u099F \u0995\u09B0\u09BE \u09AF\u09BE\u09DF \u0995\u09BF\u0982\u09AC\u09BE \u09AC\u09DC \u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C\u09C7 \u09B8\u09CD\u09AA\u09C7\u09B6\u09BE\u09B2 \u099B\u09BE\u09DC\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F\u09C7 (+8801601705804) \u0995\u09A5\u09BE \u09AC\u09B2\u09BE \u09AF\u09BE\u09AC\u09C7\u0964
+- \u09A8\u09BF\u09B0\u09BE\u09AA\u09A4\u09CD\u09A4\u09BE \u0993 \u09AE\u09C7\u09B8\u09C7\u099C \u09B2\u09BF\u09AE\u09BF\u099F: \u09AE\u09C7\u099F\u09BE\u09B0 \u09E7\u09E6\u09E6% \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 Graph \u0993 Cloud API \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09BE \u09B9\u09DF, \u09A4\u09BE\u0987 \u09AA\u09C7\u099C \u09AC\u09BE \u0986\u0987\u09A1\u09BF \u09AC\u09CD\u09AF\u09BE\u09A8 \u09B9\u0993\u09DF\u09BE\u09B0 \u09E6% \u099D\u09C1\u0981\u0995\u09BF\u0993 \u09A8\u09C7\u0987\u0964 \u0989\u09AD\u09DF \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8\u09C7\u0987 \u0986\u09A8\u09B2\u09BF\u09AE\u09BF\u099F\u09C7\u09A1 \u09AE\u09C7\u09B8\u09C7\u099C \u09B0\u09BF\u09AA\u09CD\u09B2\u09BE\u0987 (\u09AA\u09CD\u09B0\u09A4\u09BF \u09AE\u09C7\u09B8\u09C7\u099C\u09C7 \u0986\u09B2\u09BE\u09A6\u09BE \u0995\u09CB\u09A8\u09CB \u099A\u09BE\u09B0\u09CD\u099C \u09A8\u09C7\u0987)\u0964
+- \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0993 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F: \u09AC\u09BF\u0995\u09BE\u09B6, \u09A8\u0997\u09A6, \u09B0\u0995\u09C7\u099F \u0993 \u0989\u09AA\u09BE\u09DF (pay.oneagentbd.online)-\u098F\u09B0 \u09AE\u09BE\u09A7\u09CD\u09AF\u09AE\u09C7 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0995\u09B0\u09C7 TrxID \u09A6\u09BF\u09B2\u09C7\u0987 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09B8\u09BE\u09A5\u09C7 \u09B8\u09BE\u09A5\u09C7 \u0985\u099F\u09CB\u09AE\u09C7\u099F\u09BF\u0995 \u0985\u09CD\u09AF\u09BE\u0995\u09CD\u099F\u09BF\u09AD \u09B9\u09DF\u0964 \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u0993 \u09B9\u09C7\u09B2\u09CD\u09AA\u09B2\u09BE\u0987\u09A8 (\u09B8\u0995\u09BE\u09B2 \u09EF\u099F\u09BE \u2013 \u09B0\u09BE\u09A4 \u09E7\u09E7\u099F\u09BE): +8801601705804 (WhatsApp/Call), \u0987\u09AE\u09C7\u0987\u09B2: support.oneagentbd@gmail.com, \u0993\u09DF\u09C7\u09AC\u09B8\u09BE\u0987\u099F: https://www.oneagentbd.online\u0964` : "";
   const merchantProducts = db.getProducts(params.userId) || [];
   const catalogContext = merchantProducts.length > 0 ? merchantProducts.map(
     (p) => `- ${p.name}: ${p.price} ${p.currency} (Category: ${p.category}, Status: ${p.stock_status}). Details: ${p.description}`
   ).join("\n") : `(\u0995\u09CB\u09A8\u09CB \u0986\u09B2\u09BE\u09A6\u09BE \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997 \u09AF\u09CB\u0997 \u0995\u09B0\u09BE \u09B9\u09DF\u09A8\u09BF \u2014 \u0989\u09AA\u09B0\u09C7\u09B0 Business Knowledge Base / System Instructions \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8)`;
-  const recentHistory = (params.history || []).filter((m) => m.message_text && !m.message_text.startsWith("[Attachment]")).slice(-5).map((m) => `${m.direction === "inbound" ? "Customer" : "Assistant"}: ${m.message_text}`).join("\n");
+  const recentHistory = (params.history || []).filter((m) => m.message_text && !m.message_text.startsWith("[Attachment]")).slice(-8).map((m) => `${m.direction === "inbound" ? "Customer" : "Assistant"}: ${m.message_text}`).join("\n");
   const incomingLower = (params.incomingMessage || "").toLowerCase();
   const isAskingForImage = incomingLower.includes("picture") || incomingLower.includes("photo") || incomingLower.includes("chobi") || incomingLower.includes("dekhan") || incomingLower.includes("image") || incomingLower.includes("pic") || incomingLower.includes("dekhte chai") || incomingLower.includes("look like") || incomingLower.includes("pic din") || incomingLower.includes("\u099B\u09AC\u09BF") || incomingLower.includes("\u09AA\u09BF\u0995") || incomingLower.includes("\u09A6\u09C7\u0996\u09BE\u09A8");
   const isAskingForDetails = incomingLower.includes("detail") || incomingLower.includes("spec") || incomingLower.includes("feature") || incomingLower.includes("fabric") || incomingLower.includes("material") || incomingLower.includes("size") || incomingLower.includes("color") || incomingLower.includes("warranty") || incomingLower.includes("kemon") || incomingLower.includes("bistarito") || incomingLower.includes("ki ki ache") || incomingLower.includes("price") || incomingLower.includes("dam") || incomingLower.includes("cost") || incomingLower.includes("\u09A6\u09BE\u09AE") || incomingLower.includes("\u0995\u09A4") || incomingLower.includes("\u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4");
@@ -4719,12 +4958,14 @@ async function generateAIReply(params) {
   if (params.incomingMessage && merchantProducts.length > 0) {
     matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
   }
+  const combinedSystemPrompt = `${systemPrompt}${oneAgentExtendedKnowledge ? `
+${oneAgentExtendedKnowledge}` : ""}`;
   if (params.audioBase64) {
     console.log(`[AI Service] Processing voice note for customer ${params.customerId}`);
     const voiceResult = await callGeminiWithAudio(
       params.audioBase64,
       params.audioMimeType || "audio/ogg",
-      systemPrompt,
+      combinedSystemPrompt,
       businessName,
       recentHistory,
       catalogContext,
@@ -4749,7 +4990,7 @@ async function generateAIReply(params) {
       params.imageBase64,
       params.imageMimeType || "image/jpeg",
       params.incomingMessage,
-      systemPrompt,
+      combinedSystemPrompt,
       businessName,
       catalogContext,
       recentHistory,
@@ -4781,11 +5022,19 @@ async function generateAIReply(params) {
       isVoice: false
     };
   }
-  const languageDirective = `CRITICAL MANDATORY LANGUAGE & FORMATTING RULES (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
-- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE (Bangla script), \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish - \u0987\u0982\u09B0\u09C7\u099C\u09BF \u0985\u0995\u09CD\u09B7\u09B0\u09C7 \u09AC\u09BE\u0982\u09B2\u09BE \u09B2\u09C7\u0996\u09BE \u09AF\u09C7\u09AE\u09A8: "1 bochorer jonno koto", "dam koto", "ki ki service ache", "order korbo kivabe", "hello") \u0985\u09A5\u09AC\u09BE \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995 \u09A8\u09BE \u0995\u09C7\u09A8, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (Bengali script: \u09AC\u09BE\u0982\u09B2\u09BE\u09DF) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964
-- \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A0\u09BF\u0995 \u09AF\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u099F\u09BF \u0995\u09B0\u09C7\u099B\u09C7, \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09B8\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u09B8\u09A0\u09BF\u0995 \u0989\u09A4\u09CD\u09A4\u09B0 \u0986\u0997\u09C7 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964 \u0985\u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u0995\u09A5\u09BE \u09AC\u09BE \u0985\u09A8\u09CD\u09AF \u099F\u09AA\u09BF\u0995 \u099F\u09C7\u09A8\u09C7 \u0986\u09A8\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964
-- \u09AF\u09A6\u09BF \u09AE\u09BE\u09B8\u09BF\u0995 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09AC\u09BE \u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C\u09C7\u09B0 \u09A6\u09BE\u09AE \u09A6\u09C7\u0993\u09DF\u09BE \u09A5\u09BE\u0995\u09C7 (\u09AF\u09C7\u09AE\u09A8 Starter \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u0993 Pro \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8) \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09E8 \u09AE\u09BE\u09B8, \u09E9 \u09AE\u09BE\u09B8, \u09EC \u09AE\u09BE\u09B8 \u09AC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u0996\u09B0\u099A \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09DF, \u09A4\u09AC\u09C7 \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u0982\u0996\u09CD\u09AF\u09BE \u09A6\u09BF\u09DF\u09C7 \u0997\u09C1\u09A3 \u0995\u09B0\u09C7 \u09B8\u09A0\u09BF\u0995 \u09AE\u09CB\u099F \u0996\u09B0\u099A\u099F\u09BF (\u09AF\u09C7\u09AE\u09A8 \u09E7 \u09AC\u099B\u09B0\u09C7 Starter \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09E7,\u09E8\u09EB\u09E6 \xD7 \u09E7\u09E8 = \u09F3\u09E7\u09EB,\u09E6\u09E6\u09E6 \u099F\u09BE\u0995\u09BE \u098F\u09AC\u0982 Pro \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8: \u09E7,\u09EF\u09EB\u09E6 \xD7 \u09E7\u09E8 = \u09F3\u09E8\u09E9,\u09EA\u09E6\u09E6 \u099F\u09BE\u0995\u09BE) \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0\u09AD\u09BE\u09AC\u09C7 \u09B9\u09BF\u09B8\u09BE\u09AC \u0995\u09B0\u09C7 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8\u0964
-- \u09AE\u09C7\u09B8\u09C7\u099C \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F (Message Formatting): \u09AE\u09C7\u09B8\u09C7\u099E\u09CD\u099C\u09BE\u09B0 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AA\u09DC\u09BE\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0989\u09A4\u09CD\u09A4\u09B0\u099F\u09BF \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u09B2\u09BE\u0987\u09A8 \u09AC\u09CD\u09B0\u09C7\u0995 (\u09A8\u09A4\u09C1\u09A8 \u09B2\u09BE\u0987\u09A8) \u098F\u09AC\u0982 \u09AC\u09C1\u09B2\u09C7\u099F \u09AA\u09DF\u09C7\u09A8\u09CD\u099F (\u2022 \u09AC\u09BE \u2705) \u09A6\u09BF\u09DF\u09C7 \u09B8\u09BE\u099C\u09BF\u09DF\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 \u098F\u0995 \u09AA\u09CD\u09AF\u09BE\u09B0\u09BE\u0997\u09CD\u09B0\u09BE\u09AB\u09C7 \u09B8\u09AC \u0997\u09BE\u09A6\u09BE\u0997\u09BE\u09A6\u09BF \u0995\u09B0\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8 \u09A8\u09BE \u098F\u09AC\u0982 \u0995\u0996\u09A8\u09CB\u0987 ** \u09AC\u09BE # \u099A\u09BF\u09B9\u09CD\u09A8 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964`;
+  const languageDirective = `CRITICAL INTELLIGENT REASONING & LANGUAGE RULES (\u0985\u09AC\u09B6\u09CD\u09AF\u0987 \u09AA\u09BE\u09B2\u09A8\u09C0\u09DF):
+\u09E7. \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u0985\u09B0\u09CD\u09A5 \u09AC\u09C1\u099D\u09C7 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u0993\u09DF\u09BE (Smart Intent & Contextual Reasoning):
+   - \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09B8\u09AC\u09B8\u09AE\u09DF \u098F\u0995\u0987 \u09AD\u09BE\u09B7\u09BE\u09DF \u09AC\u09BE \u09AA\u09CD\u09B0\u09AE\u09CD\u09AA\u099F\u09C7 \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7 \u09B2\u09C7\u0996\u09BE \u0986\u099B\u09C7 \u09B9\u09C1\u09AC\u09B9\u09C1 \u09B8\u09C7\u09AD\u09BE\u09AC\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09AC\u09C7 \u09A8\u09BE\u0964 \u09A4\u09BE\u09B0\u09BE \u0998\u09C1\u09B0\u09BF\u09DF\u09C7 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7, \u09A8\u09BF\u099C\u09C7\u09B0 \u09B8\u09AE\u09B8\u09CD\u09AF\u09BE\u09B0 \u0995\u09A5\u09BE \u09AC\u09B2\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7, \u0985\u09A5\u09AC\u09BE \u09AC\u09BE\u0982\u09B2\u09BE, \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 (Banglish) \u09AC\u09BE \u0995\u09A5\u09CD\u09AF \u09AD\u09BE\u09B7\u09BE\u09DF \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09A8\u09A4\u09C1\u09A8 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u0964
+   - \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u09AA\u09CD\u09B0\u09AE\u09CD\u09AA\u099F\u09C7\u09B0 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8 (Business Knowledge Base) \u0993 \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u09B2\u0997\u09C7\u09B0 \u09B8\u09AC \u09A4\u09A5\u09CD\u09AF \u09AD\u09BE\u09B2\u09CB\u09AD\u09BE\u09AC\u09C7 \u09AC\u09C1\u099D\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0\u09C7\u09B0 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u09AE\u09C2\u09B2 \u0989\u09A6\u09CD\u09A6\u09C7\u09B6\u09CD\u09AF (Intent) \u09A7\u09B0\u09A4\u09C7 \u09B9\u09AC\u09C7 \u098F\u09AC\u0982 \u098F\u0995\u099C\u09A8 \u09A6\u0995\u09CD\u09B7, \u09AC\u09C1\u09A6\u09CD\u09A7\u09BF\u09AE\u09BE\u09A8 \u09AE\u09BE\u09A8\u09C1\u09B7\u09C7\u09B0 \u09AE\u09A4\u09CB \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u0993 \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A4\u09C7 \u09B9\u09AC\u09C7\u0964
+\u09E8. \u09AA\u09CD\u09B0\u09AE\u09CD\u09AA\u099F\u09C7 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09B2\u09C7\u0996\u09BE \u09A8\u09C7\u0987 \u098F\u09AE\u09A8 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u09C7\u09B0 \u09B8\u09AE\u09BE\u09A7\u09BE\u09A8 (Handling Unscripted / Indirect Questions):
+   - \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AF\u09A6\u09BF \u098F\u09AE\u09A8 \u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C7 \u09AF\u09BE \u09AC\u09BF\u099C\u09A8\u09C7\u09B8 \u09A1\u09BF\u099F\u09C7\u0987\u09B2\u09B8\u09C7 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF \u09B6\u09AC\u09CD\u09A6\u09C7-\u09B6\u09AC\u09CD\u09A6\u09C7 \u09B2\u09C7\u0996\u09BE \u09A8\u09C7\u0987 (\u09AF\u09C7\u09AE\u09A8: "\u0995\u09C1\u09AA\u09A8 \u0995\u09CB\u09A1 \u09AC\u09BE \u09A1\u09BF\u09B8\u0995\u09BE\u0989\u09A8\u09CD\u099F \u0986\u099B\u09C7 \u0995\u09BF?", "\u09A6\u09BE\u09AE \u0995\u09BF \u098F\u0995\u099F\u09C1 \u0995\u09AE\u09BE\u09A8\u09CB \u09AF\u09BE\u09AC\u09C7?", "\u0986\u09AE\u09BE\u09B0 \u09AA\u09C7\u099C\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u0995\u09CB\u09A8\u099F\u09BE \u09AD\u09BE\u09B2\u09CB \u09B9\u09AC\u09C7?", "\u098F\u099F\u09BE \u0995\u09C0\u09AD\u09BE\u09AC\u09C7 \u0986\u09AE\u09BE\u09B0 \u0995\u09BE\u099C\u09C7 \u09B2\u09BE\u0997\u09AC\u09C7?" \u09AC\u09BE \u0985\u09A8\u09CD\u09AF \u09AF\u09C7\u0995\u09CB\u09A8\u09CB \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8):
+   - \u0995\u0996\u09A8\u09CB\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8\u099F\u09BF \u098F\u09DC\u09BF\u09DF\u09C7 \u09AF\u09BE\u09AC\u09C7\u09A8 \u09A8\u09BE, \u0995\u0996\u09A8\u09CB\u0987 "\u0986\u09AE\u09BF \u099C\u09BE\u09A8\u09BF \u09A8\u09BE" \u09AC\u09B2\u09AC\u09C7\u09A8 \u09A8\u09BE \u098F\u09AC\u0982 \u0995\u0996\u09A8\u09CB\u0987 \u09B9\u09C1\u09AC\u09B9\u09C1 \u09AE\u09C1\u0996\u09B8\u09CD\u09A5 \u09B8\u09CD\u09AC\u09BE\u0997\u09A4\u09AE \u09AE\u09C7\u09B8\u09C7\u099C (Generic Greeting) \u0995\u09AA\u09BF-\u09AA\u09C7\u09B8\u09CD\u099F \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE!
+   - \u09AA\u09CD\u09B0\u09A5\u09AE\u09C7 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A0\u09BF\u0995 \u09AF\u09C7 \u09AC\u09BF\u09B7\u09DF\u09C7 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7 \u09B8\u09C7\u099F\u09BF\u09B0 \u09B8\u09B0\u09BE\u09B8\u09B0\u09BF, \u0986\u09A8\u09CD\u09A4\u09B0\u09BF\u0995 \u0993 \u09AC\u09C1\u09A6\u09CD\u09A7\u09BF\u09A6\u09C0\u09AA\u09CD\u09A4 \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09BF\u09A8 \u09AC\u09BF\u099C\u09A8\u09C7\u09B8\u09C7\u09B0 \u09A4\u09A5\u09CD\u09AF\u09C7\u09B0 \u0986\u09B2\u09CB\u0995\u09C7, \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u09C7 \u09AA\u09CD\u09B0\u09BE\u09B8\u0999\u09CD\u0997\u09BF\u0995 \u09AA\u09B0\u09BE\u09AE\u09B0\u09CD\u09B6 \u09AC\u09BE \u09B8\u09BE\u09AA\u09CB\u09B0\u09CD\u099F \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09A8\u0964
+\u09E9. \u09AD\u09BE\u09B7\u09BE \u0993 \u09B9\u09BF\u09B8\u09BE\u09AC (Language & Price Calculation):
+   - \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09AC\u09BE\u0982\u09B2\u09BE, \u09AC\u09BE\u0982\u09B2\u09BF\u09B6 \u09AC\u09BE \u09AF\u09C7\u09AD\u09BE\u09AC\u09C7\u0987 \u09AA\u09CD\u09B0\u09B6\u09CD\u09A8 \u0995\u09B0\u09C1\u0995, \u09B8\u09B0\u09CD\u09AC\u09A6\u09BE \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0, \u09AE\u09BE\u09B0\u09CD\u099C\u09BF\u09A4 \u0993 \u09AA\u09CD\u09B0\u09BE\u0995\u09C3\u09A4\u09BF\u0995 \u09AC\u09BE\u0982\u09B2\u09BE \u09AD\u09BE\u09B7\u09BE\u09DF (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) \u0989\u09A4\u09CD\u09A4\u09B0 \u09A6\u09C7\u09AC\u09C7\u09A8\u0964
+   - \u09AF\u09A6\u09BF \u09AE\u09BE\u09B8\u09BF\u0995 \u09AA\u09CD\u09B2\u09CD\u09AF\u09BE\u09A8 \u09AC\u09BE \u09AA\u09CD\u09AF\u09BE\u0995\u09C7\u099C\u09C7\u09B0 \u09A6\u09BE\u09AE \u09A6\u09C7\u0993\u09DF\u09BE \u09A5\u09BE\u0995\u09C7 (\u09AF\u09C7\u09AE\u09A8 Starter \u09F3\u09E7,\u09E8\u09EB\u09E6/\u09AE\u09BE\u09B8 \u0993 Pro \u09F3\u09E7,\u09EF\u09EB\u09E6/\u09AE\u09BE\u09B8) \u098F\u09AC\u0982 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09E8 \u09AE\u09BE\u09B8, \u09E9 \u09AE\u09BE\u09B8, \u09EC \u09AE\u09BE\u09B8 \u09AC\u09BE \u09E7 \u09AC\u099B\u09B0\u09C7\u09B0 (\u09E7\u09E8 \u09AE\u09BE\u09B8\u09C7\u09B0) \u0996\u09B0\u099A \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09BE\u09DF, \u09A4\u09AC\u09C7 \u09AE\u09BE\u09B8\u09C7\u09B0 \u09B8\u0982\u0996\u09CD\u09AF\u09BE \u09A6\u09BF\u09DF\u09C7 \u0997\u09C1\u09A3 \u0995\u09B0\u09C7 \u09B8\u09A0\u09BF\u0995 \u09AE\u09CB\u099F \u0996\u09B0\u099A\u099F\u09BF \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0\u09AD\u09BE\u09AC\u09C7 \u09B9\u09BF\u09B8\u09BE\u09AC \u0995\u09B0\u09C7 \u099C\u09BE\u09A8\u09BE\u09AC\u09C7\u09A8\u0964
+\u09EA. \u09AE\u09C7\u09B8\u09C7\u099C \u09AB\u09B0\u09AE\u09CD\u09AF\u09BE\u099F (Clean Chat Formatting):
+   - \u09AE\u09C7\u09B8\u09C7\u099E\u09CD\u099C\u09BE\u09B0 \u0993 \u09B9\u09CB\u09DF\u09BE\u099F\u09B8\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AA\u09DC\u09BE\u09B0 \u09B8\u09C1\u09AC\u09BF\u09A7\u09BE\u09B0 \u099C\u09A8\u09CD\u09AF \u0989\u09A4\u09CD\u09A4\u09B0\u099F\u09BF \u09B8\u09C1\u09A8\u09CD\u09A6\u09B0 \u09B2\u09BE\u0987\u09A8 \u09AC\u09CD\u09B0\u09C7\u0995 (\u09A8\u09A4\u09C1\u09A8 \u09B2\u09BE\u0987\u09A8) \u098F\u09AC\u0982 \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8\u09C7 \u09AC\u09C1\u09B2\u09C7\u099F \u09AA\u09DF\u09C7\u09A8\u09CD\u099F (\u2022 \u09AC\u09BE \u2705) \u09A6\u09BF\u09DF\u09C7 \u09B8\u09BE\u099C\u09BF\u09DF\u09C7 \u09B2\u09BF\u0996\u09AC\u09C7\u09A8\u0964 \u0995\u0996\u09A8\u09CB\u0987 ** \u09AC\u09BE # \u099A\u09BF\u09B9\u09CD\u09A8 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE\u0964`;
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance = "ORDER CONFIRMATION: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0 \u0995\u09B0\u09A4\u09C7 \u099A\u09BE\u0987\u09B2\u09C7 \u09AC\u09BE \u09A8\u09BE\u09AE, \u09A0\u09BF\u0995\u09BE\u09A8\u09BE \u0993 \u09AE\u09CB\u09AC\u09BE\u0987\u09B2 \u09A8\u09BE\u09AE\u09CD\u09AC\u09BE\u09B0 \u09A6\u09BF\u09B2\u09C7 \u0985\u09B0\u09CD\u09A1\u09BE\u09B0\u099F\u09BF \u0995\u09A8\u09AB\u09BE\u09B0\u09CD\u09AE \u0995\u09B0\u09C1\u09A8 \u098F\u09AC\u0982 \u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6 \u099C\u09BE\u09A8\u09BE\u09A8\u0964";
   if (orderSettings && orderSettings.enabled && orderSettings.instructions) {
@@ -4797,13 +5046,13 @@ Collect name, 11-digit mobile number, and address to finalize order.`;
   if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
     productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 "${matchedProduct.name}"-\u098F\u09B0 \u099B\u09AC\u09BF \u09AC\u09BE \u09AC\u09BF\u09B8\u09CD\u09A4\u09BE\u09B0\u09BF\u09A4 \u099C\u09BE\u09A8\u09A4\u09C7 \u099A\u09C7\u09DF\u09C7\u099B\u09C7\u09A8\u0964 \u09AC\u09BE\u0982\u09B2\u09BE\u09DF \u099C\u09BE\u09A8\u09BE\u09A8 \u09AF\u09C7 \u0986\u09AA\u09A8\u09BF \u09AA\u09CD\u09B0\u09CB\u09A1\u09BE\u0995\u09CD\u099F\u099F\u09BF\u09B0 \u0985\u09AB\u09BF\u09B8\u09BF\u09DF\u09BE\u09B2 \u099B\u09AC\u09BF \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09C7\u099B\u09C7\u09A8 \u098F\u09AC\u0982 \u098F\u09B0 \u09AE\u09C2\u09B2 \u09AC\u09BF\u09AC\u09B0\u09A3 (${matchedProduct.description}) \u0993 \u09B8\u09A0\u09BF\u0995 \u09A6\u09BE\u09AE (\u09F3${matchedProduct.price} ${matchedProduct.currency}) \u0989\u09B2\u09CD\u09B2\u09C7\u0996 \u0995\u09B0\u09C1\u09A8\u0964`;
   }
-  const systemInstruction = `You are the official, warm, and highly intelligent Customer Support & Sales AI Representative for "${businessName}".
-Always follow the merchant's Business Knowledge Base and Product Catalog strictly.
-Reply in clean, well-formatted Bangla (\u09AC\u09BE\u0982\u09B2\u09BE \u09B8\u09CD\u0995\u09CD\u09B0\u09BF\u09AA\u09CD\u099F\u09C7) with proper line breaks and bullet points (\u2022) when listing prices or features. Never output raw markdown asterisks (**).`;
+  const systemInstruction = `You are the official, warm, and highly intelligent human-like Customer Support & Sales AI Representative for "${businessName}".
+You deeply understand the merchant's Business Knowledge Base and Product Catalog.
+When a customer asks ANY question (even if phrased indirectly, in Banglish, or about a scenario not explicitly listed word-for-word), analyze the business details, reason logically, and give a tailored, helpful, natural Bangla (\u09AC\u09BE\u0982\u09B2\u09BE) response that directly answers their specific question. Never give a generic unrelated template. Never output raw markdown asterisks (**).`;
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
-${systemPrompt}
+${combinedSystemPrompt}
 
-Language & Formatting Instructions:
+Reasoning, Language & Formatting Instructions:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -4818,8 +5067,9 @@ ${recentHistory || "(No previous messages)"}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a direct, accurate, well-formatted Bangla reply that directly answers the customer's question above:`;
-  const geminiReply = await callGemini(fullPrompt, profile?.llm_api_key, systemInstruction);
+Think about what the customer is specifically asking above, and write a direct, intelligent, well-formatted Bangla reply that answers their question naturally based on the business details:`;
+  const effectiveApiKey = params.overrideApiKey && params.overrideApiKey.trim() || profile?.llm_api_key && profile.llm_api_key.trim() || (db.getSettings()?.default_llm_api_key || "").trim() || void 0;
+  const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
   if (geminiReply) {
     return {
@@ -4832,7 +5082,7 @@ Write a direct, accurate, well-formatted Bangla reply that directly answers the 
   }
   const smartBanglaReply = buildSmartBanglaFallbackFromPrompt(
     params.incomingMessage,
-    systemPrompt,
+    combinedSystemPrompt,
     businessName,
     merchantProducts,
     matchedProduct
@@ -6159,30 +6409,60 @@ settingsRouter.get("/llm", (req, res) => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+  const sysSettings = db.getSettings();
+  const savedKey = user.llm_api_key && user.llm_api_key.trim() || (user.role === "admin" ? (sysSettings?.default_llm_api_key || "").trim() : "");
+  const savedPrompt = (user.system_prompt && !user.system_prompt.includes("You are an executive AI assistant for One Agent BD") && !user.system_prompt.includes("Subscription Plan: All-in-One Plan 1,450 BDT/month") ? user.system_prompt : "") || (user.role === "admin" && sysSettings?.default_system_prompt ? sysSettings.default_system_prompt : user.system_prompt);
   return res.json({
-    llm_provider: user.llm_provider,
-    system_prompt: user.system_prompt,
-    has_custom_key: Boolean(user.llm_api_key),
-    masked_key: user.llm_api_key ? `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${user.llm_api_key.slice(-4)}` : null,
+    llm_provider: user.llm_provider || "gemini",
+    llm_api_key: savedKey,
+    system_prompt: savedPrompt,
+    has_custom_key: Boolean(savedKey),
+    masked_key: savedKey ? `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${savedKey.slice(-4)}` : null,
     default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY)
   });
 });
-settingsRouter.put("/llm", (req, res) => {
+settingsRouter.put("/llm", async (req, res) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { llm_provider, llm_api_key, system_prompt } = req.body;
+  const { llm_provider, llm_api_key, clear_api_key, system_prompt } = req.body;
   const updates = {};
   if (llm_provider) updates.llm_provider = llm_provider;
   if (system_prompt !== void 0) updates.system_prompt = system_prompt;
-  if (llm_api_key !== void 0) updates.llm_api_key = llm_api_key.trim();
+  if (clear_api_key === true) {
+    updates.llm_api_key = "";
+  } else if (typeof llm_api_key === "string" && llm_api_key.trim().length > 0) {
+    updates.llm_api_key = llm_api_key.trim();
+  }
   const updated = db.updateProfile(user.id, updates);
+  if (user.role === "admin") {
+    const settingsPatch = {};
+    if (updates.llm_api_key !== void 0) {
+      settingsPatch.default_llm_api_key = updates.llm_api_key;
+    }
+    if (updates.system_prompt !== void 0) {
+      settingsPatch.default_system_prompt = updates.system_prompt;
+    }
+    if (Object.keys(settingsPatch).length > 0) {
+      db.updateSettings(settingsPatch);
+    }
+    for (const prof of db.getProfiles()) {
+      if (prof.role === "admin" && prof.id !== user.id) {
+        db.updateProfile(prof.id, updates);
+      }
+    }
+  }
+  await db.flushToSupabase().catch(() => {
+  });
+  const effectiveKey = updated?.llm_api_key && updated.llm_api_key.trim() || (user.role === "admin" ? (db.getSettings()?.default_llm_api_key || "").trim() : "");
   return res.json({
     message: "AI settings updated successfully",
-    llm_provider: updated?.llm_provider,
-    system_prompt: updated?.system_prompt,
-    has_custom_key: Boolean(updated?.llm_api_key)
+    llm_provider: updated?.llm_provider || "gemini",
+    llm_api_key: effectiveKey,
+    system_prompt: updated?.system_prompt || "",
+    has_custom_key: Boolean(effectiveKey),
+    masked_key: effectiveKey ? `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${effectiveKey.slice(-4)}` : null
   });
 });
 
@@ -7350,6 +7630,7 @@ adminRouter.delete("/notifications/:id", (req, res) => {
 });
 
 // server/routes/aiChat.ts
+init_database();
 import { Router as Router12 } from "express";
 import { GoogleGenAI as GoogleGenAI4 } from "@google/genai";
 
@@ -7807,7 +8088,7 @@ widgetRouter.post("/chat", async (req, res) => {
     const detectedLang = detectLanguageMode(rawText);
     const cleanVisitorId = (visitorId || `web_vis_${Date.now()}`).trim();
     const config = getWidgetConfig(targetUserId);
-    const effectiveOwnerId = isSaasOfficial ? "usr_admin_1" : targetUserId;
+    const effectiveOwnerId = isSaasOfficial ? "usr_admin_001" : targetUserId;
     let channelId = "chn_website_default";
     const cleanCustomerName = customerName?.trim() || (isSaasOfficial ? "SaaS Website Visitor" : "Website Visitor");
     {
@@ -7834,7 +8115,7 @@ widgetRouter.post("/chat", async (req, res) => {
       };
       db.createMessage(inboundMsg);
     }
-    const profile = db.getProfileById(effectiveOwnerId);
+    const profile = db.getProfileById(effectiveOwnerId) || (isSaasOfficial ? db.getProfiles().find((p) => p.role === "admin") : void 0);
     if (!isSaasOfficial) {
       const sub = db.getSubscriptionByUserId(effectiveOwnerId);
       const isExpired = !sub || sub.status !== "active" && sub.status !== "trialing" || new Date(sub.end_date) <= /* @__PURE__ */ new Date();
@@ -7844,8 +8125,9 @@ widgetRouter.post("/chat", async (req, res) => {
         });
       }
     }
-    const apiKey = profile?.llm_api_key && profile.llm_api_key.trim() || process.env.GEMINI_API_KEY;
     const sysSettings = db.getSettings();
+    const adminKeyFromProfile = db.getProfiles().find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim();
+    const apiKey = profile?.llm_api_key && profile.llm_api_key.trim() || sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim() || adminKeyFromProfile || process.env.GEMINI_API_KEY;
     const activePlans = db.getPlans().filter((p) => p.is_active);
     const livePlansContext = activePlans.length > 0 ? `
 LIVE ADMIN PRICING PLANS & SYSTEM SETTINGS:
@@ -7924,9 +8206,10 @@ Visitor Message: "${rawText || (hasAudio ? "[Voice Message Attached - Please lis
 Provide a helpful, accurate, and friendly response (2-4 concise sentences or bullet points) following the CRITICAL LANGUAGE MATCHING RULE above:`;
         parts.push({ text: promptText });
         const candidateModels = [
-          "gemini-3.6-flash",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite",
           "gemini-3.8-flash",
-          "gemini-3.5-flash-lite",
+          "gemini-3.1-flash-lite",
           "gemini-flash-latest"
         ];
         for (const model of candidateModels) {
@@ -8392,16 +8675,17 @@ widgetRouter.get("/embed.js", (req, res) => {
 
 // server/routes/aiChat.ts
 var aiChatRouter = Router12();
-var geminiClient2 = null;
 function getGeminiClient2() {
-  if (!geminiClient2) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return null;
-    }
-    geminiClient2 = new GoogleGenAI4({ apiKey });
+  const sysSettings = db.getSettings();
+  const adminKey = db.getProfiles().find((p) => p.role === "admin" && p.llm_api_key?.trim())?.llm_api_key?.trim();
+  const apiKey = sysSettings?.default_llm_api_key && sysSettings.default_llm_api_key.trim() || adminKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return null;
   }
-  return geminiClient2;
+  return new GoogleGenAI4({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+  });
 }
 function getSaasIntelligentFallback(question, lang) {
   const q = question.toLowerCase();
@@ -8455,9 +8739,10 @@ Visitor asks: "${trimmedMsg}"
 
 Generate a direct, helpful, and concise response:`;
         const candidateModels = [
-          "gemini-3.6-flash",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite",
           "gemini-3.8-flash",
-          "gemini-3.5-flash-lite",
+          "gemini-3.1-flash-lite",
           "gemini-flash-latest"
         ];
         for (const model of candidateModels) {
@@ -8535,9 +8820,10 @@ Customer message: "${trimmedMsg}"
 
 Respond directly as ${businessName}'s AI agent:`;
         const candidateModels = [
-          "gemini-3.6-flash",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite",
           "gemini-3.8-flash",
-          "gemini-3.5-flash-lite",
+          "gemini-3.1-flash-lite",
           "gemini-flash-latest"
         ];
         let reply2 = void 0;

@@ -71,14 +71,23 @@ settingsRouter.get('/llm', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const sysSettings = db.getSettings() as any;
   const savedKey =
     (user.llm_api_key && user.llm_api_key.trim()) ||
-    (user.role === 'admin' ? ((db.getSettings() as any)?.default_llm_api_key || '').trim() : '');
+    (user.role === 'admin' ? (sysSettings?.default_llm_api_key || '').trim() : '');
+
+  const savedPrompt =
+    (user.system_prompt &&
+      !user.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
+      !user.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
+      ? user.system_prompt
+      : '') ||
+    (user.role === 'admin' && sysSettings?.default_system_prompt ? sysSettings.default_system_prompt : user.system_prompt);
 
   return res.json({
     llm_provider: user.llm_provider || 'gemini',
     llm_api_key: savedKey,
-    system_prompt: user.system_prompt,
+    system_prompt: savedPrompt,
     has_custom_key: Boolean(savedKey),
     masked_key: savedKey ? `••••••••${savedKey.slice(-4)}` : null,
     default_env_gemini_active: Boolean(process.env.GEMINI_API_KEY)
@@ -106,8 +115,24 @@ settingsRouter.put('/llm', async (req: Request, res: Response) => {
 
   const updated = db.updateProfile(user.id, updates);
 
-  if (user.role === 'admin' && updates.llm_api_key !== undefined) {
-    db.updateSettings({ default_llm_api_key: updates.llm_api_key } as any);
+  if (user.role === 'admin') {
+    const settingsPatch: Record<string, any> = {};
+    if (updates.llm_api_key !== undefined) {
+      settingsPatch.default_llm_api_key = updates.llm_api_key;
+    }
+    if (updates.system_prompt !== undefined) {
+      settingsPatch.default_system_prompt = updates.system_prompt;
+    }
+    if (Object.keys(settingsPatch).length > 0) {
+      db.updateSettings(settingsPatch as any);
+    }
+
+    // Keep all admin profiles in sync so any connected channel under an admin account uses the same key & prompt
+    for (const prof of db.getProfiles()) {
+      if (prof.role === 'admin' && prof.id !== user.id) {
+        db.updateProfile(prof.id, updates);
+      }
+    }
   }
 
   await db.flushToSupabase().catch(() => {});
