@@ -190,6 +190,55 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Launch Meta Official WhatsApp Embedded Signup (Supports adding new number via OTP or existing WhatsApp Business App via QR Code)
+  const handleWhatsAppEmbeddedSignup = () => {
+    setError(null);
+    if (window.FB && metaAppId) {
+      setLoading(true);
+      window.FB.login(
+        (response: any) => {
+          if (response?.authResponse?.accessToken) {
+            api
+              .exchangeMetaToken(response.authResponse.accessToken, 'whatsapp')
+              .then((outcome) => {
+                setPages(outcome.pages || []);
+                setWhatsappNumbers(outcome.whatsappNumbers || []);
+                if (outcome.whatsappNumbers && outcome.whatsappNumbers.length > 0) {
+                  setSelectedAssetId(outcome.whatsappNumbers[0].id);
+                  setStep('select');
+                } else {
+                  setError(
+                    'নতুন নাম্বারটি এখনো পাওয়া যায়নি। পপ-আপে নাম্বার ভেরিফাই সম্পন্ন করে আবার চেষ্টা করুন।'
+                  );
+                }
+              })
+              .catch((err: any) => {
+                setError(err.message || 'WhatsApp নাম্বার সিঙ্ক করতে সমস্যা হয়েছে।');
+              })
+              .finally(() => {
+                setLoading(false);
+              });
+          } else {
+            setLoading(false);
+          }
+        },
+        {
+          scope: 'whatsapp_business_management,whatsapp_business_messaging,business_management',
+          extras: {
+            feature: 'whatsapp_embedded_signup',
+            version: 2,
+            featureType: 'whatsapp_business_app_onboarding',
+            sessionInfoVersion: 2
+          }
+        }
+      );
+      return;
+    }
+
+    // Fallback: Open official OAuth / Meta WhatsApp Manager onboarding
+    handleSingleClickMetaLogin();
+  };
+
   // Single Automatic Login Handler (tries OAuth Popup / FB SDK seamlessly)
   const handleSingleClickMetaLogin = async () => {
     try {
@@ -413,6 +462,33 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               )}
             </button>
 
+            {platform === 'whatsapp' && (
+              <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+                <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
+                  আপনার মেটা বিজনেসে এখনো নাম্বার যুক্ত করা না থাকলে নিচে ক্লিক করে <strong>ফোনের চালু থাকা WhatsApp Business অ্যাপ (QR Code)</strong> অথবা <strong>নতুন নাম্বার (OTP)</strong> যুক্ত করুন:
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleWhatsAppEmbeddedSignup}
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>+ Add Existing / New Number (QR / OTP)</span>
+                  </button>
+                  <a
+                    href="https://business.facebook.com/wa/manage/phone-numbers/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all"
+                  >
+                    WhatsApp Manager ↗
+                  </a>
+                </div>
+              </div>
+            )}
+
             <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
@@ -425,8 +501,18 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         {/* STEP 2: Just Select Account / Page */}
         {step === 'select' && (
           <div className="space-y-4">
-            <div className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-              আপনার পেজ / অ্যাকাউন্ট সিলেক্ট করুন:
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                আপনার পেজ / অ্যাকাউন্ট সিলেক্ট করুন:
+              </div>
+              <button
+                type="button"
+                onClick={handleSingleClickMetaLogin}
+                className="text-[11px] font-bold text-[#7F22FE] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>অন্য অ্যাকাউন্ট / রিফ্রেশ</span>
+              </button>
             </div>
 
             {platform !== 'whatsapp' && pages.length > 0 && (
@@ -545,6 +631,33 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {platform === 'whatsapp' && (
+              <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+                <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
+                  তালিকায় আপনার কাঙ্ক্ষিত নাম্বারটি নেই? নিচের বাটনে ক্লিক করে মেটার পপ-আপে <strong>নতুন নাম্বার (OTP)</strong> অথবা <strong>ফোনে চালু থাকা WhatsApp Business অ্যাপ (QR Code)</strong> যুক্ত করুন:
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleWhatsAppEmbeddedSignup}
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>+ Add New / Existing WhatsApp Number (QR / OTP)</span>
+                  </button>
+                  <a
+                    href="https://business.facebook.com/wa/manage/phone-numbers/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all"
+                  >
+                    Meta WhatsApp Manager ↗
+                  </a>
+                </div>
               </div>
             )}
 
