@@ -3353,8 +3353,14 @@ var MetaOAuthService = class {
       scopes = "pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,whatsapp_business_management,whatsapp_business_messaging";
     }
     const configId = this.getConfigId();
-    const configParam = platform === "whatsapp" && onboarding && configId ? `&config_id=${encodeURIComponent(configId)}` : "";
-    const extrasParam = onboarding ? `${configParam}&auth_type=rerequest` : "";
+    const extrasParam = platform === "whatsapp" && onboarding && configId ? `&config_id=${encodeURIComponent(configId)}&auth_type=rerequest&extras=${encodeURIComponent(
+      JSON.stringify({
+        feature: "whatsapp_embedded_signup",
+        version: 2,
+        featureType: "whatsapp_business_app_onboarding",
+        sessionInfoVersion: 2
+      })
+    )}` : onboarding ? "&auth_type=rerequest" : "";
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
       appId
     )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(

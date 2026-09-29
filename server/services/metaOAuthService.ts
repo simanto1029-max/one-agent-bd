@@ -170,14 +170,19 @@ export class MetaOAuthService {
     }
 
     const configId = this.getConfigId();
-    const configParam =
+    const extrasParam =
       platform === 'whatsapp' && onboarding && configId
-        ? `&config_id=${encodeURIComponent(configId)}`
+        ? `&config_id=${encodeURIComponent(configId)}&auth_type=rerequest&extras=${encodeURIComponent(
+            JSON.stringify({
+              feature: 'whatsapp_embedded_signup',
+              version: 2,
+              featureType: 'whatsapp_business_app_onboarding',
+              sessionInfoVersion: 2
+            })
+          )}`
+        : onboarding
+        ? '&auth_type=rerequest'
         : '';
-
-    // Note: Do NOT force extras={"feature":"whatsapp_embedded_signup"} because Meta blocks non-BSP/TP apps with
-    // "Embedded signup is only available for BSPs or TPs". Using auth_type=rerequest works for all Meta apps!
-    const extrasParam = onboarding ? `${configParam}&auth_type=rerequest` : '';
 
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
       appId
