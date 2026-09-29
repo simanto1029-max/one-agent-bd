@@ -279,18 +279,27 @@ export const BillingView: React.FC<BillingViewProps> = ({
         </div>
 
         {/* Duration Pill Switcher */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3.5">
           <div className="inline-flex items-center p-1.5 rounded-full bg-white dark:bg-slate-800 border border-violet-100 dark:border-slate-700 shadow-sm">
             <button
               type="button"
               onClick={() => handleModeChange('monthly')}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 durationMode === 'monthly'
                   ? 'bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
               }`}
             >
-              Monthly
+              <span>Monthly</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  durationMode === 'monthly'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-purple-100 dark:bg-purple-950 text-[#7C3AED] dark:text-purple-300'
+                }`}
+              >
+                Up to 15% OFF
+              </span>
             </button>
             <button
               type="button"
@@ -301,7 +310,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
               }`}
             >
-              <span>Yearly</span>
+              <span>Yearly (1Y – 6Y)</span>
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                   durationMode === 'yearly'
@@ -309,12 +318,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     : 'bg-[#DCFCE7] text-[#15803D]'
                 }`}
               >
-                Save 15%–30%
+                15% – 30% OFF
               </span>
             </button>
           </div>
 
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-full bg-white/85 dark:bg-slate-800/90 border border-violet-200/70 dark:border-slate-700 shadow-2xs">
+          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl sm:rounded-full bg-white/90 dark:bg-slate-800/90 border border-violet-200/70 dark:border-slate-700 shadow-2xs">
             {filteredDurations.map((opt) => {
               const isSelected = opt.id === selectedDurationId;
               return (
@@ -331,13 +340,13 @@ export const BillingView: React.FC<BillingViewProps> = ({
                   <span>{opt.label}</span>
                   {opt.discountPercent > 0 && (
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                         isSelected
-                          ? 'bg-white/20 text-white'
+                          ? 'bg-emerald-400 text-slate-950'
                           : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
                       }`}
                     >
-                      -{opt.discountPercent}%
+                      {opt.discountPercent}% OFF
                     </span>
                   )}
                 </button>
@@ -416,22 +425,111 @@ export const BillingView: React.FC<BillingViewProps> = ({
                       </span>
                       {savedAmount > 0 && (
                         <>
-                          <span className="text-xs font-semibold text-slate-400 line-through">
+                          <span className="text-sm font-bold text-rose-500 line-through">
                             TK {originalPrice.toLocaleString()}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[10px] font-extrabold">
-                            {activeDuration.discountPercent}% OFF • Save TK {savedAmount.toLocaleString()}
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[11px] font-extrabold">
+                            🔥 {activeDuration.discountPercent}% DISCOUNT (Save TK {savedAmount.toLocaleString()})
                           </span>
                         </>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 font-medium mt-1">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                       {activeDuration.months === 1
-                        ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
+                        ? `Monthly Plan: ${plan.price.toLocaleString()} TK/month • Select 6M, 1 Year or 2 Years below for up to 30% Discount!`
                         : savedAmount > 0
-                        ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo (${activeDuration.discountPercent}% Discount applied • ${activeDuration.days} Days)`
+                        ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% Discount applied (${activeDuration.days} Days)`
                         : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days)`}
                     </p>
+
+                    {/* Always-Visible Plan Discount Tiers Breakdown (Click to Apply) */}
+                    <div
+                      className="mt-4 p-3.5 rounded-2xl bg-violet-50/80 dark:bg-slate-800/70 border border-violet-200/80 dark:border-slate-700"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span className="text-[11px] font-extrabold text-[#7C3AED] dark:text-purple-300 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>কোন প্ল্যান মেয়াদে কত % ডিসকাউন্ট (ক্লিক করে বেছে নিন):</span>
+                        </span>
+                        {activeDuration.discountPercent > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+                            {activeDuration.discountPercent}% OFF Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: '3m', mode: 'monthly' as const, label: '3 Months', pct: 5 },
+                          { id: '6m', mode: 'monthly' as const, label: '6 Months', pct: 10 },
+                          { id: '1y', mode: 'yearly' as const, label: '1 Year', pct: 15 },
+                          { id: '2y', mode: 'yearly' as const, label: '2 Years', pct: 20 },
+                          { id: '3y', mode: 'yearly' as const, label: '3 Years', pct: 25 },
+                          { id: '6y', mode: 'yearly' as const, label: '6 Years', pct: 30 }
+                        ].map((tier) => {
+                          const tierMonths =
+                            tier.id === '3m'
+                              ? 3
+                              : tier.id === '6m'
+                              ? 6
+                              : tier.id === '1y'
+                              ? 12
+                              : tier.id === '2y'
+                              ? 24
+                              : tier.id === '3y'
+                              ? 36
+                              : 72;
+                          const tierOriginal = calculateOriginalPlanPrice(plan.price, tierMonths);
+                          const tierPrice = calculateCustomPlanPrice(plan.price, tierMonths);
+                          const isTierActive = activeDuration.months === tierMonths;
+                          return (
+                            <button
+                              key={tier.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedPlan(plan);
+                                setDurationMode(tier.mode);
+                                setSelectedDurationId(tier.id);
+                              }}
+                              className={`p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                                isTierActive
+                                  ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm ring-2 ring-[#7C3AED]/25'
+                                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-violet-200/70 dark:border-slate-700 hover:border-[#7C3AED]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-extrabold">{tier.label}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                                    isTierActive
+                                      ? 'bg-emerald-400 text-slate-950'
+                                      : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
+                                  }`}
+                                >
+                                  {tier.pct}% OFF
+                                </span>
+                              </div>
+                              <div className="flex items-baseline gap-1.5 mt-1">
+                                <span
+                                  className={`text-xs font-black ${
+                                    isTierActive ? 'text-white' : 'text-[#0F172A] dark:text-white'
+                                  }`}
+                                >
+                                  ৳{tierPrice.toLocaleString()}
+                                </span>
+                                <span
+                                  className={`text-[10px] line-through ${
+                                    isTierActive ? 'text-purple-200' : 'text-slate-400'
+                                  }`}
+                                >
+                                  ৳{tierOriginal.toLocaleString()}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   <ul className="space-y-2.5 mb-6">
@@ -458,7 +556,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     }}
                     className="w-full py-3.5 px-5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white shadow-[0_6px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_8px_25px_rgba(124,58,237,0.45)]"
                   >
-                    <span>Buy Plan Now — TK {totalPrice.toLocaleString()}</span>
+                    <span>
+                      Buy Plan Now — TK {totalPrice.toLocaleString()}
+                      {activeDuration.discountPercent > 0
+                        ? ` (${activeDuration.discountPercent}% OFF)`
+                        : ''}
+                    </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>

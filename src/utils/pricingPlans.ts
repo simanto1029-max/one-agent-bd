@@ -28,7 +28,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     type: 'monthly',
     months: 2,
     days: 60,
-    discountPercent: 0
+    discountPercent: 3,
+    badge: '3% OFF'
   },
   {
     id: '3m',
@@ -37,8 +38,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     type: 'monthly',
     months: 3,
     days: 90,
-    discountPercent: 0,
-    badge: 'Popular'
+    discountPercent: 5,
+    badge: '5% OFF'
   },
   {
     id: '6m',
@@ -52,8 +53,8 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
   },
   {
     id: '12m',
-    label: '12 Months',
-    shortLabel: '12M',
+    label: '1 Year (12M)',
+    shortLabel: '1Y',
     type: 'monthly',
     months: 12,
     days: 365,
@@ -277,6 +278,8 @@ export function getDurationDiscountPercent(months: number): number {
   if (months >= 24) return 20;
   if (months >= 12) return 15;
   if (months >= 6) return 10;
+  if (months >= 3) return 5;
+  if (months >= 2) return 3;
   return 0;
 }
 
