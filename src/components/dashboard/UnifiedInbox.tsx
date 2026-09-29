@@ -379,17 +379,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
     : 0;
 
   return (
-    <div className="h-[calc(100vh-110px)] sm:h-[calc(100vh-128px)] min-h-[540px] sm:min-h-[620px] rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 shadow-sm flex flex-col md:flex-row overflow-hidden">
+    <div className="flex-1 min-h-0 h-full rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 shadow-sm flex flex-col md:flex-row overflow-hidden">
       {/* =====================================================================
           PANE 1: LEFT CONVERSATIONS SIDEBAR
       ===================================================================== */}
       <div
         className={`${
           mobileShowThread ? 'hidden md:flex' : 'flex'
-        } w-full md:w-80 lg:w-[330px] flex-1 md:flex-none border-b md:border-b-0 md:border-r border-neutral-200/80 dark:border-neutral-800 flex-col shrink-0 bg-neutral-50/50 dark:bg-neutral-900/60`}
+        } w-full md:w-80 lg:w-[320px] h-full min-h-0 flex-1 md:flex-none border-b md:border-b-0 md:border-r border-neutral-200/80 dark:border-neutral-800 flex-col shrink-0 bg-neutral-50/50 dark:bg-neutral-900/60 overflow-hidden`}
       >
         {/* Sidebar Top Header */}
-        <div className="p-4 border-b border-neutral-200/80 dark:border-neutral-800 space-y-3 bg-white dark:bg-neutral-900">
+        <div className="p-3.5 border-b border-neutral-200/80 dark:border-neutral-800 space-y-2.5 bg-white dark:bg-neutral-900 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#7F22FE] to-violet-500 text-white flex items-center justify-center shadow-sm shadow-[#7F22FE]/25">
@@ -678,12 +678,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
       <div
         className={`${
           mobileShowThread ? 'flex' : 'hidden md:flex'
-        } flex-1 flex-col min-w-0 bg-white dark:bg-neutral-900`}
+        } flex-1 flex-col min-w-0 min-h-0 h-full overflow-hidden bg-white dark:bg-neutral-900`}
       >
         {selectedConv ? (
           <>
             {/* Thread Header */}
-            <div className="px-3.5 sm:px-5 py-3 sm:py-3.5 border-b border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2 bg-white dark:bg-neutral-900">
+            <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2 bg-white dark:bg-neutral-900 shrink-0">
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                 <button
                   type="button"
@@ -952,13 +952,22 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
             {/* Messages Thread Container */}
             <div
               ref={threadContainerRef}
-              className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4 bg-neutral-50/50 dark:bg-neutral-950/40"
+              className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-3.5 bg-neutral-50/50 dark:bg-neutral-950/40"
             >
-              {/* Date Divider */}
-              <div className="flex items-center justify-center">
-                <span className="text-[11px] font-medium text-neutral-400 px-3 py-1">
-                  Conversation History · End-to-End Synced
+              {/* Date Divider + Inline Summarize Button */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-white/90 dark:bg-neutral-900/90 border border-neutral-200/70 dark:border-neutral-800 rounded-xl px-3 py-2 shadow-2xs">
+                <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
+                  Conversation History · {selectedConv.messages.length} Messages Synced
                 </span>
+                <button
+                  type="button"
+                  onClick={handleSummarizeConversation}
+                  disabled={summarizing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-100 hover:bg-[#7F22FE] text-[#7F22FE] hover:text-white dark:bg-violet-950/80 dark:text-purple-300 dark:hover:bg-[#7F22FE] dark:hover:text-white text-[11px] font-extrabold transition-all cursor-pointer"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span>{summarizing ? 'Summarizing...' : '✨ Conversation Summarize (চ্যাট সামারি দেখুন)'}</span>
+                </button>
               </div>
 
               {selectedConv.messages.map((m) => {
@@ -1099,11 +1108,20 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Reply Chips & Composer Footer */}
-            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 sm:p-4 space-y-2.5">
+            {/* Quick Reply Chips & Composer Footer (Pinned at bottom, never scrolls off screen) */}
+            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2.5 sm:py-3 space-y-2 shrink-0">
               {/* Quick Replies Bar */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 mr-1">
+                <button
+                  type="button"
+                  onClick={handleSummarizeConversation}
+                  disabled={summarizing}
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 text-white text-[11px] font-extrabold transition-all cursor-pointer shrink-0 flex items-center gap-1 shadow-2xs"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span>{summarizing ? 'Summarizing...' : '✨ Summarize Chat'}</span>
+                </button>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 ml-1 mr-0.5">
                   Quick Reply:
                 </span>
                 {quickReplies.map((qr, i) => (

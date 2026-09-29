@@ -388,7 +388,11 @@ export default function App() {
 
       {/* 3. MERCHANT USER DASHBOARD (ChatMakky Clean 6-Item Sidebar + Sub-Tabs Architecture) */}
       {currentView === 'dashboard' && currentUser && (
-        <div className="min-h-screen flex flex-col bg-[#F8F7FC] dark:bg-[#0B0720] relative">
+        <div
+          className={`${
+            activeTab === 'inbox' ? 'h-screen overflow-hidden' : 'min-h-screen'
+          } flex flex-col bg-[#F8F7FC] dark:bg-[#0B0720] relative`}
+        >
           <DashboardHeader
             user={currentUser}
             subStatus={subStatus}
@@ -533,7 +537,7 @@ export default function App() {
           )}
 
           {/* DESKTOP + MAIN WORKSPACE BODY */}
-          <div className="flex-1 flex">
+          <div className="flex-1 flex min-h-0">
             {/* Clean ChatMakky-Style Left Sidebar (6 Primary Buttons) */}
             <aside className="hidden md:flex flex-col justify-between w-64 shrink-0 bg-white dark:bg-[#0F0A24] border-r border-slate-200/80 dark:border-purple-500/15 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
               <div className="space-y-6">
@@ -625,9 +629,15 @@ export default function App() {
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto w-full">
+            <main
+              className={`flex-1 min-w-0 max-w-[1280px] mx-auto w-full ${
+                activeTab === 'inbox'
+                  ? 'p-2 sm:p-3 lg:px-5 lg:py-2.5 flex flex-col min-h-0 h-[calc(100vh-4rem)] overflow-hidden'
+                  : 'p-4 sm:p-6 lg:p-8'
+              }`}
+            >
               {/* Live Trial / Subscription Countdown Banner */}
-              {activeTab !== 'billing' && (
+              {activeTab !== 'billing' && activeTab !== 'inbox' && (
                 <TrialCountdownBanner
                   subStatus={subStatus}
                   onUpgradeClick={() => {
@@ -639,26 +649,42 @@ export default function App() {
               )}
 
               {/* Admin Broadcast Notifications Banner (Dismissible by Merchant) */}
-              <MerchantBroadcastBanner
-                onNavigateTab={(tab) => {
-                  setActiveTab(tab as any);
-                  if (tab === 'billing') setIsLockBypassedForBilling(true);
-                }}
-              />
+              {activeTab !== 'inbox' && (
+                <MerchantBroadcastBanner
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab as any);
+                    if (tab === 'billing') setIsLockBypassedForBilling(true);
+                  }}
+                />
+              )}
 
               {/* Horizontal Sub-Navigation Tabs Bar (Shown when current section has multiple tools) */}
               {currentPrimarySection.tabs.length > 1 && (
-                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-purple-500/20">
-                  <div>
-                    <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                <div
+                  className={
+                    activeTab === 'inbox'
+                      ? 'mb-2 pb-2 shrink-0 flex flex-row items-center justify-between gap-2 border-b border-slate-200/80 dark:border-purple-500/20'
+                      : 'mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-purple-500/20'
+                  }
+                >
+                  <div className={activeTab === 'inbox' ? 'hidden sm:block' : ''}>
+                    <h1
+                      className={
+                        activeTab === 'inbox'
+                          ? 'text-sm sm:text-base font-extrabold text-slate-900 dark:text-white tracking-tight'
+                          : 'text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight'
+                      }
+                    >
                       {currentSubTab.label}
                     </h1>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {currentSubTab.desc}
-                    </p>
+                    {activeTab !== 'inbox' && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {currentSubTab.desc}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs">
+                  <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs">
                     {currentPrimarySection.tabs.map((tab) => {
                       const SubIcon = tab.icon;
                       const isSubActive = activeTab === tab.id;
@@ -667,7 +693,9 @@ export default function App() {
                           key={tab.id}
                           type="button"
                           onClick={() => setActiveTab(tab.id)}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          className={`${
+                            activeTab === 'inbox' ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
+                          } rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                             isSubActive
                               ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-xs shadow-purple-500/25'
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-[#1C1442]'
@@ -842,7 +870,7 @@ export default function App() {
       )}
 
       {/* Official One Agent BD Website AI Chatbot (Trained on SaaS, Voice + Picture + Bilingual) */}
-      <SaasWebsiteChatbot />
+      {!(currentView === 'dashboard' && activeTab === 'inbox') && <SaasWebsiteChatbot />}
     </div>
   );
 }
