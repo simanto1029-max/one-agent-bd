@@ -791,6 +791,27 @@ export const DEFAULT_ORDER_SETTINGS: OrderConfirmationSettings = {
   confirmation_message_template: 'Thank you {customer_name}! Your order for {items} has been successfully received. Order ID: #{order_id}. Total Bill: BDT {total_amount}. Our delivery team will contact you shortly.'
 };
 
+export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
+  auto_comment_reply_enabled: true,
+  public_comment_reply_template:
+    'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩',
+  send_private_inbox_on_comment: true,
+  auto_followup_enabled: true,
+  followup_delay_minutes: 45,
+  followup_message_template:
+    'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️',
+  upsell_enabled: true,
+  upsell_offer_text:
+    'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!',
+  auto_payment_verify_enabled: true,
+  auto_tracking_reply_enabled: true,
+  paused_customers: [],
+  blocked_customers: [],
+  daily_ad_spend_bdt: 500,
+  avg_product_cost_percent: 55,
+  return_courier_loss_per_order: 130
+};
+
 export const DEFAULT_APPOINTMENT_SETTINGS: AppointmentBookingSettings = {
   enabled: true,
   business_type: 'General Consultation & Service Booking',
@@ -1791,6 +1812,33 @@ MANDATORY LANGUAGE & REPLY RULES:
       }
     };
     this.updateProfile(userId, { order_settings: updated });
+    return updated;
+  }
+
+  // --- Automation Settings (Comment Reply, Follow-up, Upsell, Tracking, P&L) ---
+  getAutomationSettings(userId: string): AutomationSettings {
+    const profile = this.getProfileById(userId);
+    if (profile && profile.automation_settings) {
+      return {
+        ...DEFAULT_AUTOMATION_SETTINGS,
+        ...profile.automation_settings
+      };
+    }
+    return { ...DEFAULT_AUTOMATION_SETTINGS };
+  }
+
+  updateAutomationSettings(
+    userId: string,
+    updates: Partial<AutomationSettings>
+  ): AutomationSettings {
+    const profile = this.getProfileById(userId);
+    if (!profile) return { ...DEFAULT_AUTOMATION_SETTINGS };
+    const current = profile.automation_settings || { ...DEFAULT_AUTOMATION_SETTINGS };
+    const updated: AutomationSettings = {
+      ...current,
+      ...updates
+    };
+    this.updateProfile(userId, { automation_settings: updated });
     return updated;
   }
 
