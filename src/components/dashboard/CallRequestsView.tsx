@@ -96,14 +96,14 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
         customerName: req.customer_name,
         platform: (req.platform as any) || 'messenger',
         messageText:
-          'আসসালামু আলাইকুম! আপনি আমাদের সাথে ফোনে কথা বলতে চেয়েছিলেন। 📞 অনুগ্রহ করে আপনার সচল মোবাইল বা WhatsApp নাম্বারটি এখানে লিখে দিন, আমাদের প্রতিনিধি এখনই আপনাকে কল করবেন।'
+          'Hello! You requested to speak with our team on the phone. 📞 Please share your active mobile or WhatsApp number here, and our representative will call you shortly.'
       });
       await api.updateCallRequest(req.id, {
         status: 'pending',
-        notes: 'মেসেঞ্জার চ্যাটে কাস্টমারের কাছে ফোন নাম্বার চাওয়া হয়েছে (কাস্টমার নাম্বার দিলেই এখানে অটোমেটিক যুক্ত হবে)'
+        notes: 'Requested phone number in customer chat (will auto-attach as soon as the customer replies with their number)'
       });
       setToastMessage(
-        `✅ ${req.customer_name}-এর চ্যাটে ফোন নাম্বার চেয়ে মেসেজ পাঠানো হয়েছে! কাস্টমার নাম্বার রিপ্লাই দিলেই এখানে অটোমেটিক নাম্বার চলে আসবে।`
+        `✅ Sent a phone number request to ${req.customer_name}'s chat! Their phone number will be attached automatically as soon as they reply.`
       );
       setTimeout(() => setToastMessage(null), 5000);
       await loadRequests();
@@ -117,7 +117,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
   const handleSaveManualPhone = async (req: CallRequest, phoneInput: string) => {
     const trimmed = phoneInput.trim();
     if (!trimmed) {
-      setToastError('অনুগ্রহ করে একটি সঠিক মোবাইল নাম্বার লিখুন');
+      setToastError('Please enter a valid mobile number');
       return;
     }
     try {
@@ -132,7 +132,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
       if (callingRequest && callingRequest.id === req.id) {
         setCallingRequest({ ...callingRequest, customer_phone: trimmed });
       }
-      setToastMessage(`✅ ফোন নাম্বার (${trimmed}) সেভ করা হয়েছে! এখন সরাসরি কল করতে পারবেন।`);
+      setToastMessage(`✅ Phone number (${trimmed}) saved! You can now call the customer directly.`);
       setTimeout(() => setToastMessage(null), 4000);
       await loadRequests();
     } catch (err: any) {
@@ -591,7 +591,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                         <div className="inline-flex items-center gap-1.5">
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-300/70 dark:border-amber-800">
                             <Clock className="w-3 h-3" />
-                            <span>নাম্বার দেয়নি (Pending in chat)</span>
+                            <span>No Phone Yet (Pending in chat)</span>
                           </span>
                           <button
                             type="button"
@@ -601,7 +601,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                             }}
                             className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
                           >
-                            + নাম্বার বসান
+                            + Add Number
                           </button>
                         </div>
                       )}
@@ -681,7 +681,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                         className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>{askingPhoneId === req.id ? 'Sending...' : 'নাম্বার চান (Ask in Chat)'}</span>
+                        <span>{askingPhoneId === req.id ? 'Sending...' : 'Ask Phone in Chat'}</span>
                       </button>
 
                       {/* Open Customer Chat in Unified Inbox */}
@@ -1108,7 +1108,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
             ) : (
               <div className="space-y-3 pt-1">
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
-                  <strong>কেন নাম্বার দেখাচ্ছে না?</strong> Facebook Messenger অটোমেটিক কাস্টমারের সিম নাম্বার দেয় না। কাস্টমার চ্যাটে নাম্বার লিখে দিলেই এখানে অটোমেটিক নাম্বার যুক্ত হয়ে যাবে!
+                  <strong>Why is the phone number missing?</strong> Facebook Messenger does not share a user's SIM number automatically. Once the customer replies with their phone number in chat, it will attach here automatically!
                 </div>
 
                 {/* 1. Ask Phone Number in Messenger with 1-Click */}
@@ -1121,8 +1121,8 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                   <Send className="w-4 h-4" />
                   <span>
                     {askingPhoneId === callingRequest.id
-                      ? 'মেসেঞ্জারে পাঠানো হচ্ছে...'
-                      : '১-ক্লিকে মেসেঞ্জারে কাস্টমারের কাছে নাম্বার চান'}
+                      ? 'Sending to Messenger...'
+                      : '1-Click Request Phone Number in Messenger'}
                   </span>
                 </button>
 
@@ -1138,7 +1138,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                     className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    <span>সরাসরি মেসেঞ্জার চ্যাটে কথা বলুন / ভয়েস পাঠান</span>
+                    <span>Open Live Messenger Chat / Send Voice Note</span>
                   </button>
                 )}
 
@@ -1148,7 +1148,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                     type="text"
                     value={editingPhoneValue}
                     onChange={(e) => setEditingPhoneValue(e.target.value)}
-                    placeholder="কাস্টমারের নাম্বার লিখুন (017XXXXXXXX)"
+                    placeholder="Enter customer phone (017XXXXXXXX)"
                     className="flex-1 px-3 py-2 text-xs font-mono rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
                   />
                   <button
@@ -1156,7 +1156,7 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
                     onClick={() => handleSaveManualPhone(callingRequest, editingPhoneValue)}
                     className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
                   >
-                    সেভ করুন
+                    Save
                   </button>
                 </div>
               </div>

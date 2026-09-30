@@ -29,7 +29,7 @@ authRouter.post('/signup', (req: Request, res: Response) => {
     const { email, password, fullName, phone, role } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ error: 'সঠিক ইমেইল অ্যাড্রেস দেওয়া আবশ্যক (Valid email is required).' });
+      return res.status(400).json({ error: 'A valid email address is required.' });
     }
 
     // Strictly block creating more than 1 account per email address
@@ -37,7 +37,7 @@ authRouter.post('/signup', (req: Request, res: Response) => {
     if (existing) {
       return res.status(409).json({
         error:
-          'এই ইমেইল অ্যাড্রেস দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা হয়েছে! একটি ইমেইল দিয়ে একবারের বেশি অ্যাকাউন্ট খোলা যাবে না। অনুগ্রহ করে Sign In করুন অথবা পাসওয়ার্ড ভুলে গেলে Password Recovery ব্যবহার করুন।'
+          'An account with this email address already exists! Only one account is allowed per email. Please Sign In or use Password Recovery if you forgot your password.'
       });
     }
 
@@ -45,34 +45,34 @@ authRouter.post('/signup', (req: Request, res: Response) => {
     const phoneDigits = normalizePhone(cleanPhone);
     if (!cleanPhone || phoneDigits.length < 10) {
       return res.status(400).json({
-        error: 'রেজিস্ট্রেশন করার জন্য সঠিক মোবাইল নাম্বার দেওয়া আবশ্যক (Valid phone number is required).'
+        error: 'A valid phone number is required for registration.'
       });
     }
 
     if (!password || String(password).length < 6) {
       return res.status(400).json({
-        error: 'অ্যাকাউন্টের নিরাপত্তার জন্য কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন (Password must be at least 6 characters).'
+        error: 'Password must be at least 6 characters long for account security.'
       });
     }
 
     const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const bizTitle = fullName?.trim() || cleanEmail.split('@')[0] || 'My Online Store';
-    const defaultSystemPrompt = `আপনি "${bizTitle}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।
+    const defaultSystemPrompt = `You are the official Customer Service & Sales AI Assistant for "${bizTitle}".
 
-Business Knowledge Base (ব্যবসায়িক তথ্য):
-1. প্রোডাক্ট ও সার্ভিস:
-   - আমাদের সকল প্রোডাক্ট ১০০% অরিজিনাল এবং প্রিমিয়াম কোয়ালিটির। ড্যাশবোর্ডের Products ক্যাটালগ ও এই নলেজ বেস অনুযায়ী কাস্টমারকে সঠিক দাম ও বিবরণ দিন।
-2. ডেলিভারি ও চার্জ:
-   - ঢাকার ভেতরে ডেলিভারি চার্জ ৳৬০ (২৪-৪৮ ঘণ্টা) এবং ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। সারাদেশে ক্যাশ অন ডেলিভারি (COD) সুবিধা আছে।
-3. পেমেন্ট পদ্ধতি:
-   - ক্যাশ অন ডেলিভারি (COD), বিকাশ এবং নগদ।
-4. অর্ডার করার নিয়ম:
-   - অর্ডার কনফার্ম করতে কাস্টমারের নাম, সম্পূর্ণ ঠিকানা এবং ১১ ডিজিটের মোবাইল নাম্বার প্রয়োজন।
-5. সাপোর্ট ও হেল্পলাইন:
-   - প্রতিদিন সকাল ৯টা থেকে রাত ১১টা পর্যন্ত। হেল্পলাইন: ${cleanPhone || '01811-998877'}।
+Business Knowledge Base:
+1. Products & Services:
+   - All our products are 100% authentic and premium quality. Provide accurate pricing and details based on the Products catalog and this knowledge base.
+2. Delivery & Charges:
+   - Inside Dhaka delivery charge is 60 BDT (24-48 hours) and Outside Dhaka nationwide is 120 BDT (2-3 days). Cash on Delivery (COD) is available nationwide.
+3. Payment Methods:
+   - Cash on Delivery (COD), bKash, and Nagad.
+4. How to Order:
+   - To confirm an order, we require the customer's Full Name, Complete Delivery Address, and 11-digit Phone Number.
+5. Support & Helpline:
+   - Open daily from 9:00 AM to 11:00 PM. Helpline: ${cleanPhone || '01811-998877'}.
 
 MANDATORY LANGUAGE & REPLY RULES:
-- কাস্টমার বাংলা, বাংলিশ বা ইংরেজিতে যেভাবেই প্রশ্ন করুক না কেন, সর্বদা সুন্দর, সংক্ষিপ্ত ও প্রাকৃতিক বাংলায় (২-৩ বাক্যে) উত্তর দিন এবং শেষে প্রাসঙ্গিক ১টি ফলো-আপ প্রশ্ন করুন।`;
+- Reply in the same language the customer uses (if the customer writes in Bangla or Banglish, reply in natural Bangla; if the customer writes in English, reply in clear English) in 2-3 concise sentences and end with 1 relevant follow-up question.`;
 
     const profile = db.createProfile({
       id: newUserId,
@@ -146,7 +146,7 @@ authRouter.post('/login', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid administrator email or password.' });
     }
   } else if (profile.password && (!password || profile.password !== password)) {
-    return res.status(401).json({ error: 'ভুল পাসওয়ার্ড দিয়েছেন! পাসওয়ার্ড ভুলে গেলে Password Recovery ব্যবহার করুন। (Incorrect password entered.)' });
+    return res.status(401).json({ error: 'Incorrect password entered! Please try again or use Password Recovery if you forgot your password.' });
   }
 
   const status = getUserSubscriptionStatus(profile.id);
@@ -163,21 +163,21 @@ authRouter.post('/forgot-password', (req: Request, res: Response) => {
   try {
     const { email, phone } = req.body;
     if (!email || !email.trim()) {
-      return res.status(400).json({ error: 'আপনার রেজিস্টার করা ইমেইল অ্যাড্রেস দিন (Email is required).' });
+      return res.status(400).json({ error: 'Please enter your registered email address.' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const profile = db.getProfileByEmail(cleanEmail);
     if (!profile) {
       return res.status(404).json({
-        error: 'এই ইমেইল দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি (No account found with this email).'
+        error: 'No account found with this email address.'
       });
     }
 
     const inputPhoneDigits = normalizePhone(phone);
     if (!inputPhoneDigits || inputPhoneDigits.length < 10) {
       return res.status(400).json({
-        error: 'অ্যাকাউন্ট ভেরিফাই করতে আপনার মোবাইল নাম্বারটি দিন (Phone number is required).'
+        error: 'Please enter your phone number to verify your account.'
       });
     }
 
@@ -186,7 +186,7 @@ authRouter.post('/forgot-password', (req: Request, res: Response) => {
       const savedPhoneDigits = normalizePhone(profile.phone);
       if (savedPhoneDigits && savedPhoneDigits !== inputPhoneDigits) {
         return res.status(400).json({
-          error: 'আপনার দেওয়া মোবাইল নাম্বারটি এই অ্যাকাউন্টের সাথে মিলছে না (Phone number does not match registered phone).'
+          error: 'The phone number entered does not match the phone number registered with this account.'
         });
       }
     } else {
@@ -207,7 +207,7 @@ authRouter.post('/forgot-password', (req: Request, res: Response) => {
       success: true,
       recoveryCode,
       email: profile.email,
-      message: 'অ্যাকাউন্ট ভেরিফাই হয়েছে! নিচের ৬-ডিজিটের রিকভারি কোড ব্যবহার করে নতুন পাসওয়ার্ড সেট করুন।'
+      message: 'Account verified! Use the 6-digit recovery code below to set a new password.'
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to initiate password recovery' });
@@ -219,29 +219,29 @@ authRouter.post('/reset-password', (req: Request, res: Response) => {
   try {
     const { email, phone, recoveryCode, newPassword } = req.body;
     if (!email || !newPassword) {
-      return res.status(400).json({ error: 'ইমেইল এবং নতুন পাসওয়ার্ড দেওয়া আবশ্যক।' });
+      return res.status(400).json({ error: 'Email and new password are required.' });
     }
     if (String(newPassword).length < 6) {
-      return res.status(400).json({ error: 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে (Minimum 6 characters).' });
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const profile = db.getProfileByEmail(cleanEmail);
     if (!profile) {
-      return res.status(404).json({ error: 'অ্যাকাউন্ট পাওয়া যায়নি।' });
+      return res.status(404).json({ error: 'Account not found.' });
     }
 
     // Verify either recovery_otp or matching phone number
     const cleanCode = (recoveryCode || '').trim();
     if (profile.recovery_otp && cleanCode !== profile.recovery_otp) {
-      return res.status(400).json({ error: 'সঠিক ৬-ডিজিট রিকভারি কোড দিন (Invalid recovery code).' });
+      return res.status(400).json({ error: 'Please enter a valid 6-digit recovery code.' });
     }
 
     if (profile.phone && phone) {
       const savedDigits = normalizePhone(profile.phone);
       const inputDigits = normalizePhone(phone);
       if (savedDigits && inputDigits && savedDigits !== inputDigits) {
-        return res.status(400).json({ error: 'মোবাইল নাম্বারটি সঠিক নয়।' });
+        return res.status(400).json({ error: 'Phone number does not match.' });
       }
     }
 
@@ -258,7 +258,7 @@ authRouter.post('/reset-password', (req: Request, res: Response) => {
       success: true,
       user: updated,
       subscriptionStatus: status,
-      message: 'আপনার পাসওয়ার্ড সফলভাবে রিসেট হয়েছে!'
+      message: 'Your password has been reset successfully!'
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Password reset failed' });

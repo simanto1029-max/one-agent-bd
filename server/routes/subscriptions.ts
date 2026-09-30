@@ -102,7 +102,7 @@ subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
     if (isAlreadyExpired || currentSub.status === 'active') {
       const status = getUserSubscriptionStatus(user.id);
       return res.status(400).json({
-        error: 'আপনার ২ দিনের ফ্রি ট্রায়াল ইতিমধ্যে শেষ হয়েছে। সার্ভিস চালু রাখতে অনুগ্রহ করে প্ল্যান পারচেজ করুন।',
+        error: 'Your 2-day free trial has already ended. Please purchase a subscription plan to continue service.',
         status
       });
     }

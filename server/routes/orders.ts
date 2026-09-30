@@ -326,23 +326,23 @@ ordersRouter.post('/:id/send-tracking', async (req, res) => {
       `SF-${existing.id.slice(-6).toUpperCase()}`;
     const dueAmount = Math.max(0, (existing.total_amount || 0) - (existing.advance_paid_amount || 0));
 
-    const statusBangla =
+    const statusLabel =
       existing.status === 'delivered'
-        ? 'সফলভাবে ডেলিভারি সম্পন্ন হয়েছে ✅'
+        ? 'Delivered Successfully ✅'
         : existing.status === 'shipped'
-        ? 'কুরিয়ারে পাঠানো হয়েছে (পথে আছে 🚚)'
+        ? 'Dispatched to Courier (In Transit 🚚)'
         : existing.status === 'processing'
-        ? 'প্যাকেজিং ও কুরিয়ার বুকিং সম্পন্ন হয়েছে 📦'
-        : 'অর্ডার কনফার্ম করা হয়েছে ✨';
+        ? 'Packaged & Booked with Courier 📦'
+        : 'Order Confirmed ✨';
 
     const customText = req.body?.customMessage;
     const messageText =
       customText ||
-      `প্রিয় ${existing.customer_name || 'গ্রাহক'}, আপনার অর্ডারের (#${existing.id
+      `Hello ${existing.customer_name || 'Valued Customer'}, here is the latest update on your order (#${existing.id
         .slice(-6)
-        .toUpperCase()}) সর্বশেষ আপডেট:\n\n📌 স্ট্যাটাস: ${statusBangla}\n🚚 কুরিয়ার: ${courierName}\n🔢 ট্র্যাকিং / কনসাইনমেন্ট আইডি: ${trackingId}\n📦 পণ্য: ${
+        .toUpperCase()}):\n\n📌 Status: ${statusLabel}\n🚚 Courier: ${courierName}\n🔢 Tracking / Consignment ID: ${trackingId}\n📦 Items: ${
         existing.items
-      }\n💰 ডেলিভারি ম্যানকে প্রদেয় (COD): ৳${dueAmount.toLocaleString()}\n\nধন্যবাদ আমাদের সাথে কেনাকাটা করার জন্য! ❤️`;
+      }\n💰 Cash on Delivery (COD) Due: BDT ${dueAmount.toLocaleString()}\n\nThank you for shopping with us! ❤️`;
 
     const plat = ['whatsapp', 'messenger', 'instagram'].includes(existing.platform)
       ? (existing.platform as 'whatsapp' | 'messenger' | 'instagram')
@@ -376,7 +376,7 @@ ordersRouter.post('/:id/send-tracking', async (req, res) => {
 
     res.json({
       success: true,
-      message: `ট্র্যাকিং আপডেট (${trackingId}) সরাসরি ${existing.customer_name}-এর চ্যাটে পাঠানো হয়েছে!`,
+      message: `Tracking update (${trackingId}) sent directly to ${existing.customer_name}'s chat!`,
       outboundMessage: outbound
     });
   } catch (err: any) {

@@ -65,7 +65,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
   const [upsellEnabled, setUpsellEnabled] = useState(true);
   const [upsellOfferText, setUpsellOfferText] = useState(
-    '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!'
+    'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!'
   );
   const [autoPaymentVerify, setAutoPaymentVerify] = useState(true);
   const [autoTrackingReply, setAutoTrackingReply] = useState(true);
@@ -92,8 +92,8 @@ Business Knowledge Base:
    ${kbHelpline}
 
 SMART REASONING & SHORT REPLY RULES:
-- সবসময় সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট উত্তর দেবেন (সর্বোচ্চ ২ থেকে ৩ বাক্যে / ২-৪ লাইনের মধ্যে)। কখনোই বিশাল বড় প্যারাগ্রাফ বা অপ্রয়োজনীয় লম্বা লিস্ট পাঠিয়ে কাস্টমারকে বিরক্ত করবেন না।
-- কাস্টমার ঘুরিয়ে বা নতুন যেভাবেই প্রশ্ন করুক, বিজনেস ডিটেইলস বুঝে সরাসরি শুধুমাত্র সেই প্রশ্নটুকুরই আন্তরিক ও স্বাভাবিক বাংলায় উত্তর দেবেন।`;
+- Always keep replies concise and to the point (maximum 2 to 3 sentences). Never send long paragraphs or unnecessary lists.
+- Reply in natural Bangla when the customer messages in Bangla or Banglish, and in English when the customer messages in English.`;
   };
 
   useEffect(() => {
@@ -333,36 +333,36 @@ SMART REASONING & SHORT REPLY RULES:
     {
       label: 'One Agent BD (Full SaaS Knowledge Base)',
       icon: Briefcase,
-      prompt: `আপনি "One Agent BD" (https://www.oneagentbd.online)-এর অফিসিয়াল কাস্টমার সাপোর্ট ও সেলস AI প্রতিনিধি।
+      prompt: `You are the official Customer Support & Sales AI Representative for "One Agent BD" (https://www.oneagentbd.online).
 
-Business Knowledge Base (আমাদের সম্পূর্ণ সার্ভিস ও নিয়মাবলী):
-১. আমরা কী সার্ভিস দেই:
-   - Facebook Page, Instagram, WhatsApp এবং Website-এর জন্য ২৪/৭ স্বয়ংক্রিয় AI মেসেজ রিপ্লাই, পোস্টের কমেন্ট অটো-রিপ্লাই + ইনবক্সে মেসেজ পাঠানো এবং অটোমেটিক অর্ডার ম্যানেজমেন্ট।
-   - ভয়েস মেসেজ ও ছবি চেনা (Voice & Image AI): কাস্টমার বাংলা বা বাংলিশে ভয়েস মেসেজ পাঠালে AI তা শুনে উত্তর দেয় এবং প্রোডাক্টের ছবি বা স্ক্রিনশট পাঠালে ছবি দেখে দাম ও বিবরণ বলে দেয়।
-   - কুরিয়ার বুকিং: কাস্টমারের নাম, ঠিকানা ও মোবাইল নাম্বার নিয়ে অটো অর্ডার এন্ট্রি করে এবং ১-ক্লিকে Steadfast, Pathao ও RedX কুরিয়ারে পার্সেল বুকিং করা যায়।
-   - ওয়েবসাইট ইন্টিগ্রেশন: WordPress/WooCommerce, Shopify বা যেকোনো ওয়েবসাইটে মাত্র ১ লাইনের Script কোড কপি করে লাইভ AI চ্যাটবট যুক্ত করা যায়।
+Business Knowledge Base (Services & Policies):
+1. What We Offer:
+   - 24/7 Automated AI Chat Reply for Facebook Pages, Instagram, WhatsApp, and Websites, Auto Comment Reply + Private Inbox DM, and Automated Order Management.
+   - Voice & Image AI: Listens to customer voice notes (in Bangla, Banglish, or English) and inspects product photos/screenshots to reply with accurate prices and details.
+   - Courier Booking: Automatically extracts customer Name, Address & Phone Number into the Orders Hub with 1-Click parcel booking to Steadfast, Pathao & RedX.
+   - Website Integration: Add a live AI chatbot to WordPress/WooCommerce, Shopify, or any custom website with a 1-line script tag.
 
-২. আমাদের প্ল্যান ও মূল্য তালিকা (২ দিনের ফ্রি ট্রায়ালসহ):
-   - ফ্রি ট্রায়াল: নতুন অ্যাকাউন্ট খুললেই ২ দিনের (৪৮ ঘণ্টা) সম্পূর্ণ ফ্রি ট্রায়াল (কোনো অগ্রিম পেমেন্ট লাগবে না)।
-   - Starter AI Plan — ৳১,২৫০ টাকা/মাস (২ মাস ৳২,৫০০ | ৩ মাস ৳৩,৭৫০ | ৬ মাস ৳৭,৫০০ | ১ বছর ৳১৫,০০০ টাকা): ১টি AI এজেন্ট, Facebook, Instagram, WhatsApp ও Website অটো-রিপ্লাই, ৫০টি প্রোডাক্ট ক্যাটালগ, অটো কমেন্ট রিপ্লাই ও কুরিয়ার বুকিং।
-   - Pro Business Plan — ৳১,৯৫০ টাকা/মাস (২ মাস ৳৩,৯০০ | ৩ মাস ৳৫,৮৫০ | ৬ মাস ৳১১,৭০০ | ১ বছর ৳২৩,৪০০ টাকা): ৩টি AI এজেন্ট, ভয়েস মেসেজ ও ছবি চেনা (Voice & Image AI), আনলিমিটেড প্রোডাক্ট ক্যাটালগ, মাল্টি-স্টোর সিঙ্ক এবং ২৪/৭ ভিআইপি সাপোর্ট।
+2. Plans & Pricing (Includes 2-Day Free Trial):
+   - Free Trial: 2-Day (48 hours) full-featured Free Trial upon registration (no upfront payment required).
+   - Starter AI Plan — 1,250 BDT/month (2 Months: 2,500 BDT | 3 Months: 3,750 BDT | 6 Months: 7,500 BDT | 1 Year: 15,000 BDT): Up to 3 Channels (Facebook, Instagram, WhatsApp & Website), 50 Products Catalog, Auto Comment Reply & Courier Booking.
+   - Pro Business Plan — 1,950 BDT/month (2 Months: 3,900 BDT | 3 Months: 5,850 BDT | 6 Months: 11,700 BDT | 1 Year: 23,400 BDT): Up to 10 Channels, Voice & Image AI, Unlimited Products Catalog, Multi-Store Sync & 24/7 Priority VIP Support.
 
-৩. কুপন কোড, ডিসকাউন্ট ও পেমেন্ট নিয়ম:
-   - পেমেন্ট মাধ্যম: আমাদের ওয়েবসাইটে লগইন করে বিকাশ (bKash), নগদ (Nagad), রকেট (Rocket) বা উপায় (Upay)-এর মাধ্যমে পেমেন্ট করে Transaction ID (TrxID) দিলেই প্ল্যান সাথে সাথে অটো-অ্যাক্টিভ হয়ে যায়।
-   - কুপন কোড ও ছাড়: চেকআউট করার সময় Coupon Code বক্সে প্রোমো কোড (যেমন WELCOME10 দিয়ে ১০% ডিসকাউন্ট অথবা SAVE250 দিয়ে ৳২৫০ ছাড়) ব্যবহার করা যায়। এছাড়া ওয়েবসাইটের লাইভ চ্যাটবট থেকে ১৫% ইনস্ট্যান্ট ডিসকাউন্ট কুপনও নেওয়া যায়।
+3. Coupons, Discounts & Payment Process:
+   - Payment Methods: Pay via bKash, Nagad, Rocket, or Upay through our official billing portal and submit the Transaction ID (TrxID) for instant automated activation.
+   - Promo Codes: Apply coupon codes at checkout (e.g., WELCOME10 for 10% OFF or SAVE250 for 250 BDT OFF).
 
-৪. পেজের নিরাপত্তা ও সেটআপ:
-   - মেটার ১০০% অফিসিয়াল Cloud ও Graph API ব্যবহৃত হয়, তাই পেজ বা নাম্বার ব্যান হওয়ার ০% ঝুঁকিও নেই এবং আনলিমিটেড মেসেজ রিপ্লাই ফ্রি।
-   - কোডিং ছাড়াই মাত্র ২ মিনিটে "Connect with Facebook" বাটনে ১ ক্লিক করে পেজ কানেক্ট করা যায়।
+4. Page Safety & Setup:
+   - Powered 100% by the Official Meta Graph API and WhatsApp Cloud API—0% ban risk and unlimited free AI replies.
+   - 1-Click setup via "Connect with Facebook" in under 2 minutes without coding.
 
-৫. সাপোর্ট ও যোগাযোগ (সকাল ৯টা – রাত ১১টা):
-   - হোয়াটসঅ্যাপ ও হেল্পলাইন: +8801601705804
-   - ইমেইল: support.oneagentbd@gmail.com
-   - ওয়েবসাইট: https://www.oneagentbd.online
+5. Support & Contact (9:00 AM – 11:00 PM):
+   - WhatsApp & Helpline: +8801601705804
+   - Email: support.oneagentbd@gmail.com
+   - Website: https://www.oneagentbd.online
 
 SMART REASONING & SHORT REPLY RULES:
-- সর্বদা সংক্ষিপ্ত ও টু-দ্য-পয়েন্ট উত্তর দেবেন (সর্বোচ্চ ২ থেকে ৩ বাক্যে / ২-৪ লাইনের মধ্যে)। কখনোই বিশাল বড় প্যারাগ্রাফ বা অপ্রয়োজনীয় লম্বা লিস্ট লিখবেন না।
-- কাস্টমার যেটুকু প্রশ্ন করেছে (যেমন ১ বছরের দাম, কুপন কোড বা ভয়েস মেসেজ), শুধুমাত্র সেটুকুরই সরাসরি ও সুন্দর বাংলায় উত্তর দেবেন।`
+- Always keep replies concise and to the point (maximum 2 to 3 sentences).
+- Reply in natural Bangla when the customer messages in Bangla or Banglish, and in English when they message in English.`
     },
     {
       label: 'E-Commerce & Clothing Shop',
@@ -425,10 +425,10 @@ MANDATORY RULES:
   ];
 
   const sampleTestQueries = [
-    'coupon code আছে কি ভাই কোনো?',
-    'ভাই আমার কাপড়ের পেজ আছে একা মেসেজ সামলাতে পারি না, কোন প্ল্যানটা ভালো হবে?',
-    'কোডিং ছাড়া কি নিজেই সেটআপ করতে পারব?',
-    '১ বছরের জন্য নিলে কত টাকা পড়বে?'
+    'Do you have any discount coupon code?',
+    'I run a clothing page, which plan is best for me?',
+    'Can I set this up myself without coding?',
+    'How much does the 1-year subscription cost?'
   ];
 
   return (
@@ -788,7 +788,7 @@ MANDATORY RULES:
                   <span>Smart Sales Booster, Payment Verify & Parcel Tracking AI</span>
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  কাস্টমারের অর্ডার ভ্যালু বাড়ানো, বিকাশ/নগদ TrxID অটো ভেরিফাই এবং পার্সেল ট্র্যাকিং অটো-রিপ্লাই নিয়ন্ত্রণ করুন
+                  Configure average order value upselling, automatic bKash/Nagad TrxID verification, and 24/7 live parcel tracking replies
                 </p>
               </div>
               <button
@@ -823,7 +823,7 @@ MANDATORY RULES:
                     Smart Upselling & Combo AI
                   </span>
                   <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    কাস্টমার ১টি প্রোডাক্ট চাইলে AI কম্বো অফার সাজেস্ট করে অর্ডার ভ্যালু বাড়াবে
+                    Automatically pitches combo offers when a customer inquiries about a single item
                   </span>
                 </div>
               </label>
@@ -840,7 +840,7 @@ MANDATORY RULES:
                     bKash/Nagad Auto-Verify
                   </span>
                   <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    চ্যাটে TrxID বা স্ক্রিনশট দিলে অটোমেটিক অর্ডার Paid ও TrxID সেভ করবে
+                    Detects TrxIDs or payment screenshots in chat and marks the order as Paid
                   </span>
                 </div>
               </label>
@@ -857,7 +857,7 @@ MANDATORY RULES:
                     24/7 Parcel Tracking Bot
                   </span>
                   <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    "অর্ডার কবে পাবো?" জিজ্ঞেস করলে লাইভ কুরিয়ার ও অর্ডার স্ট্যাটাস জানাবে
+                    Instantly replies with live courier & order status when customers ask about delivery
                   </span>
                 </div>
               </label>
@@ -866,13 +866,13 @@ MANDATORY RULES:
             {upsellEnabled && (
               <div className="text-xs">
                 <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Smart Upsell / Combo Offer Message (AI কাস্টমারকে যে অফারটি বলবে):
+                  Smart Upsell / Combo Offer Message (Pitched by AI):
                 </label>
                 <input
                   type="text"
                   value={upsellOfferText}
                   onChange={(e) => setUpsellOfferText(e.target.value)}
-                  placeholder="যেমন: ২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি!"
+                  placeholder="e.g., Order any 2 products together to get FREE delivery!"
                   className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
                 />
               </div>

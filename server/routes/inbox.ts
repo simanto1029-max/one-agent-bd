@@ -503,7 +503,7 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
 
       customerMap.set(key, {
         customerId: msg.customer_id,
-        customerName: msg.customer_name || 'প্রিয় গ্রাহক',
+        customerName: msg.customer_name || 'Valued Customer',
         platform: msg.platform,
         channelId: msg.channel_id,
         hasOrdered: matchingOrders.length > 0,
@@ -530,7 +530,7 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
 
   for (const target of targets) {
     const personalizedText = finalMessage
-      .replace(/\{customer_name\}/gi, target.customerName || 'প্রিয় গ্রাহক')
+      .replace(/\{customer_name\}/gi, target.customerName || 'Valued Customer')
       .trim();
 
     // Always prefer an active, non-demo connected channel for the target platform
@@ -586,8 +586,8 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
 
   const summaryMessage =
     outsideWindowCount > 0
-      ? `সফলভাবে ${sentCount} জন অ্যাক্টিভ কাস্টমারের ইনবক্সে মেসেজ গেছে! (${outsideWindowCount} জন কাস্টমার মেটার ২৪-ঘণ্টা/৭-দিনের মেসেজিং উইন্ডোর বাইরে থাকায় মেটা স্কিপ করেছে)`
-      : `সফলভাবে ${sentCount} জন কাস্টমারের ইনবক্সে অফার মেসেজ পাঠানো হয়েছে!`;
+      ? `Successfully delivered broadcast message to ${sentCount} active customer(s)! (${outsideWindowCount} customer(s) were skipped by Meta because they are outside the 24-hour/7-day messaging window)`
+      : `Successfully sent offer broadcast message to ${sentCount} customer(s)!`;
 
   return res.json({
     success: true,

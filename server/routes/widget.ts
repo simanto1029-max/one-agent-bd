@@ -136,7 +136,7 @@ export function handleSaasCouponFlow(
 
 // Detect whether user input is Bangla / Banglish ('bn') vs pure English ('en')
 export function detectLanguageMode(text: string): 'bn' | 'en' {
-  if (!text || !text.trim()) return 'bn';
+  if (!text || !text.trim()) return 'en';
   const clean = text.trim();
 
   // 1. Check for Bengali Unicode characters
@@ -412,13 +412,13 @@ function getWidgetConfig(userId: string): WidgetConfig {
       position: adminCustom?.position || 'bottom-right',
       welcome_message:
         adminCustom?.welcome_message ||
-        'আসসালামু আলাইকুম! 👋 Welcome to One Agent BD! আমাদের SaaS প্ল্যান (৳1,250 ও ৳1,950), 2-Day Free Trial, বা ওয়েবসাইট/সোশ্যাল মিডিয়া AI অটোমেশন সম্পর্কে বাংলা, বাংলিশ বা English-এ প্রশ্ন করুন। চাইলে ভয়েস (🎤) বা ছবিও (🖼️) পাঠাতে পারেন!',
+        'Hello! 👋 Welcome to One Agent BD! Ask me anything about our SaaS plans (1,250 BDT & 1,950 BDT), 2-Day Free Trial, or Website/Social Media AI Automation in English, Bangla, or Banglish. You can also send a voice note (🎤) or picture (🖼️)!',
       quick_prompts: adminCustom?.quick_prompts?.length
         ? adminCustom.quick_prompts
         : [
-            '💎 প্ল্যানগুলোর দাম ও বিস্তারিত কী কী? (Plans & Pricing)',
-            '🌐 আমার ওয়েবসাইটে AI চ্যাটবট কীভাবে অ্যাড করব?',
-            '🎁 2 Days Free Trial কীভাবে চালু করব?',
+            '💎 What are the Plans & Pricing details?',
+            '🌐 How do I add the AI Chatbot to my website?',
+            '🎁 How do I activate the 2-Day Free Trial?',
             '🚀 How does WhatsApp, Messenger & Website AI work?'
           ],
       helpline_phone: adminCustom?.helpline_phone || sysSettings.bkash_number || '01811-998877',
@@ -441,10 +441,10 @@ function getWidgetConfig(userId: string): WidgetConfig {
     primary_color: '#7F22FE',
     position: 'bottom-right',
     welcome_message:
-      'Welcome! 🌟 আসসালামু আলাইকুম! How can I assist you today? Feel free to ask in Bangla, Banglish, or English—or send a voice note or photo!',
+      'Welcome! 🌟 How can I assist you today? Feel free to ask in English, Bangla, or Banglish—or send a voice note or photo!',
     quick_prompts: [
-      '🛍️ প্রোডাক্টের দাম ও বিস্তারিত জানতে চাই',
-      '📦 আমি একটি অর্ডার করতে চাই',
+      '🛍️ Product pricing & details',
+      '📦 I want to place an order',
       '🚚 Delivery charges & timeline',
       '📞 Contact customer support'
     ],

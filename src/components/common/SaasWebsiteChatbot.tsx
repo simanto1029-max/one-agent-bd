@@ -280,7 +280,7 @@ export const SaasWebsiteChatbot: React.FC = () => {
           sender: 'bot',
           text:
             res.reply ||
-            'আমাদের SaaS প্ল্যাটফর্ম সম্পর্কে আর কোনো প্রশ্ন থাকলে জানাতে পারেন!',
+            'Feel free to ask any other questions about our SaaS platform!',
           time: formatTime()
         }
       ]);
@@ -290,7 +290,7 @@ export const SaasWebsiteChatbot: React.FC = () => {
         {
           id: `bot_err_${Date.now()}`,
           sender: 'bot',
-          text: 'আসসালামু আলাইকুম! আমাদের ২টি প্ল্যান রয়েছে: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল। আপনার প্রশ্নটি আরেকবার পাঠান!',
+          text: 'Hello! We offer 2 official plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial. Please send your question again!',
           time: formatTime()
         }
       ]);

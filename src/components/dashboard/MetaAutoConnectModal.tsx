@@ -139,18 +139,18 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               setSelectedAssetId(assets.pages[0].id);
               setStep('select');
             } else {
-              setError('আপনার ফেসবুক অ্যাকাউন্টে কোনো পেজ বা বিজনেস অ্যাকাউন্ট পাওয়া যায়নি। পেজ সিলেক্ট করে আবার চেষ্টা করুন।');
+              setError('No Facebook Page or Business Account found in your account. Please select a page and try again.');
             }
           })
           .catch((err: any) => {
-            setError(err.message || 'পেজের তালিকা লোড করা যায়নি।');
+            setError(err.message || 'Failed to load pages list.');
           })
           .finally(() => {
             setLoading(false);
           });
       } else if (data.type === 'META_OAUTH_ERROR') {
         setLoading(false);
-        setError(data.error || 'লগইন সম্পন্ন হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।');
+        setError(data.error || 'Login was not completed. Please try again.');
       }
     };
 
@@ -224,14 +224,14 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       handleSingleClickMetaLogin();
     } catch (err: any) {
       setLoading(false);
-      setError(err.message || 'WhatsApp পপ-আপ ওপেন করতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to open WhatsApp onboarding popup.');
     }
   };
 
   const handleManualWhatsAppConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualWaPhoneId.trim() || !manualWaToken.trim()) {
-      setError('অনুগ্রহ করে WhatsApp Phone Number ID এবং Access Token দিন।');
+      setError('Please enter your WhatsApp Phone Number ID and Access Token.');
       return;
     }
     try {
@@ -247,7 +247,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       onSuccess(res.channel);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'WhatsApp নাম্বার কানেক্ট করতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to connect WhatsApp number.');
     } finally {
       setLoading(false);
     }
@@ -305,18 +305,18 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     setSelectedAssetId(outcome.pages[0].id);
                     setStep('select');
                   } else {
-                    setError('কোনো পেজ পাওয়া যায়নি। ফেসবুক লগইনের সময় অন্তত একটি পেজ সিলেক্ট করুন।');
+                    setError('No pages found. Please select at least one page during Facebook login.');
                   }
                 })
                 .catch((err: any) => {
-                  setError(err.message || 'অ্যাকাউন্ট কানেক্ট করতে সমস্যা হয়েছে।');
+                  setError(err.message || 'Failed to connect account.');
                 })
                 .finally(() => {
                   setLoading(false);
                 });
             } else {
               setLoading(false);
-              setError('লগইন বাতিল করা হয়েছে।');
+              setError('Login was cancelled.');
             }
           },
           { scope: scopes }
@@ -325,9 +325,9 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       }
 
       setLoading(false);
-      setError('সার্ভারে এখনো Meta App ID যুক্ত করা হয়নি। অ্যাডমিন প্যানেল থেকে Meta App Setup সম্পন্ন করুন।');
+      setError('Meta App ID is not configured on the server yet. Please complete Meta App Setup from the Admin panel.');
     } catch (err: any) {
-      setError(err.message || 'লগইন শুরু করতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to initiate login.');
       setLoading(false);
     }
   };
@@ -355,7 +355,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       }
 
       const targetPage = pages.find((p) => p.id === selectedAssetId);
-      if (!targetPage) throw new Error(' অনুগ্রহ করে একটি পেজ বা অ্যাকাউন্ট সিলেক্ট করুন।');
+      if (!targetPage) throw new Error('Please select a page or account.');
 
       if (platform === 'messenger') {
         const res = await api.selectMetaPage(targetPage.id, targetPage.name, targetPage.category);
@@ -380,7 +380,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'অ্যাকাউন্ট কানেক্ট করতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to connect account.');
     } finally {
       setLoading(false);
     }
@@ -391,7 +391,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       case 'messenger':
         return {
           title: 'Connect Facebook Page',
-          subtitle: 'আপনার ফেসবুক অ্যাকাউন্টে লগইন করে যে পেজে AI অটো-রিপ্লাই চালু করতে চান সেটি সিলেক্ট করুন। বাকি সব সেটআপ একা একাই হয়ে যাবে।',
+          subtitle: 'Log in to your Facebook account and select the Page where you want to activate AI Auto-Reply. Everything else is configured automatically.',
           btnLabel: 'Continue with Facebook',
           btnClass: 'bg-[#1877F2] hover:bg-[#166fe5] shadow-[#1877F2]/25',
           icon: Facebook,
@@ -401,7 +401,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       case 'instagram':
         return {
           title: 'Connect Instagram Account',
-          subtitle: 'আপনার অ্যাকাউন্টে লগইন করে যে ইনস্টাগ্রাম বিজনেস প্রোফাইলে AI অটো-রিপ্লাই চালু করতে চান সেটি সিলেক্ট করুন।',
+          subtitle: 'Log in to your account and select the Instagram Business profile where you want to activate AI Auto-Reply.',
           btnLabel: 'Continue with Instagram (via Meta)',
           btnClass: 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 shadow-pink-500/20',
           icon: Instagram,
@@ -411,7 +411,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       case 'whatsapp':
         return {
           title: 'Connect WhatsApp Business',
-          subtitle: 'আপনার মেটা বিজনেস অ্যাকাউন্টে লগইন করে আপনার WhatsApp নাম্বারটি সিলেক্ট করুন।',
+          subtitle: 'Log in to your Meta Business Account and select your WhatsApp Business number.',
           btnLabel: 'Continue with WhatsApp Business',
           btnClass: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25',
           icon: Smartphone,
@@ -468,7 +468,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                   }`}
                 >
-                  ১. Meta Auto-Connect
+                  1. Meta Auto-Connect
                 </button>
                 <button
                   type="button"
@@ -479,7 +479,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                   }`}
                 >
-                  ২. নাম্বার / API দিয়ে কানেক্ট
+                  2. Connect via Number / API
                 </button>
               </div>
             )}
@@ -488,13 +488,13 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               <form onSubmit={handleManualWhatsAppConnect} className="space-y-3 text-left">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Business Name / মোবাইল নাম্বার
+                    WhatsApp Business Name / Phone Number
                   </label>
                   <input
                     type="text"
                     value={manualWaName}
                     onChange={(e) => setManualWaName(e.target.value)}
-                    placeholder="যেমন: My Shop (+88017XXXXXXXX)"
+                    placeholder="e.g. My Shop (+88017XXXXXXXX)"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm text-neutral-900 dark:text-white"
                   />
                 </div>
@@ -506,7 +506,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     type="text"
                     value={manualWabaId}
                     onChange={(e) => setManualWabaId(e.target.value)}
-                    placeholder="যেমন: 1098160382932544"
+                    placeholder="e.g. 1098160382932544"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
                   />
                 </div>
@@ -519,7 +519,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     required
                     value={manualWaPhoneId}
                     onChange={(e) => setManualWaPhoneId(e.target.value)}
-                    placeholder="যেমন: 1248549471684856"
+                    placeholder="e.g. 1248549471684856"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
                   />
                 </div>
@@ -532,7 +532,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     required
                     value={manualWaToken}
                     onChange={(e) => setManualWaToken(e.target.value)}
-                    placeholder="System User / Permanent Access Token দিন"
+                    placeholder="Enter System User / Permanent Access Token"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
                   />
                 </div>
@@ -578,9 +578,9 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 {platform === 'whatsapp' && (
                   <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5 text-left">
                     <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                      <strong>নতুন WhatsApp নাম্বার OTP/QR দিয়ে কীভাবে যুক্ত করবেন?</strong><br />
-                      ১) মেটার নিয়মে নাম্বার ও OTP ভেরিফাই করতে নিচের <strong>১. WhatsApp Manager ↗</strong> বাটনে গিয়ে <strong>+ Add phone number</strong>-এ আপনার নাম্বার যুক্ত করুন।<br />
-                      ২) এরপর <strong>২. Re-Select Number</strong> বাটনে ক্লিক করলে ফেসবুক পপ-আপে <em>&ldquo;Continue&rdquo;</em> না চাপিয়ে বাম পাশের <strong>&ldquo;Edit settings&rdquo;</strong> বাটনে ক্লিক করে নতুন নাম্বারটি টিক দিন:
+                      <strong>How to add a new WhatsApp number via OTP/QR:</strong><br />
+                      1) Open <strong>1. WhatsApp Manager ↗</strong> below and click <strong>+ Add phone number</strong> to verify your number via OTP.<br />
+                      2) Then click <strong>2. Re-Select Number</strong> and choose <strong>&ldquo;Edit settings&rdquo;</strong> in the Meta popup to check your new number:
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <a
@@ -590,7 +590,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                         className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
                       >
                         <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                        <span>১. WhatsApp Manager (+ Add Number) ↗</span>
+                        <span>1. WhatsApp Manager (+ Add Number) ↗</span>
                       </a>
                       <button
                         type="button"
@@ -598,7 +598,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                         onClick={handleWhatsAppEmbeddedSignup}
                         className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
                       >
-                        ২. Re-Select Number
+                        2. Re-Select Number
                       </button>
                     </div>
                   </div>
@@ -607,7 +607,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
-                    <span>১০০% অটোমেটিক কানেকশন — শুধু অ্যাকাউন্ট ও পেজ সিলেক্ট করুন</span>
+                    <span>100% Automatic Connection — Simply select your account &amp; page</span>
                   </p>
                 </div>
               </>
@@ -620,7 +620,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                আপনার পেজ / অ্যাকাউন্ট সিলেক্ট করুন:
+                Select your Page / Account:
               </div>
               <button
                 type="button"
@@ -628,7 +628,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 className="text-[11px] font-bold text-[#7F22FE] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>অন্য অ্যাকাউন্ট / রিফ্রেশ</span>
+                <span>Switch Account / Refresh</span>
               </button>
             </div>
 
@@ -702,7 +702,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                             onChange={(e) => setAlsoConnectLinkedIg(e.target.checked)}
                             className="rounded text-[#7F22FE]"
                           />
-                          <span>একই সাথে যুক্ত Instagram (@{p.instagram_business_account?.username}) কানেক্ট করুন</span>
+                          <span>Also connect linked Instagram (@{p.instagram_business_account?.username})</span>
                         </div>
                       )}
                     </div>
@@ -754,7 +754,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
             {platform === 'whatsapp' && (
               <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
                 <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                  তালিকায় আপনার কাঙ্ক্ষিত নাম্বারটি নেই? প্রথমে <strong>Meta WhatsApp Manager ↗</strong>-এ গিয়ে নাম্বার যুক্ত করুন, তারপর <strong>Re-Select / Switch Account</strong> বাটনে ক্লিক করে পপ-আপে <em>&ldquo;Edit previous settings&rdquo;</em> সিলেক্ট করুন:
+                  Don&apos;t see your number in the list? First add your number in <strong>Meta WhatsApp Manager ↗</strong>, then click <strong>Re-Select Number</strong> and choose <em>&ldquo;Edit previous settings&rdquo;</em> in the popup:
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <a
@@ -764,7 +764,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
                   >
                     <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                    <span>১. Meta WhatsApp Manager (+ Add Number) ↗</span>
+                    <span>1. Meta WhatsApp Manager (+ Add Number) ↗</span>
                   </a>
                   <button
                     type="button"
@@ -772,7 +772,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     onClick={handleWhatsAppEmbeddedSignup}
                     className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
                   >
-                    ২. Re-Select Number
+                    2. Re-Select Number
                   </button>
                 </div>
               </div>

@@ -33,7 +33,7 @@ export const ContactsView: React.FC = () => {
   const [broadcastSegment, setBroadcastSegment] = useState<'all' | 'unordered' | 'vip' | 'ordered'>('unordered');
   const [broadcastPlatform, setBroadcastPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
   const [broadcastText, setBroadcastText] = useState(
-    'আসসালামু আলাইকুম! আপনি আমাদের পেজে প্রোডাক্টের দাম জানতে চেয়েছিলেন। আজ অর্ডার কনফার্ম করলেই পাচ্ছেন স্পেশাল ডিসকাউন্ট ও দ্রুত হোম ডেলিভারি! অর্ডার করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বারটি লিখে পাঠান। 🎁'
+    'Hello {customer_name}! You recently inquired about our products. Confirm your order today to enjoy a special discount and fast home delivery! Reply with your Name, Address & Phone Number to book now. 🎁'
   );
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [statusToast, setStatusToast] = useState<string | null>(null);
@@ -187,7 +187,7 @@ export const ContactsView: React.FC = () => {
                   1-Click Smart Retargeting & Offer Broadcast
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  যারা দাম জিজ্ঞেস করে অর্ডার করেনি কিংবা আপনার পুরাতন VIP কাস্টমারদের ১ ক্লিকে অফার মেসেজ পাঠান
+                  Send 1-click promotional offers to leads who inquired about prices but haven't ordered yet, or reward your VIP buyers
                 </p>
               </div>
             </div>
@@ -198,24 +198,24 @@ export const ContactsView: React.FC = () => {
                 onClick={() => {
                   setBroadcastSegment('unordered');
                   setBroadcastText(
-                    'আসসালামু আলাইকুম! আপনি আমাদের পেজে প্রোডাক্টের দাম জানতে চেয়েছিলেন। আজ অর্ডার কনফার্ম করলেই পাচ্ছেন স্পেশাল ডিসকাউন্ট ও ফ্রি ডেলিভারি অফার! অর্ডার করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বারটি লিখে পাঠান। 🎁'
+                    'Hello {customer_name}! You recently inquired about our products. Confirm your order today to get an exclusive discount and fast delivery! Reply with your Name, Address & Phone Number to place your order. 🎁'
                   );
                 }}
                 className="px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer"
               >
-                Template: অর্ডার না করা কাস্টমার (Retargeting)
+                Template: Unordered Leads (Retargeting)
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setBroadcastSegment('vip');
                   setBroadcastText(
-                    'আসসালামু আলাইকুম! আমাদের নিয়মিত VIP কাস্টমার হিসেবে আপনার জন্য নতুন কালেকশনে থাকছে বিশেষ ১৫% ছাড়! নতুন প্রোডাক্টগুলোর ছবি দেখতে রিপ্লাই করুন। 🌟'
+                    'Hello {customer_name}! As one of our valued VIP customers, enjoy an exclusive 15% discount on our new arrival collection! Reply to view the latest catalog. 🌟'
                   );
                 }}
                 className="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[11px] font-bold cursor-pointer"
               >
-                Template: VIP কাস্টমার অফার
+                Template: VIP Customer Offer
               </button>
             </div>
           </div>
@@ -231,10 +231,10 @@ export const ContactsView: React.FC = () => {
                 className="w-full px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white font-semibold"
               >
                 <option value="unordered">
-                  🎯 Retargeting Leads — যারা মেসেজ দিয়েছে কিন্তু অর্ডার করেনি ({unorderedCount})
+                  🎯 Retargeting Leads — Messaged but did not order yet ({unorderedCount})
                 </option>
-                <option value="vip">👑 VIP Repeat Buyers — একাধিকবার বা বড় অর্ডার করেছে ({vipCount})</option>
-                <option value="ordered">🛍️ All Ordered Customers — যারা আগে অর্ডার করেছে ({orderedCount})</option>
+                <option value="vip">👑 VIP Repeat Buyers — Multiple or high-value orders ({vipCount})</option>
+                <option value="ordered">🛍️ All Ordered Customers — Customers with past orders ({orderedCount})</option>
                 <option value="all">📢 All Active Leads ({contacts.length})</option>
               </select>
             </div>

@@ -24,36 +24,36 @@ const QUICK_TEMPLATES: {
 }[] = [
   {
     label: 'Special Discount / Offer',
-    title: 'স্পেশাল ডিসকাউন্ট অফার চলছে!',
+    title: 'Special Discount Offer is Live!',
     message:
-      'আজকের মধ্যে যেকোনো প্রো বা স্টার্টার প্ল্যান আপগ্রেড করলেই পাচ্ছেন বিশেষ ডিসকাউন্ট। অফারটি সীমিত সময়ের জন্য প্রযোজ্য!',
+      'Upgrade to any Pro or Starter plan today and enjoy an exclusive limited-time discount on your subscription!',
     type: 'promo',
     action_label: 'Upgrade Plan',
     action_tab: 'billing'
   },
   {
     label: 'Billing / Renewal Reminder',
-    title: 'সাবস্ক্রিপশন রিনিউয়াল রিমাইন্ডার',
+    title: 'Subscription Renewal Reminder',
     message:
-      'আপনার ২৪/৭ AI অটো-রিপ্লাই এবং অর্ডার কনফার্মেশন সার্ভিস নিরবচ্ছিন্ন রাখতে মেয়াদ শেষ হওয়ার আগেই প্ল্যান রিনিউ করে নিন।',
+      'Please renew your subscription plan before expiration to keep your 24/7 AI Auto-Reply and Order Automation running smoothly.',
     type: 'warning',
     action_label: 'Check Billing',
     action_tab: 'billing'
   },
   {
     label: 'New Feature Update',
-    title: 'নতুন ফিচার আপডেট যুক্ত হয়েছে!',
+    title: 'New Platform Features Released!',
     message:
-      'এখন থেকে আপনার ড্যাশবোর্ডে আরও দ্রুত কুরিয়ার বুকিং এবং অটোমেটিক পেমেন্ট ভেরিফিকেশন সুবিধা চালু করা হয়েছে।',
+      'Faster 1-click courier booking and automatic bKash/Nagad payment verification are now live on your merchant dashboard.',
     type: 'info',
     action_label: '',
     action_tab: ''
   },
   {
     label: 'Scheduled Maintenance',
-    title: 'সার্ভার মেইনটেন্যান্স নোটিশ',
+    title: 'Scheduled Server Maintenance Notice',
     message:
-      'সিস্টেম আপগ্রেডের জন্য আজ রাত ৩:০০টা থেকে ৩:৩০টা পর্যন্ত আমাদের সার্ভার মেইনটেন্যান্স চলবে। সাময়িক অসুবিধার জন্য দুঃখিত।',
+      'Our servers will undergo scheduled maintenance tonight from 3:00 AM to 3:30 AM for system upgrades. We apologize for any brief inconvenience.',
     type: 'maintenance',
     action_label: '',
     action_tab: ''
@@ -223,7 +223,7 @@ export const AdminNotifications: React.FC = () => {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., ঈদ স্পেশাল ২০% ডিসকাউন্ট অফার চলছে!"
+              placeholder="e.g., Special 20% Discount Offer is Live!"
               required
               className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:outline-hidden focus:border-indigo-500"
             />

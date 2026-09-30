@@ -20,7 +20,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ isDark, onToggle, clas
           ? 'bg-[#150E30] border-white/15 hover:border-purple-400/50 text-purple-200 shadow-xs'
           : 'bg-slate-100/90 border-slate-200/90 hover:border-purple-400/50 text-slate-700 shadow-2xs'
       } ${className}`}
-      title={isDark ? 'Black Theme চালু আছে — White করতে ক্লিক করুন' : 'White Theme চালু আছে — Black করতে ক্লিক করুন'}
+      title={isDark ? 'Dark Theme active — Click to switch to Light Theme' : 'Light Theme active — Click to switch to Dark Theme'}
       aria-label="Toggle between White and Black theme"
     >
       {isDark ? (

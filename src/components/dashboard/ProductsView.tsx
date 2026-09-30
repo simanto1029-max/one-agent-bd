@@ -320,7 +320,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
 
   const handleTestAiQuery = async (prod: Product) => {
     setTestingProduct(prod);
-    setTestQuestion(`আপনাদের ${prod.name} এর ছবি আর দাম দেখতে চাই`);
+    setTestQuestion(`Can I see the photo and price of ${prod.name}?`);
     setAiTestResponse(null);
   };
 
@@ -347,11 +347,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               <Package className="w-5 h-5" />
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-neutral-900 dark:text-white">
-              প্রোডাক্ট ক্যাটালগ (Products & Catalog)
+              Products & Catalog
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-            আপনার স্টোরের কাপড়, প্যান্ট, ঘড়ি ও অন্যান্য ভ্যারিয়েন্ট ছবি ও দামসহ যুক্ত করুন। কাস্টমার ছবি বা দাম জানতে চাইলে AI এখান থেকে সরাসরি রেসপন্স করবে।
+            Add your store's clothing, pants, watches, and variants with photos and pricing. When customers ask for photos or prices, your AI will reply directly from this catalog.
           </p>
         </div>
 
@@ -364,7 +364,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               className="px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-amber-500/20"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>লোড স্যাম্পল প্রোডাক্টস (Pants, Shirts, Watch)</span>
+              <span>Load Sample Products (Pants, Shirts, Watch)</span>
             </button>
           )}
 
@@ -454,15 +454,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
           </div>
           <div className="space-y-1">
             <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-              <span>AI কীভাবে এই প্রোডাক্ট ক্যাটালগ ব্যবহার করে?</span>
+              <span>How Does the AI Use This Product Catalog?</span>
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-[#7F22FE]/20 text-[#7F22FE] font-mono">
                 Multimodal AI Engine
               </span>
             </h3>
             <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              • <strong>কাস্টমার ছবি ও দাম চাইলে:</strong> যেমন <em>"কার্গো প্যান্টের ছবি পাঠান ও দাম কত?"</em>—AI ক্যাটালগ খুঁজে আসল হাই-রেজুলেশন ছবি ও স্পেসিফিকেশন মেসেঞ্জারে সরাসরি পাঠিয়ে দেয়।<br />
-              • <strong>কাস্টমার কোনো ছবি পাঠালে:</strong> কাস্টমার কাপড় বা ঘড়ির ছবি পাঠালে AI ছবি স্ক্যান করে ক্যাটালগের সাথে মিলিয়ে বলে এটি স্টকে আছে কি না।<br />
-              • <strong>ভ্যারিয়েন্ট ম্যাচিং:</strong> প্রতিটি আইটেমের ডেসক্রিপশনে সাইজ (যেমন: 30, 32, 34) ও ফেব্রিক উল্লেখ রাখলে AI নিখুঁতভাবে কাস্টমারকে সাজেস্ট করে।
+              • <strong>When a customer asks for photos & prices:</strong> e.g. <em>"Send me the photo and price of cargo pants"</em>—the AI searches your catalog and sends the exact high-resolution photo and specs in chat.<br />
+              • <strong>When a customer sends a product photo:</strong> The AI scans the image, matches it with your catalog, and confirms availability and pricing.<br />
+              • <strong>Variant & Size Matching:</strong> Include available sizes (e.g., 30, 32, 34) and fabric details in the description so the AI can recommend the right fit.
             </p>
           </div>
         </div>
@@ -655,7 +655,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                     </div>
                     {typeof prod.buying_price === 'number' && prod.buying_price > 0 && (
                       <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200/70 dark:border-emerald-800/40">
-                        লাভ: ৳{(prod.price - prod.buying_price).toLocaleString()}/পিস
+                        Profit: ৳{(prod.price - prod.buying_price).toLocaleString()}/unit
                       </span>
                     )}
                   </div>
@@ -810,7 +810,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Selling Price (বিক্রয় মূল্য) *
+                    Selling Price *
                   </label>
                   <input
                     type="number"
@@ -825,7 +825,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Buying Cost (কেনা দাম - লাভের হিসাবের জন্য)
+                    Buying Cost (For Net Profit Calculation)
                   </label>
                   <input
                     type="number"
@@ -855,7 +855,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                    Product Photo (পণ্যের ছবি)
+                    Product Photo
                   </label>
                   <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl text-[11px] font-medium">
                     <button
@@ -918,7 +918,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                         Click to select photo from Computer or Mobile
                       </p>
                       <p className="text-[11px] text-neutral-400 mt-1">
-                        JPG, PNG, WebP up to 10MB (স্বয়ংক্রিয়ভাবে কম্প্রেস হয়ে সেভ হবে)
+                        JPG, PNG, WebP up to 10MB (Auto-compressed & saved)
                       </p>
                     </div>
                   </div>
@@ -937,13 +937,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                     <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-800 dark:text-blue-300 space-y-1">
                       <span className="font-bold flex items-center gap-1">
                         <HelpCircle className="w-3.5 h-3.5" />
-                        ছবির লিংক কোথায় পাবেন?
+                        Where to get a direct image link?
                       </span>
                       <p>
-                        ১. <b>ফেসবুক পেজ বা ওয়েবসাইট:</b> পেজের যেকোনো পণ্যের ছবির উপর Right-Click করে <i>"Copy Image Address"</i> ক্লিক করে এখানে পেস্ট করুন।
+                        1. <b>Facebook Page or Website:</b> Right-click on any product image and select <i>"Copy Image Address"</i>, then paste it here.
                       </p>
                       <p>
-                        ২. <b>ফ্রি ইমেজ হোস্ট:</b> <i>imgbb.com</i> বা <i>postimages.org</i> এ গিয়ে ফ্রিতে ছবি আপলোড করে ডিরেক্ট লিংক এখানে দিতে পারেন।
+                        2. <b>Free Image Host:</b> Upload your photo on <i>imgbb.com</i> or <i>postimages.org</i> and paste the direct image URL.
                       </p>
                     </div>
                   </div>
@@ -1020,7 +1020,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               {/* Description & Sizes */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Product Details, Sizes & Fabric (AI ডেসক্রিপশন) *
+                  Product Details, Sizes & Fabric (AI Description) *
                 </label>
                 <textarea
                   rows={3}
@@ -1037,13 +1037,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               {/* AI Keywords / Tags */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                  AI Search Keywords / Tags (কমা দিয়ে আলাদা করুন)
+                  AI Search Keywords / Tags (Comma-separated)
                 </label>
                 <input
                   type="text"
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="cargo, jogger, pant, olive, কার্গো, প্যান্ট, কটন"
+                  placeholder="cargo, jogger, pant, olive, cotton, men"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
                 />
                 <span className="text-[10px] text-neutral-400 block mt-0.5">
@@ -1103,7 +1103,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
 
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                Customer Message (কাস্টমারের প্রশ্ন):
+                Customer Message:
               </label>
               <div className="flex gap-2">
                 <input

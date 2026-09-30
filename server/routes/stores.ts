@@ -56,7 +56,7 @@ storesRouter.post('/', (req: Request, res: Response) => {
 
   if (existingStores.length >= maxStores) {
     return res.status(403).json({
-      error: 'আপনার Starter AI Plan (৳1,250/মাস)-এ ১টি ওয়েবসাইট স্টোর যুক্ত করা যায়। আনলিমিটেড ওয়েবসাইট ও মাল্টি-স্টোর সিঙ্ক করতে Pro Business Plan (৳1,950/মাস)-এ আপগ্রেড করুন।',
+      error: 'Your Starter AI Plan (1,250 BDT/month) supports 1 website store integration. Upgrade to the Pro Business Plan (1,950 BDT/month) for unlimited multi-store sync.',
       code: 'PRO_PLAN_REQUIRED'
     });
   }

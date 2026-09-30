@@ -424,7 +424,7 @@ export async function submitAndVerifyGatewayTransaction(params: {
         return {
           verified: true,
           status: 'completed',
-          message: 'পেমেন্ট সফলভাবে যাচাই হয়েছে! আপনার সাবস্ক্রিপশন প্ল্যান অটোমেটিক অ্যাক্টিভ হয়ে গেছে।',
+          message: 'Payment verified successfully! Your subscription plan has been activated automatically.',
           gatewayResponse: saveJson
         };
       }
@@ -440,7 +440,7 @@ export async function submitAndVerifyGatewayTransaction(params: {
         status: 'failed',
         message:
           saveJson?.message ||
-          'দুঃখিত, আপনার Transaction ID টি খুঁজে পাওয়া যায়নি। সঠিক পরিমাণ টাকা সেন্ড মানি করে সঠিক Transaction ID দিয়ে আবার চেষ্টা করুন।',
+          'Sorry, your Transaction ID was not found. Please send the exact amount and enter a valid Transaction ID.',
         gatewayResponse: saveJson
       };
     }
@@ -455,14 +455,14 @@ export async function submitAndVerifyGatewayTransaction(params: {
       verified: false,
       status: 'failed',
       message:
-        'দুঃখিত, আপনার Transaction ID টি মেলেনি। দয়া করে সঠিক পরিমাণ টাকা পাঠিয়ে সঠিক Transaction ID দিন।'
+        'Sorry, your Transaction ID did not match. Please send the exact amount and enter the correct Transaction ID.'
     };
   } catch (error: any) {
     console.error('[pay.oneagentbd.online] Transaction verification error:', error);
     return {
       verified: false,
       status: 'failed',
-      message: 'পেমেন্ট যাচাই করতে সমস্যা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।'
+      message: 'Failed to verify payment. Please try again in a moment.'
     };
   }
 }
@@ -516,7 +516,7 @@ export async function verifyTransactionWithGateway(
         return {
           verified: false,
           status: 'failed',
-          message: `প্রদত্ত টাকার পরিমাণ মেলেনি (প্রয়োজন ৳${amount}, পাওয়া গেছে ৳${gatewayAmount})।`,
+          message: `Payment amount mismatch (Required: BDT ${amount}, Received: BDT ${gatewayAmount}).`,
           gatewayResponse: data
         };
       }
@@ -535,7 +535,7 @@ export async function verifyTransactionWithGateway(
       message:
         data?.message && data.message !== 'failed'
           ? data.message
-          : 'দুঃখিত, আপনার Transaction ID টি খুঁজে পাওয়া যায়নি। সঠিক Transaction ID দিয়ে আবার চেষ্টা করুন।',
+          : 'Sorry, your Transaction ID was not found. Please check your Transaction ID and try again.',
       gatewayResponse: data
     };
   } catch (error: any) {
@@ -543,7 +543,7 @@ export async function verifyTransactionWithGateway(
     return {
       verified: false,
       status: 'failed',
-      message: 'নেটওয়ার্ক সমস্যার কারণে যাচাই করা যায়নি। আবার চেষ্টা করুন।'
+      message: 'Could not verify payment due to a network error. Please try again.'
     };
   }
 }

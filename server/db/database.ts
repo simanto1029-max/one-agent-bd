@@ -593,17 +593,17 @@ const initialData: DatabaseSchema = {
       password: 'Admin@Simanto1029',
       is_suspended: false,
       llm_provider: 'gemini',
-      system_prompt: `আপনি "One Agent BD"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।
+      system_prompt: `You are the official Customer Service & Sales AI Assistant for "One Agent BD".
 
-Business Knowledge Base (ব্যবসায়িক তথ্য):
-1. সার্ভিস ও প্রোডাক্ট:
-   - WhatsApp, Facebook Messenger ও Instagram 24/7 AI অটো-রিপ্লাই, ভয়েস মেসেজ ট্রান্সক্রিপশন এবং ই-কমার্স অর্ডার অটোমেশন।
-   - আমাদের ২টি প্ল্যান: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল।
-2. পেমেন্ট ও সাপোর্ট:
-   - বিকাশ, নগদ ও রকেট গেটওয়ে (pay.oneagentbd.online)। হেল্পলাইন: +8801601705804।
+Business Knowledge Base:
+1. Services & Products:
+   - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.
+   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.
+2. Payment & Support:
+   - bKash, Nagad & Rocket automated gateway (pay.oneagentbd.online). Helpline: +8801601705804.
 
 MANDATORY LANGUAGE & SHORT REPLY RULES:
-- কাস্টমার বাংলা, বাংলিশ বা ভয়েস মেসেজে যেভাবেই প্রশ্ন করুক, সর্বদা সহজ ও প্রাকৃতিক বাংলা ভাষায় সর্বোচ্চ ২-৩ বাক্যে সংক্ষিপ্ত উত্তর দিন।`,
+- Reply in the same language the customer uses (if the customer asks in Bangla, Banglish, or Bangla voice note, reply in natural Bangla; if they ask in English, reply in clear English) in 2-3 concise sentences.`,
       created_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
     }
@@ -868,26 +868,50 @@ class Database {
           !p.system_prompt ||
           p.system_prompt.includes('You are a warm, professional customer support AI agent for our business.') ||
           p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month') ||
-          p.system_prompt.includes('Subscription Plans: Standard Plan 899 BDT/month')
+          p.system_prompt.includes('Subscription Plans: Standard Plan 899 BDT/month') ||
+          p.system_prompt.includes('Business Knowledge Base (ব্যবসায়িক তথ্য):')
         ) {
-          p.system_prompt = `আপনি "${p.full_name || 'One Agent BD'}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট।
+          p.system_prompt = `You are the official Customer Service & Sales AI Assistant for "${p.full_name || 'One Agent BD'}".
 
-Business Knowledge Base (ব্যবসায়িক তথ্য):
-1. সার্ভিস ও প্রোডাক্ট:
-   - WhatsApp, Facebook Messenger ও Instagram 24/7 AI অটো-রিপ্লাই, ভয়েস মেসেজ ট্রান্সক্রিপশন এবং ই-কমার্স অর্ডার অটোমেশন।
-   - আমাদের ২টি প্ল্যান: Starter AI Plan (৳১,২৫০/মাস) এবং Pro Business Plan (৳১,৯৫০/মাস), সাথে ২ দিনের ফ্রি ট্রায়াল।
-2. ডেলিভারি ও চার্জ:
-   - ডিজিটাল সার্ভিস তাৎক্ষণিক অ্যাক্টিভ হয়। ফিজিক্যাল পার্সেল ডেলিভারি: ঢাকার ভেতরে ৳৬০ (২৪-৪৮ ঘণ্টা), ঢাকার বাইরে সারাদেশে ৳১২০ (২-৩ দিন)। ক্যাশ অন ডেলিভারি (COD) সুবিধা আছে।
-3. পেমেন্ট পদ্ধতি:
-   - বিকাশ, নগদ, রকেট এবং ক্যাশ অন ডেলিভারি (COD)। মার্চেন্ট নাম্বার: 01711-223344।
-4. অর্ডার করার নিয়ম:
-   - অর্ডার কনফার্ম করতে কাস্টমারের নাম, সম্পূর্ণ ঠিকানা এবং ১১ ডিজিটের মোবাইল নাম্বার প্রয়োজন।
-5. সাপোর্ট ও হেল্পলাইন:
-   - প্রতিদিন সকাল ৯টা থেকে রাত ১১টা পর্যন্ত। হেল্পলাইন: 01811-998877।
+Business Knowledge Base:
+1. Services & Products:
+   - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.
+   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.
+2. Delivery & Charges:
+   - Digital services activate instantly. Physical parcel delivery: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka nationwide 120 BDT (2-3 days). Cash on Delivery (COD) available.
+3. Payment Methods:
+   - bKash, Nagad, Rocket, and Cash on Delivery (COD). Merchant Number: 01711-223344.
+4. How to Order:
+   - To confirm an order, we require the customer's Full Name, Complete Delivery Address, and 11-digit Phone Number.
+5. Support & Helpline:
+   - Open daily from 9:00 AM to 11:00 PM. Helpline: 01811-998877.
 
 MANDATORY LANGUAGE & REPLY RULES:
-- কাস্টমার বাংলা (Bangla) বা বাংলিশ (Banglish - ইংরেজি অক্ষরে বাংলা লেখা) যেভাবেই প্রশ্ন করুক না কেন, সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন।
-- উত্তর সংক্ষিপ্ত, স্পষ্ট এবং ১-৩ বাক্যের মধ্যে রাখুন।`;
+- If the customer writes in Bangla or Banglish, reply in natural, polite Bangla script. If the customer writes in English, reply in clear English.
+- Keep replies concise, clear, and within 1-3 sentences.`;
+        }
+        if (p.automation_settings) {
+          if (
+            p.automation_settings.public_comment_reply_template &&
+            p.automation_settings.public_comment_reply_template.includes('আপনার কমেন্টের বিস্তারিত উত্তর')
+          ) {
+            p.automation_settings.public_comment_reply_template =
+              'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩';
+          }
+          if (
+            p.automation_settings.followup_message_template &&
+            p.automation_settings.followup_message_template.includes('আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন')
+          ) {
+            p.automation_settings.followup_message_template =
+              'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️';
+          }
+          if (
+            p.automation_settings.upsell_offer_text &&
+            p.automation_settings.upsell_offer_text.includes('২টি প্রোডাক্ট একসাথে অর্ডার করলে')
+          ) {
+            p.automation_settings.upsell_offer_text =
+              'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!';
+          }
         }
         uniqueProfiles.push(p);
       });
@@ -1226,7 +1250,7 @@ MANDATORY LANGUAGE & REPLY RULES:
     const cleanEmail = (profile.email || '').trim().toLowerCase();
     if (this.getProfileByEmail(cleanEmail)) {
       throw new Error(
-        'এই ইমেইল অ্যাড্রেস দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা হয়েছে! একটি ইমেইল দিয়ে একবারের বেশি অ্যাকাউন্ট খোলা যাবে না। অনুগ্রহ করে Sign In করুন।'
+        'An account with this email address already exists! Only one account is allowed per email. Please Sign In.'
       );
     }
     const normalizedProfile: Profile = {

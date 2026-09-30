@@ -132,12 +132,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
       if (res.blocked_customers) setBlockedCustomers(res.blocked_customers);
       setInboxToast(
         action === 'pause_ai'
-          ? '⏸️ এই কাস্টমারের জন্য AI পজ করা হয়েছে (Human Handover Mode Active)'
+          ? '⏸️ AI Auto-Reply paused for this customer (Human Handover Mode Active)'
           : action === 'resume_ai'
-          ? '▶️ এই কাস্টমারের জন্য AI Auto-Reply পুনরায় চালু হয়েছে'
+          ? '▶️ AI Auto-Reply resumed for this customer'
           : action === 'block'
-          ? '🚫 কাস্টমারকে স্প্যাম/ফেক অর্ডার ব্ল্যাকলিস্টে ব্লক করা হয়েছে'
-          : '✅ কাস্টমারকে আনব্লক করা হয়েছে'
+          ? '🚫 Customer added to Fraud/Spam Blacklist'
+          : '✅ Customer removed from Blacklist'
       );
       setTimeout(() => setInboxToast(null), 3500);
     } catch (err) {
@@ -908,7 +908,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                   onClick={handleSummarizeConversation}
                   disabled={summarizing}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 disabled:opacity-60 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer whitespace-nowrap"
-                  title="এই কাস্টমারের সাথে কী কী কথা হয়েছে এবং কনভারসেশন কোন পর্যায়ে আছে তা দেখুন"
+                  title="View AI summary and current stage of this customer conversation"
                 >
                   {summarizing ? (
                     <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
@@ -933,8 +933,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                   }`}
                   title={
                     pausedCustomers.includes(selectedConv.customerId)
-                      ? 'AI বর্তমানে পজ করা আছে (Human Mode)। ক্লিক করলে আবার AI Auto-Reply চালু হবে।'
-                      : 'আপনি নিজে চ্যাট করতে চাইলে ১ ক্লিকে এই কাস্টমারের জন্য AI পজ করুন (Human Handover)'
+                      ? 'AI is currently paused (Human Mode). Click to resume AI Auto-Reply.'
+                      : 'Pause AI for this customer in 1 click to chat manually (Human Handover)'
                   }
                 >
                   {pausedCustomers.includes(selectedConv.customerId) ? (
@@ -963,7 +963,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                       ? 'bg-rose-600 text-white border-rose-600'
                       : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
                   }`}
-                  title="ফেক অর্ডার বা বিরক্তিকর কাস্টমার ব্লক করুন যাতে AI রিপ্লাই না দেয়"
+                  title="Block spam or fake-order customers so AI stops replying to them"
                 >
                   <Ban className="w-3 h-3 shrink-0" />
                   <span className="hidden sm:inline">
@@ -1001,7 +1001,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                         )}
                       </h4>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        কাস্টমারের সাথে কী কথোপকথন হয়েছে এবং চ্যাটটি এখন কোন পর্যায়ে আছে তার বিস্তারিত রিপোর্ট
+                        Detailed report of what was discussed with the customer and the current stage of the chat
                       </p>
                     </div>
                   </div>
@@ -1031,7 +1031,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                 {summarizing && !conversationSummary ? (
                   <div className="py-5 flex items-center justify-center gap-2.5 text-xs font-bold text-[#7F22FE] dark:text-purple-300">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>কাস্টমারের সম্পূর্ণ চ্যাট বিশ্লেষণ করে সামারি ও বর্তমান পর্যায় তৈরি করা হচ্ছে...</span>
+                    <span>Analyzing full customer conversation and generating stage summary...</span>
                   </div>
                 ) : conversationSummary ? (
                   <div className="space-y-3">
@@ -1039,24 +1039,24 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                     <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-bold">
                         <span className="text-neutral-500 dark:text-neutral-400">
-                          কনভারসেশন পর্যায় (Current Stage):
+                          Current Conversation Stage:
                         </span>
                         <span className="text-[#7F22FE] dark:text-purple-300">
-                          ধাপ {conversationSummary.stageStep}/৪ — {conversationSummary.stageLabel}
+                          Step {conversationSummary.stageStep}/4 — {conversationSummary.stageLabel}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-4 gap-1.5 text-[10px] font-bold">
                         {[
-                          { step: 1, label: '১. নতুন জিজ্ঞাসা' },
-                          { step: 2, label: '২. দাম ও আলোচনা' },
-                          { step: 3, label: '৩. অর্ডারের তথ্য বাকি' },
+                          { step: 1, label: '1. New Inquiry' },
+                          { step: 2, label: '2. Price & Details' },
+                          { step: 3, label: '3. Awaiting Info' },
                           {
                             step: 4,
                             label:
                               conversationSummary.stageKey === 'delivered'
-                                ? '৪. ডেলিভারি সম্পন্ন'
-                                : '৪. অর্ডার কনফার্মড'
+                                ? '4. Delivered'
+                                : '4. Order Confirmed'
                           }
                         ].map((item) => {
                           const isDone = conversationSummary.stageStep >= item.step;
@@ -1088,7 +1088,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                       <div className="lg:col-span-2 p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
                         <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
                           <MessageSquare className="w-3.5 h-3.5 text-[#7F22FE]" />
-                          <span>কী কী কথা হয়েছে (Conversation Summary):</span>
+                          <span>Conversation Summary:</span>
                         </div>
                         <p className="text-xs text-neutral-700 dark:text-neutral-200 leading-relaxed">
                           {conversationSummary.summaryText}
@@ -1112,31 +1112,31 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                       <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2 flex flex-col justify-between">
                         <div className="space-y-1.5">
                           <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200">
-                            শনাক্তকৃত তথ্য ও চাহিদা:
+                            Detected Customer Info:
                           </div>
                           <div className="text-[11px] text-neutral-600 dark:text-neutral-300 space-y-1">
                             <div>
-                              <span className="font-bold text-neutral-500">আগ্রহের বিষয়: </span>
+                              <span className="font-bold text-neutral-500">Topic / Intent: </span>
                               <span className="font-semibold text-neutral-900 dark:text-white">
                                 {conversationSummary.customerIntent}
                               </span>
                             </div>
                             <div>
-                              <span className="font-bold text-neutral-500">ফোন নাম্বার: </span>
+                              <span className="font-bold text-neutral-500">Phone Number: </span>
                               <span className="font-mono font-semibold text-neutral-900 dark:text-white">
-                                {conversationSummary.extractedPhone || 'এখনো দেয়নি'}
+                                {conversationSummary.extractedPhone || 'Not provided yet'}
                               </span>
                             </div>
                             <div>
-                              <span className="font-bold text-neutral-500">ঠিকানা: </span>
+                              <span className="font-bold text-neutral-500">Address: </span>
                               <span className="text-neutral-800 dark:text-neutral-200">
-                                {conversationSummary.extractedAddress || 'এখনো দেয়নি'}
+                                {conversationSummary.extractedAddress || 'Not provided yet'}
                               </span>
                             </div>
                             <div>
-                              <span className="font-bold text-neutral-500">মেসেজ সংখ্যা: </span>
+                              <span className="font-bold text-neutral-500">Message Count: </span>
                               <span>
-                                মোট {conversationSummary.stats.totalMessages}টি (কাস্টমার:{' '}
+                                Total {conversationSummary.stats.totalMessages} (Customer:{' '}
                                 {conversationSummary.stats.customerMessages}, AI:{' '}
                                 {conversationSummary.stats.aiReplies})
                               </span>
@@ -1146,7 +1146,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
 
                         <div className="pt-2 border-t border-neutral-100 dark:border-neutral-700/60">
                           <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-0.5">
-                            পরবর্তী করণীয় (Next Action):
+                            Recommended Next Action:
                           </span>
                           <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
                             {conversationSummary.nextAction}

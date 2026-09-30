@@ -53,12 +53,12 @@ function checkChannelLimitForPlan(
     if (!isPro) {
       return {
         allowed: false,
-        error: `আপনার Starter AI Plan (৳1,250/মাস)-এ সর্বোচ্চ ${maxAllowedChannels}টি চ্যানেল (Facebook, Instagram ও WhatsApp) কানেক্ট করা যায়। আরও বেশি পেজ বা চ্যানেল (১০টি পর্যন্ত) একসাথে চালাতে Pro Business Plan (৳1,950/মাস)-এ আপগ্রেড করুন।`
+        error: `Your Starter AI Plan (1,250 BDT/month) allows up to ${maxAllowedChannels} social channels (Facebook, Instagram & WhatsApp). Upgrade to the Pro Business Plan (1,950 BDT/month) to connect up to 10 channels simultaneously.`
       };
     }
     return {
       allowed: false,
-      error: `আপনার Pro Business Plan-এর সর্বোচ্চ ${maxAllowedChannels}টি চ্যানেল কানেক্ট করা হয়ে গেছে। নতুন চ্যানেল যুক্ত করতে পুরনো যেকোনো একটি চ্যানেল ডিসকানেক্ট করুন।`
+      error: `You have reached the maximum of ${maxAllowedChannels} connected channels on your Pro Business Plan. Please disconnect an existing channel before adding a new one.`
     };
   }
 
@@ -719,15 +719,15 @@ channelsRouter.get('/automation-settings', (req: Request, res: Response) => {
   const defaults = {
     auto_comment_reply_enabled: true,
     public_comment_reply_template:
-      'ধন্যবাদ {customer_name}! ❤️ আপনার কমেন্টের বিস্তারিত উত্তর ও প্রোডাক্টের তথ্য আপনার ইনবক্সে (Messenger/DM-এ) পাঠিয়ে দেওয়া হয়েছে। অনুগ্রহ করে আপনার ইনবক্স চেক করুন! 📩',
+      'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩',
     send_private_inbox_on_comment: true,
     auto_followup_enabled: true,
     followup_delay_minutes: 45,
     followup_message_template:
-      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️',
+      'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️',
     upsell_enabled: true,
     upsell_offer_text:
-      '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!',
+      'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!',
     auto_payment_verify_enabled: true,
     auto_tracking_reply_enabled: true,
     paused_customers: [] as string[],
@@ -759,15 +759,15 @@ channelsRouter.put('/automation-settings', (req: Request, res: Response) => {
   const current = profile?.automation_settings || {
     auto_comment_reply_enabled: true,
     public_comment_reply_template:
-      'ধন্যবাদ {customer_name}! ❤️ আপনার কমেন্টের বিস্তারিত উত্তর ও প্রোডাক্টের তথ্য আপনার ইনবক্সে (Messenger/DM-এ) পাঠিয়ে দেওয়া হয়েছে। অনুগ্রহ করে আপনার ইনবক্স চেক করুন! 📩',
+      'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩',
     send_private_inbox_on_comment: true,
     auto_followup_enabled: true,
     followup_delay_minutes: 45,
     followup_message_template:
-      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️',
+      'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️',
     upsell_enabled: true,
     upsell_offer_text:
-      '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!',
+      'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!',
     auto_payment_verify_enabled: true,
     auto_tracking_reply_enabled: true,
     paused_customers: [],
@@ -859,8 +859,8 @@ channelsRouter.post('/test-comment-reply', async (req: Request, res: Response) =
 
   const {
     platform = 'messenger',
-    customerName = 'তানভীর আহমেদ (Facebook Comment)',
-    commentText = 'ভাইয়া প্রিমিয়াম পাঞ্জাবিটার দাম কত? ছবি হবে?'
+    customerName = 'Tanvir Ahmed (Facebook Comment)',
+    commentText = 'What is the price of the Premium Panjabi? Can I see a photo?'
   } = req.body || {};
 
   const existingChannel = db

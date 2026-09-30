@@ -66,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (recoveryStep === 'verify') {
           const cleanDigits = phone.replace(/\D/g, '');
           if (cleanDigits.length < 10) {
-            throw new Error('অ্যাকাউন্ট ভেরিফাই করার জন্য সঠিক মোবাইল নাম্বার দিন (কমপক্ষে ১১ ডিজিট)।');
+            throw new Error('Please enter a valid registered phone number (at least 11 digits) to verify your account.');
           }
           const res = await api.requestPasswordRecovery({
             email: email.trim(),
@@ -75,14 +75,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setGeneratedCode(res.recoveryCode);
           setRecoveryCode(res.recoveryCode);
           setRecoveryStep('reset');
-          setSuccessNotice(res.message || 'ভেরিফিকেশন সফল হয়েছে! এখন নতুন পাসওয়ার্ড দিন।');
+          setSuccessNotice(res.message || 'Verification successful! Please enter your new password.');
           return;
         } else {
           if (newPassword.length < 6) {
-            throw new Error('নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+            throw new Error('New password must be at least 6 characters long.');
           }
           if (newPassword !== confirmNewPassword) {
-            throw new Error('নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড মিলছে না!');
+            throw new Error('New password and confirm password do not match!');
           }
           const res = await api.resetPassword({
             email: email.trim(),
@@ -99,7 +99,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'signup') {
         const cleanDigits = phone.replace(/\D/g, '');
         if (!phone.trim() || cleanDigits.length < 10) {
-          throw new Error('রেজিস্ট্রেশন করার জন্য আপনার মোবাইল নাম্বার (Phone Number) দেওয়া আবশ্যক।');
+          throw new Error('A valid phone number is required to register your account.');
         }
         const res = await api.signup({
           email: email.trim(),
@@ -146,7 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isAdminMode
               ? 'Administrator Portal Sign In'
               : mode === 'forgot'
-              ? 'পাসওয়ার্ড রিকভারি (Password Recovery)'
+              ? 'Password Recovery'
               : mode === 'signup'
               ? 'Start Your 2-Day Free Trial'
               : 'Welcome Back'}
@@ -155,7 +155,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isAdminMode
               ? 'Authorized platform administrators only. Verify payments and manage plans.'
               : mode === 'forgot'
-              ? 'আপনার ইমেইল ও রেজিস্টার করা মোবাইল নাম্বার দিয়ে সহজেই নতুন পাসওয়ার্ড সেট করুন।'
+              ? 'Verify your registered email and phone number to set a new password.'
               : mode === 'signup'
               ? 'Instant access to WhatsApp, Messenger, Instagram & Website AI Auto-Reply. Phone number required.'
               : 'Sign in to access your omnichannel inbox and manage AI agent settings.'}
@@ -187,7 +187,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium space-y-2">
             <div>{error}</div>
-            {mode === 'signup' && error.includes('ইতিমধ্যে একটি অ্যাকাউন্ট') && (
+            {mode === 'signup' && error.toLowerCase().includes('already') && (
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
@@ -197,7 +197,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   }}
                   className="px-2.5 py-1 rounded-lg bg-[#7F22FE] text-white font-bold text-[11px] hover:bg-[#6c1ce0] transition-colors cursor-pointer"
                 >
-                  Sign In করুন
+                  Sign In Now
                 </button>
                 <button
                   type="button"
@@ -208,7 +208,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   }}
                   className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-200 font-bold text-[11px] hover:bg-rose-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
                 >
-                  Password Recovery করুন
+                  Recover Password
                 </button>
               </div>
             )}
@@ -294,7 +294,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {mode === 'signup' && !isAdminMode && (
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                Full Name / Business Name (নাম বা প্রতিষ্ঠানের নাম) *
+                Full Name / Business Name *
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
@@ -313,7 +313,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-              Email Address (ইমেইল অ্যাড্রেস) *
+              Email Address *
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
@@ -333,7 +333,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {(mode === 'signup' || mode === 'forgot') && !isAdminMode && (
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                Phone Number (মোবাইল নাম্বার) *
+                Phone Number *
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
@@ -343,7 +343,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="017XXXXXXXX (১১ ডিজিট মোবাইল নাম্বার)"
+                  placeholder="017XXXXXXXX (11-digit mobile number)"
                   className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
                 />
               </div>
@@ -355,7 +355,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                  Password (পাসওয়ার্ড) *
+                  Password *
                 </label>
                 {mode === 'login' && !isAdminMode && (
                   <button
@@ -368,7 +368,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     }}
                     className="text-xs font-bold text-[#7F22FE] hover:underline cursor-pointer"
                   >
-                    পাসওয়ার্ড ভুলে গেছেন? (Forgot Password?)
+                    Forgot Password?
                   </button>
                 )}
               </div>
@@ -393,7 +393,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {generatedCode && (
                 <div className="p-3 rounded-2xl bg-[#7F22FE]/10 border border-[#7F22FE]/25 flex items-center justify-between">
                   <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
-                    আপনার ভেরিফিকেশন কোড (Recovery OTP):
+                    Your Verification Code (Recovery OTP):
                   </span>
                   <span className="px-2.5 py-1 rounded-lg bg-[#7F22FE] text-white font-mono font-bold text-xs tracking-widest">
                     {generatedCode}
@@ -403,7 +403,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Recovery Code (৬-ডিজিট রিকভারি কোড) *
+                  Recovery Code (6-Digit OTP) *
                 </label>
                 <input
                   type="text"
@@ -417,7 +417,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  New Password (নতুন পাসওয়ার্ড দিন) *
+                  New Password *
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
@@ -426,7 +426,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="কমপক্ষে ৬ অক্ষরের নতুন পাসওয়ার্ড"
+                    placeholder="At least 6 characters"
                     className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
                   />
                 </div>
@@ -434,7 +434,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Confirm New Password (পুনরায় নতুন পাসওয়ার্ড দিন) *
+                  Confirm New Password *
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
@@ -443,7 +443,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    placeholder="পুনরায় নতুন পাসওয়ার্ড লিখুন"
+                    placeholder="Re-enter your new password"
                     className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
                   />
                 </div>
@@ -476,12 +476,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               recoveryStep === 'verify' ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
-                  <span>অ্যাকাউন্ট ভেরিফাই করুন (Get Recovery Code)</span>
+                  <span>Verify Account & Get Recovery Code</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>নতুন পাসওয়ার্ড সেভ ও লগইন করুন (Reset Password)</span>
+                  <span>Save New Password & Sign In</span>
                 </>
               )
             ) : mode === 'signup' ? (

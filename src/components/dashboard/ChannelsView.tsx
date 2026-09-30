@@ -63,16 +63,16 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [autoCommentEnabled, setAutoCommentEnabled] = useState(true);
   const [sendPrivateInboxOnComment, setSendPrivateInboxOnComment] = useState(true);
   const [publicCommentTemplate, setPublicCommentTemplate] = useState(
-    'ধন্যবাদ {customer_name}! ❤️ আপনার কমেন্টের বিস্তারিত উত্তর ও প্রোডাক্টের তথ্য আপনার ইনবক্সে (Messenger/DM-এ) পাঠিয়ে দেওয়া হয়েছে। অনুগ্রহ করে আপনার ইনবক্স চেক করুন! 📩'
+    'Thank you {customer_name}! ❤️ We have sent a detailed reply and product details to your Inbox (Messenger/DM). Please check your inbox! 📩'
   );
   const [autoFollowUpEnabled, setAutoFollowUpEnabled] = useState(true);
   const [followUpDelayMinutes, setFollowUpDelayMinutes] = useState(45);
   const [followUpTemplate, setFollowUpTemplate] = useState(
-    'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️'
+    'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️'
   );
   const [savingAutomation, setSavingAutomation] = useState(false);
   const [testingComment, setTestingComment] = useState(false);
-  const [testCommentText, setTestCommentText] = useState('ভাইয়া প্রিমিয়াম পাঞ্জাবিটার দাম কত? ছবি হবে?');
+  const [testCommentText, setTestCommentText] = useState('What is the price of the Premium Panjabi? Can I see a photo?');
   const [commentTestResult, setCommentTestResult] = useState<{
     publicReply: string;
     privateInboxReply: string;
@@ -131,9 +131,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       const plat = (urlParams.get('platform') as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
       setAutoConnectPlatform(plat);
       setIsAutoConnectModalOpen(true);
-      setSuccessMessage('Meta অ্যাকাউন্ট ভেরিফাই হয়েছে! এখন আপনার পেজ সিলেক্ট করুন।');
+      setSuccessMessage('Meta account verified! Please select your Page to complete connection.');
     } else if (urlParams.get('meta_error')) {
-      setError(`Meta লগইন ত্রুটি: ${decodeURIComponent(urlParams.get('meta_error') || '')}`);
+      setError(`Meta login error: ${decodeURIComponent(urlParams.get('meta_error') || '')}`);
     }
 
     // Listen for Popup postMessage from Meta OAuth callback
@@ -145,7 +145,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         setAutoConnectPlatform(plat);
         setIsAutoConnectModalOpen(true);
       } else if (data.type === 'META_OAUTH_ERROR') {
-        setError(data.error || 'Meta লগইন সম্পন্ন হয়নি।');
+        setError(data.error || 'Meta login was not completed.');
       }
     };
 
@@ -201,11 +201,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     try {
       setIsDeleting(true);
       await api.deleteChannel(channelToDelete.id);
-      setSuccessMessage(`"${channelToDelete.name}" সফলভাবে ডিসকানেক্ট করা হয়েছে।`);
+      setSuccessMessage(`"${channelToDelete.name}" has been disconnected successfully.`);
       setChannelToDelete(null);
       onRefresh();
     } catch (err: any) {
-      setError(err.message || 'চ্যানেল ডিসকানেক্ট করা যায়নি।');
+      setError(err.message || 'Failed to disconnect channel.');
     } finally {
       setIsDeleting(false);
     }
@@ -223,7 +223,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       });
       onRefresh();
     } catch (err: any) {
-      setError(err.message || 'অটোমেশন সেটিংস আপডেট করা যায়নি।');
+      setError(err.message || 'Failed to update automation settings.');
     }
   };
 
@@ -236,15 +236,15 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       const res = await api.runAutoFollowUps();
       if (res.followUpsSent > 0) {
         setSuccessMessage(
-          `সফলভাবে ${res.followUpsSent} জন কাস্টমারকে অটো ফলো-আপ মেসেজ পাঠানো হয়েছে!`
+          `Successfully sent automated follow-up messages to ${res.followUpsSent} customer(s)!`
         );
       } else {
         setSuccessMessage(
-          `সব কথোপকথন চেক করা হয়েছে (${res.checkedConversations}টি)—এই মুহূর্তে নতুন কোনো পেন্ডিং ফলো-আপ নেই। (ব্যাকগ্রাউন্ডে প্রতি ১৫ মিনিটে অটো চেক হচ্ছে)`
+          `Checked all conversations (${res.checkedConversations}) — no pending follow-ups right now. (Auto-checked every 15 minutes in the background)`
         );
       }
     } catch (err: any) {
-      setError(err.message || 'ফলো-আপ মেসেজ পাঠাতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to send follow-up messages.');
     } finally {
       setRunningFollowUps(false);
     }
@@ -281,10 +281,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         followup_message_template: followUpTemplate
       };
       await api.updateAutomationSettings(payload);
-      setSuccessMessage('Auto Comment Reply এবং Follow-up সেটিংস সফলভাবে সেভ হয়েছে!');
+      setSuccessMessage('Auto Comment Reply and Follow-up settings saved successfully!');
       onRefresh();
     } catch (err: any) {
-      setError(err.message || 'সেটিংস সেভ করা যায়নি।');
+      setError(err.message || 'Failed to save settings.');
     } finally {
       setSavingAutomation(false);
     }
@@ -298,20 +298,20 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       setCommentTestResult(null);
       const res = await api.testCommentAutoReply({
         platform: 'messenger',
-        customerName: 'তানভীর আহমেদ',
-        commentText: testCommentText.trim() || 'ভাইয়া প্রাইস কত?'
+        customerName: 'Tanvir Ahmed',
+        commentText: testCommentText.trim() || 'What is the price?'
       });
       if (res.publicReply && res.privateInboxReply) {
         setCommentTestResult({
           publicReply: res.publicReply,
           privateInboxReply: res.privateInboxReply
         });
-        setSuccessMessage('কমেন্টের পাবলিক রিপ্লাই এবং ইনবক্স মেসেজ দুটোই জেনারেট হয়েছে (Unified Inbox-এও সেভ হয়েছে)!');
+        setSuccessMessage('Public comment reply and private Inbox DM generated (and saved to Unified Inbox)!');
       } else {
-        setError(res.reason || 'অটো কমেন্ট রিপ্লাই টেস্ট সম্পন্ন হয়নি।');
+        setError(res.reason || 'Auto comment reply test did not complete.');
       }
     } catch (err: any) {
-      setError(err.message || 'কমেন্ট টেস্ট করতে সমস্যা হয়েছে।');
+      setError(err.message || 'Failed to test comment reply.');
     } finally {
       setTestingComment(false);
     }
@@ -329,9 +329,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         appSecret: metaAppSecretInput.trim()
       });
       setMetaConfig(res.config);
-      setSuccessMessage('Meta App ID ও Secret সফলভাবে সেভ হয়েছে! এখন ইউজাররা ১-ক্লিকে কানেক্ট করতে পারবে।');
+      setSuccessMessage('Meta App ID & Secret saved! Users can now connect with 1-Click.');
     } catch (err: any) {
-      setError(err.message || 'Meta কনফিগারেশন সেভ করা যায়নি।');
+      setError(err.message || 'Failed to save Meta configuration.');
     } finally {
       setSavingMetaConfig(false);
     }
@@ -351,8 +351,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           </h1>
           <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             {viewMode === 'admin_setup'
-              ? 'আপনার SaaS প্ল্যাটফর্মের মাস্টার Meta App ID ও Secret এখানে একবার সেটআপ করুন।'
-              : 'যেকোনো চ্যানেলে ১-ক্লিকে কানেক্ট করুন — শুধু আপনার অ্যাকাউন্ট ও পেজ সিলেক্ট করলেই AI অটো-রিপ্লাই চালু হয়ে যাবে।'}
+              ? 'Configure your SaaS platform Master Meta App ID & Secret once here.'
+              : 'Connect any channel with 1-Click — simply select your account and page to activate AI Auto-Reply.'}
           </p>
         </div>
 
@@ -403,7 +403,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             <span>{error}</span>
           </div>
           <button onClick={() => setError(null)} className="text-xs font-bold hover:underline cursor-pointer">
-            বন্ধ করুন
+            Dismiss
           </button>
         </div>
       )}
@@ -415,7 +415,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             <span>{successMessage}</span>
           </div>
           <button onClick={() => setSuccessMessage(null)} className="text-xs font-bold hover:underline cursor-pointer">
-            বন্ধ করুন
+            Dismiss
           </button>
         </div>
       )}
@@ -543,7 +543,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      আপনার ফেসবুক পেজ কানেক্ট করুন। পেজের সব মেসেজ ও কমেন্টের উত্তর AI একা একাই দেবে এবং অর্ডার কনফার্ম করবে।
+                      Connect your Facebook Page. Our AI will automatically reply to all messages and comments and confirm customer orders 24/7.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#1877F2] dark:text-blue-300">
@@ -699,7 +699,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      আপনার ইনস্টাগ্রাম বিজনেস অ্যাকাউন্ট কানেক্ট করুন। কাস্টমারদের DM, কমেন্ট ও প্রোডাক্ট ছবির রিকোয়েস্ট AI অটোমেটিক হ্যান্ডেল করবে।
+                      Connect your Instagram Business account. Our AI will automatically handle DMs, post comments, and product photo requests.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-300">
@@ -843,7 +843,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      আপনার WhatsApp Business নাম্বার কানেক্ট করুন। ভয়েস মেসেজ, চ্যাট ও অর্ডার কনফার্মেশন ২৪/৭ অটোমেটিক চলবে।
+                      Connect your WhatsApp Business number. Voice messages, chats, and order confirmations will run automatically 24/7.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
@@ -892,7 +892,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 <span>Auto Comment Reply &amp; Smart Follow-up Automation</span>
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                ফেসবুক ও ইনস্টাগ্রাম পোস্টের কমেন্টে অটো রিপ্লাই + ইনবক্স মেসেজ এবং অর্ডার না করা কাস্টমারদের অটো ফলো-আপ মেসেজ এখান থেকে নিয়ন্ত্রণ করুন।
+                Configure automatic replies + private Inbox DMs for Facebook &amp; Instagram post comments and smart follow-up messages for undecided shoppers.
               </p>
             </div>
 
@@ -930,7 +930,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                         Post Comment Auto-Reply + Inbox DM
                       </h3>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Facebook Page &amp; Instagram Post কমেন্টে অটো রিপ্লাই ও ইনবক্সে দাম পাঠানো
+                        Auto-reply to Facebook Page &amp; Instagram Post comments and send price details to Inbox
                       </p>
                     </div>
                   </div>
@@ -956,18 +956,18 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
                     <div className="text-xs font-bold text-[#1877F2] dark:text-blue-300">
-                      ১. পাবলিক কমেন্ট রিপ্লাই
+                      1. Public Comment Reply
                     </div>
                     <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                      কাস্টমারের কমেন্টের নিচে সাথে সাথে ধন্যবাদ জানিয়ে ইনবক্স চেক করতে বলবে।
+                      Instantly replies under the customer&apos;s comment thanking them and asking them to check their inbox.
                     </p>
                   </div>
                   <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
                     <div className="text-xs font-bold text-[#7F22FE] dark:text-purple-300">
-                      ২. প্রাইভেট ইনবক্স মেসেজ (DM)
+                      2. Private Inbox Message (DM)
                     </div>
                     <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                      একই সাথে কাস্টমারের Messenger/Instagram ইনবক্সে পণ্যের দাম ও ছবি পাঠাবে।
+                      Simultaneously sends product pricing and photos directly to their Messenger/Instagram Inbox.
                     </p>
                   </div>
                 </div>
@@ -976,7 +976,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                      Public Comment Reply মেসেজ ({'{customer_name}'} অটো বসবে)
+                      Public Comment Reply Template ({'{customer_name}'} auto-filled)
                     </label>
                     <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#7F22FE] cursor-pointer">
                       <input
@@ -988,7 +988,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                         }}
                         className="rounded accent-[#7F22FE]"
                       />
-                      <span>ইনবক্সেও AI উত্তর পাঠাবে</span>
+                      <span>Also send AI reply to Inbox</span>
                     </label>
                   </div>
                   <textarea
@@ -1002,14 +1002,14 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {/* 1-Click Live Comment Test Box */}
                 <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5">
                   <div className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center justify-between">
-                    <span>⚡ লাইভ টেস্ট করুন (কাস্টমার পোস্টে কমেন্ট করলে কেমন দেখাবে)</span>
+                    <span>⚡ Live Test (Preview how AI responds when a customer comments)</span>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={testCommentText}
                       onChange={(e) => setTestCommentText(e.target.value)}
-                      placeholder="কাস্টমারের কমেন্ট লিখুন (যেমন: ভাইয়া দাম কত?)"
+                      placeholder="Enter sample customer comment (e.g. What is the price?)"
                       className="flex-1 text-xs px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
                     />
                     <button
@@ -1055,7 +1055,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                         Smart Auto Follow-up Message
                       </h3>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        দাম জানার পর অর্ডার না করা কাস্টমারদের স্বয়ংক্রিয় রিমাইন্ডার মেসেজ
+                        Automated reminder message for customers who inquired about price but haven&apos;t ordered yet
                       </p>
                     </div>
                   </div>
@@ -1080,14 +1080,14 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {/* Follow-up Timing Selector */}
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    কাস্টমার রিপ্লাই না দিলে কতক্ষণ পর অটো ফলো-আপ মেসেজ যাবে? (Meta 24h Window Safe)
+                    Send automated follow-up if customer doesn&apos;t reply after: (Meta 24h Window Safe)
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { mins: 30, label: '৩০ মিনিট পর' },
-                      { mins: 45, label: '৪৫ মিনিট পর' },
-                      { mins: 120, label: '২ ঘণ্টা পর' },
-                      { mins: 360, label: '৬ ঘণ্টা পর' }
+                      { mins: 30, label: 'After 30 Mins' },
+                      { mins: 45, label: 'After 45 Mins' },
+                      { mins: 120, label: 'After 2 Hours' },
+                      { mins: 360, label: 'After 6 Hours' }
                     ].map((opt) => (
                       <button
                         key={opt.mins}
@@ -1111,7 +1111,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {/* Follow-up Message Template */}
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Follow-up মেসেজ টেমপ্লেট ({'{customer_name}'} অটো বসবে)
+                    Follow-up Message Template ({'{customer_name}'} auto-filled)
                   </label>
                   <textarea
                     rows={3}
@@ -1125,10 +1125,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                      🔄 ব্যাকগ্রাউন্ডে প্রতি ১৫ মিনিটে অটো চেক হচ্ছে
+                      🔄 Automatically checked every 15 minutes in the background
                     </div>
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                      যেসব কাস্টমার ইতিমধ্যে অর্ডার করেছে তাদের কখনোই বিরক্ত করা হবে না।
+                      Customers who have already placed an order will never be messaged again.
                     </p>
                   </div>
 
@@ -1157,10 +1157,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-                আপনার {channels.length}টি চ্যানেলে AI Agent সক্রিয় আছে
+                AI Agent is active on {channels.length} connected channel(s)
               </h4>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                কাস্টমারদের মেসেজ দেখতে Inbox-এ যান অথবা AI-কে আপনার ব্যবসার তথ্য শেখাতে AI Persona-তে যান।
+                Go to Unified Inbox to view customer conversations or open AI Persona to train your AI on your business details.
               </p>
             </div>
           </div>
@@ -1201,13 +1201,13 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/15 via-[#7F22FE]/15 to-purple-500/10 border border-amber-400/30 dark:border-amber-500/20">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">
               <ShieldCheck className="w-4 h-4" />
-              <span>SaaS Owner Setup (শুধুমাত্র অ্যাডমিন দেখতে পাচ্ছেন)</span>
+              <span>SaaS Owner Setup (Visible to Admin Only)</span>
             </div>
             <h2 className="text-lg font-black text-neutral-900 dark:text-white">
-              Master Meta App ID &amp; Secret কনফিগারেশন
+              Master Meta App ID &amp; Secret Configuration
             </h2>
             <p className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 mt-1 leading-relaxed">
-              সাধারণ ইউজারদের কাছে এই পেজটি সম্পূর্ণ লুকানো থাকে। ইউজাররা শুধু ৩টি বক্সে <strong>Connect Facebook / Connect Instagram / Connect WhatsApp</strong> বাটন দেখবে। আপনি এখানে একবার আপনার Meta App ID ও Secret বসিয়ে রাখলে সব ইউজারের ১-ক্লিক লগইন একা একা কাজ করবে।
+              This page is completely hidden from regular users. Regular users only see the 3 cards with <strong>Connect Facebook / Connect Instagram / Connect WhatsApp</strong> buttons. Once you save your Meta App ID &amp; Secret here, 1-Click OAuth login will work automatically for all users.
             </p>
           </div>
 
@@ -1216,8 +1216,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#1877F2] font-bold text-xs flex items-center justify-center">
                 1
               </div>
-              <h4 className="font-bold text-sm text-neutral-900 dark:text-white">Meta App তৈরি করুন</h4>
+              <h4 className="font-bold text-sm text-neutral-900 dark:text-white">Create a Meta App</h4>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                Create a Business-type app on{' '}
                 <a
                   href="https://developers.facebook.com/apps"
                   target="_blank"
@@ -1226,7 +1227,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 >
                   developers.facebook.com <ExternalLink className="w-3 h-3" />
                 </a>{' '}
-                থেকে Business টাইপ অ্যাপ খুলে App ID ও App Secret কপি করুন।
+                and copy the App ID and App Secret.
               </p>
             </div>
 
@@ -1236,7 +1237,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               </div>
               <h4 className="font-bold text-sm text-neutral-900 dark:text-white">OAuth Redirect URI</h4>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Facebook Login &gt; Settings &gt; Valid OAuth Redirect URIs-এ নিচের লিংকটি দিন:
+                Add this URL under Facebook Login &gt; Settings &gt; Valid OAuth Redirect URIs:
               </p>
               <div className="flex items-center gap-1.5 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 font-mono text-[11px] text-neutral-800 dark:text-neutral-200 overflow-x-auto">
                 <span className="truncate flex-1">{`${effectiveOrigin}/api/channels/meta/callback`}</span>
@@ -1284,10 +1285,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                  Meta App ID &amp; Secret সেভ করুন
+                  Save Meta App ID &amp; Secret
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  এখানে সেভ করলে সাথে সাথে সব ইউজারের জন্য ১-ক্লিক অটো কানেক্ট চালু হয়ে যাবে।
+                  Saving here immediately enables 1-Click Auto Connect for all users on the platform.
                 </p>
               </div>
               {metaConfig?.configured ? (
@@ -1366,7 +1367,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         }}
         onSuccess={(connectedChannel) => {
           setSuccessMessage(
-            `"${connectedChannel.name}" সফলভাবে কানেক্ট হয়েছে এবং AI Auto-Reply চালু হয়ে গেছে!`
+            `"${connectedChannel.name}" connected successfully and AI Auto-Reply is now active!`
           );
           onRefresh();
         }}
@@ -1376,7 +1377,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       <ConfirmModal
         isOpen={Boolean(channelToDelete)}
         title="Disconnect Channel"
-        message={`আপনি কি নিশ্চিতভাবে "${channelToDelete?.name}" চ্যানেলটি ডিসকানেক্ট করতে চান?`}
+        message={`Are you sure you want to disconnect "${channelToDelete?.name}"?`}
         confirmText="Disconnect"
         cancelText="Cancel"
         isLoading={isDeleting}

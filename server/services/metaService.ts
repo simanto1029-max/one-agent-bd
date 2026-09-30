@@ -888,7 +888,7 @@ export async function handleInboundCommentWebhook(event: InboundCommentEvent): P
     return { handled: false, reason: 'Subscription expired' };
   }
 
-  const commenterName = event.customerName || 'সম্মানিত গ্রাহক';
+  const commenterName = event.customerName || 'Valued Customer';
 
   // 1. Log customer's comment in Unified Inbox so merchant sees it
   const inboundCommentMsg = db.createMessage({
@@ -929,7 +929,7 @@ export async function handleInboundCommentWebhook(event: InboundCommentEvent): P
   const customCommentTemplate = profile.automation_settings?.public_comment_reply_template?.trim();
   const publicCommentReply = customCommentTemplate
     ? customCommentTemplate.replace(/\{customer_name\}/g, commenterName)
-    : `ধন্যবাদ ${commenterName}! ❤️ আপনার কমেন্টের বিস্তারিত উত্তর ও প্রোডাক্টের তথ্য আপনার ইনবক্সে (Messenger/DM-এ) পাঠিয়ে দেওয়া হয়েছে। অনুগ্রহ করে আপনার ইনবক্স চেক করুন! 📩`;
+    : `Thank you ${commenterName}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩`;
 
   // 4. Send Public Comment Reply & Private Inbox DM via Meta Graph API (if real token)
   if (channel.access_token && !channel.access_token.includes('demo') && !channel.access_token.startsWith('sim_')) {
@@ -1115,13 +1115,13 @@ export async function runAutoFollowUpEngine(options?: {
       );
       if (hasOrdered) continue;
 
-      const customerName = lastInbound.customer_name || 'সম্মানিত গ্রাহক';
+      const customerName = lastInbound.customer_name || 'Valued Customer';
 
       // Generate contextual polite follow-up message
       const customFollowUpTemplate = profile.automation_settings?.followup_message_template?.trim();
       const followUpText = customFollowUpTemplate
         ? customFollowUpTemplate.replace(/\{customer_name\}/g, customerName)
-        : `আসসালামু আলাইকুম ${customerName}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️`;
+        : `Hello ${customerName}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️`;
 
       await sendMetaMessage(channel, lastInbound.customer_id, followUpText);
 

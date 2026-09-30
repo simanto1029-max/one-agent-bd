@@ -312,7 +312,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                হিসাব নিকাশ অটোমেটিক: Gross Sales থেকে প্রোডাক্ট কেনা দাম, Facebook Boost/Ad খরচ এবং রিটার্ন লস বাদ দিয়ে আসল লাভ (Net Profit)
+                Automated P&L: Real-time net profit after deducting product cost, Facebook Ad spend, and return courier loss from gross sales.
               </p>
             </div>
           </div>

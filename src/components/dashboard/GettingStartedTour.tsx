@@ -264,7 +264,7 @@ Tone & Language: ${tonePrompt}
                     Connect Meta (WhatsApp, Messenger, Instagram) & Website
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                    গ্রাহকদের সব মেসেজ যেন অটোমেটিক আপনার প্ল্যাটফর্মে আসে এবং এআই চব্বিশ ঘণ্টা রিপ্লাই দিতে পারে, সেজন্য আপনার ফেসবুক পেজ, ইনস্টাগ্রাম বা হোয়াটসঅ্যাপ কানেক্ট করুন।
+                    Connect your Facebook Page, Instagram, or WhatsApp account so all customer messages arrive automatically and your AI agent can reply 24/7.
                   </p>
                 </div>
                 {isChannelsDone && (
@@ -346,7 +346,7 @@ Tone & Language: ${tonePrompt}
                       Connect Your Official Channels
                     </h4>
                     <p className="text-[11px] text-neutral-600 dark:text-neutral-300 mt-1 leading-relaxed">
-                      আপনার অফিসিয়াল ফেসবুক পেজ, ইনস্টাগ্রাম বা হোয়াটসঅ্যাপ কানেক্ট করতে <strong>Channels Hub</strong>-এ যান। সেখানে আপনি মেটা অফিসিয়াল লগইন অথবা সরাসরি পেজ এক্সেস টোকেন দিয়ে লাইভ চ্যানেল অ্যাক্টিভেট করতে পারবেন।
+                      Visit the <strong>Channels Hub</strong> to connect your official Facebook Page, Instagram, or WhatsApp using 1-Click Meta Official Login or your Page Access Token.
                     </p>
                   </div>
                 </div>
@@ -380,7 +380,7 @@ Tone & Language: ${tonePrompt}
                     Define Your Store AI Persona & Delivery Rules
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                    আপনার এআই এজেন্ট কীভাবে গ্রাহকদের সাথে কথা বলবে, ডেলিভারি চার্জ কত (ঢাকার ভেতরে/বাইরে), এবং কোন নাম্বারে পেমেন্ট নিবে তা এখানে সেট করুন।
+                    Configure how your AI agent speaks with customers, your delivery charges (Inside/Outside Dhaka), and your accepted payment methods.
                   </p>
                 </div>
                 {isAiDone && (
@@ -395,7 +395,7 @@ Tone & Language: ${tonePrompt}
               <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/80 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Store / Brand Name (দোকান বা ব্র্যান্ডের নাম)
+                    Store / Brand Name
                   </label>
                   <input
                     type="text"
@@ -409,22 +409,22 @@ Tone & Language: ${tonePrompt}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                      AI Conversation Tone (কথা বলার ধরণ)
+                      AI Conversation Tone
                     </label>
                     <select
                       value={aiTone}
                       onChange={(e) => setAiTone(e.target.value as any)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 focus:outline-none focus:border-[#7F22FE]"
                     >
-                      <option value="friendly_bangla">Friendly & Polite Bangla (বাংলা / বাংলিশ)</option>
-                      <option value="professional_bangla">Professional Corporate Bangla (মার্জিত)</option>
+                      <option value="friendly_bangla">Friendly & Polite Bangla / Banglish</option>
+                      <option value="professional_bangla">Professional Corporate Bangla</option>
                       <option value="english">Standard English (Global Tone)</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                      Payment Methods & Numbers (পেমেন্ট নিয়ম)
+                      Payment Methods & Numbers
                     </label>
                     <input
                       type="text"
@@ -438,7 +438,7 @@ Tone & Language: ${tonePrompt}
 
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Delivery Rates & Timeline (কুরিয়ার ও ডেলিভারি চার্জ)
+                    Delivery Rates & Timeline
                   </label>
                   <input
                     type="text"
@@ -499,7 +499,7 @@ Tone & Language: ${tonePrompt}
                     Add Your Store Products & Pricing
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
-                    কাস্টমার যখন কোনো পণ্যের দাম বা ছবি জানতে চাইবে, এআই আপনার ক্যাটালগ দেখে নিখুঁত দাম বলবে এবং অর্ডার গ্রহণ করবে।
+                    When a customer asks for a product's price or photo, your AI will match it from your catalog, quote the exact price, and confirm the order automatically.
                   </p>
                 </div>
                 {isProductsDone && (
@@ -552,7 +552,7 @@ Tone & Language: ${tonePrompt}
                   <span>Choose How to Set Up Your Products</span>
                 </div>
                 <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                  আপনি এখনই ১-ক্লিকে ৩টি প্রি-কনফিগার্ড ডেমো প্রোডাক্ট (যেমন: ব্যাকপ্যাক, স্মার্টওয়াচ, সানগ্লাস) যুক্ত করে টেস্টিং শুরু করতে পারেন, অথবা আপনার নিজস্ব পণ্যের ছবি ও দাম যুক্ত করতে <strong>Products & Catalog</strong>-এ যেতে পারেন।
+                  You can load 3 pre-configured sample products in 1 click to start testing right away, or open <strong>Products & Catalog</strong> to upload your own product photos and prices.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -602,7 +602,7 @@ Tone & Language: ${tonePrompt}
                   Congratulations! Your Business is Automation Ready! 🎉
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mt-2 leading-relaxed">
-                  আপনার চ্যানেল, এআই পারসোনা এবং প্রোডাক্ট ক্যাটালগ সফলভাবে সেটআপ করা হয়েছে। এখন আপনার এআই এজেন্ট ২৪/৭ গ্রাহকদের সাথে চ্যাট করতে এবং অর্ডার কনফার্ম করতে প্রস্তুত।
+                  Your channels, AI persona, and product catalog have been configured. Your AI sales agent is now ready to chat with customers and confirm orders 24/7.
                 </p>
               </div>
 
@@ -646,9 +646,9 @@ Tone & Language: ${tonePrompt}
                   <span>Next Recommended Steps:</span>
                 </div>
                 <ul className="text-xs text-neutral-600 dark:text-neutral-300 space-y-1.5 list-disc list-inside">
-                  <li><strong>Webhook Simulator</strong> দিয়ে গ্রাহকের মতো মেসেজ পাঠিয়ে এআই রিপ্লাই পরীক্ষা করুন।</li>
-                  <li><strong>Delivery & Courier</strong> মেনুতে Steadfast বা Pathao API কী বসিয়ে অটো-কুরিয়ার এন্ট্রি চালু করুন।</li>
-                  <li><strong>Orders Hub</strong>-এ এসে কনফার্ম হওয়া প্রতিটি অর্ডারের ট্র্যাকিং দেখুন।</li>
+                  <li>Use the <strong>Webhook Simulator</strong> to test live AI replies as a customer.</li>
+                  <li>Add your Steadfast or Pathao API keys in <strong>Delivery & Courier</strong> for 1-click parcel booking.</li>
+                  <li>Track and manage all confirmed customer orders inside the <strong>Orders Hub</strong>.</li>
                 </ul>
               </div>
 

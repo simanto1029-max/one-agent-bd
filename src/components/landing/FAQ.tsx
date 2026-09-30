@@ -19,7 +19,7 @@ export const FAQ: React.FC = () => {
     },
     {
       q: 'Will the AI reply to Facebook & Instagram comments and message them in Inbox automatically?',
-      a: 'Yes! When a customer comments "Price?", "দাম কত?", or "Inbox" on your posts or reels, the AI immediately replies to their comment publicly and sends the product details and price directly into their Messenger or Instagram DM to convert the lead into an order.'
+      a: 'Yes! When a customer comments "Price?", "Dam koto?", or "Inbox" on your posts or reels, the AI immediately replies to their comment publicly and sends the product details and price directly into their Messenger or Instagram DM to convert the lead into an order.'
     },
     {
       q: 'Do I need any coding knowledge or a separate AI API key to use this?',

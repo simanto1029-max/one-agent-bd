@@ -934,7 +934,7 @@ export class MetaOAuthService {
         } catch (_e) {}
 
         if (json.code_verification_status && json.code_verification_status !== 'VERIFIED') {
-          const unverifiedMsg = `এই নাম্বারটি (${json.display_phone_number || channel.name}) মেটা WhatsApp Manager-এ এখনো "Unverified" অবস্থায় আছে। মেটাতে OTP দিয়ে ভেরিফাই না করা পর্যন্ত এই নাম্বারে মেসেজ বা AI রিপ্লাই কাজ করবে না।`;
+          const unverifiedMsg = `This number (${json.display_phone_number || channel.name}) is currently "Unverified" in Meta WhatsApp Manager. Messages and AI replies will not work until you verify it via OTP in Meta.`;
           db.updateChannel(channel.id, { status: 'error', error_message: unverifiedMsg });
           return {
             valid: false,
