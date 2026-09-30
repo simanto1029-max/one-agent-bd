@@ -512,11 +512,16 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   };
 }
 
-async function sendMetaMessage(channel: Channel, recipientId: string, text: string, imageUrl?: string): Promise<void> {
+async function sendMetaMessage(
+  channel: Channel,
+  recipientId: string,
+  text: string,
+  imageUrl?: string
+): Promise<{ ok: boolean; outsideWindow?: boolean; error?: string }> {
   // If token is demo/simulated, don't make outbound network call
-  if (!channel.access_token || channel.access_token.includes('demo')) {
+  if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
     console.log(`[Meta Simulation] Outbound ${channel.platform} message sent to ${recipientId}: "${text}" ${imageUrl ? `[Image: ${imageUrl}]` : ''}`);
-    return;
+    return { ok: true };
   }
 
   try {
@@ -545,19 +550,30 @@ async function sendMetaMessage(channel: Channel, recipientId: string, text: stri
         body: JSON.stringify(bodyPayload)
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err: any = await res.json().catch(() => ({}));
         console.error('[WhatsApp Outbound Error]', err);
+        const errMsg = err?.error?.message || 'WhatsApp delivery error';
+        const isOutsideWindow =
+          err?.error?.code === 131047 ||
+          errMsg.toLowerCase().includes('24 hour') ||
+          errMsg.toLowerCase().includes('re-engagement');
+        return { ok: false, outsideWindow: isOutsideWindow, error: errMsg };
       }
+      return { ok: true };
     } else if (channel.platform === 'messenger' || channel.platform === 'instagram') {
-      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${channel.access_token}`;
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
+      const isCommentLead = recipientId.startsWith('commenter_');
+      const recipientObj = isCommentLead
+        ? { comment_id: recipientId.replace(/^commenter_/, '') }
+        : { id: recipientId };
 
-      if (imageUrl) {
+      if (imageUrl && !isCommentLead) {
         // 1. Send image attachment
         await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recipient: { id: recipientId },
+            recipient: recipientObj,
             message: {
               attachment: {
                 type: 'image',
@@ -574,20 +590,67 @@ async function sendMetaMessage(channel: Channel, recipientId: string, text: stri
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recipient: { id: recipientId },
+            recipient: recipientObj,
+            ...(isCommentLead ? {} : { messaging_type: 'RESPONSE' }),
             message: { text }
           })
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          console.error(`[${channel.platform} Outbound Error]`, JSON.stringify(err));
-        } else {
+        if (res.ok) {
           console.log(`[${channel.platform} Outbound Success] Sent reply to ${recipientId}`);
+          return { ok: true };
         }
+
+        const err: any = await res.json().catch(() => ({}));
+        const errCode = err?.error?.code;
+        const errSubcode = err?.error?.error_subcode;
+        const errMsg: string = err?.error?.message || '';
+        const isOutside24h =
+          errCode === 10 ||
+          errSubcode === 2018278 ||
+          errSubcode === 2534022 ||
+          errMsg.toLowerCase().includes('outside of allowed window');
+
+        // Automatic fallback for leads outside the 24-hour window (up to 7 days with HUMAN_AGENT or update tags)
+        if (!isCommentLead && isOutside24h) {
+          const fallbackTags =
+            channel.platform === 'messenger'
+              ? ['HUMAN_AGENT', 'POST_PURCHASE_UPDATE', 'ACCOUNT_UPDATE']
+              : ['HUMAN_AGENT'];
+
+          for (const tag of fallbackTags) {
+            const retryRes = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipient: { id: recipientId },
+                messaging_type: 'MESSAGE_TAG',
+                tag,
+                message: { text }
+              })
+            });
+            if (retryRes.ok) {
+              console.log(
+                `[${channel.platform} Outbound Success via ${tag}] Sent message to ${recipientId} outside 24h window`
+              );
+              return { ok: true };
+            }
+          }
+          console.warn(
+            `[${channel.platform} Outbound Outside Window] Customer ${recipientId} is outside Meta's messaging window:`,
+            JSON.stringify(err)
+          );
+          return { ok: false, outsideWindow: true, error: errMsg || 'Outside Meta 24h/7d window' };
+        }
+
+        console.error(`[${channel.platform} Outbound Error]`, JSON.stringify(err));
+        return { ok: false, outsideWindow: false, error: errMsg || 'Meta API error' };
       }
+      return { ok: true };
     }
-  } catch (err) {
+    return { ok: true };
+  } catch (err: any) {
     console.error('Failed to send message via Meta Graph API:', err);
+    return { ok: false, error: err?.message || 'Network error' };
   }
 }
 
@@ -603,14 +666,14 @@ export async function sendManualMetaMessage(
     audioBase64?: string;
     audioMimeType?: string;
   }
-): Promise<void> {
-  if (!channel.access_token || channel.access_token.includes('demo')) {
+): Promise<{ ok: boolean; outsideWindow?: boolean; error?: string }> {
+  if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
     console.log(
       `[Meta Manual Simulation] Outbound ${channel.platform} reply to ${recipientId}: text="${payload.text || ''}" media=${Boolean(
         payload.imageBase64 || payload.videoBase64 || payload.audioBase64
       )}`
     );
-    return;
+    return { ok: true };
   }
 
   try {
@@ -679,19 +742,20 @@ export async function sendManualMetaMessage(
             })
           });
           if (mediaType === 'audio' && payload.text) {
-            await sendMetaMessage(channel, recipientId, payload.text);
+            return await sendMetaMessage(channel, recipientId, payload.text);
           }
-          return;
+          return { ok: true };
         } else {
           console.error('[WhatsApp Media Upload Error]', uploadData);
         }
       }
 
       if (payload.text) {
-        await sendMetaMessage(channel, recipientId, payload.text);
+        return await sendMetaMessage(channel, recipientId, payload.text);
       }
+      return { ok: true };
     } else if (channel.platform === 'messenger' || channel.platform === 'instagram') {
-      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${channel.access_token}`;
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
 
       if (hasMedia && mediaType && rawBase64) {
         const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, '');
@@ -732,11 +796,14 @@ export async function sendManualMetaMessage(
       }
 
       if (payload.text) {
-        await sendMetaMessage(channel, recipientId, payload.text);
+        return await sendMetaMessage(channel, recipientId, payload.text);
       }
+      return { ok: true };
     }
-  } catch (err) {
+    return { ok: true };
+  } catch (err: any) {
     console.error('Failed to send manual media/voice via Meta Graph API:', err);
+    return { ok: false, error: err?.message || 'Network error' };
   }
 }
 

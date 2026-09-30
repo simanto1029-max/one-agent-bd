@@ -509,6 +509,12 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
         hasOrdered: matchingOrders.length > 0,
         isVip
       });
+    } else {
+      const existing = customerMap.get(key)!;
+      if (msg.channel_id) existing.channelId = msg.channel_id;
+      if (msg.customer_name && msg.customer_name !== 'Customer') {
+        existing.customerName = msg.customer_name;
+      }
     }
   }
 
@@ -520,45 +526,75 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
   });
 
   let sentCount = 0;
+  let outsideWindowCount = 0;
+
   for (const target of targets) {
     const personalizedText = finalMessage
       .replace(/\{customer_name\}/gi, target.customerName || 'প্রিয় গ্রাহক')
       .trim();
 
+    // Always prefer an active, non-demo connected channel for the target platform
     const activeChannel =
-      (target.channelId ? userChannels.find((ch) => ch.id === target.channelId) : undefined) ||
+      (target.channelId
+        ? userChannels.find(
+            (ch) => ch.id === target.channelId && ch.is_active && !ch.access_token?.includes('demo')
+          )
+        : undefined) ||
+      userChannels.find(
+        (ch) => ch.platform === target.platform && ch.is_active && !ch.access_token?.includes('demo')
+      ) ||
+      (target.channelId ? userChannels.find((ch) => ch.id === target.channelId && ch.is_active) : undefined) ||
       userChannels.find((ch) => ch.platform === target.platform && ch.is_active);
 
+    let deliveryResult: { ok: boolean; outsideWindow?: boolean; error?: string } = { ok: true };
     if (activeChannel) {
       try {
-        await sendManualMetaMessage(activeChannel, target.customerId, {
+        deliveryResult = await sendManualMetaMessage(activeChannel, target.customerId, {
           text: personalizedText
         });
+        // Small pacing delay (120ms) to avoid Meta Graph API burst rate limits
+        if (targets.length > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
       } catch (e) {
         console.warn(`[Broadcast Segment] Meta delivery warning for ${target.customerId}:`, e);
+        deliveryResult = { ok: false };
       }
     }
 
-    db.createMessage({
-      id: `msg_${Date.now()}_bcast_${Math.random().toString(36).substring(2, 6)}`,
-      user_id: user.id,
-      channel_id: activeChannel?.id || target.channelId,
-      platform: target.platform,
-      customer_id: target.customerId,
-      customer_name: target.customerName,
-      direction: 'outbound',
-      message_text: personalizedText,
-      is_ai_reply: false,
-      status: 'sent',
-      created_at: new Date().toISOString()
-    });
-    sentCount++;
+    if (deliveryResult.outsideWindow) {
+      outsideWindowCount++;
+    }
+
+    if (deliveryResult.ok) {
+      db.createMessage({
+        id: `msg_${Date.now()}_bcast_${Math.random().toString(36).substring(2, 6)}`,
+        user_id: user.id,
+        channel_id: activeChannel?.id || target.channelId,
+        platform: target.platform,
+        customer_id: target.customerId,
+        customer_name: target.customerName,
+        direction: 'outbound',
+        message_text: personalizedText,
+        is_ai_reply: false,
+        status: 'sent',
+        created_at: new Date().toISOString()
+      });
+      sentCount++;
+    }
   }
+
+  const summaryMessage =
+    outsideWindowCount > 0
+      ? `সফলভাবে ${sentCount} জন অ্যাক্টিভ কাস্টমারের ইনবক্সে মেসেজ গেছে! (${outsideWindowCount} জন কাস্টমার মেটার ২৪-ঘণ্টা/৭-দিনের মেসেজিং উইন্ডোর বাইরে থাকায় মেটা স্কিপ করেছে)`
+      : `সফলভাবে ${sentCount} জন কাস্টমারের ইনবক্সে অফার মেসেজ পাঠানো হয়েছে!`;
 
   return res.json({
     success: true,
     sentCount,
+    outsideWindowCount,
+    totalTargeted: targets.length,
     segment,
-    message: `সফলভাবে ${sentCount} জন কাস্টমারের ইনবক্সে অফার মেসেজ পাঠানো হয়েছে!`
+    message: summaryMessage
   });
 });
