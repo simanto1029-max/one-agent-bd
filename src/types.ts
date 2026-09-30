@@ -494,3 +494,71 @@ export interface SlotAvailabilityInfo {
   appointmentsOnDate: Appointment[];
 }
 
+export interface EmailSmtpSettings {
+  provider: 'gmail' | 'custom_smtp' | 'resend' | 'brevo';
+  sender_name: string;
+  sender_email: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_pass?: string;
+  api_key?: string;
+  reply_to?: string;
+  is_configured: boolean;
+}
+
+export interface EmailSubscriber {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  tags: string[];
+  source: 'manual' | 'csv_import' | 'chat_extracted' | 'order_extracted';
+  status: 'subscribed' | 'unsubscribed';
+  created_at: string;
+}
+
+export interface EmailCampaignRecipientLog {
+  email: string;
+  name?: string;
+  sent_at: string;
+  opened: boolean;
+  opened_at?: string;
+  open_count: number;
+  clicked: boolean;
+  clicked_at?: string;
+  click_count: number;
+}
+
+export interface EmailCampaign {
+  id: string;
+  user_id: string;
+  name: string;
+  subject: string;
+  preheader?: string;
+  body_html: string;
+  cta_text?: string;
+  cta_url?: string;
+  audience_filter: 'all' | 'vip' | 'custom';
+  status: 'draft' | 'sending' | 'sent';
+  total_recipients: number;
+  sent_count: number;
+  opened_count: number;
+  clicked_count: number;
+  delivery_mode: 'live_smtp' | 'simulated';
+  recipients: EmailCampaignRecipientLog[];
+  created_at: string;
+  sent_at?: string;
+}
+
+export interface EmailAnalyticsSummary {
+  totalCampaigns: number;
+  totalSent: number;
+  totalOpened: number;
+  totalClicked: number;
+  openRate: number;
+  clickRate: number;
+}
+
+

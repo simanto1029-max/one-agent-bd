@@ -18,6 +18,7 @@ import { callRequestsRouter } from './server/routes/callRequests.js';
 import { widgetRouter } from './server/routes/widget.js';
 import { productsRouter } from './server/routes/products.js';
 import { appointmentsRouter } from './server/routes/appointments.js';
+import { emailCampaignsRouter } from './server/routes/emailCampaigns.js';
 import { runSubscriptionExpiryCheck } from './server/services/subscriptionService.js';
 import { runAutoFollowUpEngine } from './server/services/metaService.js';
 import { startTunnelIfNeeded } from './server/services/tunnelService.js';
@@ -122,6 +123,7 @@ app.use('/api/call-requests', callRequestsRouter);
 app.use('/api/widget', widgetRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/appointments', appointmentsRouter);
+app.use('/api/email-campaigns', emailCampaignsRouter);
 
 async function startServer() {
   startTunnelIfNeeded();

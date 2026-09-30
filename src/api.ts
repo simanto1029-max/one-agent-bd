@@ -1555,6 +1555,132 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  },
+
+  // Email Marketing & AI Campaign Broadcast + Open/Click Analytics
+  async getEmailCampaignsHub(): Promise<{
+    campaigns: any[];
+    subscribers: any[];
+    smtpSettings: any;
+    analytics: any;
+  }> {
+    return fetchJson('/api/email-campaigns');
+  },
+
+  async addEmailSubscribers(data: {
+    email?: string;
+    name?: string;
+    phone?: string;
+    tags?: string[];
+    bulkText?: string;
+  }): Promise<{
+    success: boolean;
+    importedCount?: number;
+    subscriber?: any;
+    subscribers: any[];
+    message: string;
+  }> {
+    return fetchJson('/api/email-campaigns/subscribers', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async syncEmailSubscribers(): Promise<{
+    success: boolean;
+    addedCount: number;
+    totalCount: number;
+    subscribers: any[];
+    message: string;
+  }> {
+    return fetchJson('/api/email-campaigns/subscribers/sync', {
+      method: 'POST'
+    });
+  },
+
+  async deleteEmailSubscriber(id: string): Promise<{
+    success: boolean;
+    subscribers: any[];
+    message: string;
+  }> {
+    return fetchJson(`/api/email-campaigns/subscribers/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async updateEmailSmtpSettings(updates: any): Promise<{
+    success: boolean;
+    smtpSettings: any;
+    message: string;
+  }> {
+    return fetchJson('/api/email-campaigns/smtp', {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+  },
+
+  async generateMarketingEmailAI(data: {
+    topicPrompt: string;
+    language: 'en' | 'bn';
+  }): Promise<{
+    success: boolean;
+    subject: string;
+    preheader: string;
+    body_html: string;
+    cta_text: string;
+  }> {
+    return fetchJson('/api/email-campaigns/ai-write', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async createAndSendEmailCampaign(data: {
+    name?: string;
+    subject: string;
+    preheader?: string;
+    body_html: string;
+    cta_text?: string;
+    cta_url?: string;
+    audience_filter?: 'all' | 'vip' | 'custom';
+    custom_emails?: string;
+  }): Promise<{
+    success: boolean;
+    campaign: any;
+    analytics: any;
+    message: string;
+  }> {
+    return fetchJson('/api/email-campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async simulateEmailEngagement(
+    campaignId: string,
+    type: 'open' | 'click'
+  ): Promise<{
+    success: boolean;
+    campaign: any;
+    analytics: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/email-campaigns/${campaignId}/simulate-engagement`, {
+      method: 'POST',
+      body: JSON.stringify({ type })
+    });
+  },
+
+  async deleteEmailCampaign(id: string): Promise<{
+    success: boolean;
+    campaigns: any[];
+    analytics: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/email-campaigns/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
+
 

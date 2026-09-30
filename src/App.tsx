@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   Truck,
   Package,
-  Calendar
+  Calendar,
+  Mail
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
@@ -46,6 +47,7 @@ import { StoresView } from './components/dashboard/StoresView';
 import { WebsiteWidgetView } from './components/dashboard/WebsiteWidgetView';
 import { CallRequestsView } from './components/dashboard/CallRequestsView';
 import { AppointmentsView } from './components/dashboard/AppointmentsView';
+import { EmailCampaignsView } from './components/dashboard/EmailCampaignsView';
 import { UnifiedInbox } from './components/dashboard/UnifiedInbox';
 import { ChannelsView } from './components/dashboard/ChannelsView';
 import { SettingsView } from './components/dashboard/SettingsView';
@@ -69,7 +71,7 @@ export default function App() {
 
   // App Navigation
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'admin'>('landing');
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // User & Subscription state
@@ -234,7 +236,7 @@ export default function App() {
   };
 
   // 6 Primary Navigation Sections (ChatMakky Style) + Sub-Tabs mapping
-  type TabId = 'overview' | 'inbox' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'stores' | 'website-widget' | 'call-requests' | 'channels' | 'settings' | 'contacts' | 'billing';
+  type TabId = 'overview' | 'inbox' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'stores' | 'website-widget' | 'call-requests' | 'channels' | 'settings' | 'contacts' | 'billing';
 
   const primarySections: {
     groupId: string;
@@ -258,7 +260,8 @@ export default function App() {
       tabs: [
         { id: 'inbox', label: 'Unified Inbox', icon: MessageSquare, desc: 'WhatsApp, Messenger & Instagram chats' },
         { id: 'call-requests', label: 'Human Call Requests', icon: PhoneCall, desc: 'Customer callback & live handover queue' },
-        { id: 'contacts', label: 'Contacts CRM', icon: Users, desc: 'Customer directory & chat history' }
+        { id: 'contacts', label: 'Contacts CRM', icon: Users, desc: 'Customer directory & chat history' },
+        { id: 'email-campaigns', label: 'Email Marketing & AI Broadcast', icon: Mail, desc: 'AI email campaigns with Open & Click tracking' }
       ]
     },
     {
@@ -822,6 +825,10 @@ export default function App() {
 
               {activeTab === 'contacts' && (
                 <ContactsView />
+              )}
+
+              {activeTab === 'email-campaigns' && (
+                <EmailCampaignsView />
               )}
 
               {activeTab === 'billing' && (

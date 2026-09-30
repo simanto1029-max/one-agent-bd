@@ -72,6 +72,64 @@ export interface Appointment {
   updated_at: string;
 }
 
+export interface EmailSmtpSettings {
+  provider: 'gmail' | 'custom_smtp' | 'resend_api' | 'brevo_api';
+  sender_name: string;
+  sender_email: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_pass?: string;
+  api_key?: string;
+  reply_to?: string;
+  is_configured: boolean;
+}
+
+export interface EmailSubscriber {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  tags: string[];
+  source: 'manual' | 'csv_import' | 'chat_extracted' | 'order';
+  status: 'subscribed' | 'unsubscribed';
+  created_at: string;
+}
+
+export interface EmailCampaignRecipientLog {
+  email: string;
+  name?: string;
+  sent_at: string;
+  opened: boolean;
+  opened_at?: string;
+  open_count: number;
+  clicked: boolean;
+  clicked_at?: string;
+  click_count: number;
+}
+
+export interface EmailCampaign {
+  id: string;
+  user_id: string;
+  name: string;
+  subject: string;
+  preheader?: string;
+  body_html: string;
+  cta_text?: string;
+  cta_url?: string;
+  audience_filter: 'all' | 'vip' | 'custom';
+  status: 'sent' | 'draft' | 'sending';
+  total_recipients: number;
+  sent_count: number;
+  opened_count: number;
+  clicked_count: number;
+  delivery_mode: 'live_smtp' | 'simulated';
+  recipients: EmailCampaignRecipientLog[];
+  created_at: string;
+  sent_at?: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -88,6 +146,7 @@ export interface Profile {
   order_settings?: OrderConfirmationSettings;
   automation_settings?: AutomationSettings;
   appointment_settings?: AppointmentBookingSettings;
+  email_smtp_settings?: EmailSmtpSettings;
   meta_user_access_token?: string;
   meta_tokens_updated_at?: string;
   meta_granted_scopes?: string[];
@@ -445,6 +504,8 @@ interface DatabaseSchema {
   reviews?: ReviewItem[];
   notifications?: AdminNotification[];
   appointments?: Appointment[];
+  email_subscribers?: EmailSubscriber[];
+  email_campaigns?: EmailCampaign[];
   settings: SystemSettings;
 }
 
@@ -932,6 +993,8 @@ class Database {
     if (!parsed.coupons) parsed.coupons = initialData.coupons || [];
     if (!parsed.reviews) parsed.reviews = defaultSeedReviews;
     if (!parsed.appointments) parsed.appointments = [];
+    if (!parsed.email_subscribers) parsed.email_subscribers = [];
+    if (!parsed.email_campaigns) parsed.email_campaigns = [];
     if (!parsed.products || parsed.products.length === 0) parsed.products = defaultSeedProducts;
     if (!parsed.subscriptions) parsed.subscriptions = initialData.subscriptions;
     if (parsed.profiles) {
@@ -2255,6 +2318,130 @@ MANDATORY LANGUAGE & REPLY RULES:
     };
     this.updateProfile(userId, { appointment_settings: updated });
     return updated;
+  }
+
+  // --- Email Marketing & Campaign Hub ---
+  getEmailSmtpSettings(userId: string): EmailSmtpSettings {
+    const profile = this.getProfileById(userId);
+    const defaultSettings: EmailSmtpSettings = {
+      provider: 'gmail',
+      sender_name: profile?.full_name || 'One Agent BD Store',
+      sender_email: profile?.email || '',
+      smtp_host: 'smtp.gmail.com',
+      smtp_port: 465,
+      smtp_user: profile?.email || '',
+      smtp_pass: '',
+      api_key: '',
+      reply_to: profile?.email || '',
+      is_configured: false
+    };
+    if (profile && profile.email_smtp_settings) {
+      return {
+        ...defaultSettings,
+        ...profile.email_smtp_settings
+      };
+    }
+    return defaultSettings;
+  }
+
+  updateEmailSmtpSettings(userId: string, updates: Partial<EmailSmtpSettings>): EmailSmtpSettings {
+    const current = this.getEmailSmtpSettings(userId);
+    const merged: EmailSmtpSettings = {
+      ...current,
+      ...updates
+    };
+    merged.is_configured = Boolean(
+      (merged.provider === 'gmail' || merged.provider === 'custom_smtp')
+        ? merged.smtp_host && merged.smtp_user && merged.smtp_pass
+        : merged.api_key && merged.sender_email
+    );
+    this.updateProfile(userId, { email_smtp_settings: merged });
+    return merged;
+  }
+
+  getEmailSubscribers(userId: string): EmailSubscriber[] {
+    if (!this.data.email_subscribers) {
+      this.data.email_subscribers = [];
+    }
+    return this.data.email_subscribers
+      .filter((s) => s.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  saveEmailSubscriber(sub: EmailSubscriber): EmailSubscriber {
+    if (!this.data.email_subscribers) {
+      this.data.email_subscribers = [];
+    }
+    const cleanEmail = sub.email.trim().toLowerCase();
+    const existingIdx = this.data.email_subscribers.findIndex(
+      (s) => s.user_id === sub.user_id && s.email.toLowerCase() === cleanEmail
+    );
+    if (existingIdx >= 0) {
+      this.data.email_subscribers[existingIdx] = {
+        ...this.data.email_subscribers[existingIdx],
+        ...sub,
+        email: cleanEmail
+      };
+      this.persist();
+      return this.data.email_subscribers[existingIdx];
+    }
+    const created = { ...sub, email: cleanEmail };
+    this.data.email_subscribers.unshift(created);
+    this.persist();
+    return created;
+  }
+
+  deleteEmailSubscriber(id: string, userId: string): boolean {
+    if (!this.data.email_subscribers) return false;
+    const idx = this.data.email_subscribers.findIndex((s) => s.id === id && s.user_id === userId);
+    if (idx === -1) return false;
+    this.data.email_subscribers.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  getEmailCampaigns(userId?: string): EmailCampaign[] {
+    if (!this.data.email_campaigns) {
+      this.data.email_campaigns = [];
+    }
+    const list = userId
+      ? this.data.email_campaigns.filter((c) => c.user_id === userId)
+      : this.data.email_campaigns;
+    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  getEmailCampaignById(id: string): EmailCampaign | undefined {
+    return (this.data.email_campaigns || []).find((c) => c.id === id);
+  }
+
+  createEmailCampaign(campaign: EmailCampaign): EmailCampaign {
+    if (!this.data.email_campaigns) {
+      this.data.email_campaigns = [];
+    }
+    this.data.email_campaigns.unshift(campaign);
+    this.persist();
+    return campaign;
+  }
+
+  updateEmailCampaign(id: string, updates: Partial<EmailCampaign>): EmailCampaign | undefined {
+    if (!this.data.email_campaigns) return undefined;
+    const idx = this.data.email_campaigns.findIndex((c) => c.id === id);
+    if (idx === -1) return undefined;
+    this.data.email_campaigns[idx] = {
+      ...this.data.email_campaigns[idx],
+      ...updates
+    };
+    this.persist();
+    return this.data.email_campaigns[idx];
+  }
+
+  deleteEmailCampaign(id: string, userId: string): boolean {
+    if (!this.data.email_campaigns) return false;
+    const idx = this.data.email_campaigns.findIndex((c) => c.id === id && c.user_id === userId);
+    if (idx === -1) return false;
+    this.data.email_campaigns.splice(idx, 1);
+    this.persist();
+    return true;
   }
 }
 
