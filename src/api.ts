@@ -1466,6 +1466,95 @@ export const api = {
     return fetchJson(`/api/admin/notifications/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  // AI Appointments & Google Calendar Sync
+  async getAppointments(): Promise<{
+    appointments: any[];
+    settings: any;
+    stats: any;
+    icalFeedPath: string;
+  }> {
+    return fetchJson('/api/appointments');
+  },
+
+  async getAppointmentSettings(): Promise<{ settings: any }> {
+    return fetchJson('/api/appointments/settings');
+  },
+
+  async updateAppointmentSettings(updates: any): Promise<{
+    success: boolean;
+    settings: any;
+    message: string;
+  }> {
+    return fetchJson('/api/appointments/settings', {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+  },
+
+  async getAppointmentSlots(date: string): Promise<any> {
+    return fetchJson(`/api/appointments/slots?date=${encodeURIComponent(date)}`);
+  },
+
+  async createAppointment(data: {
+    customer_name: string;
+    customer_phone: string;
+    customer_email?: string;
+    platform?: 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual';
+    service_name?: string;
+    appointment_date: string;
+    appointment_time: string;
+    duration_minutes?: number;
+    location?: string;
+    notes?: string;
+  }): Promise<{ appointment: any; message: string }> {
+    return fetchJson('/api/appointments', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateAppointment(
+    id: string,
+    updates: Partial<{
+      status: 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'rescheduled';
+      appointment_date: string;
+      appointment_time: string;
+      service_name: string;
+      customer_name: string;
+      customer_phone: string;
+      location: string;
+      notes: string;
+      google_calendar_synced: boolean;
+    }>
+  ): Promise<{ appointment: any; message: string }> {
+    return fetchJson(`/api/appointments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+  },
+
+  async deleteAppointment(id: string): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/appointments/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async simulateAppointmentBooking(data: {
+    customerName: string;
+    customerPhone: string;
+    platform: 'whatsapp' | 'messenger' | 'instagram' | 'website';
+    messageText: string;
+  }): Promise<{
+    success: boolean;
+    aiReply: string;
+    bookedAppointment: any;
+  }> {
+    return fetchJson('/api/appointments/simulate-ai', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };
 

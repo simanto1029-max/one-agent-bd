@@ -436,3 +436,61 @@ export interface OrderConfirmationSettings {
   auto_reply_confirmation: boolean;
   confirmation_message_template: string;
 }
+
+export interface AppointmentBookingSettings {
+  enabled: boolean;
+  business_type: string;
+  slot_duration_minutes: number;
+  available_days: string[];
+  start_time: string;
+  end_time: string;
+  available_slots: string[];
+  services_offered: string[];
+  location_address: string;
+  auto_confirm_booking: boolean;
+  google_calendar_auto_sync: boolean;
+  confirmation_note: string;
+}
+
+export interface Appointment {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual';
+  channel_id?: string;
+  service_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  duration_minutes: number;
+  status: 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'rescheduled';
+  booking_source: 'ai_chat' | 'manual' | 'website';
+  notes?: string;
+  location?: string;
+  google_calendar_synced?: boolean;
+  google_calendar_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentStats {
+  totalBookings: number;
+  todayBookings: number;
+  upcomingBookings: number;
+  aiBookedCount: number;
+  completedCount: number;
+  cancelledCount: number;
+}
+
+export interface SlotAvailabilityInfo {
+  date: string;
+  dayOfWeek: string;
+  isDayOpen: boolean;
+  allSlots: string[];
+  bookedSlots: string[];
+  availableSlots: string[];
+  appointmentsOnDate: Appointment[];
+}
+

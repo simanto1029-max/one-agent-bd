@@ -35,6 +35,43 @@ export interface AutomationSettings {
   return_courier_loss_per_order?: number;
 }
 
+export interface AppointmentBookingSettings {
+  enabled: boolean;
+  business_type: string;
+  slot_duration_minutes: number;
+  available_days: string[];
+  start_time: string;
+  end_time: string;
+  available_slots: string[];
+  services_offered: string[];
+  location_address: string;
+  auto_confirm_booking: boolean;
+  google_calendar_auto_sync: boolean;
+  confirmation_note: string;
+}
+
+export interface Appointment {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual';
+  channel_id?: string;
+  service_name: string;
+  appointment_date: string; // YYYY-MM-DD
+  appointment_time: string; // e.g., "04:00 PM"
+  duration_minutes: number;
+  status: 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'rescheduled';
+  booking_source: 'ai_chat' | 'manual' | 'website';
+  notes?: string;
+  location?: string;
+  google_calendar_synced?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -50,6 +87,7 @@ export interface Profile {
   system_prompt: string;
   order_settings?: OrderConfirmationSettings;
   automation_settings?: AutomationSettings;
+  appointment_settings?: AppointmentBookingSettings;
   meta_user_access_token?: string;
   meta_tokens_updated_at?: string;
   meta_granted_scopes?: string[];
@@ -406,6 +444,7 @@ interface DatabaseSchema {
   coupons?: Coupon[];
   reviews?: ReviewItem[];
   notifications?: AdminNotification[];
+  appointments?: Appointment[];
   settings: SystemSettings;
 }
 
@@ -752,6 +791,37 @@ export const DEFAULT_ORDER_SETTINGS: OrderConfirmationSettings = {
   confirmation_message_template: 'Thank you {customer_name}! Your order for {items} has been successfully received. Order ID: #{order_id}. Total Bill: BDT {total_amount}. Our delivery team will contact you shortly.'
 };
 
+export const DEFAULT_APPOINTMENT_SETTINGS: AppointmentBookingSettings = {
+  enabled: true,
+  business_type: 'General Consultation & Service Booking',
+  slot_duration_minutes: 30,
+  available_days: ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
+  start_time: '10:00 AM',
+  end_time: '08:00 PM',
+  available_slots: [
+    '10:00 AM',
+    '11:00 AM',
+    '12:00 PM',
+    '02:00 PM',
+    '03:00 PM',
+    '04:00 PM',
+    '05:00 PM',
+    '06:00 PM',
+    '07:00 PM',
+    '08:00 PM'
+  ],
+  services_offered: [
+    'General Consultation',
+    'Product Demo & Live Walkthrough',
+    'Service Appointment / Visit',
+    'VIP 1-on-1 Session'
+  ],
+  location_address: 'Online Google Meet / Main Office Branch, Dhaka',
+  auto_confirm_booking: true,
+  google_calendar_auto_sync: true,
+  confirmation_note: 'Please arrive or join 5 minutes before your scheduled appointment slot.'
+};
+
 class Database {
   private data: DatabaseSchema;
   private isDirty: boolean = false;
@@ -840,6 +910,7 @@ class Database {
     if (!parsed.audit_logs) parsed.audit_logs = [];
     if (!parsed.coupons) parsed.coupons = initialData.coupons || [];
     if (!parsed.reviews) parsed.reviews = defaultSeedReviews;
+    if (!parsed.appointments) parsed.appointments = [];
     if (!parsed.products || parsed.products.length === 0) parsed.products = defaultSeedProducts;
     if (!parsed.subscriptions) parsed.subscriptions = initialData.subscriptions;
     if (parsed.profiles) {
@@ -2060,6 +2131,82 @@ MANDATORY LANGUAGE & REPLY RULES:
     list.splice(idx, 1);
     this.persist();
     return true;
+  }
+
+  // --- Appointments & Calendar Booking Automation ---
+  getAppointments(userId?: string): Appointment[] {
+    if (!this.data.appointments) {
+      this.data.appointments = [];
+    }
+    const filtered = userId
+      ? this.data.appointments.filter((a) => a.user_id === userId)
+      : this.data.appointments;
+    return filtered.sort((a, b) => {
+      const dateCmp = a.appointment_date.localeCompare(b.appointment_date);
+      if (dateCmp !== 0) return dateCmp;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }
+
+  getAppointmentById(id: string): Appointment | undefined {
+    return (this.data.appointments || []).find((a) => a.id === id);
+  }
+
+  createAppointment(appointment: Appointment): Appointment {
+    if (!this.data.appointments) {
+      this.data.appointments = [];
+    }
+    this.data.appointments.unshift(appointment);
+    this.persist();
+    return appointment;
+  }
+
+  updateAppointment(id: string, updates: Partial<Appointment>): Appointment | undefined {
+    if (!this.data.appointments) return undefined;
+    const idx = this.data.appointments.findIndex((a) => a.id === id);
+    if (idx === -1) return undefined;
+    this.data.appointments[idx] = {
+      ...this.data.appointments[idx],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    this.persist();
+    return this.data.appointments[idx];
+  }
+
+  deleteAppointment(id: string): boolean {
+    if (!this.data.appointments) return false;
+    const idx = this.data.appointments.findIndex((a) => a.id === id);
+    if (idx === -1) return false;
+    this.data.appointments.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  getAppointmentSettings(userId: string): AppointmentBookingSettings {
+    const profile = this.getProfileById(userId);
+    if (profile && profile.appointment_settings) {
+      return {
+        ...DEFAULT_APPOINTMENT_SETTINGS,
+        ...profile.appointment_settings
+      };
+    }
+    return { ...DEFAULT_APPOINTMENT_SETTINGS };
+  }
+
+  updateAppointmentSettings(
+    userId: string,
+    updates: Partial<AppointmentBookingSettings>
+  ): AppointmentBookingSettings {
+    const profile = this.getProfileById(userId);
+    if (!profile) return { ...DEFAULT_APPOINTMENT_SETTINGS };
+    const current = profile.appointment_settings || { ...DEFAULT_APPOINTMENT_SETTINGS };
+    const updated: AppointmentBookingSettings = {
+      ...current,
+      ...updates
+    };
+    this.updateProfile(userId, { appointment_settings: updated });
+    return updated;
   }
 }
 

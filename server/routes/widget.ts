@@ -12,6 +12,7 @@ import {
   isUnclearVoiceText
 } from '../services/aiService.js';
 import { detectAudioMimeTypeFromBuffer } from '../services/audioDownloader.js';
+import { buildAppointmentAIContext, detectAndRecordAppointment } from '../services/appointmentService.js';
 
 export const widgetRouter = Router();
 
@@ -656,10 +657,11 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
         : '';
 
     const adminCustomPrompt = profile?.system_prompt ? `\nADMIN / OWNER CUSTOM TRAINING INSTRUCTIONS:\n${profile.system_prompt}\n` : '';
+    const appointmentContext = buildAppointmentAIContext(effectiveOwnerId, rawText);
 
     const baseKnowledge = isSaasOfficial
-      ? `${ONE_AGENT_SAAS_KNOWLEDGE}\n${livePlansContext}${adminCustomPrompt}${catalogContext}`
-      : `${profile?.system_prompt || `You are the official AI Sales & Support Assistant for "${config.business_name}".`}\n${catalogContext}`;
+      ? `${ONE_AGENT_SAAS_KNOWLEDGE}\n${livePlansContext}${adminCustomPrompt}${catalogContext}${appointmentContext}`
+      : `${profile?.system_prompt || `You are the official AI Sales & Support Assistant for "${config.business_name}".`}\n${catalogContext}${appointmentContext}`;
 
     const recentHistoryText = Array.isArray(history)
       ? history
@@ -971,6 +973,22 @@ Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevan
           updated_at: new Date().toISOString()
         };
         db.createOrder(createdOrder);
+      }
+
+      // Autonomous Appointment Booking Detection from visitor chat
+      try {
+        await detectAndRecordAppointment({
+          userId: effectiveOwnerId,
+          customerId: cleanVisitorId,
+          customerName: cleanCustomerName,
+          platform: 'website',
+          channelId,
+          messageText: rawText,
+          recentHistory: recentHistoryText,
+          aiReplyText
+        });
+      } catch (aptErr) {
+        console.warn('[Widget Appointment Engine] Warning:', aptErr);
       }
     }
 

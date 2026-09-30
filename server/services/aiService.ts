@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { db, Message, Product } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav, detectAudioMimeTypeFromBuffer, mp4ToAdtsAac } from './audioDownloader.js';
+import { buildAppointmentAIContext } from './appointmentService.js';
 
 function isDeadSeedKey(key?: string): boolean {
   return Boolean(key && key.trim().startsWith('sk-proj-wJiInvQ'));
@@ -1663,6 +1664,8 @@ If the customer is asking about their order, parcel, delivery date, or tracking 
     smartUpsellDirective = `SMART UPSELL & COMBO OFFER DIRECTIVE: কাস্টমার যখন প্রোডাক্টের দাম জানতে চায় বা ১টি প্রোডাক্ট অর্ডার করতে চায়, তখন উত্তরের সাথে প্রাসঙ্গিকভাবে আমাদের এই স্পেশাল কম্বো অফারটি সংক্ষেপে উল্লেখ করবেন: "${autoSettings.upsell_offer_text}"`;
   }
 
+  const appointmentBookingContext = buildAppointmentAIContext(params.userId, params.incomingMessage || '');
+
   if (deterministicTrackingReply && isTrackingQuery) {
     return {
       replyText: deterministicTrackingReply,
@@ -1692,6 +1695,7 @@ ${productPhotoDirective}
 ${humanCallDirective}
 ${liveTrackingDirective}
 ${smartUpsellDirective}
+${appointmentBookingContext}
 
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}

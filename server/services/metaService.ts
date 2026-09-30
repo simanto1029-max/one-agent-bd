@@ -9,6 +9,7 @@ import {
   prepareOutboundVoiceForMeta
 } from './audioDownloader.js';
 import { detectAndRecordOrder, detectAndRecordPaymentUpdate } from './orderDetectionService.js';
+import { detectAndRecordAppointment } from './appointmentService.js';
 
 /**
  * Extract a valid Bangladesh mobile number (supports both English 0-9 and Bangla ০-৯ digits).
@@ -502,6 +503,28 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     }
   } catch (orderErr) {
     console.warn('[Order Engine] Error during order recording:', orderErr);
+  }
+
+  // 10. Check if customer booked or confirmed an appointment slot and save to Appointments & Calendar Hub
+  try {
+    const rawCustomerText = inbound.transcription || event.messageText || inbound.message_text;
+    const bookedAppointment = await detectAndRecordAppointment({
+      userId: channel.user_id,
+      customerId: event.customerId,
+      customerName: inbound.customer_name,
+      platform: event.platform,
+      channelId: channel.id,
+      messageText: rawCustomerText,
+      recentHistory: conversationHistory.slice(-4).map((m) => `${m.direction}: ${m.message_text}`).join('\n'),
+      aiReplyText
+    });
+    if (bookedAppointment) {
+      console.log(
+        `[Appointment Booked] Appointment #${bookedAppointment.id} (${bookedAppointment.appointment_date} at ${bookedAppointment.appointment_time}) logged for merchant ${channel.user_id}`
+      );
+    }
+  } catch (aptErr) {
+    console.warn('[Appointment Engine] Error during appointment recording:', aptErr);
   }
 
   return {
