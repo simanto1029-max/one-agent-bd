@@ -379,7 +379,7 @@ inboxRouter.post('/customer-control', (req: Request, res: Response) => {
 
   const { customerId, platform, action, value } = req.body || {};
   if (!customerId || !action) {
-    return res.status(400).json({ error: 'customerId and action (pause_ai | block_customer) are required' });
+    return res.status(400).json({ error: 'customerId and action are required' });
   }
 
   const profile = db.getProfileById(user.id);
@@ -397,21 +397,25 @@ inboxRouter.post('/customer-control', (req: Request, res: Response) => {
   let blocked = Array.from(new Set(currentSettings.blocked_customers || []));
 
   if (action === 'pause_ai') {
-    const shouldPause = value !== undefined ? Boolean(value) : !(paused.includes(customerId) || paused.includes(key));
+    const shouldPause = value !== undefined ? Boolean(value) : true;
     if (shouldPause) {
       if (!paused.includes(customerId)) paused.push(customerId);
       if (!paused.includes(key)) paused.push(key);
     } else {
       paused = paused.filter((id) => id !== customerId && id !== key);
     }
-  } else if (action === 'block_customer') {
-    const shouldBlock = value !== undefined ? Boolean(value) : !(blocked.includes(customerId) || blocked.includes(key));
+  } else if (action === 'resume_ai') {
+    paused = paused.filter((id) => id !== customerId && id !== key);
+  } else if (action === 'block' || action === 'block_customer') {
+    const shouldBlock = value !== undefined ? Boolean(value) : true;
     if (shouldBlock) {
       if (!blocked.includes(customerId)) blocked.push(customerId);
       if (!blocked.includes(key)) blocked.push(key);
     } else {
       blocked = blocked.filter((id) => id !== customerId && id !== key);
     }
+  } else if (action === 'unblock') {
+    blocked = blocked.filter((id) => id !== customerId && id !== key);
   }
 
   const updatedSettings = {
@@ -439,8 +443,17 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { segment = 'unordered', platformFilter = 'all', messageTemplate } = req.body || {};
-  if (!messageTemplate || !String(messageTemplate).trim()) {
+  const {
+    segment = 'unordered',
+    platformFilter,
+    platform,
+    messageTemplate,
+    messageText
+  } = req.body || {};
+  const finalPlatformFilter = platformFilter || platform || 'all';
+  const finalMessage = String(messageText || messageTemplate || '').trim();
+
+  if (!finalMessage) {
     return res.status(400).json({ error: 'Broadcast message text is required' });
   }
 
@@ -466,7 +479,7 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
   for (const msg of allMessages) {
     const key = `${msg.platform}_${msg.customer_id}`;
     if (blockedList.includes(msg.customer_id) || blockedList.includes(key)) continue;
-    if (platformFilter !== 'all' && msg.platform !== platformFilter) continue;
+    if (finalPlatformFilter !== 'all' && msg.platform !== finalPlatformFilter) continue;
 
     if (!customerMap.has(key)) {
       const matchingOrders = userOrders.filter((o) => {
@@ -501,14 +514,14 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
 
   const targets = Array.from(customerMap.values()).filter((c) => {
     if (segment === 'unordered') return !c.hasOrdered;
-    if (segment === 'buyers') return c.hasOrdered;
+    if (segment === 'buyers' || segment === 'ordered') return c.hasOrdered;
     if (segment === 'vip') return c.isVip;
     return true; // 'all'
   });
 
   let sentCount = 0;
   for (const target of targets) {
-    const personalizedText = String(messageTemplate)
+    const personalizedText = finalMessage
       .replace(/\{customer_name\}/gi, target.customerName || 'প্রিয় গ্রাহক')
       .trim();
 

@@ -411,34 +411,13 @@ export const api = {
     });
   },
 
-  async getAutomationSettings(): Promise<{
-    auto_comment_reply_enabled: boolean;
-    public_comment_reply_template: string;
-    send_private_inbox_on_comment: boolean;
-    auto_followup_enabled: boolean;
-    followup_delay_minutes: number;
-    followup_message_template: string;
-  }> {
+  async getAutomationSettings(): Promise<any> {
     return fetchJson('/api/channels/automation-settings');
   },
 
-  async updateAutomationSettings(data: {
-    auto_comment_reply_enabled?: boolean;
-    public_comment_reply_template?: string;
-    send_private_inbox_on_comment?: boolean;
-    auto_followup_enabled?: boolean;
-    followup_delay_minutes?: number;
-    followup_message_template?: string;
-  }): Promise<{
+  async updateAutomationSettings(data: any): Promise<{
     success: boolean;
-    settings: {
-      auto_comment_reply_enabled: boolean;
-      public_comment_reply_template: string;
-      send_private_inbox_on_comment: boolean;
-      auto_followup_enabled: boolean;
-      followup_delay_minutes: number;
-      followup_message_template: string;
-    };
+    settings: any;
   }> {
     return fetchJson('/api/channels/automation-settings', {
       method: 'PUT',
@@ -839,9 +818,50 @@ export const api = {
     });
   },
 
-  // Contacts
+  // Contacts & Smart Retargeting Broadcast
   async getContacts(): Promise<ContactLead[]> {
     return fetchJson<ContactLead[]>('/api/contacts');
+  },
+
+  async toggleCustomerControl(
+    customerId: string,
+    action: 'pause_ai' | 'resume_ai' | 'block' | 'unblock',
+    platform?: string
+  ): Promise<{
+    success: boolean;
+    customerId: string;
+    isAiPaused: boolean;
+    isBlocked: boolean;
+    paused_customers: string[];
+    blocked_customers: string[];
+  }> {
+    return fetchJson('/api/inbox/customer-control', {
+      method: 'POST',
+      body: JSON.stringify({ customerId, action, platform })
+    });
+  },
+
+  async sendSegmentBroadcast(data: {
+    segment: 'all' | 'unordered' | 'vip' | 'ordered' | 'buyers';
+    platform?: 'all' | 'whatsapp' | 'messenger' | 'instagram';
+    platformFilter?: 'all' | 'whatsapp' | 'messenger' | 'instagram';
+    messageText: string;
+  }): Promise<{
+    success: boolean;
+    sentCount: number;
+    segment: string;
+    message: string;
+  }> {
+    return fetchJson('/api/inbox/broadcast-segment', {
+      method: 'POST',
+      body: JSON.stringify({
+        segment: data.segment,
+        platform: data.platform || data.platformFilter || 'all',
+        platformFilter: data.platform || data.platformFilter || 'all',
+        messageText: data.messageText,
+        messageTemplate: data.messageText
+      })
+    });
   },
 
   // Webhook Simulator

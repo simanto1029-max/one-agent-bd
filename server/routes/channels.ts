@@ -737,9 +737,14 @@ channelsRouter.get('/automation-settings', (req: Request, res: Response) => {
     return_courier_loss_per_order: 130
   };
 
-  return res.json({
+  const merged = {
     ...defaults,
     ...(profile?.automation_settings || {})
+  };
+
+  return res.json({
+    ...merged,
+    settings: merged
   });
 });
 
