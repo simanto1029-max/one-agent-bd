@@ -724,7 +724,17 @@ channelsRouter.get('/automation-settings', (req: Request, res: Response) => {
     auto_followup_enabled: true,
     followup_delay_minutes: 45,
     followup_message_template:
-      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️'
+      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️',
+    upsell_enabled: true,
+    upsell_offer_text:
+      '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!',
+    auto_payment_verify_enabled: true,
+    auto_tracking_reply_enabled: true,
+    paused_customers: [] as string[],
+    blocked_customers: [] as string[],
+    daily_ad_spend_bdt: 500,
+    avg_product_cost_percent: 55,
+    return_courier_loss_per_order: 130
   };
 
   return res.json({
@@ -749,11 +759,22 @@ channelsRouter.put('/automation-settings', (req: Request, res: Response) => {
     auto_followup_enabled: true,
     followup_delay_minutes: 45,
     followup_message_template:
-      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️'
+      'আসসালামু আলাইকুম {customer_name}! 😊 আপনি কিছুক্ষণ আগে আমাদের পেজে মেসেজ দিয়েছিলেন। আপনার কি প্রোডাক্ট বা অর্ডার সম্পর্কে আর কোনো তথ্য জানার আছে? অর্ডার কনফার্ম করতে চাইলে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠিয়ে দিন—আমাদের AI এখনই আপনার অর্ডারটি বুক করে নেবে! ❤️',
+    upsell_enabled: true,
+    upsell_offer_text:
+      '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!',
+    auto_payment_verify_enabled: true,
+    auto_tracking_reply_enabled: true,
+    paused_customers: [],
+    blocked_customers: [],
+    daily_ad_spend_bdt: 500,
+    avg_product_cost_percent: 55,
+    return_courier_loss_per_order: 130
   };
 
   const body = req.body || {};
   const updated = {
+    ...current,
     auto_comment_reply_enabled:
       body.auto_comment_reply_enabled !== undefined
         ? Boolean(body.auto_comment_reply_enabled)
@@ -777,7 +798,37 @@ channelsRouter.put('/automation-settings', (req: Request, res: Response) => {
     followup_message_template:
       typeof body.followup_message_template === 'string'
         ? body.followup_message_template
-        : current.followup_message_template
+        : current.followup_message_template,
+    upsell_enabled:
+      body.upsell_enabled !== undefined ? Boolean(body.upsell_enabled) : (current.upsell_enabled ?? true),
+    upsell_offer_text:
+      typeof body.upsell_offer_text === 'string' ? body.upsell_offer_text : (current.upsell_offer_text || ''),
+    auto_payment_verify_enabled:
+      body.auto_payment_verify_enabled !== undefined
+        ? Boolean(body.auto_payment_verify_enabled)
+        : (current.auto_payment_verify_enabled ?? true),
+    auto_tracking_reply_enabled:
+      body.auto_tracking_reply_enabled !== undefined
+        ? Boolean(body.auto_tracking_reply_enabled)
+        : (current.auto_tracking_reply_enabled ?? true),
+    paused_customers: Array.isArray(body.paused_customers)
+      ? body.paused_customers
+      : (current.paused_customers || []),
+    blocked_customers: Array.isArray(body.blocked_customers)
+      ? body.blocked_customers
+      : (current.blocked_customers || []),
+    daily_ad_spend_bdt:
+      typeof body.daily_ad_spend_bdt === 'number'
+        ? body.daily_ad_spend_bdt
+        : (current.daily_ad_spend_bdt ?? 500),
+    avg_product_cost_percent:
+      typeof body.avg_product_cost_percent === 'number'
+        ? body.avg_product_cost_percent
+        : (current.avg_product_cost_percent ?? 55),
+    return_courier_loss_per_order:
+      typeof body.return_courier_loss_per_order === 'number'
+        ? body.return_courier_loss_per_order
+        : (current.return_courier_loss_per_order ?? 130)
   };
 
   db.updateProfile(user.id, { automation_settings: updated });

@@ -30,7 +30,10 @@ import {
   FileText,
   X,
   Video,
-  Trash2
+  Trash2,
+  PauseCircle,
+  PlayCircle,
+  Ban
 } from 'lucide-react';
 import { api } from '../../api';
 import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
@@ -102,6 +105,45 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   const [conversationSummary, setConversationSummary] = useState<ConversationSummaryResult | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [showSummaryPanel, setShowSummaryPanel] = useState(false);
+
+  // Per-Customer AI Pause (Human Handover) & Spam Blacklist state
+  const [pausedCustomers, setPausedCustomers] = useState<string[]>([]);
+  const [blockedCustomers, setBlockedCustomers] = useState<string[]>([]);
+
+  useEffect(() => {
+    api
+      .getAutomationSettings()
+      .then((res) => {
+        if (res.settings) {
+          setPausedCustomers(res.settings.paused_customers || []);
+          setBlockedCustomers(res.settings.blocked_customers || []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleToggleCustomerControl = async (
+    customerId: string,
+    action: 'pause_ai' | 'resume_ai' | 'block' | 'unblock'
+  ) => {
+    try {
+      const res = await api.toggleCustomerControl(customerId, action);
+      if (res.paused_customers) setPausedCustomers(res.paused_customers);
+      if (res.blocked_customers) setBlockedCustomers(res.blocked_customers);
+      setInboxToast(
+        action === 'pause_ai'
+          ? '⏸️ এই কাস্টমারের জন্য AI পজ করা হয়েছে (Human Handover Mode Active)'
+          : action === 'resume_ai'
+          ? '▶️ এই কাস্টমারের জন্য AI Auto-Reply পুনরায় চালু হয়েছে'
+          : action === 'block'
+          ? '🚫 কাস্টমারকে স্প্যাম/ফেক অর্ডার ব্ল্যাকলিস্টে ব্লক করা হয়েছে'
+          : '✅ কাস্টমারকে আনব্লক করা হয়েছে'
+      );
+      setTimeout(() => setInboxToast(null), 3500);
+    } catch (err) {
+      console.error('Customer control toggle failed:', err);
+    }
+  };
 
   // Auto-scroll ref
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -876,10 +918,58 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                   <span>{summarizing ? 'Summarizing...' : 'Summarize'}</span>
                 </button>
 
-                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/50 border border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 text-[11px] font-bold whitespace-nowrap">
-                  <Sparkles className="w-3 h-3 shrink-0" />
-                  <span>AI Auto-Reply Active</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleToggleCustomerControl(
+                      selectedConv.customerId,
+                      pausedCustomers.includes(selectedConv.customerId) ? 'resume_ai' : 'pause_ai'
+                    )
+                  }
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                    pausedCustomers.includes(selectedConv.customerId)
+                      ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                      : 'bg-violet-50 dark:bg-violet-950/50 border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 hover:bg-violet-100'
+                  }`}
+                  title={
+                    pausedCustomers.includes(selectedConv.customerId)
+                      ? 'AI বর্তমানে পজ করা আছে (Human Mode)। ক্লিক করলে আবার AI Auto-Reply চালু হবে।'
+                      : 'আপনি নিজে চ্যাট করতে চাইলে ১ ক্লিকে এই কাস্টমারের জন্য AI পজ করুন (Human Handover)'
+                  }
+                >
+                  {pausedCustomers.includes(selectedConv.customerId) ? (
+                    <>
+                      <PlayCircle className="w-3 h-3 shrink-0" />
+                      <span>Human Mode (Resume AI)</span>
+                    </>
+                  ) : (
+                    <>
+                      <PauseCircle className="w-3 h-3 shrink-0" />
+                      <span>AI Active (Pause AI)</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleToggleCustomerControl(
+                      selectedConv.customerId,
+                      blockedCustomers.includes(selectedConv.customerId) ? 'unblock' : 'block'
+                    )
+                  }
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                    blockedCustomers.includes(selectedConv.customerId)
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
+                  }`}
+                  title="ফেক অর্ডার বা বিরক্তিকর কাস্টমার ব্লক করুন যাতে AI রিপ্লাই না দেয়"
+                >
+                  <Ban className="w-3 h-3 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {blockedCustomers.includes(selectedConv.customerId) ? 'Blocked (Unblock)' : 'Block'}
+                  </span>
+                </button>
               </div>
             </div>
 

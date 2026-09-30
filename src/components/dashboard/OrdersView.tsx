@@ -31,7 +31,8 @@ import {
   Globe,
   FileText,
   Eye,
-  ShieldCheck
+  ShieldCheck,
+  Printer
 } from 'lucide-react';
 import { api } from '../../api';
 import { Order, OrderMetrics } from '../../types';
@@ -70,6 +71,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
 
   // Modal states
   const [activeOrderDetails, setActiveOrderDetails] = useState<Order | null>(null);
+  const [printingInvoiceOrder, setPrintingInvoiceOrder] = useState<Order | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAISettingsModal, setShowAISettingsModal] = useState(false);
   const [showCourierModal, setShowCourierModal] = useState(false);
@@ -384,22 +386,34 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
     }
   };
 
-  const getPaymentBadge = (method: Order['payment_method'], status: Order['payment_status']) => {
+  const getPaymentBadge = (method: Order['payment_method'], status: Order['payment_status'], orderObj?: Order) => {
     const isPaid = status === 'paid';
     return (
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs uppercase font-bold tracking-wider text-neutral-600 dark:text-neutral-300">
-          {method === 'cod' ? 'COD' : method.toUpperCase()}
-        </span>
-        <span
-          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-            isPaid
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-          }`}
-        >
-          {isPaid ? 'PAID' : 'PENDING'}
-        </span>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs uppercase font-bold tracking-wider text-neutral-600 dark:text-neutral-300">
+            {method === 'cod' ? 'COD' : method.toUpperCase()}
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+              isPaid
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+            }`}
+          >
+            {isPaid ? 'PAID' : 'PENDING'}
+          </span>
+        </div>
+        {orderObj?.payment_trx_id && (
+          <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit">
+            ✓ TrxID: {orderObj.payment_trx_id}
+          </div>
+        )}
+        {typeof orderObj?.advance_paid_amount === 'number' && orderObj.advance_paid_amount > 0 && (
+          <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+            Adv: ৳{orderObj.advance_paid_amount} | Due: ৳{Math.max(0, (orderObj.total_amount || 0) - orderObj.advance_paid_amount)}
+          </div>
+        )}
       </div>
     );
   };
@@ -908,7 +922,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                     </td>
 
                     <td className="py-3.5 px-4">
-                      {getPaymentBadge(order.payment_method, order.payment_status)}
+                      {getPaymentBadge(order.payment_method, order.payment_status, order)}
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -955,6 +969,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                           <span className="text-[10px] hidden md:inline">Courier</span>
                         </button>
 
+                        <button
+                          onClick={() => setPrintingInvoiceOrder(order)}
+                          title="1-Click Print Thermal Invoice / Delivery Slip"
+                          className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-600 dark:text-purple-400 transition-colors cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => setActiveOrderDetails(order)}
                           title="View Details / Receipt"
@@ -1116,6 +1137,22 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                       {activeOrderDetails.payment_status}
                     </span>
                   </div>
+                  {activeOrderDetails.payment_trx_id && (
+                    <div className="flex justify-between items-center text-neutral-500">
+                      <span>Verified TrxID:</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {activeOrderDetails.payment_trx_id}
+                      </span>
+                    </div>
+                  )}
+                  {typeof activeOrderDetails.advance_paid_amount === 'number' && activeOrderDetails.advance_paid_amount > 0 && (
+                    <div className="flex justify-between items-center text-neutral-500">
+                      <span>Advance Paid / COD Due:</span>
+                      <span className="font-bold text-neutral-900 dark:text-white">
+                        Paid ৳{activeOrderDetails.advance_paid_amount} • Due ৳{Math.max(0, (activeOrderDetails.total_amount || 0) - activeOrderDetails.advance_paid_amount)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1148,10 +1185,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                   </button>
                 )}
                 <button
-                  onClick={() => window.print()}
-                  className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 font-bold cursor-pointer"
+                  onClick={() => {
+                    const ord = activeOrderDetails;
+                    setActiveOrderDetails(null);
+                    setPrintingInvoiceOrder(ord);
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 font-bold cursor-pointer flex items-center gap-1.5"
                 >
-                  Print Slip
+                  <Printer className="w-4 h-4" />
+                  <span>Print Slip</span>
                 </button>
                 <button
                   onClick={() => setOrderToDelete(activeOrderDetails)}
@@ -1431,6 +1473,120 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                 rows={14}
                 className="w-full p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 font-mono text-xs text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1-Click Thermal Invoice / Courier Delivery Slip Print Modal */}
+      {printingInvoiceOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white text-neutral-900 border border-neutral-300 shadow-2xl overflow-hidden">
+            <div className="p-4 bg-neutral-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-bold">Thermal Invoice & Courier Parcel Slip</span>
+              </div>
+              <button
+                onClick={() => setPrintingInvoiceOrder(null)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Printable Label Body */}
+            <div className="p-6 space-y-4 font-sans text-xs bg-white text-black">
+              <div className="border-b-2 border-dashed border-neutral-800 pb-3 flex items-start justify-between">
+                <div>
+                  <div className="text-base font-black uppercase tracking-tight">
+                    DELIVERY PARCEL SLIP
+                  </div>
+                  <div className="text-[11px] text-neutral-600 font-semibold">
+                    Date: {new Date(printingInvoiceOrder.created_at).toLocaleDateString('en-GB')}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="px-2.5 py-1 rounded bg-neutral-900 text-white font-mono font-black text-xs">
+                    #{printingInvoiceOrder.id.slice(-6).toUpperCase()}
+                  </div>
+                  {printingInvoiceOrder.courier_name && (
+                    <div className="text-[10px] font-bold uppercase mt-1 text-neutral-700">
+                      Courier: {printingInvoiceOrder.courier_name}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {printingInvoiceOrder.courier_consignment_id && (
+                <div className="p-2.5 rounded-lg bg-neutral-100 border border-neutral-300 text-center">
+                  <div className="text-[10px] uppercase font-bold text-neutral-500">Courier Consignment / Tracking ID</div>
+                  <div className="text-sm font-mono font-black tracking-widest mt-0.5">
+                    {printingInvoiceOrder.courier_consignment_id}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5 border-b border-dashed border-neutral-300 pb-3">
+                <div className="text-[10px] font-bold uppercase text-neutral-500">Deliver To (Customer):</div>
+                <div className="text-sm font-black">{printingInvoiceOrder.customer_name}</div>
+                <div className="text-xs font-bold">Phone: {printingInvoiceOrder.customer_phone || 'N/A'}</div>
+                <div className="text-xs text-neutral-800 leading-snug">
+                  Address: {printingInvoiceOrder.customer_address || 'Provided in chat'}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 border-b border-dashed border-neutral-300 pb-3">
+                <div className="text-[10px] font-bold uppercase text-neutral-500">Order Item Details:</div>
+                <div className="flex justify-between font-bold">
+                  <span>{printingInvoiceOrder.items} (×{printingInvoiceOrder.quantity || 1})</span>
+                  <span>৳ {printingInvoiceOrder.total_amount.toLocaleString()}</span>
+                </div>
+                {printingInvoiceOrder.payment_trx_id && (
+                  <div className="text-[11px] font-mono text-emerald-700 font-bold">
+                    ✓ Payment Verified ({printingInvoiceOrder.payment_method.toUpperCase()} TrxID: {printingInvoiceOrder.payment_trx_id})
+                  </div>
+                )}
+              </div>
+
+              {/* COD Collection Box */}
+              <div className="p-3 rounded-xl border-2 border-neutral-900 bg-neutral-50 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase text-neutral-600">
+                    {printingInvoiceOrder.payment_status === 'paid' && !printingInvoiceOrder.advance_paid_amount
+                      ? 'PAYMENT STATUS'
+                      : 'CASH TO COLLECT (COD)'}
+                  </div>
+                  <div className="text-[11px] text-neutral-600">
+                    Method: {printingInvoiceOrder.payment_method.toUpperCase()}
+                  </div>
+                </div>
+                <div className="text-xl font-black tabular-nums">
+                  {printingInvoiceOrder.payment_status === 'paid' && !printingInvoiceOrder.advance_paid_amount
+                    ? 'PAID (৳ 0 Due)'
+                    : `৳ ${Math.max(0, (printingInvoiceOrder.total_amount || 0) - (printingInvoiceOrder.advance_paid_amount || 0)).toLocaleString()}`}
+                </div>
+              </div>
+
+              <div className="text-center text-[10px] text-neutral-500 pt-1">
+                Powered by One Agent BD Smart Order Automation
+              </div>
+            </div>
+
+            <div className="p-4 bg-neutral-100 border-t border-neutral-200 flex items-center justify-end gap-2 print:hidden">
+              <button
+                onClick={() => setPrintingInvoiceOrder(null)}
+                className="px-4 py-2 rounded-xl bg-white border border-neutral-300 text-neutral-700 text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Label Now</span>
+              </button>
             </div>
           </div>
         </div>

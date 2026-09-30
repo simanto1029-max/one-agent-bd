@@ -84,6 +84,7 @@ productsRouter.post('/', (req: Request, res: Response) => {
   const {
     name,
     price,
+    buying_price,
     currency = 'BDT',
     category = 'General',
     description = '',
@@ -101,6 +102,11 @@ productsRouter.post('/', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'A valid product price is required' });
   }
 
+  const numericBuyingPrice =
+    buying_price !== undefined && buying_price !== '' && !isNaN(Number(buying_price))
+      ? Math.max(0, Number(buying_price))
+      : Math.round(numericPrice * 0.58);
+
   // Parse keywords if string
   let parsedKeywords: string[] = [];
   if (Array.isArray(keywords)) {
@@ -117,6 +123,7 @@ productsRouter.post('/', (req: Request, res: Response) => {
     user_id: user.id,
     name: name.trim(),
     price: numericPrice,
+    buying_price: numericBuyingPrice,
     currency: currency.toUpperCase().trim() || 'BDT',
     category: category.trim() || 'General',
     description: description.trim(),
@@ -154,6 +161,7 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
   const {
     name,
     price,
+    buying_price,
     currency,
     category,
     description,
@@ -179,6 +187,10 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
   if (price !== undefined) {
     const num = Number(price);
     if (!isNaN(num) && num >= 0) updates.price = num;
+  }
+  if (buying_price !== undefined) {
+    const numBuy = Number(buying_price);
+    if (!isNaN(numBuy) && numBuy >= 0) updates.buying_price = numBuy;
   }
   if (currency !== undefined) updates.currency = currency.toUpperCase().trim();
   if (category !== undefined) updates.category = category.trim();

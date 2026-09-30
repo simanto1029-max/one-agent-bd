@@ -266,7 +266,12 @@ ordersRouter.patch('/:id', (req, res) => {
     const {
       status,
       payment_status,
+      payment_method,
+      payment_trx_id,
+      advance_paid_amount,
+      buying_cost,
       customer_address,
+      customer_phone,
       notes,
       total_amount,
       items,
@@ -283,7 +288,12 @@ ordersRouter.patch('/:id', (req, res) => {
     const updates: Partial<Order> = {};
     if (status !== undefined) updates.status = status;
     if (payment_status !== undefined) updates.payment_status = payment_status;
+    if (payment_method !== undefined) updates.payment_method = payment_method;
+    if (payment_trx_id !== undefined) updates.payment_trx_id = String(payment_trx_id).trim();
+    if (advance_paid_amount !== undefined) updates.advance_paid_amount = Number(advance_paid_amount) || 0;
+    if (buying_cost !== undefined) updates.buying_cost = Number(buying_cost) || 0;
     if (customer_address !== undefined) updates.customer_address = customer_address;
+    if (customer_phone !== undefined) updates.customer_phone = customer_phone;
     if (notes !== undefined) updates.notes = notes;
     if (total_amount !== undefined) updates.total_amount = Number(total_amount);
     if (items !== undefined) updates.items = items;
@@ -297,6 +307,81 @@ ordersRouter.patch('/:id', (req, res) => {
   } catch (err: any) {
     console.error('Error updating order:', err);
     res.status(500).json({ error: err.message || 'Failed to update order' });
+  }
+});
+
+// POST /api/orders/:id/send-tracking - 1-Click Send Live Parcel Tracking Update directly to Customer Chat
+ordersRouter.post('/:id/send-tracking', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const existing = db.getOrderById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const courierName = (existing.courier_provider || 'Steadfast Courier').toUpperCase();
+    const trackingId =
+      existing.tracking_number ||
+      existing.consignment_id ||
+      `SF-${existing.id.slice(-6).toUpperCase()}`;
+    const dueAmount = Math.max(0, (existing.total_amount || 0) - (existing.advance_paid_amount || 0));
+
+    const statusBangla =
+      existing.status === 'delivered'
+        ? 'সফলভাবে ডেলিভারি সম্পন্ন হয়েছে ✅'
+        : existing.status === 'shipped'
+        ? 'কুরিয়ারে পাঠানো হয়েছে (পথে আছে 🚚)'
+        : existing.status === 'processing'
+        ? 'প্যাকেজিং ও কুরিয়ার বুকিং সম্পন্ন হয়েছে 📦'
+        : 'অর্ডার কনফার্ম করা হয়েছে ✨';
+
+    const customText = req.body?.customMessage;
+    const messageText =
+      customText ||
+      `প্রিয় ${existing.customer_name || 'গ্রাহক'}, আপনার অর্ডারের (#${existing.id
+        .slice(-6)
+        .toUpperCase()}) সর্বশেষ আপডেট:\n\n📌 স্ট্যাটাস: ${statusBangla}\n🚚 কুরিয়ার: ${courierName}\n🔢 ট্র্যাকিং / কনসাইনমেন্ট আইডি: ${trackingId}\n📦 পণ্য: ${
+        existing.items
+      }\n💰 ডেলিভারি ম্যানকে প্রদেয় (COD): ৳${dueAmount.toLocaleString()}\n\nধন্যবাদ আমাদের সাথে কেনাকাটা করার জন্য! ❤️`;
+
+    const plat = ['whatsapp', 'messenger', 'instagram'].includes(existing.platform)
+      ? (existing.platform as 'whatsapp' | 'messenger' | 'instagram')
+      : 'whatsapp';
+
+    const userChannels = db.getChannels(userId);
+    const activeChannel =
+      (existing.channel_id ? userChannels.find((c) => c.id === existing.channel_id) : undefined) ||
+      userChannels.find((c) => c.platform === plat && c.is_active);
+
+    if (activeChannel && existing.customer_id) {
+      const { sendManualMetaMessage } = await import('../services/metaService.js');
+      await sendManualMetaMessage(activeChannel, existing.customer_id, {
+        text: messageText
+      }).catch((e) => console.warn('[Send Tracking] Meta dispatch warning:', e));
+    }
+
+    const outbound = db.createMessage({
+      id: `msg_${Date.now()}_trk_${Math.random().toString(36).substring(2, 6)}`,
+      user_id: userId,
+      channel_id: activeChannel?.id || existing.channel_id,
+      platform: plat,
+      customer_id: existing.customer_id || existing.customer_phone || 'customer',
+      customer_name: existing.customer_name,
+      direction: 'outbound',
+      message_text: messageText,
+      is_ai_reply: false,
+      status: 'sent',
+      created_at: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `ট্র্যাকিং আপডেট (${trackingId}) সরাসরি ${existing.customer_name}-এর চ্যাটে পাঠানো হয়েছে!`,
+      outboundMessage: outbound
+    });
+  } catch (err: any) {
+    console.error('Error sending tracking to customer:', err);
+    res.status(500).json({ error: err.message || 'Failed to send tracking update' });
   }
 });
 

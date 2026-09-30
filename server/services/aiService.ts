@@ -612,10 +612,11 @@ ${catalogContext}
 
 TASK:
 1. Examine the image sent by the customer carefully.
-2. Identify what is shown in the image (product from catalog, screenshot, payment slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
-3. Reply naturally like a real human in concise Bangla (বাংলা ভাষায় — ২ থেকে ৩ বাক্যে).
-4. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
-5. End with 1 smart, relevant follow-up question in a new paragraph (যেমন: কাস্টমার কি এটি অর্ডার করতে চান নাকি অন্য কোনো সাইজ/কালার খুঁজছেন?). Do not use ** markdown asterisks.
+2. Identify what is shown in the image (product from catalog, bKash/Nagad payment screenshot/slip, or general inquiry) and match it with the Business Knowledge Base and Merchant Product Catalog.
+3. If the image is a bKash, Nagad, or Bank payment screenshot, clearly mention the Transaction ID (TrxID) and Paid Amount (৳) visible in the image and confirm that their payment has been received and verified!
+4. Reply naturally like a real human in concise Bangla (বাংলা ভাষায় — ২ থেকে ৩ বাক্যে).
+5. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+6. End with 1 smart, relevant follow-up question in a new paragraph (যেমন: কাস্টমার কি এটি অর্ডার করতে চান নাকি অন্য কোনো সাইজ/কালার খুঁজছেন?). Do not use ** markdown asterisks.
 
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}
@@ -1593,6 +1594,83 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     ? `HUMAN PHONE CALL DIRECTIVE: কাস্টমার সরাসরি ফোনে কথা বলতে বা কল দিতে বলেছেন। যদি কাস্টমারের ১১ ডিজিটের মোবাইল নাম্বার চ্যাটে দেওয়া না থাকে (বিশেষ করে Messenger বা Instagram-এ), তবে অবশ্যই আন্তরিকভাবে তাকে তার সচল মোবাইল বা WhatsApp নাম্বারটি চ্যাটে লিখে দিতে বলুন যাতে আমাদের প্রতিনিধি সাথে সাথে তাকে কল করতে পারেন।`
     : '';
 
+  // 3B. Live Order & Parcel Tracking Bot + Smart Upsell & Combo Offer Directives
+  const autoSettings = db.getAutomationSettings(params.userId) as any;
+  const isTrackingQuery =
+    incomingLower.includes('order status') ||
+    incomingLower.includes('parcel') ||
+    incomingLower.includes('courier') ||
+    incomingLower.includes('tracking') ||
+    incomingLower.includes('kobe pabo') ||
+    incomingLower.includes('kothay') ||
+    incomingLower.includes('অর্ডার স্ট্যাটাস') ||
+    incomingLower.includes('পার্সেল') ||
+    incomingLower.includes('কুরিয়ার') ||
+    incomingLower.includes('কবে পাবো') ||
+    incomingLower.includes('ডেলিভারি আপডেট') ||
+    incomingLower.includes('অর্ডার কবে');
+
+  let liveTrackingDirective = '';
+  let deterministicTrackingReply = '';
+  if (autoSettings?.auto_tracking_reply_enabled !== false) {
+    const userOrders = db.getOrders(params.userId) || [];
+    const phoneInQueryMatch = (params.incomingMessage || '').match(/(?:\+?88)?(01[3-9]\d{8})/);
+    const phoneInQuery = phoneInQueryMatch ? phoneInQueryMatch[1] : null;
+    const customerLatestOrder = userOrders.find(
+      (o) =>
+        o.customer_id === params.customerId ||
+        (phoneInQuery && o.customer_phone && o.customer_phone.includes(phoneInQuery)) ||
+        (params.customerName &&
+          o.customer_name &&
+          o.customer_name.toLowerCase().trim() === params.customerName.toLowerCase().trim())
+    );
+
+    if (customerLatestOrder) {
+      const statusBanglaMap: Record<string, string> = {
+        confirmed: 'অর্ডার কনফার্মড (প্যাকেজিংয়ের জন্য প্রস্তুত)',
+        processing: 'প্রসেসিং চলছে (কুরিয়ারে হ্যান্ডওভারের প্রস্তুতি চলছে)',
+        shipped: 'কুরিয়ারে পাঠানো হয়েছে (On the Way / In Transit)',
+        delivered: 'সফলভাবে ডেলিভারি সম্পন্ন হয়েছে',
+        cancelled: 'অর্ডারটি বাতিল (Cancelled) করা হয়েছে'
+      };
+      const stLabel = statusBanglaMap[customerLatestOrder.status] || customerLatestOrder.status;
+      const courierInfo = customerLatestOrder.courier_name
+        ? `কুরিয়ার: ${customerLatestOrder.courier_name}${customerLatestOrder.courier_consignment_id ? ` (Tracking/Consignment ID: ${customerLatestOrder.courier_consignment_id})` : ''}`
+        : 'কুরিয়ার বুকিং প্রক্রিয়াধীন';
+      const payInfo =
+        customerLatestOrder.payment_status === 'paid'
+          ? `পেমেন্ট স্ট্যাটাস: পরিশোধিত (Paid${customerLatestOrder.payment_trx_id ? ` - TrxID: ${customerLatestOrder.payment_trx_id}` : ''})`
+          : `পেমেন্ট স্ট্যাটাস: ক্যাশ অন ডেলিভারি (বাকি: ৳${customerLatestOrder.total_amount - (customerLatestOrder.advance_paid_amount || 0)})`;
+
+      liveTrackingDirective = `LIVE ORDER & PARCEL TRACKING DATA FOR THIS CUSTOMER:
+- Order ID: #${customerLatestOrder.id.slice(-6).toUpperCase()}
+- Ordered Item: ${customerLatestOrder.items} (৳${customerLatestOrder.total_amount})
+- Current Status: ${stLabel}
+- Courier & Tracking Info: ${courierInfo}
+- Payment Info: ${payInfo}
+If the customer is asking about their order, parcel, delivery date, or tracking status, give them this exact live update in Bangla!`;
+
+      if (isTrackingQuery) {
+        deterministicTrackingReply = `আপনার অর্ডার (#${customerLatestOrder.id.slice(-6).toUpperCase()} — ${customerLatestOrder.items})-এর বর্তমান অবস্থা:\n• স্ট্যাটাস: ${stLabel}\n• ${courierInfo}\n• ${payInfo}\n\nআপনার অর্ডার সংক্রান্ত আর কোনো তথ্য দিয়ে সাহায্য করতে পারি কি?`;
+      }
+    } else if (isTrackingQuery) {
+      liveTrackingDirective = `LIVE ORDER TRACKING NOTE: কাস্টমার তার অর্ডারের আপডেট জানতে চেয়েছেন, কিন্তু এই চ্যাট আইডিতে এখনো কোনো অর্ডার পাওয়া যায়নি। তাকে বিনীতভাবে অর্ডার করার সময় ব্যবহৃত ১১ ডিজিটের মোবাইল নাম্বারটি দিতে বলুন যাতে সাথে সাথে পার্সেল স্ট্যাটাস চেক করে জানানো যায়।`;
+    }
+  }
+
+  let smartUpsellDirective = '';
+  if (autoSettings?.upsell_enabled && autoSettings?.upsell_offer_text) {
+    smartUpsellDirective = `SMART UPSELL & COMBO OFFER DIRECTIVE: কাস্টমার যখন প্রোডাক্টের দাম জানতে চায় বা ১টি প্রোডাক্ট অর্ডার করতে চায়, তখন উত্তরের সাথে প্রাসঙ্গিকভাবে আমাদের এই স্পেশাল কম্বো অফারটি সংক্ষেপে উল্লেখ করবেন: "${autoSettings.upsell_offer_text}"`;
+  }
+
+  if (deterministicTrackingReply && isTrackingQuery) {
+    return {
+      replyText: deterministicTrackingReply,
+      transcript: voiceTranscript,
+      isVoice: Boolean(voiceTranscript || params.audioBase64)
+    };
+  }
+
   const systemInstruction = `You are a warm, intelligent, human-like Customer Support & Sales Executive for "${businessName}" (conversational like ChatGPT).
 CRITICAL RULES:
 1. Keep every reply concise (2-3 short sentences total).
@@ -1612,6 +1690,8 @@ ${catalogContext}
 ${orderGuidance}
 ${productPhotoDirective}
 ${humanCallDirective}
+${liveTrackingDirective}
+${smartUpsellDirective}
 
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}

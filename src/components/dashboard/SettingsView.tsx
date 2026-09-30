@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { api } from '../../api';
+import { AutomationSettings } from '../../types';
 import { DeliverySettingsSection } from './DeliverySettingsSection';
 
 interface SettingsViewProps {
@@ -60,6 +61,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [testOutput, setTestOutput] = useState('');
   const [testing, setTesting] = useState(false);
 
+  // Smart Sales Booster & Automation Settings
+  const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
+  const [upsellEnabled, setUpsellEnabled] = useState(true);
+  const [upsellOfferText, setUpsellOfferText] = useState(
+    '২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি অথবা ১০০ টাকা স্পেশাল ডিসকাউন্ট!'
+  );
+  const [autoPaymentVerify, setAutoPaymentVerify] = useState(true);
+  const [autoTrackingReply, setAutoTrackingReply] = useState(true);
+  const [savingAutoBooster, setSavingAutoBooster] = useState(false);
+  const [savedAutoBooster, setSavedAutoBooster] = useState(false);
+
   const buildKnowledgeBasePromptText = () => {
     return `You are the official Customer Service & Sales AI Assistant for "${kbBusinessName || 'Our Business'}".
 
@@ -86,7 +98,39 @@ SMART REASONING & SHORT REPLY RULES:
 
   useEffect(() => {
     loadSettings();
+    api
+      .getAutomationSettings()
+      .then((res) => {
+        if (res.settings) {
+          setAutoSettings(res.settings);
+          setUpsellEnabled(res.settings.upsell_enabled ?? true);
+          if (res.settings.upsell_offer_text) setUpsellOfferText(res.settings.upsell_offer_text);
+          setAutoPaymentVerify(res.settings.auto_payment_verify_enabled ?? true);
+          setAutoTrackingReply(res.settings.auto_tracking_reply_enabled ?? true);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleSaveAutoBooster = async () => {
+    try {
+      setSavingAutoBooster(true);
+      const res = await api.updateAutomationSettings({
+        ...(autoSettings || {}),
+        upsell_enabled: upsellEnabled,
+        upsell_offer_text: upsellOfferText,
+        auto_payment_verify_enabled: autoPaymentVerify,
+        auto_tracking_reply_enabled: autoTrackingReply
+      });
+      if (res.settings) setAutoSettings(res.settings);
+      setSavedAutoBooster(true);
+      setTimeout(() => setSavedAutoBooster(false), 3000);
+    } catch (e) {
+      console.error('Failed to save automation booster:', e);
+    } finally {
+      setSavingAutoBooster(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -734,6 +778,106 @@ MANDATORY RULES:
               </div>
             </div>
           </form>
+
+          {/* Smart Sales Booster & Business Automation Controls */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-sm text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#7F22FE]" />
+                  <span>Smart Sales Booster, Payment Verify & Parcel Tracking AI</span>
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  কাস্টমারের অর্ডার ভ্যালু বাড়ানো, বিকাশ/নগদ TrxID অটো ভেরিফাই এবং পার্সেল ট্র্যাকিং অটো-রিপ্লাই নিয়ন্ত্রণ করুন
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveAutoBooster}
+                disabled={savingAutoBooster}
+                className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+              >
+                {savingAutoBooster ? (
+                  'Saving...'
+                ) : savedAutoBooster ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Booster Saved!</span>
+                  </>
+                ) : (
+                  'Save Booster Settings'
+                )}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <label className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={upsellEnabled}
+                  onChange={(e) => setUpsellEnabled(e.target.checked)}
+                  className="mt-0.5 accent-[#7F22FE]"
+                />
+                <div>
+                  <span className="font-bold text-neutral-900 dark:text-white block">
+                    Smart Upselling & Combo AI
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    কাস্টমার ১টি প্রোডাক্ট চাইলে AI কম্বো অফার সাজেস্ট করে অর্ডার ভ্যালু বাড়াবে
+                  </span>
+                </div>
+              </label>
+
+              <label className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoPaymentVerify}
+                  onChange={(e) => setAutoPaymentVerify(e.target.checked)}
+                  className="mt-0.5 accent-[#7F22FE]"
+                />
+                <div>
+                  <span className="font-bold text-neutral-900 dark:text-white block">
+                    bKash/Nagad Auto-Verify
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    চ্যাটে TrxID বা স্ক্রিনশট দিলে অটোমেটিক অর্ডার Paid ও TrxID সেভ করবে
+                  </span>
+                </div>
+              </label>
+
+              <label className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoTrackingReply}
+                  onChange={(e) => setAutoTrackingReply(e.target.checked)}
+                  className="mt-0.5 accent-[#7F22FE]"
+                />
+                <div>
+                  <span className="font-bold text-neutral-900 dark:text-white block">
+                    24/7 Parcel Tracking Bot
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    "অর্ডার কবে পাবো?" জিজ্ঞেস করলে লাইভ কুরিয়ার ও অর্ডার স্ট্যাটাস জানাবে
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {upsellEnabled && (
+              <div className="text-xs">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Smart Upsell / Combo Offer Message (AI কাস্টমারকে যে অফারটি বলবে):
+                </label>
+                <input
+                  type="text"
+                  value={upsellOfferText}
+                  onChange={(e) => setUpsellOfferText(e.target.value)}
+                  placeholder="যেমন: ২টি প্রোডাক্ট একসাথে অর্ডার করলে ডেলিভারি চার্জ সম্পূর্ণ ফ্রি!"
+                  className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                />
+              </div>
+            )}
+          </div>
 
           {/* Interactive Prompt Simulator Box */}
           <div className="p-5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 shadow-2xs space-y-3.5">

@@ -14,9 +14,13 @@ import {
   Instagram,
   CheckCircle2,
   Package,
-  Check
+  Check,
+  TrendingUp,
+  Calculator,
+  DollarSign,
+  Sliders
 } from 'lucide-react';
-import { UserProfile, SubscriptionStatusInfo, Channel, OrderMetrics, Message } from '../../types';
+import { UserProfile, SubscriptionStatusInfo, Channel, OrderMetrics, Message, Order, AutomationSettings } from '../../types';
 import { api } from '../../api';
 
 interface OverviewViewProps {
@@ -49,6 +53,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onOpenTour
 }) => {
   const [orderMetrics, setOrderMetrics] = useState<OrderMetrics | null>(null);
+  const [ordersList, setOrdersList] = useState<Order[]>([]);
+  const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
+  const [showProfitEditor, setShowProfitEditor] = useState(false);
+  const [adSpendInput, setAdSpendInput] = useState(500);
+  const [costPctInput, setCostPctInput] = useState(55);
+  const [returnLossInput, setReturnLossInput] = useState(110);
+  const [savingProfitConfig, setSavingProfitConfig] = useState(false);
   const [insightsTimeframe, setInsightsTimeframe] = useState<'7d' | '14d' | '30d'>('7d');
   const [dailyTrends, setDailyTrends] = useState<DayTrend[]>([]);
   const [activeTrendPlatform, setActiveTrendPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
@@ -57,6 +68,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   useEffect(() => {
     api.getOrders().then(res => {
       if (res.metrics) setOrderMetrics(res.metrics);
+      if (res.orders) setOrdersList(res.orders);
+    }).catch(() => {});
+
+    api.getAutomationSettings().then(res => {
+      if (res.settings) {
+        setAutoSettings(res.settings);
+        setAdSpendInput(res.settings.daily_ad_spend_bdt ?? 500);
+        setCostPctInput(res.settings.avg_product_cost_percent ?? 55);
+        setReturnLossInput(res.settings.return_courier_loss_per_order ?? 110);
+      }
     }).catch(() => {});
 
     api.getProducts().then(res => {
@@ -132,6 +153,37 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const confirmedOrdersTotal = orderMetrics
     ? orderMetrics.confirmedCount + orderMetrics.processingCount + orderMetrics.deliveredCount
     : 0;
+
+  // Business Net Profit & ROI Calculation
+  const activeOrders = ordersList.filter(o => o.status !== 'cancelled');
+  const cancelledOrdersCount = ordersList.filter(o => o.status === 'cancelled').length;
+  const grossRevenue = orderMetrics ? orderMetrics.totalRevenue : activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+  const totalBuyingCost = activeOrders.reduce((sum, o) => {
+    if (typeof o.buying_cost === 'number' && o.buying_cost > 0) return sum + o.buying_cost;
+    return sum + Math.round((o.total_amount || 0) * ((costPctInput || 55) / 100));
+  }, 0);
+  const returnCourierLoss = cancelledOrdersCount * (returnLossInput || 110);
+  const totalAdSpend = adSpendInput || 0;
+  const netProfit = grossRevenue - totalBuyingCost - totalAdSpend - returnCourierLoss;
+  const profitMarginPct = grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 100) : 0;
+
+  const handleSaveProfitSettings = async () => {
+    try {
+      setSavingProfitConfig(true);
+      const res = await api.updateAutomationSettings({
+        ...(autoSettings || {}),
+        daily_ad_spend_bdt: Number(adSpendInput) || 0,
+        avg_product_cost_percent: Number(costPctInput) || 55,
+        return_courier_loss_per_order: Number(returnLossInput) || 110
+      });
+      if (res.settings) setAutoSettings(res.settings);
+      setShowProfitEditor(false);
+    } catch {
+      // ignore
+    } finally {
+      setSavingProfitConfig(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -239,6 +291,134 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {waCount} WA · {fbCount} FB · {igCount} IG
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Business Net Profit & ROI Calculator Card */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-white via-purple-50/30 to-emerald-50/30 dark:from-[#130D2E] dark:via-[#171038] dark:to-[#112229] border border-purple-200/80 dark:border-purple-500/25 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Business Net Profit & ROI Calculator
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  Real-Time P&L
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                হিসাব নিকাশ অটোমেটিক: Gross Sales থেকে প্রোডাক্ট কেনা দাম, Facebook Boost/Ad খরচ এবং রিটার্ন লস বাদ দিয়ে আসল লাভ (Net Profit)
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowProfitEditor(!showProfitEditor)}
+            className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1442] hover:bg-purple-50 dark:hover:bg-[#251B54] text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-purple-500/30 flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400" />
+            <span>{showProfitEditor ? 'Close Cost Editor' : 'Edit Ad Spend & Costs'}</span>
+          </button>
+        </div>
+
+        {showProfitEditor && (
+          <div className="mb-4 p-4 rounded-xl bg-white/90 dark:bg-[#1A123B] border border-purple-200/70 dark:border-purple-500/25 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                Ad Spend / Boost Cost (৳)
+              </label>
+              <input
+                type="number"
+                value={adSpendInput}
+                onChange={(e) => setAdSpendInput(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                Default Product Cost (%)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={95}
+                value={costPctInput}
+                onChange={(e) => setCostPctInput(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                Courier Loss per Return (৳)
+              </label>
+              <input
+                type="number"
+                value={returnLossInput}
+                onChange={(e) => setReturnLossInput(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveProfitSettings}
+              disabled={savingProfitConfig}
+              className="px-4 py-2 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              {savingProfitConfig ? 'Saving...' : 'Save Parameters'}
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Gross Order Revenue</span>
+            <span className="text-lg font-extrabold text-slate-900 dark:text-white tabular-nums mt-0.5 block">
+              ৳ {grossRevenue.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-slate-400">{activeOrders.length} active orders</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Product Buying Cost</span>
+            <span className="text-lg font-extrabold text-slate-700 dark:text-slate-200 tabular-nums mt-0.5 block">
+              - ৳ {totalBuyingCost.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-slate-400">Catalog or {costPctInput}% avg cost</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Ad / Boost Spend</span>
+            <span className="text-lg font-extrabold text-amber-600 dark:text-amber-400 tabular-nums mt-0.5 block">
+              - ৳ {totalAdSpend.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-slate-400">Marketing investment</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Return Courier Loss</span>
+            <span className="text-lg font-extrabold text-rose-600 dark:text-rose-400 tabular-nums mt-0.5 block">
+              - ৳ {returnCourierLoss.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-slate-400">{cancelledOrdersCount} cancelled × ৳{returnLossInput}</span>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1 p-3.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">Actual Net Profit</span>
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <span className={`text-lg font-extrabold tabular-nums mt-0.5 block ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              ৳ {netProfit.toLocaleString()}
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700/80 dark:text-emerald-300/80">
+              Margin: {profitMarginPct}% ROI
+            </span>
           </div>
         </div>
       </div>

@@ -24,6 +24,15 @@ export interface AutomationSettings {
   auto_followup_enabled: boolean;
   followup_delay_minutes: number;
   followup_message_template: string;
+  upsell_enabled?: boolean;
+  upsell_offer_text?: string;
+  auto_payment_verify_enabled?: boolean;
+  auto_tracking_reply_enabled?: boolean;
+  paused_customers?: string[];
+  blocked_customers?: string[];
+  daily_ad_spend_bdt?: number;
+  avg_product_cost_percent?: number;
+  return_courier_loss_per_order?: number;
 }
 
 export interface Profile {
@@ -257,6 +266,7 @@ export interface Product {
   user_id: string;
   name: string;
   price: number;
+  buying_price?: number;
   currency: string;
   category: string;
   description: string;
@@ -326,6 +336,9 @@ export interface Order {
   tracking_number?: string;
   consignment_id?: string;
   dispatched_at?: string;
+  advance_paid_amount?: number;
+  payment_trx_id?: string;
+  buying_cost?: number;
   notes?: string;
   created_at: string;
   updated_at: string;

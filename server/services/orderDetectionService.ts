@@ -246,6 +246,29 @@ Respond ONLY with valid JSON, no markdown formatting.`;
     extracted = heuristicExtract(messageText, customerName || 'Customer', customerId);
   }
 
+  // Enrich with bKash/Nagad TrxID & advance amount if present in customer message
+  const paymentInfo = extractPaymentDetailsFromText(messageText, aiReplyText);
+  if (paymentInfo.hasPaymentSignal) {
+    if (paymentInfo.payment_method) extracted.payment_method = paymentInfo.payment_method;
+    extracted.payment_status = 'paid';
+    if (paymentInfo.payment_trx_id) extracted.payment_trx_id = paymentInfo.payment_trx_id;
+    if (paymentInfo.advance_paid_amount !== undefined) {
+      extracted.advance_paid_amount = paymentInfo.advance_paid_amount;
+    }
+  }
+
+  // Match catalog product to determine buying_cost for Net Profit & ROI tracking
+  const matchedProd = db.findProductForQuery(userId, `${extracted.items || ''} ${messageText}`);
+  const qty = extracted.quantity || 1;
+  const totalAmt = extracted.total_amount || matchedProd?.price || 1450;
+  const autoSettings = db.getAutomationSettings(userId) as any;
+  const defaultCostPct = typeof autoSettings?.avg_product_cost_percent === 'number' ? autoSettings.avg_product_cost_percent : 55;
+  const computedBuyingCost =
+    matchedProd && typeof matchedProd.buying_price === 'number' && matchedProd.buying_price > 0
+      ? matchedProd.buying_price * qty
+      : Math.round(totalAmt * (defaultCostPct / 100));
+  extracted.buying_cost = computedBuyingCost;
+
   // If this is just a simulation preview for testing settings
   if (isSimulation) {
     const simOrder: Order = {
@@ -260,9 +283,12 @@ Respond ONLY with valid JSON, no markdown formatting.`;
       items: extracted.items || 'Detected Product/Service',
       quantity: extracted.quantity || 1,
       total_amount: extracted.total_amount || 1450,
+      buying_cost: extracted.buying_cost,
       currency: 'BDT',
       payment_method: extracted.payment_method || 'cod',
       payment_status: extracted.payment_status || 'pending',
+      payment_trx_id: extracted.payment_trx_id,
+      advance_paid_amount: extracted.advance_paid_amount,
       status: 'confirmed',
       order_source: 'ai_detected',
       notes: extracted.notes || 'Simulation test order matching your AI instructions.',
@@ -289,7 +315,10 @@ Respond ONLY with valid JSON, no markdown formatting.`;
       customer_phone: extracted.customer_phone || recentDuplicate.customer_phone,
       customer_address: extracted.customer_address !== 'Address provided in chat' ? extracted.customer_address : recentDuplicate.customer_address,
       payment_method: extracted.payment_method !== 'unspecified' ? extracted.payment_method : recentDuplicate.payment_method,
-      payment_status: extracted.payment_status === 'paid' ? 'paid' : recentDuplicate.payment_status
+      payment_status: extracted.payment_status === 'paid' ? 'paid' : recentDuplicate.payment_status,
+      payment_trx_id: extracted.payment_trx_id || recentDuplicate.payment_trx_id,
+      advance_paid_amount: extracted.advance_paid_amount ?? recentDuplicate.advance_paid_amount,
+      buying_cost: extracted.buying_cost ?? recentDuplicate.buying_cost
     });
     return updated || recentDuplicate;
   }
@@ -319,9 +348,12 @@ Respond ONLY with valid JSON, no markdown formatting.`;
     items: extracted.items || 'Service Order',
     quantity: extracted.quantity || 1,
     total_amount: extracted.total_amount || 1450,
+    buying_cost: extracted.buying_cost,
     currency: 'BDT',
     payment_method: extracted.payment_method || 'unspecified',
     payment_status: extracted.payment_status || 'pending',
+    payment_trx_id: extracted.payment_trx_id,
+    advance_paid_amount: extracted.advance_paid_amount,
     status: 'confirmed',
     order_source: 'ai_detected',
     notes: finalNotes,
@@ -332,4 +364,115 @@ Respond ONLY with valid JSON, no markdown formatting.`;
   const savedOrder = db.createOrder(newOrder);
   console.log(`[Order Detection] New Order created successfully: ID ${savedOrder.id}, Amount: BDT ${savedOrder.total_amount}, Customer: ${savedOrder.customer_name}`);
   return savedOrder;
+}
+
+/**
+ * Extracts bKash / Nagad TrxID, payment method, and advance paid amount from text or AI reply
+ */
+export function extractPaymentDetailsFromText(rawText: string, aiReplyText?: string): {
+  hasPaymentSignal: boolean;
+  payment_method?: 'bkash' | 'nagad' | 'bank';
+  payment_trx_id?: string;
+  advance_paid_amount?: number;
+} {
+  const combined = `${rawText || ''} ${aiReplyText || ''}`;
+  const lower = combined.toLowerCase();
+
+  const hasBkash = lower.includes('bkash') || lower.includes('বিকাশ');
+  const hasNagad = lower.includes('nagad') || lower.includes('নগদ');
+  const hasTrxKeyword =
+    lower.includes('trx') ||
+    lower.includes('txid') ||
+    lower.includes('tranx') ||
+    lower.includes('transaction') ||
+    lower.includes('পাঠিয়েছি') ||
+    lower.includes('পাঠাইছি') ||
+    lower.includes('সেন্ড করেছি') ||
+    lower.includes('পেমেন্ট করেছি') ||
+    lower.includes('ডেলিভারি চার্জ দিয়েছি') ||
+    lower.includes('অ্যাডভান্স');
+
+  // Match typical bKash/Nagad 8-12 char alphanumeric TrxID (contains both letters & digits, e.g., BKS98234A, 9G7H2K1L, 71A8B9C0)
+  const trxExplicit =
+    combined.match(/(?:trx\s*id|trxid|txid|transaction\s*id|ট্রানজেকশন\s*আইডি)[\s:=\-#]*([A-Z0-9]{6,14})/i) ||
+    rawText.match(/\b([A-Z0-9]*[A-Z][A-Z0-9]*\d[A-Z0-9]*)\b/);
+
+  let trxId = trxExplicit ? trxExplicit[1].toUpperCase() : undefined;
+  if (trxId && (trxId.length < 6 || trxId.length > 14 || /^01[3-9]\d{8}$/.test(trxId))) {
+    trxId = undefined;
+  }
+
+  // Also check last 4 digits pattern e.g. "last digit 4589"
+  if (!trxId && (hasBkash || hasNagad || hasTrxKeyword)) {
+    const last4 = rawText.match(/(?:last|শেষ|লাস্ট|ডিজিট|digit)[\s:=\-]*(\d{4})\b/i);
+    if (last4) {
+      trxId = `LAST-${last4[1]}`;
+    }
+  }
+
+  let advanceAmount: number | undefined;
+  const amtMatch =
+    rawText.match(/(\d{2,5})\s*(?:tk|taka|bdt|টাকা)/i) ||
+    rawText.match(/(?:tk|taka|bdt|টাকা)\s*(\d{2,5})/i);
+  if (amtMatch) {
+    const val = parseInt(amtMatch[1], 10);
+    if (!isNaN(val) && val >= 50 && val <= 50000) {
+      advanceAmount = val;
+    }
+  }
+
+  const hasPaymentSignal = Boolean(trxId || ((hasBkash || hasNagad) && (hasTrxKeyword || advanceAmount)));
+  if (!hasPaymentSignal) {
+    return { hasPaymentSignal: false };
+  }
+
+  return {
+    hasPaymentSignal: true,
+    payment_method: hasNagad ? 'nagad' : 'bkash',
+    payment_trx_id: trxId || `VERIFIED-${Date.now().toString().slice(-5)}`,
+    advance_paid_amount: advanceAmount
+  };
+}
+
+/**
+ * Automatically updates the customer's latest order when they send a bKash/Nagad TrxID or payment screenshot
+ */
+export function detectAndRecordPaymentUpdate(params: {
+  userId: string;
+  customerId: string;
+  customerName?: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram';
+  messageText: string;
+  aiReplyText?: string;
+  hasImage?: boolean;
+}): Order | null {
+  const info = extractPaymentDetailsFromText(params.messageText, params.aiReplyText);
+  if (!info.hasPaymentSignal) return null;
+
+  const userOrders = db.getOrders(params.userId);
+  const matchingOrder = userOrders.find(
+    (o) =>
+      o.customer_id === params.customerId ||
+      (params.customerName &&
+        o.customer_name &&
+        o.customer_name.toLowerCase().trim() === params.customerName.toLowerCase().trim())
+  );
+
+  if (matchingOrder) {
+    const updated = db.updateOrder(matchingOrder.id, {
+      payment_method: info.payment_method || matchingOrder.payment_method,
+      payment_status: 'paid',
+      payment_trx_id: info.payment_trx_id || matchingOrder.payment_trx_id,
+      advance_paid_amount:
+        info.advance_paid_amount !== undefined
+          ? info.advance_paid_amount
+          : matchingOrder.advance_paid_amount || 120,
+      notes: `${matchingOrder.notes ? matchingOrder.notes + ' | ' : ''}AI Auto-Verified Payment (${(
+        info.payment_method || 'bkash'
+      ).toUpperCase()} TrxID: ${info.payment_trx_id || 'Screenshot'})`
+    });
+    return updated || matchingOrder;
+  }
+
+  return null;
 }

@@ -8,7 +8,7 @@ import {
   downloadWhatsAppImage,
   prepareOutboundVoiceForMeta
 } from './audioDownloader.js';
-import { detectAndRecordOrder } from './orderDetectionService.js';
+import { detectAndRecordOrder, detectAndRecordPaymentUpdate } from './orderDetectionService.js';
 
 /**
  * Extract a valid Bangladesh mobile number (supports both English 0-9 and Bangla ০-৯ digits).
@@ -276,6 +276,29 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     created_at: new Date().toISOString()
   });
 
+  // 4.8. Check if this customer is Blocked (Fake Order / Spammer Blacklist) or Paused for Human Handover
+  const autoSettings = db.getAutomationSettings(channel.user_id) as any;
+  const blockedList: string[] = Array.isArray(autoSettings?.blocked_customers) ? autoSettings.blocked_customers : [];
+  const pausedList: string[] = Array.isArray(autoSettings?.paused_customers) ? autoSettings.paused_customers : [];
+
+  if (blockedList.includes(event.customerId)) {
+    console.log(`[Spam/Fraud Shield] Skipping AI auto-reply for blocked customer ${event.customerId}`);
+    return {
+      received: true,
+      inboundMessage: inbound,
+      reason: 'Customer is blocked in Fraud/Spam Blacklist'
+    };
+  }
+
+  if (pausedList.includes(event.customerId)) {
+    console.log(`[Human Handover] AI auto-reply paused for customer ${event.customerId} — awaiting human agent reply`);
+    return {
+      received: true,
+      inboundMessage: inbound,
+      reason: 'AI paused for human handover on this conversation'
+    };
+  }
+
   // 5. Fetch recent conversation history with this customer for context
   const allUserMessages = db.getMessages(channel.user_id);
   const conversationHistory = allUserMessages
@@ -462,6 +485,20 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     if (orderResult) {
       detectedOrder = orderResult;
       console.log(`[Order Confirmed] Order #${detectedOrder.id} logged for merchant ${channel.user_id}`);
+    } else if (autoSettings?.auto_payment_verify_enabled !== false) {
+      const paymentUpdatedOrder = detectAndRecordPaymentUpdate({
+        userId: channel.user_id,
+        customerId: event.customerId,
+        customerName: inbound.customer_name,
+        platform: event.platform,
+        messageText: rawCustomerText,
+        aiReplyText,
+        hasImage
+      });
+      if (paymentUpdatedOrder) {
+        detectedOrder = paymentUpdatedOrder;
+        console.log(`[Auto Payment Verified] Order #${paymentUpdatedOrder.id} marked PAID (TrxID: ${paymentUpdatedOrder.payment_trx_id})`);
+      }
     }
   } catch (orderErr) {
     console.warn('[Order Engine] Error during order recording:', orderErr);

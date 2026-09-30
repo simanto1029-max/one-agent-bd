@@ -104,6 +104,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
   const [category, setCategory] = useState('Pants');
   const [customCategory, setCustomCategory] = useState('');
   const [price, setPrice] = useState('');
+  const [buyingPrice, setBuyingPrice] = useState('');
   const [currency, setCurrency] = useState('BDT');
   const [stockStatus, setStockStatus] = useState<'in_stock' | 'low_stock' | 'out_of_stock'>('in_stock');
   const [imageUrl, setImageUrl] = useState('');
@@ -212,6 +213,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
     setCategory('Pants');
     setCustomCategory('');
     setPrice('');
+    setBuyingPrice('');
     setCurrency('BDT');
     setStockStatus('in_stock');
     setImageUrl('');
@@ -231,6 +233,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
       setCustomCategory(prod.category);
     }
     setPrice(String(prod.price));
+    setBuyingPrice(typeof prod.buying_price === 'number' ? String(prod.buying_price) : '');
     setCurrency(prod.currency || 'BDT');
     setStockStatus(prod.stock_status || 'in_stock');
     setImageUrl(prod.image_url || '');
@@ -258,6 +261,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
       const payload: Partial<Product> = {
         name: name.trim(),
         price: numPrice,
+        buying_price: buyingPrice.trim() !== '' && !isNaN(Number(buyingPrice)) ? Number(buyingPrice) : undefined,
         currency: currency.toUpperCase().trim() || 'BDT',
         category: finalCategory,
         description: description.trim(),
@@ -640,13 +644,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                     </h3>
                   </div>
 
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-base font-black text-[#7F22FE]">
-                      ৳ {prod.price.toLocaleString()}
-                    </span>
-                    <span className="text-[10px] text-neutral-400 font-semibold">
-                      {prod.currency || 'BDT'}
-                    </span>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-base font-black text-[#7F22FE]">
+                        ৳ {prod.price.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-semibold">
+                        {prod.currency || 'BDT'}
+                      </span>
+                    </div>
+                    {typeof prod.buying_price === 'number' && prod.buying_price > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200/70 dark:border-emerald-800/40">
+                        লাভ: ৳{(prod.price - prod.buying_price).toLocaleString()}/পিস
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 line-clamp-2 leading-relaxed">
@@ -795,11 +806,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              {/* Price & Currency */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Price, Buying Cost & Currency */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Price (দাম) *
+                    Selling Price (বিক্রয় মূল্য) *
                   </label>
                   <input
                     type="number"
@@ -809,6 +820,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="e.g. 1150"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    Buying Cost (কেনা দাম - লাভের হিসাবের জন্য)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={buyingPrice}
+                    onChange={(e) => setBuyingPrice(e.target.value)}
+                    placeholder="e.g. 650"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
                   />
                 </div>
