@@ -1576,6 +1576,23 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন। সংক্ষেপে জানান যে প্রোডাক্টটির ছবি পাঠানো হয়েছে এবং এর দাম ৳${matchedProduct.price} ${matchedProduct.currency}, এরপর নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা।`;
   }
 
+  const isAskingForHumanCall =
+    incomingLower.includes('kotha bolte chai') ||
+    incomingLower.includes('kotha bolte cai') ||
+    incomingLower.includes('call a kotha') ||
+    incomingLower.includes('call koren') ||
+    incomingLower.includes('call din') ||
+    incomingLower.includes('call diben') ||
+    incomingLower.includes('phone a kotha') ||
+    incomingLower.includes('কথা বলতে চাই') ||
+    incomingLower.includes('কল দিন') ||
+    incomingLower.includes('কল করেন') ||
+    incomingLower.includes('ফোনে কথা');
+
+  const humanCallDirective = isAskingForHumanCall
+    ? `HUMAN PHONE CALL DIRECTIVE: কাস্টমার সরাসরি ফোনে কথা বলতে বা কল দিতে বলেছেন। যদি কাস্টমারের ১১ ডিজিটের মোবাইল নাম্বার চ্যাটে দেওয়া না থাকে (বিশেষ করে Messenger বা Instagram-এ), তবে অবশ্যই আন্তরিকভাবে তাকে তার সচল মোবাইল বা WhatsApp নাম্বারটি চ্যাটে লিখে দিতে বলুন যাতে আমাদের প্রতিনিধি সাথে সাথে তাকে কল করতে পারেন।`
+    : '';
+
   const systemInstruction = `You are a warm, intelligent, human-like Customer Support & Sales Executive for "${businessName}" (conversational like ChatGPT).
 CRITICAL RULES:
 1. Keep every reply concise (2-3 short sentences total).
@@ -1594,6 +1611,7 @@ ${catalogContext}
 
 ${orderGuidance}
 ${productPhotoDirective}
+${humanCallDirective}
 
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}

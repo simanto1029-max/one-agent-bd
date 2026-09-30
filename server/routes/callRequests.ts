@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db, CallRequest, Order } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
+import { extractBdPhoneNumber } from '../services/metaService.js';
 
 export const callRequestsRouter = Router();
 
@@ -11,7 +12,40 @@ callRequestsRouter.get('/', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const requests = db.getCallRequests(user.id);
+  let requests = db.getCallRequests(user.id);
+  const allMessages = db.getMessages(user.id);
+  const allOrders = db.getOrders(user.id);
+
+  // Auto-resolve any "Pending in chat" call requests if the customer later shared their phone number in chat or orders
+  requests = requests.map((r) => {
+    if (r.customer_phone === 'Pending in chat' || !extractBdPhoneNumber(r.customer_phone)) {
+      const custMsgs = allMessages.filter((m) => m.customer_id === r.customer_id);
+      let foundPhone: string | null = null;
+      for (let i = custMsgs.length - 1; i >= 0; i--) {
+        const p = extractBdPhoneNumber(custMsgs[i].message_text);
+        if (p) {
+          foundPhone = p;
+          break;
+        }
+      }
+      if (!foundPhone) {
+        const matchingOrder = allOrders.find(
+          (o) => o.customer_id === r.customer_id && extractBdPhoneNumber(o.customer_phone)
+        );
+        if (matchingOrder) {
+          foundPhone = extractBdPhoneNumber(matchingOrder.customer_phone);
+        }
+      }
+      if (foundPhone) {
+        const updated = db.updateCallRequest(r.id, {
+          customer_phone: foundPhone,
+          notes: `Auto-updated with customer phone (${foundPhone}) from chat`
+        });
+        if (updated) return updated;
+      }
+    }
+    return r;
+  });
 
   const stats = {
     totalRequests: requests.length,
@@ -77,7 +111,7 @@ callRequestsRouter.put('/:id', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { status, notes } = req.body;
+  const { status, notes, customer_phone, customer_name } = req.body;
   const updates: Partial<CallRequest> = {};
 
   if (status) {
@@ -85,6 +119,12 @@ callRequestsRouter.put('/:id', (req: Request, res: Response) => {
   }
   if (typeof notes === 'string') {
     updates.notes = notes;
+  }
+  if (typeof customer_phone === 'string' && customer_phone.trim()) {
+    updates.customer_phone = customer_phone.trim();
+  }
+  if (typeof customer_name === 'string' && customer_name.trim()) {
+    updates.customer_name = customer_name.trim();
   }
 
   const updated = db.updateCallRequest(req.params.id, updates);

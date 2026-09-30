@@ -1177,7 +1177,10 @@ export const api = {
     });
   },
 
-  async updateCallRequest(id: string, updates: { status?: CallRequest['status']; notes?: string }): Promise<{ request: CallRequest; message: string }> {
+  async updateCallRequest(
+    id: string,
+    updates: { status?: CallRequest['status']; notes?: string; customer_phone?: string; customer_name?: string }
+  ): Promise<{ request: CallRequest; message: string }> {
     return fetchJson(`/api/call-requests/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates)

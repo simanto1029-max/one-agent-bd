@@ -85,6 +85,7 @@ export default function App() {
   const [isLockBypassedForBilling, setIsLockBypassedForBilling] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [tourInitialStep, setTourInitialStep] = useState(1);
+  const [inboxTargetConvKey, setInboxTargetConvKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (isDark) {
@@ -768,12 +769,17 @@ export default function App() {
                   onNavigateToOrders={() => {
                     setActiveTab('orders');
                   }}
+                  onOpenCustomerChat={(platform, customerId) => {
+                    setInboxTargetConvKey(`${platform}_${customerId}`);
+                    setActiveTab('inbox');
+                  }}
                 />
               )}
 
               {activeTab === 'inbox' && (
                 <UnifiedInbox
                   channels={channels}
+                  initialConvKey={inboxTargetConvKey}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);
                     if (tab === 'billing') setIsLockBypassedForBilling(true);

@@ -4,6 +4,7 @@ import { getAuthenticatedUser } from './auth.js';
 import { handleInboundWebhook, sendManualMetaMessage } from '../services/metaService.js';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
 import { summarizeConversation } from '../services/aiService.js';
+import { prepareOutboundVoiceForMeta } from '../services/audioDownloader.js';
 
 export const inboxRouter = Router();
 
@@ -171,6 +172,20 @@ inboxRouter.post('/reply', async (req: Request, res: Response) => {
     ? '📷 Sent a Photo'
     : '';
 
+  // If voice note is sent, ensure it is normalized & encoded to universal MP3 (audio/mpeg)
+  let normalizedAudioBase64 = hasVoice ? String(audioBase64).replace(/^data:[^;]+;base64,/, '') : undefined;
+  let normalizedAudioMime = hasVoice ? audioMimeType || 'audio/mpeg' : undefined;
+  if (hasVoice && normalizedAudioBase64) {
+    try {
+      const rawBuf = Buffer.from(normalizedAudioBase64, 'base64');
+      const prepared = await prepareOutboundVoiceForMeta(rawBuf, normalizedAudioMime, platform);
+      normalizedAudioBase64 = prepared.buffer.toString('base64');
+      normalizedAudioMime = prepared.mimeType;
+    } catch (e) {
+      console.warn('[Inbox Reply] Voice normalization warning:', e);
+    }
+  }
+
   // Dispatch to real connected Meta channel if available
   const userChannels = db.getChannels(user.id);
   const activeChannel =
@@ -184,8 +199,8 @@ inboxRouter.post('/reply', async (req: Request, res: Response) => {
       imageMimeType,
       videoBase64,
       videoMimeType,
-      audioBase64,
-      audioMimeType
+      audioBase64: normalizedAudioBase64,
+      audioMimeType: normalizedAudioMime
     });
   }
 
@@ -205,8 +220,8 @@ inboxRouter.post('/reply', async (req: Request, res: Response) => {
     video_base64: hasVideo ? String(videoBase64) : undefined,
     video_mime_type: hasVideo ? videoMimeType || 'video/mp4' : undefined,
     has_voice: hasVoice,
-    audio_base64: hasVoice ? String(audioBase64) : undefined,
-    audio_mime_type: hasVoice ? audioMimeType || 'audio/webm' : undefined,
+    audio_base64: hasVoice ? normalizedAudioBase64 : undefined,
+    audio_mime_type: hasVoice ? normalizedAudioMime || 'audio/mpeg' : undefined,
     is_ai_reply: false,
     status: 'sent',
     created_at: new Date().toISOString()

@@ -39,13 +39,14 @@ import { BrowserAudioRecorder, blobToBase64 } from '../../utils/audioRecorder';
 interface UnifiedInboxProps {
   channels: Channel[];
   onNavigate?: (tab: string) => void;
+  initialConvKey?: string | null;
 }
 
 type CategoryTab = 'all' | 'orders' | 'delivered' | 'new_customer';
 
-export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate }) => {
+export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate, initialConvKey }) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConvKey, setSelectedConvKey] = useState<string | null>(null);
+  const [selectedConvKey, setSelectedConvKey] = useState<string | null>(initialConvKey || null);
   const [filterPlatform, setFilterPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('all');
   const [categoryCounts, setCategoryCounts] = useState<{ all: number; orders: number; delivered: number; new_customer: number }>({
@@ -126,6 +127,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   const selectedConv = conversations.find(
     (c) => `${c.platform}_${c.customerId}` === selectedConvKey
   );
+
+  useEffect(() => {
+    if (initialConvKey) {
+      setSelectedConvKey(initialConvKey);
+      setMobileShowThread(true);
+    }
+  }, [initialConvKey]);
 
   useEffect(() => {
     if (conversations.length > 0 && !selectedConvKey) {

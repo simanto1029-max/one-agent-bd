@@ -19,7 +19,8 @@ import {
   Filter,
   Check,
   X,
-  Copy
+  Copy,
+  Send
 } from 'lucide-react';
 import { CallRequest, Order } from '../../types';
 import { api } from '../../api';
@@ -27,9 +28,19 @@ import { ConfirmModal } from '../common/ConfirmModal';
 
 interface CallRequestsViewProps {
   onNavigateToOrders?: () => void;
+  onOpenCustomerChat?: (platform: string, customerId: string) => void;
 }
 
-export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateToOrders }) => {
+function hasValidPhone(phone?: string): boolean {
+  if (!phone || phone === 'Pending in chat') return false;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10;
+}
+
+export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
+  onNavigateToOrders,
+  onOpenCustomerChat
+}) => {
   const [requests, setRequests] = useState<CallRequest[]>([]);
   const [stats, setStats] = useState({
     totalRequests: 0,
@@ -52,6 +63,9 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateTo
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastError, setToastError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [askingPhoneId, setAskingPhoneId] = useState<string | null>(null);
+  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState<string>('');
 
   const handleCopyPhone = async (phone: string, id: string) => {
     try {
@@ -66,8 +80,65 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateTo
   const handleOpenCallModal = (req: CallRequest) => {
     setCallingRequest(req);
     setCallModalCopied(false);
-    if (req.status === 'pending') {
+    setEditingPhoneValue(hasValidPhone(req.customer_phone) ? req.customer_phone : '');
+    if (req.status === 'pending' && hasValidPhone(req.customer_phone)) {
       handleStatusChange(req.id, 'called');
+    }
+  };
+
+  const handleAskPhoneInChat = async (req: CallRequest) => {
+    if (!req.customer_id || askingPhoneId === req.id) return;
+    try {
+      setAskingPhoneId(req.id);
+      setToastError(null);
+      await api.sendReply({
+        customerId: req.customer_id,
+        customerName: req.customer_name,
+        platform: (req.platform as any) || 'messenger',
+        messageText:
+          'আসসালামু আলাইকুম! আপনি আমাদের সাথে ফোনে কথা বলতে চেয়েছিলেন। 📞 অনুগ্রহ করে আপনার সচল মোবাইল বা WhatsApp নাম্বারটি এখানে লিখে দিন, আমাদের প্রতিনিধি এখনই আপনাকে কল করবেন।'
+      });
+      await api.updateCallRequest(req.id, {
+        status: 'pending',
+        notes: 'মেসেঞ্জার চ্যাটে কাস্টমারের কাছে ফোন নাম্বার চাওয়া হয়েছে (কাস্টমার নাম্বার দিলেই এখানে অটোমেটিক যুক্ত হবে)'
+      });
+      setToastMessage(
+        `✅ ${req.customer_name}-এর চ্যাটে ফোন নাম্বার চেয়ে মেসেজ পাঠানো হয়েছে! কাস্টমার নাম্বার রিপ্লাই দিলেই এখানে অটোমেটিক নাম্বার চলে আসবে।`
+      );
+      setTimeout(() => setToastMessage(null), 5000);
+      await loadRequests();
+    } catch (err: any) {
+      setToastError(err?.message || 'Could not send message to customer chat');
+    } finally {
+      setAskingPhoneId(null);
+    }
+  };
+
+  const handleSaveManualPhone = async (req: CallRequest, phoneInput: string) => {
+    const trimmed = phoneInput.trim();
+    if (!trimmed) {
+      setToastError('অনুগ্রহ করে একটি সঠিক মোবাইল নাম্বার লিখুন');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await api.updateCallRequest(req.id, {
+        customer_phone: trimmed,
+        status: 'pending',
+        notes: `Phone number (${trimmed}) saved — Ready to call`
+      });
+      setEditingPhoneId(null);
+      setEditingPhoneValue('');
+      if (callingRequest && callingRequest.id === req.id) {
+        setCallingRequest({ ...callingRequest, customer_phone: trimmed });
+      }
+      setToastMessage(`✅ ফোন নাম্বার (${trimmed}) সেভ করা হয়েছে! এখন সরাসরি কল করতে পারবেন।`);
+      setTimeout(() => setToastMessage(null), 4000);
+      await loadRequests();
+    } catch (err: any) {
+      setToastError(err?.message || 'Failed to save phone number');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -471,23 +542,69 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateTo
                       <h4 className="text-sm font-black text-neutral-900 dark:text-white">
                         {req.customer_name}
                       </h4>
-                      <div className="inline-flex items-center gap-1.5 font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-                        <span>{req.customer_phone}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyPhone(req.customer_phone, req.id)}
-                          title="Copy phone number to dial"
-                          className="hover:text-emerald-600 transition-colors p-0.5 cursor-pointer flex items-center"
-                        >
-                          {copiedPhoneId === req.id ? (
-                            <span className="text-[10px] text-emerald-600 font-sans font-bold flex items-center gap-0.5">
-                              <Check className="w-3 h-3" /> Copied
-                            </span>
-                          ) : (
-                            <Copy className="w-3 h-3 text-neutral-400 hover:text-emerald-600" />
-                          )}
-                        </button>
-                      </div>
+                      {hasValidPhone(req.customer_phone) ? (
+                        <div className="inline-flex items-center gap-1.5 font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
+                          <span>{req.customer_phone}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPhone(req.customer_phone, req.id)}
+                            title="Copy phone number to dial"
+                            className="hover:text-emerald-600 transition-colors p-0.5 cursor-pointer flex items-center"
+                          >
+                            {copiedPhoneId === req.id ? (
+                              <span className="text-[10px] text-emerald-600 font-sans font-bold flex items-center gap-0.5">
+                                <Check className="w-3 h-3" /> Copied
+                              </span>
+                            ) : (
+                              <Copy className="w-3 h-3 text-neutral-400 hover:text-emerald-600" />
+                            )}
+                          </button>
+                        </div>
+                      ) : editingPhoneId === req.id ? (
+                        <div className="inline-flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editingPhoneValue}
+                            onChange={(e) => setEditingPhoneValue(e.target.value)}
+                            placeholder="017XXXXXXXX"
+                            className="px-2 py-0.5 text-xs font-mono rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-amber-400 text-neutral-900 dark:text-white w-32 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveManualPhone(req, editingPhoneValue)}
+                            className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPhoneId(null);
+                              setEditingPhoneValue('');
+                            }}
+                            className="px-1.5 py-0.5 text-xs text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-300/70 dark:border-amber-800">
+                            <Clock className="w-3 h-3" />
+                            <span>নাম্বার দেয়নি (Pending in chat)</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPhoneId(req.id);
+                              setEditingPhoneValue('');
+                            }}
+                            className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                          >
+                            + নাম্বার বসান
+                          </button>
+                        </div>
+                      )}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                           req.platform === 'whatsapp'
@@ -529,26 +646,78 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateTo
                   </div>
                 </div>
 
-                {/* Right: Instant Call, WhatsApp & Order Convert Actions */}
+                {/* Right: Instant Call, Ask Number in Messenger, Open Chat & Order Convert Actions */}
                 <div className="flex items-center gap-2 flex-wrap shrink-0 self-end md:self-center">
-                  {/* Phone Call Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCallModal(req)}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>Call Now</span>
-                  </button>
+                  {hasValidPhone(req.customer_phone) ? (
+                    <>
+                      {/* Phone Call Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCallModal(req)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Call Now</span>
+                      </button>
 
-                  {/* WhatsApp Message */}
-                  <button
-                    onClick={() => openWhatsApp(req.customer_phone, req.customer_name)}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
-                  </button>
+                      {/* WhatsApp Message */}
+                      <button
+                        type="button"
+                        onClick={() => openWhatsApp(req.customer_phone, req.customer_name)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* 1-Click Ask Phone Number in Messenger/Instagram Chat */}
+                      <button
+                        type="button"
+                        onClick={() => handleAskPhoneInChat(req)}
+                        disabled={askingPhoneId === req.id}
+                        title="Send a message in Messenger asking the customer for their phone number"
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{askingPhoneId === req.id ? 'Sending...' : 'নাম্বার চান (Ask in Chat)'}</span>
+                      </button>
+
+                      {/* Open Customer Chat in Unified Inbox */}
+                      {onOpenCustomerChat && req.customer_id && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenCustomerChat(req.platform, req.customer_id!)}
+                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Open Chat</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCallModal(req)}
+                        className="px-2.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Options</span>
+                      </button>
+                    </>
+                  )}
+
+                  {/* Open Chat button when valid phone exists too */}
+                  {hasValidPhone(req.customer_phone) && onOpenCustomerChat && req.customer_id && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCustomerChat(req.platform, req.customer_id!)}
+                      className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Chat</span>
+                    </button>
+                  )}
 
                   {/* 1-Click Convert to Order */}
                   {!isConverted ? (
@@ -885,56 +1054,113 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({ onNavigateTo
             </div>
 
             {/* Quick Action Buttons */}
-            <div className="space-y-2 pt-1">
-              {/* 1. Copy Phone Number */}
-              <button
-                type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(callingRequest.customer_phone);
-                  setCallModalCopied(true);
-                  setTimeout(() => setCallModalCopied(false), 2500);
-                }}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  callModalCopied
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200'
-                }`}
-              >
-                {callModalCopied ? (
-                  <>
-                    <Check className="w-4 h-4 text-white" />
-                    <span>Phone Copied to Clipboard! Ready to dial on mobile</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copy Number ({callingRequest.customer_phone})</span>
-                  </>
+            {hasValidPhone(callingRequest.customer_phone) ? (
+              <div className="space-y-2 pt-1">
+                {/* 1. Copy Phone Number */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(callingRequest.customer_phone);
+                    setCallModalCopied(true);
+                    setTimeout(() => setCallModalCopied(false), 2500);
+                  }}
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    callModalCopied
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200'
+                  }`}
+                >
+                  {callModalCopied ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Phone Copied to Clipboard! Ready to dial on mobile</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copy Number ({callingRequest.customer_phone})</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 2. Direct WhatsApp Call/Chat */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    openWhatsApp(callingRequest.customer_phone, callingRequest.customer_name);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Call or Message via WhatsApp</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                </button>
+
+                {/* 3. Native Phone Link (tel:) */}
+                <a
+                  href={`tel:${callingRequest.customer_phone}`}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-750 text-neutral-700 dark:text-neutral-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+                >
+                  <Phone className="w-4 h-4 text-neutral-500" />
+                  <span>Launch System Phone App (tel:)</span>
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                  <strong>কেন নাম্বার দেখাচ্ছে না?</strong> Facebook Messenger অটোমেটিক কাস্টমারের সিম নাম্বার দেয় না। কাস্টমার চ্যাটে নাম্বার লিখে দিলেই এখানে অটোমেটিক নাম্বার যুক্ত হয়ে যাবে!
+                </div>
+
+                {/* 1. Ask Phone Number in Messenger with 1-Click */}
+                <button
+                  type="button"
+                  onClick={() => handleAskPhoneInChat(callingRequest)}
+                  disabled={askingPhoneId === callingRequest.id}
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>
+                    {askingPhoneId === callingRequest.id
+                      ? 'মেসেঞ্জারে পাঠানো হচ্ছে...'
+                      : '১-ক্লিকে মেসেঞ্জারে কাস্টমারের কাছে নাম্বার চান'}
+                  </span>
+                </button>
+
+                {/* 2. Open Messenger Live Chat to message/voice directly */}
+                {onOpenCustomerChat && callingRequest.customer_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const req = callingRequest;
+                      setCallingRequest(null);
+                      onOpenCustomerChat(req.platform, req.customer_id!);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>সরাসরি মেসেঞ্জার চ্যাটে কথা বলুন / ভয়েস পাঠান</span>
+                  </button>
                 )}
-              </button>
 
-              {/* 2. Direct WhatsApp Call/Chat */}
-              <button
-                type="button"
-                onClick={() => {
-                  openWhatsApp(callingRequest.customer_phone, callingRequest.customer_name);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Call or Message via WhatsApp</span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-              </button>
-
-              {/* 3. Native Phone Link (tel:) */}
-              <a
-                href={`tel:${callingRequest.customer_phone}`}
-                className="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-750 text-neutral-700 dark:text-neutral-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
-              >
-                <Phone className="w-4 h-4 text-neutral-500" />
-                <span>Launch System Phone App (tel:)</span>
-              </a>
-            </div>
+                {/* 3. Manually enter phone number */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={editingPhoneValue}
+                    onChange={(e) => setEditingPhoneValue(e.target.value)}
+                    placeholder="কাস্টমারের নাম্বার লিখুন (017XXXXXXXX)"
+                    className="flex-1 px-3 py-2 text-xs font-mono rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveManualPhone(callingRequest, editingPhoneValue)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                  >
+                    সেভ করুন
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Bottom Actions: Convert or Close */}
             <div className="border-t border-neutral-100 dark:border-neutral-800 pt-3 flex items-center justify-between gap-2">

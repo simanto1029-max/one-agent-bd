@@ -5,9 +5,69 @@ import {
   downloadMessengerAudio,
   downloadMessengerImage,
   downloadWhatsAppAudio,
-  downloadWhatsAppImage
+  downloadWhatsAppImage,
+  prepareOutboundVoiceForMeta
 } from './audioDownloader.js';
 import { detectAndRecordOrder } from './orderDetectionService.js';
+
+/**
+ * Extract a valid Bangladesh mobile number (supports both English 0-9 and Bangla ০-৯ digits).
+ */
+export function extractBdPhoneNumber(raw?: string): string | null {
+  if (!raw) return null;
+  const banglaDigits = '০১২৩৪৫৬৭৮৯';
+  let normalized = '';
+  for (const ch of raw) {
+    const idx = banglaDigits.indexOf(ch);
+    normalized += idx !== -1 ? String(idx) : ch;
+  }
+  // Remove spaces or hyphens between digits so "01712-345678" or "+88 01712 345678" matches cleanly
+  const compact = normalized.replace(/(\d)[\s\-–.]+(?=\d)/g, '$1');
+  const match = compact.match(/(?:\+?88)?(01[3-9]\d{8})\b/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Detect whether a customer message is asking to speak with a human or over a phone call (Bangla, Banglish, English).
+ */
+export function detectHumanCallIntent(raw?: string): boolean {
+  if (!raw) return false;
+  const lower = raw.toLowerCase();
+  return (
+    lower.includes('kotha bolte chai') ||
+    lower.includes('kotha bolte cai') ||
+    lower.includes('call a kotha') ||
+    lower.includes('call e kotha') ||
+    lower.includes('human contact') ||
+    lower.includes('call me') ||
+    lower.includes('call koren') ||
+    lower.includes('call diben') ||
+    lower.includes('call din') ||
+    lower.includes('call dao') ||
+    lower.includes('phone a kotha') ||
+    lower.includes('phone e kotha') ||
+    lower.includes('phone koren') ||
+    lower.includes('phone diben') ||
+    lower.includes('phone din') ||
+    lower.includes('apnader number') ||
+    lower.includes('live agent') ||
+    lower.includes('manush er sathe') ||
+    lower.includes('helpline') ||
+    lower.includes('kotha bolbo') ||
+    lower.includes('কথা বলতে চাই') ||
+    lower.includes('কথা বলবো') ||
+    lower.includes('কল দিন') ||
+    lower.includes('কল করেন') ||
+    lower.includes('কল দিবেন') ||
+    lower.includes('কল করুন') ||
+    lower.includes('ফোনে কথা') ||
+    lower.includes('ফোন দিন') ||
+    lower.includes('ফোন করেন') ||
+    lower.includes('আপনাদের নাম্বার') ||
+    lower.includes('সরাসরি কথা') ||
+    lower.includes('প্রতিনিধির সাথে')
+  );
+}
 
 export interface InboundWebhookEvent {
   platform: 'whatsapp' | 'messenger' | 'instagram';
@@ -259,6 +319,112 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
       : `আসসালামু আলাইকুম! ${channel.name}-এ আপনাকে স্বাগতম। আপনাকে কীভাবে সাহায্য করতে পারি?`;
   }
 
+  // 6.5. Smart Call Request & Phone Number Resolution BEFORE sending reply to Meta
+  // This ensures that if a Messenger/Instagram customer asks for a phone call without giving their number,
+  // the AI automatically asks for their phone number in chat—and when they reply with their number,
+  // it immediately updates the "Pending in chat" call request with the real phone number!
+  try {
+    const rawCustomerText = inbound.transcription || event.messageText || inbound.message_text || '';
+    const wantsHumanCall = detectHumanCallIntent(rawCustomerText);
+    const phoneInCurrentMsg = extractBdPhoneNumber(rawCustomerText);
+
+    // Search history & previous orders for any phone number this customer already shared
+    let phoneFromHistory: string | null = null;
+    for (let i = conversationHistory.length - 1; i >= 0; i--) {
+      const found = extractBdPhoneNumber(conversationHistory[i].message_text);
+      if (found) {
+        phoneFromHistory = found;
+        break;
+      }
+    }
+    if (!phoneFromHistory) {
+      const prevOrderWithPhone = db
+        .getOrders(channel.user_id)
+        .find((o) => o.customer_id === event.customerId && extractBdPhoneNumber(o.customer_phone));
+      if (prevOrderWithPhone) {
+        phoneFromHistory = extractBdPhoneNumber(prevOrderWithPhone.customer_phone);
+      }
+    }
+
+    const whatsappSenderPhone = extractBdPhoneNumber(event.customerId);
+    const resolvedPhone = phoneInCurrentMsg || phoneFromHistory || whatsappSenderPhone || 'Pending in chat';
+
+    const userCallRequests = db.getCallRequests(channel.user_id);
+    const pendingPhoneCallReq = userCallRequests.find(
+      (c) =>
+        c.customer_id === event.customerId &&
+        (c.customer_phone === 'Pending in chat' || !extractBdPhoneNumber(c.customer_phone))
+    );
+
+    if (pendingPhoneCallReq && phoneInCurrentMsg) {
+      // Customer just replied with their mobile number for an existing "Pending in chat" call request!
+      db.updateCallRequest(pendingPhoneCallReq.id, {
+        customer_phone: phoneInCurrentMsg,
+        status: 'pending',
+        notes: `Customer shared phone number (${phoneInCurrentMsg}) in ${event.platform} chat — Ready to call!`
+      });
+      console.log(
+        `[Call Request Updated] Customer ${pendingPhoneCallReq.customer_name} provided phone ${phoneInCurrentMsg}`
+      );
+
+      // If the message is primarily providing the phone number, make sure AI confirms callback clearly
+      if (rawCustomerText.trim().length <= 35 && !aiReplyText.includes(phoneInCurrentMsg)) {
+        aiReplyText = `ধন্যবাদ! আপনার মোবাইল নাম্বারটি (${phoneInCurrentMsg}) আমাদের কল লিস্টে যুক্ত করা হয়েছে। 📞\n\nআমাদের একজন প্রতিনিধি খুব শীঘ্রই আপনাকে কল করবেন।`;
+      }
+    } else if (wantsHumanCall) {
+      const existingActiveCall = userCallRequests.find(
+        (c) => c.customer_id === event.customerId && (c.status === 'pending' || c.customer_phone === 'Pending in chat')
+      );
+
+      if (existingActiveCall) {
+        if (
+          resolvedPhone !== 'Pending in chat' &&
+          (existingActiveCall.customer_phone === 'Pending in chat' || !extractBdPhoneNumber(existingActiveCall.customer_phone))
+        ) {
+          db.updateCallRequest(existingActiveCall.id, {
+            customer_phone: resolvedPhone,
+            status: 'pending',
+            notes: `Customer requested callback — Phone: ${resolvedPhone}`
+          });
+        }
+      } else {
+        const newCallReq: CallRequest = {
+          id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          user_id: channel.user_id,
+          customer_name: inbound.customer_name || 'Valued Customer',
+          customer_phone: resolvedPhone,
+          customer_id: event.customerId,
+          platform: event.platform,
+          message_excerpt: rawCustomerText.slice(0, 150),
+          status: 'pending',
+          notes:
+            resolvedPhone === 'Pending in chat'
+              ? 'AI asked customer for mobile number in chat (auto-updates when customer replies)'
+              : 'Customer requested human phone contact in live chat',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.createCallRequest(newCallReq);
+        console.log(
+          `[Call Request Logged] Customer ${newCallReq.customer_name} (${newCallReq.customer_phone}) queued for callback`
+        );
+      }
+
+      // If customer is on Messenger/Instagram and we STILL don't have their phone number, ensure AI asks for their number!
+      if (resolvedPhone === 'Pending in chat') {
+        const alreadyAskingNumber =
+          aiReplyText.includes('নাম্বার') ||
+          aiReplyText.toLowerCase().includes('number') ||
+          aiReplyText.includes('ফোন');
+        if (!alreadyAskingNumber) {
+          aiReplyText = `অবশ্যই! আমাদের প্রতিনিধি আপনার সাথে ফোনে কথা বলবেন। 📞\n\nঅনুগ্রহ করে এখানে আপনার সচল মোবাইল বা WhatsApp নাম্বারটি লিখে দিন, নাম্বারটি পেলেই আমরা আপনাকে কল করছি।`;
+        }
+      }
+    }
+  } catch (callErr) {
+    console.warn('[Call Request Engine] Error processing call request:', callErr);
+  }
+
   // 7. Send message to Meta Graph API
   await sendMetaMessage(channel, event.customerId, aiReplyText, attachedImageUrl);
 
@@ -299,60 +465,6 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     }
   } catch (orderErr) {
     console.warn('[Order Engine] Error during order recording:', orderErr);
-  }
-
-  // 10. Check if customer requested human contact / phone call
-  try {
-    const rawCustomerText = inbound.transcription || event.messageText || inbound.message_text;
-    const lower = rawCustomerText.toLowerCase();
-    const wantsHumanCall =
-      lower.includes('kotha bolte chai') ||
-      lower.includes('kotha bolte cai') ||
-      lower.includes('human contact') ||
-      lower.includes('call me') ||
-      lower.includes('call koren') ||
-      lower.includes('call diben') ||
-      lower.includes('call din') ||
-      lower.includes('phone a kotha') ||
-      lower.includes('phone koren') ||
-      lower.includes('phone diben') ||
-      lower.includes('apnader number') ||
-      lower.includes('live agent') ||
-      lower.includes('manush er sathe') ||
-      lower.includes('helpline') ||
-      lower.includes('kotha bolbo');
-
-    if (wantsHumanCall) {
-      const existingCall = db.getCallRequests(channel.user_id).find(
-        (c) => c.customer_id === event.customerId && c.status === 'pending'
-      );
-      if (!existingCall) {
-        const phoneMatch = rawCustomerText.match(/(?:\+?8801|01)[3-9]\d{8}/);
-        const extractedPhone =
-          phoneMatch?.[0] ||
-          (event.customerId.startsWith('01') || event.customerId.startsWith('+8801')
-            ? event.customerId
-            : 'Pending in chat');
-
-        const newCallReq: CallRequest = {
-          id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          user_id: channel.user_id,
-          customer_name: inbound.customer_name || 'Valued Customer',
-          customer_phone: extractedPhone,
-          customer_id: event.customerId,
-          platform: event.platform,
-          message_excerpt: rawCustomerText.slice(0, 150),
-          status: 'pending',
-          notes: 'Customer requested human phone contact in live chat',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        db.createCallRequest(newCallReq);
-        console.log(`[Call Request Logged] Customer ${newCallReq.customer_name} (${newCallReq.customer_phone}) queued for callback`);
-      }
-    }
-  } catch (callErr) {
-    console.warn('[Call Request Engine] Error logging call request:', callErr);
   }
 
   return {
@@ -486,12 +598,21 @@ export async function sendManualMetaMessage(
       if (hasMedia && mediaType && rawBase64) {
         const mediaUploadUrl = `https://graph.facebook.com/v21.0/${channel.identifier}/media`;
         const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, '');
-        const buffer = Buffer.from(cleanBase64, 'base64');
-        const ext = mimeType.split('/')[1]?.split(';')[0] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'ogg');
+        let buffer: Buffer = Buffer.from(cleanBase64, 'base64');
+        let finalMime = mimeType.split(';')[0];
+        let ext = finalMime.split('/')[1] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'mp3');
+
+        if (mediaType === 'audio') {
+          const preparedVoice = await prepareOutboundVoiceForMeta(buffer, mimeType, 'whatsapp');
+          buffer = preparedVoice.buffer;
+          finalMime = preparedVoice.mimeType;
+          ext = preparedVoice.ext;
+        }
+
         const form = new FormData();
         form.append('messaging_product', 'whatsapp');
-        form.append('type', mimeType.split(';')[0]);
-        form.append('file', new Blob([buffer], { type: mimeType.split(';')[0] }), `attachment.${ext}`);
+        form.append('type', finalMime);
+        form.append('file', new Blob([buffer], { type: finalMime }), `voice_message.${ext}`);
 
         const uploadRes = await fetch(mediaUploadUrl, {
           method: 'POST',
@@ -524,6 +645,8 @@ export async function sendManualMetaMessage(
             await sendMetaMessage(channel, recipientId, payload.text);
           }
           return;
+        } else {
+          console.error('[WhatsApp Media Upload Error]', uploadData);
         }
       }
 
@@ -535,8 +658,17 @@ export async function sendManualMetaMessage(
 
       if (hasMedia && mediaType && rawBase64) {
         const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/, '');
-        const buffer = Buffer.from(cleanBase64, 'base64');
-        const ext = mimeType.split('/')[1]?.split(';')[0] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'mp4');
+        let buffer: Buffer = Buffer.from(cleanBase64, 'base64');
+        let finalMime = mimeType.split(';')[0];
+        let ext = finalMime.split('/')[1] || (mediaType === 'image' ? 'jpg' : mediaType === 'video' ? 'mp4' : 'mp3');
+
+        if (mediaType === 'audio') {
+          const preparedVoice = await prepareOutboundVoiceForMeta(buffer, mimeType, channel.platform);
+          buffer = preparedVoice.buffer;
+          finalMime = preparedVoice.mimeType;
+          ext = preparedVoice.ext;
+        }
+
         const form = new FormData();
         form.append('recipient', JSON.stringify({ id: recipientId }));
         form.append(
@@ -548,12 +680,18 @@ export async function sendManualMetaMessage(
             }
           })
         );
-        form.append('filedata', new Blob([buffer], { type: mimeType.split(';')[0] }), `attachment.${ext}`);
+        form.append('filedata', new Blob([buffer], { type: finalMime }), `voice_message.${ext}`);
 
-        await fetch(url, {
+        const uploadRes = await fetch(url, {
           method: 'POST',
           body: form
-        }).catch((err) => console.error(`[${channel.platform} Media Upload Error]`, err));
+        });
+        if (!uploadRes.ok) {
+          const errJson = await uploadRes.json().catch(() => ({}));
+          console.error(`[${channel.platform} Media Upload Error]`, JSON.stringify(errJson));
+        } else {
+          console.log(`[${channel.platform} Media Sent] Delivered ${mediaType} (${finalMime}, ${buffer.length} bytes) to ${recipientId}`);
+        }
       }
 
       if (payload.text) {

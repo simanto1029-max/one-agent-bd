@@ -7,8 +7,176 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { Mp3Encoder } from '@breezystack/lamejs';
 
 const execAsync = promisify(exec);
+
+/**
+ * Convert a 16-bit PCM WAV Buffer to MP3 (audio/mpeg) in pure TypeScript using @breezystack/lamejs.
+ * Works on Vercel Serverless without requiring ffmpeg.
+ */
+export function wavBufferToMp3(wavBuf: Buffer): Buffer | null {
+  try {
+    if (wavBuf.length < 44 || wavBuf.subarray(0, 4).toString('latin1') !== 'RIFF') {
+      return null;
+    }
+    const numChannels = wavBuf.readUInt16LE(22) || 1;
+    const sampleRate = wavBuf.readUInt32LE(24) || 44100;
+    const bitsPerSample = wavBuf.readUInt16LE(34) || 16;
+    if (bitsPerSample !== 16) return null;
+
+    // Locate 'data' chunk
+    let dataOffset = 12;
+    let dataLength = wavBuf.length - 44;
+    while (dataOffset + 8 <= wavBuf.length) {
+      const chunkId = wavBuf.subarray(dataOffset, dataOffset + 4).toString('latin1');
+      const chunkSize = wavBuf.readUInt32LE(dataOffset + 4);
+      if (chunkId === 'data') {
+        dataOffset += 8;
+        dataLength = Math.min(chunkSize, wavBuf.length - dataOffset);
+        break;
+      }
+      dataOffset += 8 + chunkSize;
+    }
+    if (dataOffset >= wavBuf.length || dataLength <= 0) {
+      dataOffset = 44;
+      dataLength = wavBuf.length - 44;
+    }
+
+    const totalSamples = Math.floor(dataLength / (2 * numChannels));
+    if (totalSamples <= 0) return null;
+
+    const monoPcm = new Int16Array(totalSamples);
+    let maxPeak = 0;
+    for (let i = 0; i < totalSamples; i++) {
+      const sample = wavBuf.readInt16LE(dataOffset + i * 2 * numChannels);
+      monoPcm[i] = sample;
+      const abs = Math.abs(sample);
+      if (abs > maxPeak) maxPeak = abs;
+    }
+
+    // Normalize volume if quiet
+    if (maxPeak > 60 && maxPeak < 26000) {
+      const gain = Math.min(28500 / maxPeak, 8.0);
+      for (let i = 0; i < totalSamples; i++) {
+        const boosted = Math.round(monoPcm[i] * gain);
+        monoPcm[i] = Math.max(-32768, Math.min(32767, boosted));
+      }
+    }
+
+    const encoder = new Mp3Encoder(1, sampleRate, 64);
+    const blockSize = 1152;
+    const outChunks: Buffer[] = [];
+    for (let i = 0; i < monoPcm.length; i += blockSize) {
+      const slice = monoPcm.subarray(i, i + blockSize);
+      const mp3Buf = encoder.encodeBuffer(slice);
+      if (mp3Buf && mp3Buf.length > 0) {
+        outChunks.push(Buffer.from(mp3Buf));
+      }
+    }
+    const endBuf = encoder.flush();
+    if (endBuf && endBuf.length > 0) {
+      outChunks.push(Buffer.from(endBuf));
+    }
+
+    return outChunks.length > 0 ? Buffer.concat(outChunks) : null;
+  } catch (err) {
+    console.warn('[AudioDownloader] wavBufferToMp3 warning:', err);
+    return null;
+  }
+}
+
+/**
+ * Prepare outbound voice buffer for Meta Graph API (Messenger, Instagram, WhatsApp)
+ * so that the recipient always hears clear, uncorrupted audio on Android, iOS, and Web.
+ */
+export async function prepareOutboundVoiceForMeta(
+  inputBuffer: Buffer,
+  declaredMime?: string,
+  platform: 'whatsapp' | 'messenger' | 'instagram' = 'messenger'
+): Promise<{ buffer: Buffer; mimeType: string; ext: string }> {
+  const detected = detectAudioMimeTypeFromBuffer(inputBuffer, declaredMime);
+
+  // 1. If already a valid MP3 (from our upgraded BrowserAudioRecorder), return ready-to-play MP3
+  if (detected === 'audio/mp3' || detected === 'audio/mpeg') {
+    return {
+      buffer: inputBuffer,
+      mimeType: 'audio/mpeg',
+      ext: 'mp3'
+    };
+  }
+
+  // 2. If input is 16-bit PCM WAV, encode to MP3 in pure TS so WhatsApp, Messenger, and Instagram all play it natively
+  if (detected === 'audio/wav') {
+    const mp3Buf = wavBufferToMp3(inputBuffer);
+    if (mp3Buf && mp3Buf.length > 200) {
+      return {
+        buffer: mp3Buf,
+        mimeType: 'audio/mpeg',
+        ext: 'mp3'
+      };
+    }
+    if (platform !== 'whatsapp') {
+      return {
+        buffer: inputBuffer,
+        mimeType: 'audio/wav',
+        ext: 'wav'
+      };
+    }
+  }
+
+  // 3. If input is WebM/OGG/MP4 and ffmpeg is available on the server, transcode + normalize to MP3
+  if (!process.env.VERCEL) {
+    const id = Math.random().toString(36).slice(2, 9);
+    const tempIn = path.join(os.tmpdir(), `voice_out_in_${Date.now()}_${id}.tmp`);
+    const tempOut = path.join(os.tmpdir(), `voice_out_mp3_${Date.now()}_${id}.mp3`);
+    try {
+      await fs.promises.writeFile(tempIn, inputBuffer);
+      await execAsync(
+        `ffmpeg -y -i "${tempIn}" -vn -af "volume=1.6" -ar 44100 -ac 1 -c:a libmp3lame -b:a 64k "${tempOut}"`
+      );
+      const mp3Buffer = await fs.promises.readFile(tempOut);
+      if (mp3Buffer && mp3Buffer.length > 200) {
+        return {
+          buffer: mp3Buffer,
+          mimeType: 'audio/mpeg',
+          ext: 'mp3'
+        };
+      }
+    } catch {
+      // Fallback if libmp3lame not available: convert to WAV then encode with Mp3Encoder
+      try {
+        const wavRes = await convertToWav(inputBuffer, detected);
+        if (wavRes.mimeType === 'audio/wav') {
+          const mp3FromWav = wavBufferToMp3(wavRes.buffer);
+          if (mp3FromWav && mp3FromWav.length > 200) {
+            return {
+              buffer: mp3FromWav,
+              mimeType: 'audio/mpeg',
+              ext: 'mp3'
+            };
+          }
+        }
+      } catch {}
+    } finally {
+      fs.promises.unlink(tempIn).catch(() => {});
+      fs.promises.unlink(tempOut).catch(() => {});
+    }
+  }
+
+  // 4. Final fallback
+  if (detected === 'audio/ogg') {
+    return { buffer: inputBuffer, mimeType: 'audio/ogg', ext: 'ogg' };
+  }
+  if (detected === 'audio/mp4' || detected === 'audio/aac') {
+    return { buffer: inputBuffer, mimeType: 'audio/mp4', ext: 'm4a' };
+  }
+  return {
+    buffer: inputBuffer,
+    mimeType: 'audio/mpeg',
+    ext: 'mp3'
+  };
+}
 
 export interface DownloadedAudio {
   buffer: Buffer;
