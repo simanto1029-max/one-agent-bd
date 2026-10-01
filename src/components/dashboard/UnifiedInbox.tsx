@@ -39,6 +39,7 @@ import {
 import { api } from '../../api';
 import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
 import { BrowserAudioRecorder, blobToBase64 } from '../../utils/audioRecorder';
+import { CustomerFraudBadge } from './CustomerFraudBadge';
 
 interface UnifiedInboxProps {
   channels: Channel[];
@@ -910,7 +911,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px] text-neutral-400 mt-0.5">
+                  <div className="flex items-center gap-2 flex-wrap text-[11px] text-neutral-400 mt-0.5">
                     <span className="font-mono">{selectedConv.customerId}</span>
                     <button
                       type="button"
@@ -920,6 +921,26 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                     >
                       {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                     </button>
+                    {(() => {
+                      const rawIdDigits = String(selectedConv.customerId || '').replace(/\D/g, '');
+                      const idPhone = rawIdDigits.startsWith('8801') ? rawIdDigits.slice(2) : rawIdDigits;
+                      const isIdBdPhone = /^01[3-9]\d{8}$/.test(idPhone);
+                      const msgTextCombined = selectedConv.messages.map((m) => m.message_text || '').join(' ');
+                      const extractedMatch = msgTextCombined.match(/(?:\+?88)?(01[3-9]\d{8})/);
+                      const detectedPhone = isIdBdPhone
+                        ? idPhone
+                        : extractedMatch
+                        ? extractedMatch[1]
+                        : selectedConv.orderCategory === 'orders' || selectedConv.orderCategory === 'delivered'
+                        ? selectedConv.customerId
+                        : undefined;
+                      return detectedPhone ? (
+                        <CustomerFraudBadge
+                          phone={detectedPhone}
+                          customerName={selectedConv.customerName}
+                        />
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>

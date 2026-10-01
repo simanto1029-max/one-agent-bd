@@ -148,7 +148,7 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
       ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25 hover:bg-emerald-500/20'
       : report.riskLevel === 'moderate'
       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25 hover:bg-amber-500/20'
-      : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25 hover:bg-rose-500/20';
+      : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25 hover:bg-rose-500/20 animate-pulse';
 
   const BadgeIcon =
     report.riskLevel === 'safe'
@@ -156,6 +156,14 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
       : report.riskLevel === 'moderate'
       ? AlertTriangle
       : ShieldAlert;
+
+  const autoSummaryText = !report.isValidBdPhone
+    ? 'AI Alert: Unverified No.'
+    : report.riskLevel === 'safe'
+    ? `AI Check: ${report.successRate}% Safe (${report.deliveredParcels}/${report.totalParcels} Delivered)`
+    : report.riskLevel === 'moderate'
+    ? `AI Check: ${report.successRate}% Moderate (${report.deliveredParcels}/${report.totalParcels})`
+    : `AI Fraud Alert: ${report.successRate}% Risk (${report.returnedParcels} Returned!)`;
 
   return (
     <>
@@ -165,11 +173,11 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
           e.stopPropagation();
           setOpenModal(true);
         }}
-        title="Click to view Courier Delivery Success & Fraud Check Report"
+        title="Automatically checked by AI. Click for full Steadfast, Pathao & RedX breakdown."
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${badgeStyles}`}
       >
         <BadgeIcon className="w-3 h-3 shrink-0" />
-        <span>{report.label}</span>
+        <span>{autoSummaryText}</span>
       </button>
 
       {openModal && (
@@ -458,3 +466,56 @@ export const QuickFraudCheckerModal: React.FC<{
     </div>
   );
 };
+
+interface AutoFraudInlineAlertProps {
+  phone?: string;
+  allOrders?: Order[];
+  showSafeSummary?: boolean;
+}
+
+export const AutoFraudInlineAlert: React.FC<AutoFraudInlineAlertProps> = ({
+  phone,
+  allOrders = [],
+  showSafeSummary = false
+}) => {
+  if (!phone) return null;
+  const report = analyzeCustomerCourierHistory(phone, allOrders);
+
+  if (report.riskLevel === 'high') {
+    return (
+      <div className="mt-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5 font-semibold">
+        <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+        <span>
+          {!report.isValidBdPhone
+            ? 'AI Auto-Check: নম্বরটি ১১ ডিজিটের সঠিক বিডি নম্বর নয় — কল করে যাচাই করুন।'
+            : `AI Auto-Alert: কাস্টমারের পার্সেল রিটার্ন রেকর্ড বেশি (${report.returnedParcels}টি রিটার্ন) — ডেলিভারি চার্জ অগ্রিম না নিয়ে COD পাঠাবেন না!`}
+        </span>
+      </div>
+    );
+  }
+
+  if (report.riskLevel === 'moderate') {
+    return (
+      <div className="mt-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[10px] text-amber-700 dark:text-amber-300 flex items-center gap-1.5 font-semibold">
+        <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+        <span>
+          AI Auto-Check: কুরিয়ারে পাঠানোর আগে কাস্টমারকে একবার কল করে কনফার্ম করুন ({report.deliveredParcels}/{report.totalParcels} ডেলিভারি)।
+        </span>
+      </div>
+    );
+  }
+
+  if (showSafeSummary) {
+    return (
+      <div className="mt-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 font-semibold">
+        <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <span>
+          AI Auto-Check: ট্রাস্টেড কাস্টমার ({report.successRate}% ডেলিভারি রেশিও • {report.deliveredParcels}/{report.totalParcels} পার্সেল রিসিভড) — COD পাঠানোর জন্য নিরাপদ।
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+};
+

@@ -201,7 +201,7 @@ ordersRouter.get('/:id', (req, res) => {
 });
 
 // POST /api/orders - Manual order creation by merchant
-ordersRouter.post('/', (req, res) => {
+ordersRouter.post('/', async (req, res) => {
   try {
     const userId = getUserId(req);
     const {
@@ -228,6 +228,10 @@ ordersRouter.post('/', (req, res) => {
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const parsedAmount = Number(total_amount) || 0;
     const computedVip = is_vip !== undefined ? Boolean(is_vip) : (parsedAmount >= 1000 || order_source === 'website');
+    const existingOrders = db.getOrders(userId);
+    const { evaluateAutoCustomerFraud } = await import('../services/orderDetectionService.js');
+    const autoFraud = evaluateAutoCustomerFraud(customer_phone, existingOrders);
+    const baseNote = notes || (order_source === 'website' ? 'Website e-commerce order.' : 'Manually created by merchant.');
 
     const newOrder: Order = {
       id: orderId,
@@ -247,7 +251,7 @@ ordersRouter.post('/', (req, res) => {
       order_source: order_source,
       source_details: source_details,
       is_vip: computedVip,
-      notes: notes || (order_source === 'website' ? 'Website e-commerce order.' : 'Manually created by merchant.'),
+      notes: `${baseNote} | ${autoFraud.summaryNote}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

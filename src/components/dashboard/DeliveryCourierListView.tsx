@@ -23,7 +23,7 @@ import {
   formatOrderForCourier
 } from '../../utils/courierUtils';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { CustomerFraudBadge } from './CustomerFraudBadge';
+import { CustomerFraudBadge, AutoFraudInlineAlert } from './CustomerFraudBadge';
 import { CourierModal } from './CourierModal';
 
 interface DeliveryCourierListViewProps {
@@ -527,6 +527,9 @@ export const DeliveryCourierListView: React.FC<DeliveryCourierListViewProps> = (
                               allOrders={activeOrdersList}
                             />
                           </div>
+                        )}
+                        {order.customer_phone && (
+                          <AutoFraudInlineAlert phone={order.customer_phone} allOrders={activeOrdersList} />
                         )}
                       </td>
 

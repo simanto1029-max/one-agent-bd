@@ -18,7 +18,8 @@ import {
   Package,
   Calendar,
   Mail,
-  BarChart3
+  BarChart3,
+  ChevronDown
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
@@ -431,7 +432,11 @@ export default function App() {
             onTimerExpire={refreshUserData}
             isMobileMenuOpen={isMobileMenuOpen}
             onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
-            activeTabLabel={currentPrimarySection.label}
+            activeTabLabel={
+              currentPrimarySection.tabs.length > 1
+                ? `${currentPrimarySection.label} / ${currentSubTab.label}`
+                : currentPrimarySection.label
+            }
           />
 
           {/* MOBILE DRAWER MENU (6 Clean Primary Sections + Sub-Tabs) */}
@@ -550,39 +555,82 @@ export default function App() {
 
           {/* DESKTOP + MAIN WORKSPACE BODY */}
           <div className="flex-1 flex min-h-0">
-            {/* Clean ChatMakky-Style Left Sidebar (6 Primary Buttons) */}
+            {/* Clean Left Sidebar with Collapsible Sub-Menus Under Each Section */}
             <aside className="hidden md:flex flex-col justify-between w-64 shrink-0 bg-white dark:bg-[#0F0A24] border-r border-slate-200/80 dark:border-purple-500/15 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
               <div className="space-y-6">
-                <div className="space-y-1">
-                  <div className="px-3 pb-2 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                <div className="space-y-1.5">
+                  <div className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                     Main Menu
                   </div>
                   {primarySections.map((section) => {
                     const Icon = section.icon;
                     const isSectionActive = currentPrimarySection.groupId === section.groupId;
+                    const hasSubTabs = section.tabs.length > 1;
                     return (
-                      <button
-                        key={section.groupId}
-                        onClick={() => {
-                          setActiveTab(section.defaultTab);
-                          if (section.defaultTab === 'billing') {
-                            setIsLockBypassedForBilling(true);
-                          }
-                        }}
-                        className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-between transition-all cursor-pointer ${
-                          isSectionActive
-                            ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-md shadow-purple-500/20'
-                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon className="w-4 h-4 shrink-0" />
-                          <span>{section.label}</span>
-                        </div>
-                        {isSectionActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      <div key={section.groupId} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab(section.defaultTab);
+                            if (section.defaultTab === 'billing') {
+                              setIsLockBypassedForBilling(true);
+                            }
+                          }}
+                          className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-between transition-all cursor-pointer ${
+                            isSectionActive
+                              ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-md shadow-purple-500/20'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Icon className="w-4 h-4 shrink-0" />
+                            <span className="truncate">{section.label}</span>
+                          </div>
+                          {hasSubTabs ? (
+                            <ChevronDown
+                              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                                isSectionActive
+                                  ? 'rotate-180 text-white'
+                                  : 'text-slate-400 dark:text-slate-500'
+                              }`}
+                            />
+                          ) : (
+                            isSectionActive && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                            )
+                          )}
+                        </button>
+
+                        {/* Collapsible Sub-Sections Directly Inside Left Sidebar */}
+                        {isSectionActive && hasSubTabs && (
+                          <div className="ml-4 pl-3 border-l-2 border-purple-500/30 dark:border-purple-500/40 space-y-1 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                            {section.tabs.map((sub) => {
+                              const SubIcon = sub.icon;
+                              const isSubActive = activeTab === sub.id;
+                              return (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  onClick={() => setActiveTab(sub.id)}
+                                  className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                                    isSubActive
+                                      ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-extrabold shadow-2xs'
+                                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white font-semibold'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#7C3AED] dark:text-purple-300' : 'text-slate-400'}`} />
+                                    <span className="truncate">{sub.label}</span>
+                                  </div>
+                                  {isSubActive && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -669,58 +717,6 @@ export default function App() {
                     if (tab === 'billing') setIsLockBypassedForBilling(true);
                   }}
                 />
-              )}
-
-              {/* Horizontal Sub-Navigation Tabs Bar (Shown when current section has multiple tools) */}
-              {currentPrimarySection.tabs.length > 1 && (
-                <div
-                  className={
-                    activeTab === 'inbox'
-                      ? 'mb-2 pb-2 shrink-0 flex flex-row items-center justify-between gap-2 border-b border-slate-200/80 dark:border-purple-500/20'
-                      : 'mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-purple-500/20'
-                  }
-                >
-                  <div className={activeTab === 'inbox' ? 'hidden sm:block' : ''}>
-                    <h1
-                      className={
-                        activeTab === 'inbox'
-                          ? 'text-sm sm:text-base font-extrabold text-slate-900 dark:text-white tracking-tight'
-                          : 'text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight'
-                      }
-                    >
-                      {currentSubTab.label}
-                    </h1>
-                    {activeTab !== 'inbox' && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {currentSubTab.desc}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs">
-                    {currentPrimarySection.tabs.map((tab) => {
-                      const SubIcon = tab.icon;
-                      const isSubActive = activeTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`${
-                            activeTab === 'inbox' ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
-                          } rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            isSubActive
-                              ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-xs shadow-purple-500/25'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-[#1C1442]'
-                          }`}
-                        >
-                          <SubIcon className="w-3.5 h-3.5" />
-                          <span>{tab.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               )}
 
               {activeTab === 'overview' && (

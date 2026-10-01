@@ -41,7 +41,7 @@ import { Order, OrderMetrics } from '../../types';
 import { AIOrderSettingsModal } from './AIOrderSettingsModal';
 import { CourierModal } from './CourierModal';
 import { DeliveryCourierListView } from './DeliveryCourierListView';
-import { CustomerFraudBadge, QuickFraudCheckerModal } from './CustomerFraudBadge';
+import { CustomerFraudBadge, QuickFraudCheckerModal, AutoFraudInlineAlert } from './CustomerFraudBadge';
 import { ConfirmModal } from '../common/ConfirmModal';
 import {
   COURIER_PROVIDERS,
@@ -523,18 +523,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                     type="button"
                     onClick={() => {
                       setShowToolsMenu(false);
-                      setShowFraudCheckerModal(true);
-                    }}
-                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Customer Fraud &amp; Ratio Check</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowToolsMenu(false);
                       setShowAISettingsModal(true);
                     }}
                     className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -923,6 +911,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                             allOrders={orders}
                           />
                         </div>
+                      )}
+                      {order.customer_phone && (
+                        <AutoFraudInlineAlert phone={order.customer_phone} allOrders={orders} />
                       )}
                       {order.customer_address && order.customer_address !== 'Address provided in chat' && (
                         <div className="text-[11px] text-neutral-400 truncate max-w-[180px] flex items-center gap-1 mt-0.5" title={order.customer_address}>
