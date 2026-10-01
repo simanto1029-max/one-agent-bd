@@ -925,11 +925,29 @@ MANDATORY RULES:
                 className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{testing ? 'Testing...' : 'Test'}</span>
+                <span>{testing ? 'Typing...' : 'Test'}</span>
               </button>
             </form>
 
-            {testOutput && (
+            {testing && (
+              <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-800 border border-[#7F22FE]/30 dark:border-[#7F22FE]/40 text-xs text-neutral-700 dark:text-neutral-200 flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#7F22FE] animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#7F22FE] animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#7F22FE] animate-bounce" />
+                  </span>
+                  <span className="font-semibold text-[#7F22FE] dark:text-purple-400">
+                    AI Agent is typing...
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  ✓✓ Message Seen
+                </span>
+              </div>
+            )}
+
+            {!testing && testOutput && (
               <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-800 border border-[#7F22FE]/30 dark:border-[#7F22FE]/40 text-xs text-neutral-800 dark:text-neutral-100 leading-relaxed shadow-xs">
                 <span className="font-bold text-[#7F22FE] dark:text-purple-400 flex items-center gap-1.5 mb-1">
                   <Sparkles className="w-3.5 h-3.5" />

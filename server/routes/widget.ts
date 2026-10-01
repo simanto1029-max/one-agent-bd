@@ -6,6 +6,9 @@ import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
 import {
   getCandidateGeminiKeys,
   CANDIDATE_MODELS,
+  getPrioritizedModels,
+  markModelSuccess,
+  markModelFailure,
   formatCleanChatMessage,
   ensureConversationalFollowUp,
   getShortGreetingOrSmallTalkReply,
@@ -794,13 +797,19 @@ Provide a clean, mobile-friendly response (short 1-2 lines for simple questions,
 
           parts.push({ text: promptText });
 
-          for (const model of CANDIDATE_MODELS) {
+          for (const model of getPrioritizedModels().slice(0, 2)) {
             try {
               const response = await ai.models.generateContent({
                 model,
-                contents: parts.length === 1 ? promptText : { parts }
+                contents: parts.length === 1 ? promptText : { parts },
+                config: {
+                  temperature: 0.35,
+                  maxOutputTokens: 420,
+                  thinkingConfig: { thinkingBudget: 0 }
+                }
               });
               if (response.text?.trim()) {
+                markModelSuccess(model);
                 aiReplyText = ensureConversationalFollowUp(
                   sanitizeWebsiteBotReply(response.text.trim()),
                   effectiveQueryText || rawText,
@@ -810,6 +819,7 @@ Provide a clean, mobile-friendly response (short 1-2 lines for simple questions,
                 break;
               }
             } catch (mErr: any) {
+              markModelFailure(model);
               // Try next model
             }
           }
@@ -1317,7 +1327,23 @@ widgetRouter.get('/embed.js', (req: Request, res: Response) => {
         span.innerText = text;
         bubbleEl.appendChild(span);
       }
-      rowEl.appendChild(bubbleEl);
+      if (isUser) {
+        var seenEl = document.createElement('div');
+        seenEl.style.fontSize = '10px';
+        seenEl.style.color = '#9ca3af';
+        seenEl.style.marginTop = '3px';
+        seenEl.style.textAlign = 'right';
+        seenEl.innerText = '✓✓ Seen';
+        var userCol = document.createElement('div');
+        userCol.style.display = 'flex';
+        userCol.style.flexDirection = 'column';
+        userCol.style.alignItems = 'flex-end';
+        userCol.appendChild(bubbleEl);
+        userCol.appendChild(seenEl);
+        rowEl.appendChild(userCol);
+      } else {
+        rowEl.appendChild(bubbleEl);
+      }
       msgContainer.appendChild(rowEl);
       msgContainer.scrollTop = msgContainer.scrollHeight;
     }
@@ -1332,15 +1358,16 @@ widgetRouter.get('/embed.js', (req: Request, res: Response) => {
       pendingImageBase64 = null;
       pendingImageMime = null;
       previewBar.style.display = 'none';
-      if (promptsContainer) promptsContainer.style.display = 'none';
+      if (typeof promptsContainer !== 'undefined' && promptsContainer) promptsContainer.style.display = 'none';
 
       appendMessage(clean, true, imgToSend, Boolean(audioB64));
 
       var typingEl = document.createElement('div');
+      typingEl.style.display = 'flex';
+      typingEl.style.alignItems = 'center';
+      typingEl.style.gap = '10px';
       typingEl.style.alignSelf = 'flex-start';
-      typingEl.style.fontSize = '11px';
-      typingEl.style.color = '#6b7280';
-      typingEl.innerText = 'One Agent AI is analyzing & typing...';
+      typingEl.innerHTML = '<div style="width: 32px; height: 32px; border-radius: 16px; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 5px; flex-shrink: 0;"><img src="' + activeLogoSrc + '" style="width: 100%; height: 100%; object-fit: contain;" /></div><div style="background: #1C1D22; color: #d1d5db; padding: 8px 14px; border-radius: 16px; font-size: 12px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.06);"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;"></span><span>Typing...</span></div>';
       msgContainer.appendChild(typingEl);
       msgContainer.scrollTop = msgContainer.scrollHeight;
 

@@ -359,18 +359,25 @@ export const SaasWebsiteChatbot: React.FC = () => {
                     )}
                     {msg.text && <div>{msg.text}</div>}
                   </div>
+                  <span className="text-[10px] text-neutral-400 mt-1 mr-1 flex items-center gap-1">
+                    ✓✓ Seen
+                  </span>
                 </div>
               )
             )}
 
             {isThinking && (
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 animate-in fade-in duration-150">
                 <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center p-1.5 shrink-0">
                   <BrandLogo size="xs" className="w-full h-full" />
                 </div>
-                <div className="bg-[#1C1D22] text-neutral-300 px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 border border-white/5">
-                  <span className="w-2 h-2 rounded-full bg-[#7F22FE] animate-ping" />
-                  <span>Thinking...</span>
+                <div className="bg-[#1C1D22] text-neutral-200 px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 border border-white/5">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" />
+                  </span>
+                  <span className="font-medium text-neutral-300">Typing...</span>
                 </div>
               </div>
             )}

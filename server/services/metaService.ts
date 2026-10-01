@@ -122,6 +122,13 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
     processedMessageIds.set(mid, Date.now());
   }
 
+  // IMMEDIATELY fire "Seen / Read" + "Typing..." indicator to the customer's phone screen
+  // the exact millisecond the webhook arrives (before queueing, media download, or AI generation)
+  const immediateChannel = db.getChannelByIdentifier(event.platform, event.identifier);
+  if (immediateChannel && immediateChannel.is_active && event.customerId) {
+    sendMetaTypingAndSeenIndicator(immediateChannel, event.customerId, mid, 'typing_on').catch(() => {});
+  }
+
   // Queue processing per customer to preserve strict conversation order
   const currentQueue = customerQueues.get(event.customerId) || Promise.resolve();
   const nextTask = currentQueue.then(async () => {
@@ -284,6 +291,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
 
   if (blockedList.includes(event.customerId)) {
     console.log(`[Spam/Fraud Shield] Skipping AI auto-reply for blocked customer ${event.customerId}`);
+    sendMetaTypingAndSeenIndicator(channel, event.customerId, undefined, 'typing_off').catch(() => {});
     return {
       received: true,
       inboundMessage: inbound,
@@ -293,6 +301,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
 
   if (pausedList.includes(event.customerId)) {
     console.log(`[Human Handover] AI auto-reply paused for customer ${event.customerId} — awaiting human agent reply`);
+    sendMetaTypingAndSeenIndicator(channel, event.customerId, undefined, 'typing_off').catch(() => {});
     return {
       received: true,
       inboundMessage: inbound,
@@ -307,6 +316,13 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   // 6. Generate single AI reply (transcribes, handles product images & catalog queries)
+  // Keep Typing... indicator active on customer's phone while AI generates the reply
+  const activeMid = event.messageId || event.rawPayload?.mid || event.rawPayload?.id;
+  sendMetaTypingAndSeenIndicator(channel, event.customerId, activeMid, 'typing_on').catch(() => {});
+  const typingKeepAlive = setInterval(() => {
+    sendMetaTypingAndSeenIndicator(channel, event.customerId, undefined, 'typing_on').catch(() => {});
+  }, 4000);
+
   let aiReplyText = '';
   let attachedImageUrl: string | undefined = undefined;
   let interactiveOptions: InteractiveMessageConfig | undefined = undefined;
@@ -343,6 +359,8 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     aiReplyText = hasVoice
       ? 'আপনার ভয়েস মেসেজটি পেয়েছি, তবে শব্দটি স্পষ্ট বোঝা যায়নি। অনুগ্রহ করে আপনার প্রশ্নটি লিখে জানাবেন?'
       : `আসসালামু আলাইকুম! ${channel.name}-এ আপনাকে স্বাগতম। আপনাকে কীভাবে সাহায্য করতে পারি?`;
+  } finally {
+    clearInterval(typingKeepAlive);
   }
 
   // 6.5. Smart Call Request & Phone Number Resolution BEFORE sending reply to Meta
@@ -536,6 +554,94 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     aiReplyMessage: outbound,
     order: detectedOrder
   };
+}
+
+export async function sendMetaTypingAndSeenIndicator(
+  channel: Channel,
+  recipientId: string,
+  messageId?: string,
+  action: 'typing_on' | 'typing_off' = 'typing_on'
+): Promise<void> {
+  if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
+    return;
+  }
+  const cleanRecipientId = recipientId.startsWith('commenter_') ? '' : recipientId;
+  if (!cleanRecipientId) return;
+
+  try {
+    if (channel.platform === 'whatsapp') {
+      if (action !== 'typing_on' || !messageId) return;
+      const url = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
+      // Send official WhatsApp Cloud API Read Receipt + Typing Indicator
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${channel.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          status: 'read',
+          message_id: messageId,
+          typing_indicator: {
+            type: 'text'
+          }
+        })
+      });
+      // Fallback if the WABA API version only accepts status: "read" without typing_indicator
+      if (!res.ok) {
+        await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${channel.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            status: 'read',
+            message_id: messageId
+          })
+        }).catch(() => {});
+      }
+      return;
+    }
+
+    if (channel.platform === 'messenger' || channel.platform === 'instagram') {
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
+      if (action === 'typing_on') {
+        // Send both mark_seen and typing_on in parallel so the customer immediately sees "Seen" + "Typing..." bubble
+        await Promise.allSettled([
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient: { id: cleanRecipientId },
+              sender_action: 'mark_seen'
+            })
+          }),
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient: { id: cleanRecipientId },
+              sender_action: 'typing_on'
+            })
+          })
+        ]);
+      } else {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: { id: cleanRecipientId },
+            sender_action: 'typing_off'
+          })
+        }).catch(() => {});
+      }
+    }
+  } catch {
+    // Non-blocking indicator
+  }
 }
 
 async function sendMetaMessage(

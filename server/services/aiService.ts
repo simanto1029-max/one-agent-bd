@@ -800,15 +800,42 @@ export function buildInteractiveConversationEnvelope(params: {
   };
 }
 
-// Supported Gemini models in priority order (gemini-3-flash-preview natively supports audio/mp4, audio/aac, audio/ogg, audio/wav)
+// Supported Gemini models in priority order (gemini-2.5-flash & gemini-3-flash-preview with thinkingBudget: 0 deliver sub-second replies)
 export const CANDIDATE_MODELS = [
-  'gemini-3-flash-preview',
-  'gemini-3.8-flash',
   'gemini-2.5-flash',
-  'gemini-3.1-flash-lite-preview',
+  'gemini-3-flash-preview',
   'gemini-2.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.1-flash-lite-preview',
   'gemini-flash-latest'
 ];
+
+// Fast in-memory cache of the last working model & cooldown tracker for failing models so we never waste 5-10s retrying dead models
+let lastWorkingModelName: string | null = null;
+const modelFailureCooldown = new Map<string, number>();
+
+export function getPrioritizedModels(): string[] {
+  const now = Date.now();
+  const available = CANDIDATE_MODELS.filter((m) => {
+    const failedAt = modelFailureCooldown.get(m);
+    if (failedAt && now - failedAt < 5 * 60 * 1000) return false;
+    return true;
+  });
+  const list = available.length > 0 ? available : CANDIDATE_MODELS.slice(0, 2);
+  if (lastWorkingModelName && list.includes(lastWorkingModelName)) {
+    return [lastWorkingModelName, ...list.filter((m) => m !== lastWorkingModelName)];
+  }
+  return list;
+}
+
+export function markModelSuccess(modelName: string): void {
+  lastWorkingModelName = modelName;
+  modelFailureCooldown.delete(modelName);
+}
+
+export function markModelFailure(modelName: string): void {
+  modelFailureCooldown.set(modelName, Date.now());
+}
 
 // Stage 1: Zero-Bias Audio Transcription (so unclear/noisy voice notes NEVER trigger hallucinated/random business answers!)
 async function callGeminiWithAudio(
@@ -1312,11 +1339,12 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
     }
   }
 
-  // 3. Call Google Gemini via @google/genai SDK across candidate keys and models
+  // 3. Call Google Gemini via @google/genai SDK across candidate keys and prioritized fast models
   const clients = getGeminiClients(trimmedKey);
+  const modelsToTry = getPrioritizedModels();
 
-  for (const ai of clients.slice(0, 3)) {
-    for (const modelName of CANDIDATE_MODELS) {
+  for (const ai of clients.slice(0, 2)) {
+    for (const modelName of modelsToTry.slice(0, 2)) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -1324,15 +1352,21 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
             contents: fullPrompt,
             config: {
               ...(systemInstruction ? { systemInstruction } : {}),
-              temperature: 0.4
+              temperature: 0.35,
+              maxOutputTokens: 420,
+              thinkingConfig: { thinkingBudget: 0 }
             }
           }),
-          14000
+          3500
         );
 
         const reply = response.text?.trim();
-        if (reply) return formatCleanChatMessage(reply);
+        if (reply) {
+          markModelSuccess(modelName);
+          return formatCleanChatMessage(reply);
+        }
       } catch (err: any) {
+        markModelFailure(modelName);
         const msg = String(err?.message || err || '');
         console.warn(`[AI Service] Model ${modelName} failed for text:`, msg.slice(0, 160));
       }
@@ -1341,8 +1375,8 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
 
   // 4. Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
   const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith('AIza'));
-  for (const key of directKeys.slice(0, 2)) {
-    for (const restModel of ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
+  for (const key of directKeys.slice(0, 1)) {
+    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -1354,10 +1388,14 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
                 ? { systemInstruction: { parts: [{ text: systemInstruction }] } }
                 : {}),
               contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-              generationConfig: { temperature: 0.4 }
+              generationConfig: {
+                temperature: 0.35,
+                maxOutputTokens: 420,
+                thinkingConfig: { thinkingBudget: 0 }
+              }
             })
           }),
-          12000
+          3500
         );
         if (restRes.ok) {
           const data: any = await restRes.json();
@@ -1365,7 +1403,10 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
             ?.map((p: any) => p?.text || '')
             .join('')
             .trim();
-          if (text) return formatCleanChatMessage(text);
+          if (text) {
+            markModelSuccess(restModel);
+            return formatCleanChatMessage(text);
+          }
         }
       } catch (restErr: any) {
         console.warn(`[AI Service] Direct REST ${restModel} warning:`, restErr?.message || restErr);
@@ -1388,7 +1429,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
           temperature: 0.35
         })
       }),
-      12000
+      3200
     );
     if (cloudRes.ok) {
       const cloudJson: any = await cloudRes.json();
@@ -2325,7 +2366,11 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting or short questi
     };
   }
 
-  const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
+  // Cap total LLM call time to 3.8s so a customer on Messenger/WhatsApp/Instagram never waits 5-10 seconds
+  const geminiReply = await withTimeout(
+    callGemini(fullPrompt, effectiveApiKey, systemInstruction),
+    3800
+  ).catch(() => null);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
 
   if (geminiReply) {

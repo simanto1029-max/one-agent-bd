@@ -4,6 +4,9 @@ import { db } from '../db/database.js';
 import {
   getCandidateGeminiKeys,
   CANDIDATE_MODELS,
+  getPrioritizedModels,
+  markModelSuccess,
+  markModelFailure,
   formatCleanChatMessage,
   ensureConversationalFollowUp,
   getShortGreetingOrSmallTalkReply
@@ -172,15 +175,21 @@ Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing a
 
       const ai = getGeminiClient();
       if (ai) {
-        for (const model of CANDIDATE_MODELS) {
+        for (const model of getPrioritizedModels().slice(0, 2)) {
           try {
             const response = await ai.models.generateContent({
               model,
-              contents: fullPrompt
+              contents: fullPrompt,
+              config: {
+                temperature: 0.35,
+                maxOutputTokens: 420,
+                thinkingConfig: { thinkingBudget: 0 }
+              }
             });
 
             const reply = response.text?.trim();
             if (reply) {
+              markModelSuccess(model);
               return res.json({
                 reply: ensureConversationalFollowUp(sanitizeWebsiteBotReply(reply), trimmedMsg, true, false),
                 source: 'gemini',
@@ -188,6 +197,7 @@ Generate a direct, helpful, human-like response (with \\n\\n paragraph spacing a
               });
             }
           } catch (modelErr: any) {
+            markModelFailure(model);
             console.warn(`[Hero AI Chat] Model ${model} failed:`, modelErr?.message || modelErr);
           }
         }
@@ -299,15 +309,24 @@ Respond directly as ${businessName}'s AI agent:`;
 
       const ai = getGeminiClient();
       if (ai) {
-        for (const model of CANDIDATE_MODELS) {
+        for (const model of getPrioritizedModels().slice(0, 2)) {
           try {
             const response = await ai.models.generateContent({
               model,
-              contents: fullPrompt
+              contents: fullPrompt,
+              config: {
+                temperature: 0.35,
+                maxOutputTokens: 420,
+                thinkingConfig: { thinkingBudget: 0 }
+              }
             });
             reply = response.text?.trim();
-            if (reply) break;
+            if (reply) {
+              markModelSuccess(model);
+              break;
+            }
           } catch (modelErr: any) {
+            markModelFailure(model);
             console.warn(`[Sandbox AI] Model ${model} failed:`, modelErr?.message || modelErr);
           }
         }
