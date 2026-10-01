@@ -309,36 +309,6 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
-        {/* 2. LIVE ROI & PERFORMANCE METRICS STRIP */}
-        <div className="mt-7 sm:mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {roiStats.map((stat, idx) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={idx}
-                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white to-violet-50/35 dark:from-[#160E36] dark:to-[#110B29] border border-violet-200/75 dark:border-purple-500/20 shadow-[0_12px_30px_-12px_rgba(124,58,237,0.12)] flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xl sm:text-2xl lg:text-[26px] font-black tracking-tight bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
-                    {stat.value}
-                  </span>
-                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${stat.bg}`}>
-                    <Icon className={`w-4 h-4 ${stat.color}`} />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-snug">
-                    {stat.label}
-                  </h3>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed hidden sm:block">
-                    {stat.subtext}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         {/* Premium Omnichannel Architecture Hub (#channels) */}
         <div id="channels" className="mt-10 sm:mt-14 scroll-mt-20">
           <div className="relative rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 lg:p-10 bg-gradient-to-b from-[#FAF8FF] via-white to-[#F6F2FF] dark:from-[#150D34] dark:via-[#110A2A] dark:to-[#0E0823] border border-violet-200/90 dark:border-purple-500/25 shadow-[0_24px_60px_-15px_rgba(127,34,254,0.12),0_10px_30px_-10px_rgba(15,23,42,0.06)] overflow-hidden">
