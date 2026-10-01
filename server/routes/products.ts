@@ -85,6 +85,7 @@ productsRouter.post('/', (req: Request, res: Response) => {
     name,
     price,
     buying_price,
+    stock_quantity,
     currency = 'BDT',
     category = 'General',
     description = '',
@@ -107,6 +108,24 @@ productsRouter.post('/', (req: Request, res: Response) => {
       ? Math.max(0, Number(buying_price))
       : Math.round(numericPrice * 0.58);
 
+  const numericStockQty =
+    stock_quantity !== undefined && stock_quantity !== '' && !isNaN(Number(stock_quantity))
+      ? Math.max(0, Number(stock_quantity))
+      : stock_status === 'out_of_stock'
+      ? 0
+      : stock_status === 'low_stock'
+      ? 4
+      : 25;
+
+  const computedStatus: Product['stock_status'] =
+    stock_quantity !== undefined && stock_quantity !== ''
+      ? numericStockQty <= 0
+        ? 'out_of_stock'
+        : numericStockQty <= 5
+        ? 'low_stock'
+        : 'in_stock'
+      : stock_status || 'in_stock';
+
   // Parse keywords if string
   let parsedKeywords: string[] = [];
   if (Array.isArray(keywords)) {
@@ -124,11 +143,13 @@ productsRouter.post('/', (req: Request, res: Response) => {
     name: name.trim(),
     price: numericPrice,
     buying_price: numericBuyingPrice,
+    stock_quantity: numericStockQty,
+    sold_count: 0,
     currency: currency.toUpperCase().trim() || 'BDT',
     category: category.trim() || 'General',
     description: description.trim(),
     image_url: image_url.trim(),
-    stock_status: stock_status || 'in_stock',
+    stock_status: computedStatus,
     keywords: parsedKeywords,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -162,6 +183,7 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
     name,
     price,
     buying_price,
+    stock_quantity,
     currency,
     category,
     description,
@@ -192,11 +214,20 @@ productsRouter.put('/:id', (req: Request, res: Response) => {
     const numBuy = Number(buying_price);
     if (!isNaN(numBuy) && numBuy >= 0) updates.buying_price = numBuy;
   }
+  if (stock_quantity !== undefined && stock_quantity !== '') {
+    const numStock = Math.max(0, Number(stock_quantity));
+    if (!isNaN(numStock)) {
+      updates.stock_quantity = numStock;
+      updates.stock_status =
+        numStock <= 0 ? 'out_of_stock' : numStock <= 5 ? 'low_stock' : 'in_stock';
+    }
+  } else if (stock_status !== undefined) {
+    updates.stock_status = stock_status;
+  }
   if (currency !== undefined) updates.currency = currency.toUpperCase().trim();
   if (category !== undefined) updates.category = category.trim();
   if (description !== undefined) updates.description = description.trim();
   if (image_url !== undefined) updates.image_url = image_url.trim();
-  if (stock_status !== undefined) updates.stock_status = stock_status;
   if (parsedKeywords !== undefined) updates.keywords = parsedKeywords;
 
   const updated = db.updateProduct(req.params.id, updates);

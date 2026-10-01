@@ -105,6 +105,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
   const [customCategory, setCustomCategory] = useState('');
   const [price, setPrice] = useState('');
   const [buyingPrice, setBuyingPrice] = useState('');
+  const [stockQuantity, setStockQuantity] = useState('25');
   const [currency, setCurrency] = useState('BDT');
   const [stockStatus, setStockStatus] = useState<'in_stock' | 'low_stock' | 'out_of_stock'>('in_stock');
   const [imageUrl, setImageUrl] = useState('');
@@ -214,6 +215,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
     setCustomCategory('');
     setPrice('');
     setBuyingPrice('');
+    setStockQuantity('25');
     setCurrency('BDT');
     setStockStatus('in_stock');
     setImageUrl('');
@@ -234,6 +236,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
     }
     setPrice(String(prod.price));
     setBuyingPrice(typeof prod.buying_price === 'number' ? String(prod.buying_price) : '');
+    setStockQuantity(typeof prod.stock_quantity === 'number' ? String(prod.stock_quantity) : '20');
     setCurrency(prod.currency || 'BDT');
     setStockStatus(prod.stock_status || 'in_stock');
     setImageUrl(prod.image_url || '');
@@ -262,6 +265,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
         name: name.trim(),
         price: numPrice,
         buying_price: buyingPrice.trim() !== '' && !isNaN(Number(buyingPrice)) ? Number(buyingPrice) : undefined,
+        stock_quantity: stockQuantity.trim() !== '' && !isNaN(Number(stockQuantity)) ? Math.max(0, Number(stockQuantity)) : undefined,
         currency: currency.toUpperCase().trim() || 'BDT',
         category: finalCategory,
         description: description.trim(),
@@ -627,10 +631,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                     }`}
                   >
                     {prod.stock_status === 'in_stock'
-                      ? 'In Stock'
+                      ? `In Stock (${prod.stock_quantity ?? 20})`
                       : prod.stock_status === 'low_stock'
-                      ? 'Low Stock'
-                      : 'Out of Stock'}
+                      ? `Low Stock (${prod.stock_quantity ?? 4})`
+                      : 'Out of Stock (0)'}
                   </span>
                 </div>
               </div>
@@ -761,8 +765,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                 />
               </div>
 
-              {/* Category & Stock Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Category, Stock Quantity & Stock Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Category *
@@ -792,11 +796,41 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
 
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                    Stock Quantity (Units) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={stockQuantity}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setStockQuantity(val);
+                      const num = Number(val);
+                      if (!isNaN(num) && val !== '') {
+                        if (num <= 0) setStockStatus('out_of_stock');
+                        else if (num <= 5) setStockStatus('low_stock');
+                        else setStockStatus('in_stock');
+                      }
+                    }}
+                    placeholder="e.g. 50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Stock Availability *
                   </label>
                   <select
                     value={stockStatus}
-                    onChange={(e) => setStockStatus(e.target.value as any)}
+                    onChange={(e) => {
+                      const st = e.target.value as 'in_stock' | 'low_stock' | 'out_of_stock';
+                      setStockStatus(st);
+                      if (st === 'out_of_stock') setStockQuantity('0');
+                      else if (st === 'low_stock' && Number(stockQuantity) > 5) setStockQuantity('4');
+                      else if (st === 'in_stock' && Number(stockQuantity) <= 5) setStockQuantity('25');
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
                   >
                     <option value="in_stock">🟢 In Stock (Available)</option>
