@@ -210,7 +210,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.3, delay: index * 0.08 }}
-                    className={`w-full max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1.5 ${
+                    className={`w-full sm:max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all duration-300 flex flex-col justify-between hover:-translate-y-1.5 ${
                       isPro
                         ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_28px_70px_-10px_rgba(127,34,254,0.38),0_16px_36px_-8px_rgba(219,39,119,0.24),0_4px_16px_rgba(15,23,42,0.08)] hover:shadow-[0_34px_80px_-10px_rgba(127,34,254,0.48),0_18px_40px_-8px_rgba(219,39,119,0.3)] ring-1 ring-fuchsia-500/20'
                         : 'bg-white dark:bg-[#120B2B]/95 border border-violet-200/95 dark:border-purple-500/25 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.16),0_14px_32px_-8px_rgba(124,58,237,0.18),0_4px_14px_rgba(15,23,42,0.06)] hover:shadow-[0_30px_70px_-12px_rgba(124,58,237,0.28)] dark:shadow-[0_24px_60px_-12px_rgba(124,58,237,0.32)]'

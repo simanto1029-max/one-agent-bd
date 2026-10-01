@@ -100,9 +100,9 @@ export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 sm:gap-8 lg:gap-12 items-center">
           {/* Left Side: Clean, Balanced English Copy (Matches Video Height) */}
-          <div className="flex flex-col justify-center space-y-5">
+          <div className="flex flex-col justify-center space-y-4 sm:space-y-5 text-center lg:text-left">
             <span className="text-xs font-extrabold uppercase tracking-widest text-[#7C3AED] dark:text-[#A78BFA] block">
               HOW OUR AI WORKS
             </span>
@@ -116,11 +116,11 @@ export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }
             </h2>
 
             {onStartTrial && (
-              <div className="pt-2">
+              <div className="pt-1 sm:pt-2">
                 <button
                   type="button"
                   onClick={onStartTrial}
-                  className="px-7 py-3.5 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#9333EA] to-[#6366F1] hover:from-[#6D28D9] hover:to-[#4F46E5] text-white text-sm font-bold shadow-lg shadow-purple-500/25 inline-flex items-center gap-2 transition-all cursor-pointer"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-[#7C3AED] via-[#9333EA] to-[#6366F1] hover:from-[#6D28D9] hover:to-[#4F46E5] text-white text-sm font-bold shadow-lg shadow-purple-500/25 inline-flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
                 >
                   <span>Start 2-Day Free Trial</span>
                   <ArrowRight className="w-4 h-4" />

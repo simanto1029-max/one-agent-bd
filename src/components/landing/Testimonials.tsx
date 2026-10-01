@@ -309,7 +309,7 @@ export const Testimonials: React.FC = () => {
               return (
                 <article
                   key={`${item.id}_${idx}`}
-                  className="w-[320px] sm:w-[360px] shrink-0 p-6 rounded-2xl bg-[#F8F7FC] dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/45 shadow-xs flex flex-col justify-between transition-all"
+                  className="w-[285px] sm:w-[350px] shrink-0 p-5 sm:p-6 rounded-2xl bg-[#F8F7FC] dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/45 shadow-xs flex flex-col justify-between transition-all"
                 >
                   <div>
                     {/* Stars */}

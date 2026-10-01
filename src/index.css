@@ -14,7 +14,12 @@
     overflow-x: clip;
     width: 100%;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+  }
+
+  button, a {
+    touch-action: manipulation;
   }
 }
 
