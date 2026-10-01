@@ -165,7 +165,7 @@ export const Hero: React.FC<HeroProps> = ({
             />
 
             {/* Header + Central AI Engine Pill */}
-            <div className="relative z-10 text-center max-w-2xl mx-auto mb-7 sm:mb-9">
+            <div className="relative z-10 text-center max-w-4xl mx-auto mb-7 sm:mb-9">
               <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white dark:bg-[#1D1244] border border-violet-200/90 dark:border-purple-500/30 shadow-2xs mb-3">
                 <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400" />
                 <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-300">
@@ -173,13 +173,13 @@ export const Hero: React.FC<HeroProps> = ({
                 </span>
               </div>
 
-              <h2 className="text-xl sm:text-3xl lg:text-[34px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+              <h2 className="text-[17px] sm:text-2xl md:text-3xl lg:text-[32px] font-black text-slate-900 dark:text-white tracking-tight leading-tight whitespace-nowrap">
                 Connect Every Channel to{' '}
                 <span className="bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
                   One Smart AI Agent
                 </span>
               </h2>
-              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 leading-relaxed">
+              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 max-w-2xl mx-auto leading-relaxed">
                 No need to switch between different apps. Customers message you anywhere—your AI agent replies in 2 seconds, verifies fraud ratio, and books orders 24/7.
               </p>
             </div>
