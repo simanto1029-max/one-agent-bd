@@ -7,7 +7,11 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
-  Zap
+  Zap,
+  Clock,
+  ShoppingBag,
+  CreditCard,
+  Calendar
 } from 'lucide-react';
 
 interface HeroProps {
@@ -20,6 +24,107 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({
   onStartTrial
 }) => {
+  const partnerBadges = [
+    {
+      name: 'Meta Official API',
+      tag: 'Verified Graph API',
+      dotColor: 'bg-blue-500',
+      iconBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+      icon: Globe
+    },
+    {
+      name: 'WhatsApp Cloud API',
+      tag: '0% Ban Protection',
+      dotColor: 'bg-emerald-500',
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      icon: Zap
+    },
+    {
+      name: 'Steadfast Courier',
+      tag: '1-Click Dispatch & Ratio',
+      dotColor: 'bg-teal-500',
+      iconBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+      icon: Truck
+    },
+    {
+      name: 'Pathao Courier',
+      tag: 'Auto Booking & Tracking',
+      dotColor: 'bg-rose-500',
+      iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+      icon: Truck
+    },
+    {
+      name: 'RedX Logistics',
+      tag: 'Live Parcel Status',
+      dotColor: 'bg-red-500',
+      iconBg: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+      icon: ShieldCheck
+    },
+    {
+      name: 'WooCommerce Store',
+      tag: 'Real-Time Order Sync',
+      dotColor: 'bg-purple-500',
+      iconBg: 'bg-purple-500/10 text-[#7F22FE] dark:text-purple-400 border-purple-500/20',
+      icon: ShoppingBag
+    },
+    {
+      name: 'Shopify Store',
+      tag: 'Catalog & Webhook Sync',
+      dotColor: 'bg-emerald-500',
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      icon: ShoppingBag
+    },
+    {
+      name: 'bKash & Nagad Gateway',
+      tag: 'Instant Activation',
+      dotColor: 'bg-pink-500',
+      iconBg: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
+      icon: CreditCard
+    },
+    {
+      name: 'Google Calendar AI',
+      tag: 'Auto Slot Booking',
+      dotColor: 'bg-indigo-500',
+      iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+      icon: Calendar
+    }
+  ];
+
+  const roiStats = [
+    {
+      value: '< 2 Sec',
+      label: 'Instant Bangla & Voice Reply',
+      subtext: 'Replies to texts, voice notes & product photos automatically',
+      icon: Zap,
+      color: 'text-[#7F22FE] dark:text-purple-400',
+      bg: 'bg-purple-500/10 border-purple-500/20'
+    },
+    {
+      value: '100% Auto',
+      label: 'Customer Fraud & Ratio Check',
+      subtext: 'Verifies Steadfast, Pathao & RedX delivery history on every order',
+      icon: ShieldCheck,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bg: 'bg-emerald-500/10 border-emerald-500/20'
+    },
+    {
+      value: '0 TK',
+      label: 'Per-Message Extra Cost',
+      subtext: 'Unlimited customer conversations & auto order confirmations',
+      icon: Sparkles,
+      color: 'text-fuchsia-600 dark:text-fuchsia-400',
+      bg: 'bg-fuchsia-500/10 border-fuchsia-500/20'
+    },
+    {
+      value: '24/7 Live',
+      label: 'Night & Holiday Order Capture',
+      subtext: 'Never lose late-night Facebook, Instagram or WhatsApp buyers',
+      icon: Clock,
+      color: 'text-blue-600 dark:text-blue-400',
+      bg: 'bg-blue-500/10 border-blue-500/20'
+    }
+  ];
+
   const channels = [
     {
       id: 'whatsapp',
@@ -86,6 +191,8 @@ export const Hero: React.FC<HeroProps> = ({
       svg: <Globe className="w-6 h-6" />
     }
   ];
+
+  const loopedPartners = [...partnerBadges, ...partnerBadges];
 
   return (
     <section className="relative pt-8 pb-12 sm:pt-14 sm:pb-20 bg-white dark:bg-gradient-to-br dark:from-[#0B0720] dark:via-[#130B32] dark:to-[#090518] overflow-hidden transition-colors">
@@ -155,8 +262,85 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
+        {/* 1. AUTO-SCROLLING OFFICIAL INTEGRATION & COURIER PARTNER MARQUEE */}
+        <div className="mt-9 sm:mt-11">
+          <p className="text-center text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-3.5">
+            SEAMLESSLY INTEGRATED WITH OFFICIAL PLATFORMS &amp; COURIERS
+          </p>
+          <div className="relative w-full overflow-hidden py-2">
+            {/* Soft Left & Right Fade Edges */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 w-10 sm:w-20 bg-gradient-to-r from-white dark:from-[#0B0720] to-transparent z-10"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 sm:w-20 bg-gradient-to-l from-white dark:from-[#0B0720] to-transparent z-10"
+            />
+
+            <div className="animate-partner-marquee gap-3.5 sm:gap-4">
+              {loopedPartners.map((partner, idx) => {
+                const Icon = partner.icon;
+                return (
+                  <div
+                    key={`${partner.name}_${idx}`}
+                    className="shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white dark:bg-[#150E32]/90 border border-slate-200/85 dark:border-purple-500/20 shadow-[0_8px_20px_-8px_rgba(15,23,42,0.08)] hover:border-[#7F22FE]/45 transition-all"
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${partner.iconBg}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-extrabold text-slate-900 dark:text-white whitespace-nowrap">
+                          {partner.name}
+                        </span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${partner.dotColor} shrink-0`} />
+                      </div>
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {partner.tag}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. LIVE ROI & PERFORMANCE METRICS STRIP */}
+        <div className="mt-7 sm:mt-9 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {roiStats.map((stat, idx) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={idx}
+                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white to-violet-50/35 dark:from-[#160E36] dark:to-[#110B29] border border-violet-200/75 dark:border-purple-500/20 shadow-[0_12px_30px_-12px_rgba(124,58,237,0.12)] flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xl sm:text-2xl lg:text-[26px] font-black tracking-tight bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
+                    {stat.value}
+                  </span>
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${stat.bg}`}>
+                    <Icon className={`w-4 h-4 ${stat.color}`} />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-snug">
+                    {stat.label}
+                  </h3>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed hidden sm:block">
+                    {stat.subtext}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         {/* Premium Omnichannel Architecture Hub (#channels) */}
-        <div id="channels" className="mt-12 sm:mt-16 scroll-mt-20">
+        <div id="channels" className="mt-10 sm:mt-14 scroll-mt-20">
           <div className="relative rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 lg:p-10 bg-gradient-to-b from-[#FAF8FF] via-white to-[#F6F2FF] dark:from-[#150D34] dark:via-[#110A2A] dark:to-[#0E0823] border border-violet-200/90 dark:border-purple-500/25 shadow-[0_24px_60px_-15px_rgba(127,34,254,0.12),0_10px_30px_-10px_rgba(15,23,42,0.06)] overflow-hidden">
             {/* Subtle Top Glow */}
             <div

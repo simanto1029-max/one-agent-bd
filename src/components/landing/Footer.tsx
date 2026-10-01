@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, HeartHandshake } from 'lucide-react';
+import { Mail, HeartHandshake, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 import { LegalModal } from '../common/LegalModal';
 import { BrandLogo } from '../common/BrandLogo';
 
@@ -11,7 +11,7 @@ const FACEBOOK_URL = 'https://www.facebook.com/OneAgentBD';
 const WHATSAPP_URL = 'https://wa.me/8801601705804';
 const EMAIL_URL = 'mailto:support.oneagentbd@gmail.com';
 
-export const Footer: React.FC<FooterProps> = () => {
+export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
   const resolveUrlLegalTab = (): { open: boolean; tab: 'privacy' | 'terms' } => {
     if (typeof window === 'undefined') return { open: false, tab: 'privacy' };
     const path = window.location.pathname.toLowerCase();
@@ -88,8 +88,60 @@ export const Footer: React.FC<FooterProps> = () => {
   };
 
   return (
-    <footer className="bg-white dark:bg-[#080518] py-12 sm:py-16 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <footer className="bg-white dark:bg-[#080518] pt-8 pb-12 sm:pt-12 sm:pb-16 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10">
+        {/* 4. PREMIUM BOTTOM GRADIENT CTA BANNER */}
+        <div className="relative rounded-[28px] sm:rounded-[32px] p-6 sm:p-10 lg:p-12 bg-gradient-to-r from-[#5B21B6] via-[#7F22FE] to-[#C026D3] text-white shadow-[0_24px_60px_-14px_rgba(127,34,254,0.45)] overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/15 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-fuchsia-300/15 blur-3xl"
+          />
+
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 text-center lg:text-left">
+            <div className="max-w-2xl space-y-2.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/25 text-[11px] font-extrabold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>24/7 Autonomous AI Sales Suite</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
+                Ready to Automate Your Page &amp; Store Sales 24/7?
+              </h2>
+              <p className="text-xs sm:text-sm text-purple-100/90 leading-relaxed">
+                Start your 2-day free trial in 60 seconds. Instant Bangla &amp; voice note replies, auto courier fraud check, and 1-click Steadfast, Pathao &amp; RedX dispatch.
+              </p>
+              <div className="pt-1 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-1.5 text-[11px] sm:text-xs font-bold text-purple-100">
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>2-Day Free Trial</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Meta Official API (0% Ban Risk)</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>0 TK Per-Message Fee</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="px-7 py-3.5 sm:px-8 sm:py-4 rounded-2xl sm:rounded-full bg-white hover:bg-purple-50 text-[#6D28D9] font-black text-sm sm:text-base shadow-xl shadow-purple-950/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+              >
+                <span>Start 2-Day Free Trial</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Single ChatMakky-Style Rounded Card Aligned Full-Width with Header */}
         <div className="w-full rounded-[28px] bg-slate-50/90 dark:bg-[#110C24] border border-slate-200/80 dark:border-white/[0.07] p-7 sm:p-10 lg:p-12 shadow-xl shadow-purple-950/5">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10">
