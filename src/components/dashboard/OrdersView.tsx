@@ -32,7 +32,9 @@ import {
   FileText,
   Eye,
   ShieldCheck,
-  Printer
+  Printer,
+  MoreHorizontal,
+  ChevronDown
 } from 'lucide-react';
 import { api } from '../../api';
 import { Order, OrderMetrics } from '../../types';
@@ -84,6 +86,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [courierToast, setCourierToast] = useState<{ title: string; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
 
   // Manual Order Form
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -465,65 +468,126 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setShowFraudCheckerModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            title="Check customer courier delivery ratio & fake order risk"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Fraud Check</span>
-          </button>
-          <button
-            onClick={() => {
-              setSelectedCourierOrder(null);
-              setCourierModalTab('quick');
-              setShowCourierModal(true);
-            }}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
-            title="Configure delivery apps credentials (Steadfast, Pathao, RedX) and 1-click dispatch"
-          >
-            <Truck className="w-4 h-4 text-emerald-200" />
-            <span>Delivery Apps & Courier</span>
-          </button>
-          <button
-            onClick={() => setShowAISettingsModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold transition-all shadow-md shadow-violet-600/20 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Bot className="w-4 h-4 text-violet-200" />
-            <span>AI Order Rules</span>
-          </button>
-          <button
-            onClick={handleExportText}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            title="Download clean plain text file (.txt) that opens in any notepad without errors"
-          >
-            <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Export Text (.txt)</span>
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            title="Export standard CSV spreadsheet"
-          >
-            <Download className="w-3.5 h-3.5 text-neutral-500" />
-            <span>CSV</span>
-          </button>
-          <button
-            onClick={() => setShowTextModal(true)}
-            className="px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            title="Read orders text on screen or copy directly"
-          >
-            <Eye className="w-3.5 h-3.5 text-neutral-500" />
-            <span>View Text</span>
-          </button>
+        {/* Clean Header Actions: Primary Button + Single Tools Dropdown */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold transition-all shadow-sm shadow-[#7F22FE]/25 flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Order</span>
           </button>
+
+          {/* Grouped Tools & Actions Menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowToolsMenu((prev) => !prev)}
+              className="px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#7F22FE]" />
+              <span>Tools &amp; Actions</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${showToolsMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showToolsMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowToolsMenu(false)}
+                />
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl py-2 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Courier &amp; AI Automation
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setSelectedCourierOrder(null);
+                      setCourierModalTab('quick');
+                      setShowCourierModal(true);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Truck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>Delivery Apps &amp; Courier Setup</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      {defaultCourier.name.split(' ')[0]}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setShowFraudCheckerModal(true);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Customer Fraud &amp; Ratio Check</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setShowAISettingsModal(true);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Bot className="w-4 h-4 text-[#7F22FE] shrink-0" />
+                    <span>AI Order Confirmation Rules</span>
+                  </button>
+
+                  <div className="my-1.5 border-t border-neutral-100 dark:border-neutral-800" />
+                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Export &amp; Reports
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      handleExportCSV();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-neutral-500 shrink-0" />
+                    <span>Export CSV Spreadsheet</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      handleExportText();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-neutral-500 shrink-0" />
+                    <span>Download Notepad (.txt)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowToolsMenu(false);
+                      setShowTextModal(true);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Eye className="w-4 h-4 text-neutral-500 shrink-0" />
+                    <span>View Printable Text Report</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             onClick={() => loadOrders()}
             title="Reload Orders"
@@ -534,40 +598,46 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
         </div>
       </div>
 
-      {/* Order Hub Views Selector (Tabs) */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 w-fit">
-        <button
-          onClick={() => setOrderHubTab('all')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            orderHubTab === 'all'
-              ? 'bg-white dark:bg-neutral-900 text-[#7F22FE] shadow-xs'
-              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-          }`}
-        >
-          <ShoppingBag className="w-3.5 h-3.5" />
-          <span>All Orders</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold">
-            {orders.length}
-          </span>
-        </button>
+      {/* Clean Sub-View Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200/80 dark:border-neutral-700/60 w-fit">
+          <button
+            onClick={() => setOrderHubTab('all')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              orderHubTab === 'all'
+                ? 'bg-white dark:bg-neutral-900 text-[#7F22FE] shadow-2xs'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>All Orders ({orders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setOrderHubTab('delivery-courier')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              orderHubTab === 'delivery-courier'
+                ? 'bg-white dark:bg-neutral-900 text-[#7F22FE] shadow-2xs'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>Courier Dispatch Queue ({orders.filter(o => o.status === 'confirmed' || o.status === 'processing').length})</span>
+          </button>
+        </div>
 
         <button
-          onClick={() => setOrderHubTab('delivery-courier')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            orderHubTab === 'delivery-courier'
-              ? 'bg-[#7F22FE] text-white shadow-md shadow-[#7F22FE]/20'
-              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-          }`}
+          type="button"
+          onClick={() => {
+            setSelectedCourierOrder(null);
+            setCourierModalTab('settings');
+            setShowCourierModal(true);
+          }}
+          className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:text-[#7F22FE] dark:hover:text-purple-400 flex items-center gap-1.5 cursor-pointer transition-colors"
         >
-          <Truck className="w-3.5 h-3.5" />
-          <span>Delivery & Courier List</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            orderHubTab === 'delivery-courier'
-              ? 'bg-white/25 text-white'
-              : 'bg-[#7F22FE]/10 text-[#7F22FE]'
-          }`}>
-            {orders.filter(o => o.status === 'confirmed' || o.status === 'processing').length}
-          </span>
+          <Truck className="w-3.5 h-3.5 text-[#7F22FE]" />
+          <span>Active Courier: <strong className="text-neutral-800 dark:text-neutral-200">{defaultCourier.name}</strong></span>
+          <span className="underline ml-1">Change</span>
         </button>
       </div>
 
@@ -587,36 +657,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
       {/* Tab 1: All Orders View */}
       {orderHubTab === 'all' && (
         <>
-          {/* 1-Click Delivery Apps Quick Integration Banner */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#7F22FE]/10 via-[#7F22FE]/5 to-transparent border border-[#7F22FE]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center shrink-0 shadow-sm shadow-[#7F22FE]/25">
-                <Truck className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-neutral-900 dark:text-white">1-Click Delivery Apps Integration:</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#7F22FE]/10 text-[#7F22FE] border border-[#7F22FE]/20">
-                    Active: {defaultCourier.name}
-                  </span>
-                </div>
-                <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                  Connect your delivery app (Steadfast, Pathao, RedX, Paperfly, eCourier). Click &quot;Send to Courier&quot; on any order to automatically copy customer data & open portal!
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedCourierOrder(null);
-                setCourierModalTab('settings');
-                setShowCourierModal(true);
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-bold text-xs shadow-xs cursor-pointer shrink-0 flex items-center gap-1.5 transition-all self-start sm:self-auto"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Delivery App Settings</span>
-            </button>
-          </div>
 
           {/* Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

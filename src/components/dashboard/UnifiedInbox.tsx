@@ -33,7 +33,8 @@ import {
   Trash2,
   PauseCircle,
   PlayCircle,
-  Ban
+  Ban,
+  MoreHorizontal
 } from 'lucide-react';
 import { api } from '../../api';
 import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
@@ -111,6 +112,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
   // Per-Customer AI Pause (Human Handover) & Spam Blacklist state
   const [pausedCustomers, setPausedCustomers] = useState<string[]>([]);
   const [blockedCustomers, setBlockedCustomers] = useState<string[]>([]);
+  const [showHeaderActionsMenu, setShowHeaderActionsMenu] = useState(false);
 
   useEffect(() => {
     api
@@ -922,24 +924,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                 </div>
               </div>
 
-              {/* Right Header Controls */}
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  id="conversation-summarize-btn"
-                  type="button"
-                  onClick={handleSummarizeConversation}
-                  disabled={summarizing}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7F22FE] to-violet-600 hover:from-[#6c1ce0] hover:to-violet-700 disabled:opacity-60 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer whitespace-nowrap"
-                  title="View AI summary and current stage of this customer conversation"
-                >
-                  {summarizing ? (
-                    <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
-                  ) : (
-                    <FileText className="w-3 h-3 shrink-0" />
-                  )}
-                  <span>{summarizing ? 'Summarizing...' : 'Summarize'}</span>
-                </button>
-
+              {/* Right Header Controls: Clean AI Status Pill + More Actions Dropdown (⋯) */}
+              <div className="flex items-center gap-2 shrink-0 relative">
                 <button
                   type="button"
                   onClick={() =>
@@ -948,50 +934,117 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                       pausedCustomers.includes(selectedConv.customerId) ? 'resume_ai' : 'pause_ai'
                     )
                   }
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
                     pausedCustomers.includes(selectedConv.customerId)
                       ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
-                      : 'bg-violet-50 dark:bg-violet-950/50 border-violet-200/70 dark:border-violet-800/60 text-[#7F22FE] dark:text-purple-300 hover:bg-violet-100'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300'
                   }`}
                   title={
                     pausedCustomers.includes(selectedConv.customerId)
                       ? 'AI is currently paused (Human Mode). Click to resume AI Auto-Reply.'
-                      : 'Pause AI for this customer in 1 click to chat manually (Human Handover)'
+                      : 'AI is active. Click to pause AI for manual chat.'
                   }
                 >
-                  {pausedCustomers.includes(selectedConv.customerId) ? (
-                    <>
-                      <PlayCircle className="w-3 h-3 shrink-0" />
-                      <span>Human Mode (Resume AI)</span>
-                    </>
-                  ) : (
-                    <>
-                      <PauseCircle className="w-3 h-3 shrink-0" />
-                      <span>AI Active (Pause AI)</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleToggleCustomerControl(
-                      selectedConv.customerId,
-                      blockedCustomers.includes(selectedConv.customerId) ? 'unblock' : 'block'
-                    )
-                  }
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
-                    blockedCustomers.includes(selectedConv.customerId)
-                      ? 'bg-rose-600 text-white border-rose-600'
-                      : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
-                  }`}
-                  title="Block spam or fake-order customers so AI stops replying to them"
-                >
-                  <Ban className="w-3 h-3 shrink-0" />
-                  <span className="hidden sm:inline">
-                    {blockedCustomers.includes(selectedConv.customerId) ? 'Blocked (Unblock)' : 'Block'}
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      pausedCustomers.includes(selectedConv.customerId)
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500 animate-pulse'
+                    }`}
+                  />
+                  <span>
+                    {pausedCustomers.includes(selectedConv.customerId) ? 'Human Mode' : 'AI Active'}
                   </span>
                 </button>
+
+                {/* More Actions Icon Menu */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowHeaderActionsMenu((prev) => !prev)}
+                    className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+                    title="More conversation actions"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+
+                  {showHeaderActionsMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowHeaderActionsMenu(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 border-b border-neutral-100 dark:border-neutral-800">
+                          Chat Actions
+                        </div>
+
+                        <button
+                          id="conversation-summarize-btn"
+                          type="button"
+                          onClick={() => {
+                            setShowHeaderActionsMenu(false);
+                            handleSummarizeConversation();
+                          }}
+                          disabled={summarizing}
+                          className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-violet-50 dark:hover:bg-violet-950/40 flex items-center gap-2.5 transition-colors cursor-pointer"
+                        >
+                          {summarizing ? (
+                            <RefreshCw className="w-3.5 h-3.5 text-[#7F22FE] animate-spin shrink-0" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
+                          )}
+                          <span>{summarizing ? 'Summarizing...' : 'AI Conversation Summary'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowHeaderActionsMenu(false);
+                            handleToggleCustomerControl(
+                              selectedConv.customerId,
+                              pausedCustomers.includes(selectedConv.customerId) ? 'resume_ai' : 'pause_ai'
+                            );
+                          }}
+                          className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                        >
+                          {pausedCustomers.includes(selectedConv.customerId) ? (
+                            <>
+                              <PlayCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Resume AI Auto-Reply</span>
+                            </>
+                          ) : (
+                            <>
+                              <PauseCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              <span>Pause AI (Human Handover)</span>
+                            </>
+                          )}
+                        </button>
+
+                        <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowHeaderActionsMenu(false);
+                            handleToggleCustomerControl(
+                              selectedConv.customerId,
+                              blockedCustomers.includes(selectedConv.customerId) ? 'unblock' : 'block'
+                            );
+                          }}
+                          className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors cursor-pointer"
+                        >
+                          <Ban className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {blockedCustomers.includes(selectedConv.customerId)
+                              ? 'Unblock Customer'
+                              : 'Block Spam Customer'}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

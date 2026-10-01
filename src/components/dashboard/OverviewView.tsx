@@ -551,7 +551,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </p>
           </div>
 
-          <div className="space-y-2.5 flex-1 flex flex-col justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 flex-1 content-start">
             <button
               type="button"
               onClick={() => onNavigate('orders')}
@@ -563,73 +563,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Orders & Steadfast COD
+                    Orders &amp; Courier
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Manage AI orders & 1-click courier booking
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('business-erp')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <BarChart3 className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Accounts, Stock &amp; Due ERP
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Sales, Purchase, Auto Stock, Due Book &amp; Cashbook
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('appointments')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    AI Appointments & Google Calendar
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Auto slot checking, booking & calendar sync
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('email-campaigns')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Email Marketing & AI Broadcast
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    AI email copywriter, 1-click blast & Open/Click stats
+                    AI orders &amp; 1-click Steadfast/Pathao
                   </span>
                 </div>
               </div>
@@ -647,10 +584,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Products & Store Sync
+                    Products &amp; Store ERP
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {productsCount} products ready for visual & voice AI
+                    {productsCount} products, stock &amp; accounts
                   </span>
                 </div>
               </div>
@@ -668,10 +605,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    AI Persona & Prompts
+                    AI Persona &amp; Prompts
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Delivery rates, return policy & tone rules
+                    Delivery rates, return policy &amp; tone
                   </span>
                 </div>
               </div>
@@ -689,10 +626,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Live Webhook Simulator
+                    Live AI Chat Simulator
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Test AI replies for WA, FB & IG messages
+                    Test WA, FB &amp; IG AI replies instantly
                   </span>
                 </div>
               </div>

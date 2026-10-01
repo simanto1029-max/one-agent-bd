@@ -98,6 +98,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
   const [deleteCandidate, setDeleteCandidate] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showAiCatalogInfo, setShowAiCatalogInfo] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -360,6 +361,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAiCatalogInfo((prev) => !prev)}
+            className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+            title="How AI uses your product catalog"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#7F22FE]" />
+            <span>How AI Uses Catalog</span>
+          </button>
+
           {products.length === 0 && (
             <button
               type="button"
@@ -368,7 +379,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
               className="px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-amber-500/20"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Load Sample Products (Pants, Shirts, Watch)</span>
+              <span>Load Demo Products</span>
             </button>
           )}
 
@@ -378,7 +389,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
             className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1bd9] text-white text-xs font-bold transition-all shadow-md shadow-[#7F22FE]/20 flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add New Product</span>
+            <span>+ Add Product</span>
           </button>
         </div>
       </div>
@@ -450,27 +461,36 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 4. AI Explanation Banner (How AI uses this catalog) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#7F22FE]/10 via-purple-500/5 to-indigo-500/10 border border-[#7F22FE]/20">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-[#7F22FE] text-white shrink-0 mt-0.5">
-            <Bot className="w-4 h-4" />
+      {/* 4. Collapsible AI Explanation Banner (Shown only when clicked) */}
+      {showAiCatalogInfo && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#7F22FE]/10 via-purple-500/5 to-indigo-500/10 border border-[#7F22FE]/20 flex items-start justify-between gap-3 animate-in fade-in duration-150">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-[#7F22FE] text-white shrink-0 mt-0.5">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <span>How Does the AI Use This Product Catalog?</span>
+                <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-[#7F22FE]/20 text-[#7F22FE] font-mono">
+                  Multimodal AI Engine
+                </span>
+              </h3>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                • <strong>When a customer asks for photos &amp; prices:</strong> the AI searches your catalog and sends the exact photo and specs in chat.<br />
+                • <strong>When a customer sends a product photo:</strong> the AI matches it with your catalog and confirms availability and pricing.<br />
+                • <strong>Variant &amp; Size Matching:</strong> include sizes and colors in the description so the AI can recommend the right fit.
+              </p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-              <span>How Does the AI Use This Product Catalog?</span>
-              <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-[#7F22FE]/20 text-[#7F22FE] font-mono">
-                Multimodal AI Engine
-              </span>
-            </h3>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              • <strong>When a customer asks for photos & prices:</strong> e.g. <em>"Send me the photo and price of cargo pants"</em>—the AI searches your catalog and sends the exact high-resolution photo and specs in chat.<br />
-              • <strong>When a customer sends a product photo:</strong> The AI scans the image, matches it with your catalog, and confirms availability and pricing.<br />
-              • <strong>Variant & Size Matching:</strong> Include available sizes (e.g., 30, 32, 34) and fabric details in the description so the AI can recommend the right fit.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAiCatalogInfo(false)}
+            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </div>
+      )}
 
       {/* 5. Search, Filter & View Controls */}
       <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">

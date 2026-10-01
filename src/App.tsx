@@ -253,8 +253,8 @@ export default function App() {
       defaultTab: 'overview',
       icon: LayoutDashboard,
       tabs: [
-        { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' },
-        { id: 'business-erp', label: 'Accounts, Stock & Due ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook Reports' }
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' },
+        { id: 'business-erp', label: 'Accounts & Profit ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' }
       ]
     },
     {
@@ -263,10 +263,10 @@ export default function App() {
       defaultTab: 'inbox',
       icon: MessageSquare,
       tabs: [
-        { id: 'inbox', label: 'Unified Inbox', icon: MessageSquare, desc: 'WhatsApp, Messenger & Instagram chats' },
-        { id: 'call-requests', label: 'Human Call Requests', icon: PhoneCall, desc: 'Customer callback & live handover queue' },
+        { id: 'inbox', label: 'Live Chat', icon: MessageSquare, desc: 'WhatsApp, Messenger & Instagram chats' },
+        { id: 'call-requests', label: 'Call Requests', icon: PhoneCall, desc: 'Customer callback & live handover queue' },
         { id: 'contacts', label: 'Contacts CRM', icon: Users, desc: 'Customer directory & chat history' },
-        { id: 'email-campaigns', label: 'Email Marketing & AI Broadcast', icon: Mail, desc: 'AI email campaigns with Open & Click tracking' }
+        { id: 'email-campaigns', label: 'AI Broadcast', icon: Mail, desc: 'AI email campaigns & broadcast' }
       ]
     },
     {
@@ -275,9 +275,9 @@ export default function App() {
       defaultTab: 'orders',
       icon: ShoppingBag,
       tabs: [
-        { id: 'orders', label: 'Orders Hub', icon: ShoppingBag, desc: 'AI-captured & manual customer orders' },
-        { id: 'appointments', label: 'AI Appointments & Calendar', icon: Calendar, desc: 'Automated slot booking & Google Calendar sync' },
-        { id: 'delivery-courier', label: 'Courier & Steadfast COD', icon: Truck, desc: '1-click courier booking & tracking' }
+        { id: 'orders', label: 'All Orders', icon: ShoppingBag, desc: 'AI-captured & manual customer orders' },
+        { id: 'delivery-courier', label: 'Courier & Steadfast', icon: Truck, desc: '1-click courier booking & tracking' },
+        { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Automated slot booking & calendar' }
       ]
     },
     {
@@ -286,8 +286,7 @@ export default function App() {
       defaultTab: 'products',
       icon: Package,
       tabs: [
-        { id: 'products', label: 'Products Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
-        { id: 'business-erp', label: 'Stock, Purchase & Due ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' },
+        { id: 'products', label: 'Product Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
         { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync' }
       ]
     },
@@ -297,9 +296,9 @@ export default function App() {
       defaultTab: 'channels',
       icon: Bot,
       tabs: [
-        { id: 'channels', label: 'Connected Channels (Meta)', icon: Smartphone, desc: 'Facebook Page, Instagram & WhatsApp API' },
+        { id: 'channels', label: 'Connect Channels', icon: Smartphone, desc: 'Facebook Page, Instagram & WhatsApp' },
         { id: 'settings', label: 'AI Persona & Training', icon: Sparkles, desc: 'Business rules, delivery rates & prompts' },
-        { id: 'website-widget', label: 'Website AI Widget', icon: Bot, desc: 'Embeddable live chat widget for websites' }
+        { id: 'website-widget', label: 'Website Widget', icon: Bot, desc: 'Embeddable live chat widget for websites' }
       ]
     },
     {
@@ -589,25 +588,25 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Bottom Sidebar Workspace Status & Quick Simulator Card */}
-              <div className="space-y-3 pt-4 border-t border-slate-200/70 dark:border-purple-500/15">
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#160F35] border border-slate-200/80 dark:border-purple-500/20 space-y-2.5">
+              {/* Bottom Sidebar Compact Workspace Status Card */}
+              <div className="pt-4 border-t border-slate-200/70 dark:border-purple-500/15">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#160F35] border border-slate-200/80 dark:border-purple-500/20 space-y-2">
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                       {subStatus?.planName || 'Starter AI Plan'}
                     </span>
-                    <span className="text-[10px] font-bold text-[#7C3AED] dark:text-purple-400 shrink-0">
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
                       {subStatus?.isExpired
                         ? 'Expired'
                         : subStatus?.subscription?.status === 'active'
-                        ? 'Active'
-                        : 'Free Trial'}
+                        ? '● Active'
+                        : '● Trial'}
                     </span>
                   </div>
                   {subStatus?.subscription?.end_date && !subStatus.isExpired && (
-                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#0F0A24] border border-slate-200/70 dark:border-purple-500/20 text-[11px]">
-                      <span className="text-slate-400 font-semibold">Left:</span>
-                      <span className="text-[#7C3AED] dark:text-purple-300 font-bold">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                      <span>Remaining:</span>
+                      <span className="text-[#7C3AED] dark:text-purple-300 font-bold tabular-nums">
                         <CountdownTimer
                           targetDate={subStatus.subscription.end_date}
                           serverTime={subStatus.serverTime}
@@ -616,28 +615,26 @@ export default function App() {
                       </span>
                     </div>
                   )}
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                    {channels.filter((c) => c.is_active).length} active channel(s) connected to AI engine.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setActiveTab('billing');
-                      setIsLockBypassedForBilling(true);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs shadow-purple-500/20"
-                  >
-                    <span>Manage Plan</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button
+                      onClick={() => {
+                        setActiveTab('billing');
+                        setIsLockBypassedForBilling(true);
+                      }}
+                      className="flex-1 py-1.5 px-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span>Manage Plan</span>
+                    </button>
+                    <button
+                      id="open-webhook-tester-btn"
+                      onClick={() => setIsWebhookTesterOpen(true)}
+                      title="Open AI Simulator"
+                      className="p-1.5 rounded-xl bg-white dark:bg-[#1F1647] hover:bg-slate-100 dark:hover:bg-[#2A1E5C] text-[#7C3AED] dark:text-purple-300 border border-slate-200 dark:border-purple-500/25 transition-colors cursor-pointer"
+                    >
+                      <Activity className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-
-                <button
-                  onClick={() => setIsWebhookTesterOpen(true)}
-                  className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-[#191138] hover:bg-slate-200/70 dark:hover:bg-[#23184B] text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Activity className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400" />
-                  <span>Open AI Simulator</span>
-                </button>
               </div>
             </aside>
 
@@ -646,20 +643,23 @@ export default function App() {
               className={`flex-1 min-w-0 max-w-[1280px] mx-auto w-full ${
                 activeTab === 'inbox'
                   ? 'p-2 sm:p-3 lg:px-5 lg:py-2.5 flex flex-col min-h-0 h-[calc(100vh-4rem)] overflow-hidden'
-                  : 'p-4 sm:p-6 lg:p-8'
+                  : 'p-4 sm:p-6 lg:p-7'
               }`}
             >
-              {/* Live Trial / Subscription Countdown Banner */}
-              {activeTab !== 'billing' && activeTab !== 'inbox' && (
-                <TrialCountdownBanner
-                  subStatus={subStatus}
-                  onUpgradeClick={() => {
-                    setActiveTab('billing');
-                    setIsLockBypassedForBilling(true);
-                  }}
-                  onExpired={refreshUserData}
-                />
-              )}
+              {/* Show Trial / Expiry Alert Banner ONLY when trial is expiring or expired (no duplicate banner on active plans) */}
+              {activeTab !== 'billing' &&
+                activeTab !== 'inbox' &&
+                subStatus &&
+                (subStatus.isExpired || subStatus.subscription?.status === 'pending_approval') && (
+                  <TrialCountdownBanner
+                    subStatus={subStatus}
+                    onUpgradeClick={() => {
+                      setActiveTab('billing');
+                      setIsLockBypassedForBilling(true);
+                    }}
+                    onExpired={refreshUserData}
+                  />
+                )}
 
               {/* Admin Broadcast Notifications Banner (Dismissible by Merchant) */}
               {activeTab !== 'inbox' && (
