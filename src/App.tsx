@@ -75,6 +75,7 @@ export default function App() {
   // App Navigation
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'admin'>('landing');
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'business-erp' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // User & Subscription state
@@ -254,8 +255,7 @@ export default function App() {
       defaultTab: 'overview',
       icon: LayoutDashboard,
       tabs: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' },
-        { id: 'business-erp', label: 'Accounts & Profit ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' }
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' }
       ]
     },
     {
@@ -288,6 +288,7 @@ export default function App() {
       icon: Package,
       tabs: [
         { id: 'products', label: 'Product Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
+        { id: 'business-erp', label: 'Accounts & Stock ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' },
         { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync' }
       ]
     },
@@ -464,16 +465,28 @@ export default function App() {
                   {primarySections.map((section) => {
                     const Icon = section.icon;
                     const isSectionActive = currentPrimarySection.groupId === section.groupId;
+                    const hasSubTabs = section.tabs.length > 1;
+                    const isSubOpen = openGroupId === section.groupId;
                     return (
                       <div key={section.groupId} className="space-y-1">
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveTab(section.defaultTab);
-                            if (section.defaultTab === 'billing') {
-                              setIsLockBypassedForBilling(true);
-                            }
-                            if (section.tabs.length === 1) {
+                            if (hasSubTabs) {
+                              if (isSubOpen) {
+                                setOpenGroupId(null);
+                              } else {
+                                setOpenGroupId(section.groupId);
+                                if (!isSectionActive) {
+                                  setActiveTab(section.defaultTab);
+                                }
+                              }
+                            } else {
+                              setOpenGroupId(null);
+                              setActiveTab(section.defaultTab);
+                              if (section.defaultTab === 'billing') {
+                                setIsLockBypassedForBilling(true);
+                              }
                               setIsMobileMenuOpen(false);
                             }
                           }}
@@ -487,37 +500,49 @@ export default function App() {
                             <Icon className="w-4 h-4" />
                             <span>{section.label}</span>
                           </div>
-                          {section.tabs.length > 1 && (
-                            <span className={`text-[10px] font-semibold ${isSectionActive ? 'text-white/80' : 'text-slate-400'}`}>
-                              {section.tabs.length} tools
-                            </span>
+                          {hasSubTabs && (
+                            <ChevronDown
+                              className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-in-out ${
+                                isSubOpen ? 'rotate-180' : 'rotate-0'
+                              } ${isSectionActive ? 'text-white' : 'text-slate-400'}`}
+                            />
                           )}
                         </button>
 
-                        {isSectionActive && section.tabs.length > 1 && (
-                          <div className="pl-6 pr-1 py-1 space-y-1">
-                            {section.tabs.map((sub) => {
-                              const SubIcon = sub.icon;
-                              const isSubActive = activeTab === sub.id;
-                              return (
-                                <button
-                                  key={sub.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveTab(sub.id);
-                                    setIsMobileMenuOpen(false);
-                                  }}
-                                  className={`w-full px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-                                    isSubActive
-                                      ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-bold'
-                                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                                  }`}
-                                >
-                                  <SubIcon className="w-3.5 h-3.5" />
-                                  <span>{sub.label}</span>
-                                </button>
-                              );
-                            })}
+                        {hasSubTabs && (
+                          <div
+                            className={`grid transition-all duration-300 ease-in-out ${
+                              isSubOpen
+                                ? 'grid-rows-[1fr] opacity-100 mt-1'
+                                : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+                            }`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="pl-6 pr-1 py-1 space-y-1">
+                                {section.tabs.map((sub) => {
+                                  const SubIcon = sub.icon;
+                                  const isSubActive = activeTab === sub.id;
+                                  return (
+                                    <button
+                                      key={sub.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveTab(sub.id);
+                                        setIsMobileMenuOpen(false);
+                                      }}
+                                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
+                                        isSubActive
+                                          ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-bold'
+                                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                      }`}
+                                    >
+                                      <SubIcon className="w-3.5 h-3.5" />
+                                      <span>{sub.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -566,14 +591,27 @@ export default function App() {
                     const Icon = section.icon;
                     const isSectionActive = currentPrimarySection.groupId === section.groupId;
                     const hasSubTabs = section.tabs.length > 1;
+                    const isSubOpen = openGroupId === section.groupId;
                     return (
                       <div key={section.groupId} className="space-y-1">
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveTab(section.defaultTab);
-                            if (section.defaultTab === 'billing') {
-                              setIsLockBypassedForBilling(true);
+                            if (hasSubTabs) {
+                              if (isSubOpen) {
+                                setOpenGroupId(null);
+                              } else {
+                                setOpenGroupId(section.groupId);
+                                if (!isSectionActive) {
+                                  setActiveTab(section.defaultTab);
+                                }
+                              }
+                            } else {
+                              setOpenGroupId(null);
+                              setActiveTab(section.defaultTab);
+                              if (section.defaultTab === 'billing') {
+                                setIsLockBypassedForBilling(true);
+                              }
                             }
                           }}
                           className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-between transition-all cursor-pointer ${
@@ -588,9 +626,11 @@ export default function App() {
                           </div>
                           {hasSubTabs ? (
                             <ChevronDown
-                              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                              className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-in-out ${
+                                isSubOpen ? 'rotate-180' : 'rotate-0'
+                              } ${
                                 isSectionActive
-                                  ? 'rotate-180 text-white'
+                                  ? 'text-white'
                                   : 'text-slate-400 dark:text-slate-500'
                               }`}
                             />
@@ -601,33 +641,43 @@ export default function App() {
                           )}
                         </button>
 
-                        {/* Collapsible Sub-Sections Directly Inside Left Sidebar */}
-                        {isSectionActive && hasSubTabs && (
-                          <div className="ml-4 pl-3 border-l-2 border-purple-500/30 dark:border-purple-500/40 space-y-1 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                            {section.tabs.map((sub) => {
-                              const SubIcon = sub.icon;
-                              const isSubActive = activeTab === sub.id;
-                              return (
-                                <button
-                                  key={sub.id}
-                                  type="button"
-                                  onClick={() => setActiveTab(sub.id)}
-                                  className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                                    isSubActive
-                                      ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-extrabold shadow-2xs'
-                                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white font-semibold'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#7C3AED] dark:text-purple-300' : 'text-slate-400'}`} />
-                                    <span className="truncate">{sub.label}</span>
-                                  </div>
-                                  {isSubActive && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0" />
-                                  )}
-                                </button>
-                              );
-                            })}
+                        {/* Smooth Height-Transition Collapsible Sub-Sections Inside Left Sidebar */}
+                        {hasSubTabs && (
+                          <div
+                            className={`grid transition-all duration-300 ease-in-out ${
+                              isSubOpen
+                                ? 'grid-rows-[1fr] opacity-100 mt-1'
+                                : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+                            }`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="ml-4 pl-3 border-l-2 border-purple-500/30 dark:border-purple-500/40 space-y-1 py-1">
+                                {section.tabs.map((sub) => {
+                                  const SubIcon = sub.icon;
+                                  const isSubActive = activeTab === sub.id;
+                                  return (
+                                    <button
+                                      key={sub.id}
+                                      type="button"
+                                      onClick={() => setActiveTab(sub.id)}
+                                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                                        isSubActive
+                                          ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-extrabold shadow-2xs'
+                                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white font-semibold'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#7C3AED] dark:text-purple-300' : 'text-slate-400'}`} />
+                                        <span className="truncate">{sub.label}</span>
+                                      </div>
+                                      {isSubActive && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
