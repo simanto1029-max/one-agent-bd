@@ -17,7 +17,8 @@ import {
   Truck,
   Package,
   Calendar,
-  Mail
+  Mail,
+  BarChart3
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
@@ -48,6 +49,7 @@ import { WebsiteWidgetView } from './components/dashboard/WebsiteWidgetView';
 import { CallRequestsView } from './components/dashboard/CallRequestsView';
 import { AppointmentsView } from './components/dashboard/AppointmentsView';
 import { EmailCampaignsView } from './components/dashboard/EmailCampaignsView';
+import { BusinessErpView } from './components/dashboard/BusinessErpView';
 import { UnifiedInbox } from './components/dashboard/UnifiedInbox';
 import { ChannelsView } from './components/dashboard/ChannelsView';
 import { SettingsView } from './components/dashboard/SettingsView';
@@ -71,7 +73,7 @@ export default function App() {
 
   // App Navigation
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'admin'>('landing');
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'business-erp' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // User & Subscription state
@@ -236,7 +238,7 @@ export default function App() {
   };
 
   // 6 Primary Navigation Sections (ChatMakky Style) + Sub-Tabs mapping
-  type TabId = 'overview' | 'inbox' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'stores' | 'website-widget' | 'call-requests' | 'channels' | 'settings' | 'contacts' | 'billing';
+  type TabId = 'overview' | 'inbox' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'business-erp' | 'stores' | 'website-widget' | 'call-requests' | 'channels' | 'settings' | 'contacts' | 'billing';
 
   const primarySections: {
     groupId: string;
@@ -250,7 +252,10 @@ export default function App() {
       label: 'Dashboard',
       defaultTab: 'overview',
       icon: LayoutDashboard,
-      tabs: [{ id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' }]
+      tabs: [
+        { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard, desc: 'Real-time metrics & insights' },
+        { id: 'business-erp', label: 'Accounts, Stock & Due ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook Reports' }
+      ]
     },
     {
       groupId: 'inbox-hub',
@@ -282,6 +287,7 @@ export default function App() {
       icon: Package,
       tabs: [
         { id: 'products', label: 'Products Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
+        { id: 'business-erp', label: 'Stock, Purchase & Due ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' },
         { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync' }
       ]
     },
@@ -829,6 +835,10 @@ export default function App() {
 
               {activeTab === 'email-campaigns' && (
                 <EmailCampaignsView />
+              )}
+
+              {activeTab === 'business-erp' && (
+                <BusinessErpView />
               )}
 
               {activeTab === 'billing' && (

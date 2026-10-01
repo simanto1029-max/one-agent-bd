@@ -367,6 +367,8 @@ export interface Product {
   name: string;
   price: number;
   buying_price?: number;
+  stock_quantity?: number;
+  sold_count?: number;
   currency: string;
   category: string;
   description: string;
@@ -375,6 +377,54 @@ export interface Product {
   keywords?: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  user_id: string;
+  supplier_name: string;
+  supplier_phone?: string;
+  product_id?: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  paid_amount: number;
+  due_amount: number;
+  payment_method: 'cash' | 'bkash' | 'nagad' | 'bank';
+  notes?: string;
+  created_at: string;
+}
+
+export interface DueRecord {
+  id: string;
+  user_id: string;
+  party_type: 'customer' | 'supplier';
+  party_name: string;
+  party_phone?: string;
+  reference_type: 'order' | 'purchase' | 'manual';
+  reference_id?: string;
+  description: string;
+  total_amount: number;
+  paid_amount: number;
+  due_amount: number;
+  status: 'unpaid' | 'partial' | 'settled';
+  due_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountTransaction {
+  id: string;
+  user_id: string;
+  type: 'income' | 'expense';
+  category: string;
+  title: string;
+  amount: number;
+  payment_method: 'cash' | 'bkash' | 'nagad' | 'bank';
+  reference_id?: string;
+  notes?: string;
+  created_at: string;
 }
 
 export interface StoreIntegration {
@@ -509,6 +559,9 @@ interface DatabaseSchema {
   appointments?: Appointment[];
   email_subscribers?: EmailSubscriber[];
   email_campaigns?: EmailCampaign[];
+  purchases?: PurchaseRecord[];
+  dues?: DueRecord[];
+  account_transactions?: AccountTransaction[];
   settings: SystemSettings;
 }
 
@@ -1823,8 +1876,53 @@ MANDATORY LANGUAGE & REPLY RULES:
       this.data.orders = [];
     }
     this.data.orders.unshift(order);
+    this.deductStockForOrder(order);
     this.persist();
     return order;
+  }
+
+  deductStockForOrder(order: Order): void {
+    try {
+      if (order.status === 'cancelled') return;
+      const qtyToDeduct = Math.max(1, Number(order.quantity) || 1);
+      const userProducts = this.getProducts(order.user_id);
+      const itemsLower = (order.items || '').toLowerCase();
+      if (!itemsLower || userProducts.length === 0) return;
+
+      for (const prod of userProducts) {
+        const nameLower = prod.name.toLowerCase();
+        const wordMatch = nameLower
+          .split(/\s+/)
+          .filter((w) => w.length >= 4)
+          .some((w) => itemsLower.includes(w));
+        const kwMatch = prod.keywords?.some(
+          (k) => k.trim().length >= 3 && itemsLower.includes(k.trim().toLowerCase())
+        );
+
+        if (itemsLower.includes(nameLower) || wordMatch || kwMatch) {
+          const currentStock =
+            prod.stock_quantity !== undefined
+              ? Number(prod.stock_quantity)
+              : prod.stock_status === 'out_of_stock'
+              ? 0
+              : prod.stock_status === 'low_stock'
+              ? 5
+              : 25;
+          const nextStock = Math.max(0, currentStock - qtyToDeduct);
+          const nextStatus: Product['stock_status'] =
+            nextStock <= 0 ? 'out_of_stock' : nextStock <= 5 ? 'low_stock' : 'in_stock';
+
+          this.updateProduct(prod.id, {
+            stock_quantity: nextStock,
+            sold_count: (prod.sold_count || 0) + qtyToDeduct,
+            stock_status: nextStatus
+          });
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn('[Auto Stock Deduction] Warning:', err);
+    }
   }
 
   updateOrder(id: string, updates: Partial<Order>): Order | undefined {
@@ -2443,6 +2541,101 @@ MANDATORY LANGUAGE & REPLY RULES:
     const idx = this.data.email_campaigns.findIndex((c) => c.id === id && c.user_id === userId);
     if (idx === -1) return false;
     this.data.email_campaigns.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  // --- Business ERP: Purchases, Dues & Accounts Cashbook ---
+  getPurchases(userId: string): PurchaseRecord[] {
+    if (!this.data.purchases) {
+      this.data.purchases = [];
+    }
+    return this.data.purchases
+      .filter((p) => p.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  createPurchase(purchase: PurchaseRecord): PurchaseRecord {
+    if (!this.data.purchases) {
+      this.data.purchases = [];
+    }
+    this.data.purchases.unshift(purchase);
+    this.persist();
+    return purchase;
+  }
+
+  deletePurchase(id: string, userId: string): boolean {
+    if (!this.data.purchases) return false;
+    const idx = this.data.purchases.findIndex((p) => p.id === id && p.user_id === userId);
+    if (idx === -1) return false;
+    this.data.purchases.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  getDueRecords(userId: string): DueRecord[] {
+    if (!this.data.dues) {
+      this.data.dues = [];
+    }
+    return this.data.dues
+      .filter((d) => d.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  createDueRecord(due: DueRecord): DueRecord {
+    if (!this.data.dues) {
+      this.data.dues = [];
+    }
+    this.data.dues.unshift(due);
+    this.persist();
+    return due;
+  }
+
+  updateDueRecord(id: string, userId: string, updates: Partial<DueRecord>): DueRecord | undefined {
+    if (!this.data.dues) return undefined;
+    const idx = this.data.dues.findIndex((d) => d.id === id && d.user_id === userId);
+    if (idx === -1) return undefined;
+    this.data.dues[idx] = {
+      ...this.data.dues[idx],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    this.persist();
+    return this.data.dues[idx];
+  }
+
+  deleteDueRecord(id: string, userId: string): boolean {
+    if (!this.data.dues) return false;
+    const idx = this.data.dues.findIndex((d) => d.id === id && d.user_id === userId);
+    if (idx === -1) return false;
+    this.data.dues.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  getAccountTransactions(userId: string): AccountTransaction[] {
+    if (!this.data.account_transactions) {
+      this.data.account_transactions = [];
+    }
+    return this.data.account_transactions
+      .filter((t) => t.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  createAccountTransaction(tx: AccountTransaction): AccountTransaction {
+    if (!this.data.account_transactions) {
+      this.data.account_transactions = [];
+    }
+    this.data.account_transactions.unshift(tx);
+    this.persist();
+    return tx;
+  }
+
+  deleteAccountTransaction(id: string, userId: string): boolean {
+    if (!this.data.account_transactions) return false;
+    const idx = this.data.account_transactions.findIndex((t) => t.id === id && t.user_id === userId);
+    if (idx === -1) return false;
+    this.data.account_transactions.splice(idx, 1);
     this.persist();
     return true;
   }

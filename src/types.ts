@@ -225,6 +225,8 @@ export interface Product {
   name: string;
   price: number;
   buying_price?: number;
+  stock_quantity?: number;
+  sold_count?: number;
   currency: string;
   category: string;
   description: string;
@@ -233,6 +235,54 @@ export interface Product {
   keywords?: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  user_id: string;
+  supplier_name: string;
+  supplier_phone?: string;
+  product_id?: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  paid_amount: number;
+  due_amount: number;
+  payment_method: 'cash' | 'bkash' | 'nagad' | 'bank';
+  notes?: string;
+  created_at: string;
+}
+
+export interface DueRecord {
+  id: string;
+  user_id: string;
+  party_type: 'customer' | 'supplier';
+  party_name: string;
+  party_phone?: string;
+  reference_type: 'order' | 'purchase' | 'manual';
+  reference_id?: string;
+  description: string;
+  total_amount: number;
+  paid_amount: number;
+  due_amount: number;
+  status: 'unpaid' | 'partial' | 'settled';
+  due_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountTransaction {
+  id: string;
+  user_id: string;
+  type: 'income' | 'expense';
+  category: string;
+  title: string;
+  amount: number;
+  payment_method: 'cash' | 'bkash' | 'nagad' | 'bank';
+  reference_id?: string;
+  notes?: string;
+  created_at: string;
 }
 
 export interface ContactLead {

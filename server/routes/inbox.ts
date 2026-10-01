@@ -526,10 +526,10 @@ inboxRouter.put('/broadcast-quota', (req: Request, res: Response) => {
   const updated = db.updateAutomationSettings(user.id, {
     ...current,
     daily_whatsapp_vip_limit:
-      dailyLimit !== undefined ? Math.min(250, Math.max(1, Number(dailyLimit) || 50)) : current.daily_whatsapp_vip_limit,
+      dailyLimit !== undefined ? Math.min(1000, Math.max(1, Number(dailyLimit) || 50)) : current.daily_whatsapp_vip_limit,
     per_customer_daily_limit:
       perCustomerDailyLimit !== undefined
-        ? Math.min(5, Math.max(1, Number(perCustomerDailyLimit) || 1))
+        ? Math.min(2, Math.max(1, Number(perCustomerDailyLimit) || 1))
         : current.per_customer_daily_limit,
     enforce_whatsapp_24h_window:
       enforce24hWindow !== undefined ? Boolean(enforce24hWindow) : current.enforce_whatsapp_24h_window

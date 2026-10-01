@@ -395,21 +395,25 @@ export const ContactsView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs font-bold text-neutral-600 dark:text-neutral-300 flex items-center gap-1">
               <Sliders className="w-3.5 h-3.5 text-purple-600" />
-              Daily WhatsApp Tier Limit:
+              Safe Daily Limit:
             </label>
             <select
-              value={quota.dailyLimit}
+              value={
+                [2, 10, 25, 50, 100, 250, 1000].includes(quota.dailyLimit)
+                  ? quota.dailyLimit
+                  : 50
+              }
               disabled={updatingLimit}
               onChange={(e) => handleUpdateDailyLimit(Number(e.target.value))}
               className="px-3 py-1.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-900 dark:text-white cursor-pointer"
             >
               <option value={2}>2 Messages / 24h (Quick Limit Test)</option>
-              <option value={5}>5 Messages / 24h (Starter Safe Mode)</option>
-              <option value={10}>10 Messages / 24h (Warmup Mode)</option>
-              <option value={25}>25 Messages / 24h (Standard Safe)</option>
-              <option value={50}>50 Messages / 24h (Recommended)</option>
-              <option value={100}>100 Messages / 24h (Growth Tier)</option>
-              <option value={250}>250 Messages / 24h (WhatsApp Tier-1 Max)</option>
+              <option value={10}>10 Messages / 24h (New Number Warmup — 100% Safe)</option>
+              <option value={25}>25 Messages / 24h (Starter Store — 100% Safe)</option>
+              <option value={50}>50 Messages / 24h (Recommended Anti-Ban Default)</option>
+              <option value={100}>100 Messages / 24h (Active Store Safe Limit)</option>
+              <option value={250}>250 Messages / 24h (Meta Unverified Official Max)</option>
+              <option value={1000}>1,000 Messages / 24h (Meta Verified Business Only)</option>
             </select>
           </div>
         </div>

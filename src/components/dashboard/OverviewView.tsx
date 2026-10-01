@@ -575,6 +575,27 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
             <button
               type="button"
+              onClick={() => onNavigate('business-erp')}
+              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                    Accounts, Stock &amp; Due ERP
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Sales, Purchase, Auto Stock, Due Book &amp; Cashbook
+                  </span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => onNavigate('appointments')}
               className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
             >

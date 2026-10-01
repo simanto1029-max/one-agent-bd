@@ -1731,6 +1731,138 @@ export const api = {
     return fetchJson(`/api/email-campaigns/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  // Business Accounting, Purchase, Stock, Due & Reports ERP
+  async getErpSummary(): Promise<any> {
+    return fetchJson('/api/erp/summary');
+  },
+
+  async createErpPurchase(data: {
+    supplier_name: string;
+    supplier_phone?: string;
+    product_id?: string;
+    product_name?: string;
+    quantity: number;
+    unit_cost: number;
+    paid_amount?: number;
+    selling_price?: number;
+    payment_method?: 'cash' | 'bkash' | 'nagad' | 'bank';
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    purchase: any;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson('/api/erp/purchases', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteErpPurchase(id: string): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/purchases/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async updateErpStock(
+    productId: string,
+    data: {
+      stock_quantity?: number;
+      buying_price?: number;
+      price?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/stock/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async createErpDue(data: {
+    party_type: 'customer' | 'supplier';
+    party_name: string;
+    party_phone?: string;
+    description: string;
+    total_amount: number;
+    paid_amount?: number;
+    due_date?: string;
+  }): Promise<{
+    success: boolean;
+    due: any;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson('/api/erp/dues', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async settleErpDue(
+    id: string,
+    data?: {
+      amount?: number;
+      payment_method?: 'cash' | 'bkash' | 'nagad' | 'bank';
+    }
+  ): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/dues/${id}/settle`, {
+      method: 'POST',
+      body: JSON.stringify(data || {})
+    });
+  },
+
+  async deleteErpDue(id: string): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/dues/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async createErpTransaction(data: {
+    type: 'income' | 'expense';
+    category: string;
+    title: string;
+    amount: number;
+    payment_method?: 'cash' | 'bkash' | 'nagad' | 'bank';
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    transaction: any;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson('/api/erp/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteErpTransaction(id: string): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/transactions/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
 
