@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, AlertTriangle, X, Phone, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, AlertTriangle, X, Phone, CheckCircle2, XCircle, Search, Lock, Crown } from 'lucide-react';
 import { Order } from '../../types';
 
 export interface CourierStatRow {
@@ -130,12 +130,16 @@ interface CustomerFraudBadgeProps {
   phone?: string;
   customerName?: string;
   allOrders?: Order[];
+  isProPlan?: boolean;
+  onUpgradeToPro?: () => void;
 }
 
 export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
   phone,
   customerName,
-  allOrders = []
+  allOrders = [],
+  isProPlan = true,
+  onUpgradeToPro
 }) => {
   const [openModal, setOpenModal] = useState(false);
 
@@ -164,6 +168,26 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
     : report.riskLevel === 'moderate'
     ? `AI Check: ${report.successRate}% Moderate (${report.deliveredParcels}/${report.totalParcels})`
     : `AI Fraud Alert: ${report.successRate}% Risk (${report.returnedParcels} Returned!)`;
+
+  if (!isProPlan) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onUpgradeToPro) onUpgradeToPro();
+        }}
+        title="AI Auto Fraud Check is a Pro Business Plan feature. Click to upgrade."
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold border border-purple-500/30 bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 hover:bg-purple-500/20 transition-all cursor-pointer"
+      >
+        <Lock className="w-2.5 h-2.5 shrink-0" />
+        <span className="px-1 py-0.2 rounded bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[8px] font-black uppercase">
+          PRO
+        </span>
+        <span className="filter blur-[3.5px] select-none opacity-80">{autoSummaryText}</span>
+      </button>
+    );
+  }
 
   return (
     <>
@@ -471,15 +495,43 @@ interface AutoFraudInlineAlertProps {
   phone?: string;
   allOrders?: Order[];
   showSafeSummary?: boolean;
+  isProPlan?: boolean;
+  onUpgradeToPro?: () => void;
 }
 
 export const AutoFraudInlineAlert: React.FC<AutoFraudInlineAlertProps> = ({
   phone,
   allOrders = [],
-  showSafeSummary = false
+  showSafeSummary = false,
+  isProPlan = true,
+  onUpgradeToPro
 }) => {
   if (!phone) return null;
   const report = analyzeCustomerCourierHistory(phone, allOrders);
+
+  if (!isProPlan) {
+    if (report.riskLevel === 'safe' && !showSafeSummary) return null;
+    return (
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onUpgradeToPro) onUpgradeToPro();
+        }}
+        className="mt-1.5 relative px-2.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-[10px] flex items-center justify-between gap-2 cursor-pointer hover:bg-purple-500/15 transition-all overflow-hidden"
+      >
+        <div className="flex items-center gap-1.5 filter blur-[3.5px] select-none opacity-70 pointer-events-none">
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+          <span className="text-slate-700 dark:text-slate-300 font-semibold">
+            AI Auto-Check: কাস্টমারের কুরিয়ার ডেলিভারি ও রিটার্ন রেকর্ড রিপোর্ট ({report.successRate}% রেশিও)
+          </span>
+        </div>
+        <span className="relative z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[9px] font-extrabold shrink-0 shadow-xs">
+          <Crown className="w-2.5 h-2.5" />
+          <span>Unlock in Pro</span>
+        </span>
+      </div>
+    );
+  }
 
   if (report.riskLevel === 'high') {
     return (

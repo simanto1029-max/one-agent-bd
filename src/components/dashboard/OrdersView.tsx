@@ -53,9 +53,15 @@ import {
 
 interface OrdersViewProps {
   onGoToInbox?: (customerId?: string, platform?: 'whatsapp' | 'messenger' | 'instagram') => void;
+  isProPlan?: boolean;
+  onUpgradeToPro?: () => void;
 }
 
-export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
+export const OrdersView: React.FC<OrdersViewProps> = ({
+  onGoToInbox,
+  isProPlan = true,
+  onUpgradeToPro
+}) => {
   const [orderHubTab, setOrderHubTab] = useState<'all' | 'delivery-courier'>('all');
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<OrderMetrics>({
@@ -909,11 +915,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                             phone={order.customer_phone}
                             customerName={order.customer_name}
                             allOrders={orders}
+                            isProPlan={isProPlan}
+                            onUpgradeToPro={onUpgradeToPro}
                           />
                         </div>
                       )}
                       {order.customer_phone && (
-                        <AutoFraudInlineAlert phone={order.customer_phone} allOrders={orders} />
+                        <AutoFraudInlineAlert
+                          phone={order.customer_phone}
+                          allOrders={orders}
+                          isProPlan={isProPlan}
+                          onUpgradeToPro={onUpgradeToPro}
+                        />
                       )}
                       {order.customer_address && order.customer_address !== 'Address provided in chat' && (
                         <div className="text-[11px] text-neutral-400 truncate max-w-[180px] flex items-center gap-1 mt-0.5" title={order.customer_address}>
@@ -989,15 +1002,28 @@ export const OrdersView: React.FC<OrdersViewProps> = ({ onGoToInbox }) => {
                         {/* 1-Click Send to Courier */}
                         <button
                           onClick={() => {
+                            if (!isProPlan && onUpgradeToPro) {
+                              onUpgradeToPro();
+                              return;
+                            }
                             setSelectedCourierOrder(order);
                             setCourierModalTab('quick');
                             setShowCourierModal(true);
                           }}
-                          title="1-Click Dispatch to Courier (Steadfast/Pathao/RedX)"
+                          title={
+                            isProPlan
+                              ? '1-Click Dispatch to Courier (Steadfast/Pathao/RedX)'
+                              : 'Pro Business Plan Feature — Click to Upgrade'
+                          }
                           className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex items-center gap-1 font-semibold"
                         >
                           <Truck className="w-3.5 h-3.5" />
                           <span className="text-[10px] hidden md:inline">Courier</span>
+                          {!isProPlan && (
+                            <span className="px-1 py-0.2 rounded bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[8px] font-black uppercase">
+                              PRO
+                            </span>
+                          )}
                         </button>
 
                         <button

@@ -7,7 +7,9 @@ import {
   Loader2,
   Zap,
   Crown,
-  Clock
+  Clock,
+  ChevronDown,
+  ShieldCheck
 } from 'lucide-react';
 import { api } from '../../api';
 import { Plan } from '../../types';
@@ -27,6 +29,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   const [loading, setLoading] = useState(true);
   const [durationMode, setDurationMode] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
+  const [expandedPlanIds, setExpandedPlanIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadPlans();
@@ -71,39 +74,47 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
     }
   };
 
+  const toggleExpandFeatures = (planId: string) => {
+    setExpandedPlanIds((prev) => ({
+      ...prev,
+      [planId]: !prev[planId]
+    }));
+  };
+
   return (
     <section
       id="pricing"
-      className="py-16 sm:py-20 bg-gradient-to-b from-[#EDE7FE] via-[#F4F0FF] to-white dark:from-[#0C0722] dark:via-[#130C33] dark:to-[#0A061C] border-t border-violet-100 dark:border-purple-500/15 relative overflow-hidden transition-colors"
+      className="py-16 sm:py-20 bg-gradient-to-b from-[#F4EFFE] via-[#FAF8FF] to-white dark:from-[#09051A] dark:via-[#110A2E] dark:to-[#080517] border-t border-violet-200/60 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
-      {/* Decorative soft ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[750px] h-[320px] bg-gradient-to-tr from-purple-300/30 via-pink-200/25 to-transparent dark:from-purple-900/20 dark:via-pink-900/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Brand ambient radial lighting */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[640px] h-[280px] bg-gradient-to-tr from-[#7F22FE]/20 via-fuchsia-500/15 to-transparent dark:from-[#7F22FE]/25 dark:via-fuchsia-600/15 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Top Badge & Heading matching screenshot */}
-        <div className="text-center max-w-2xl mx-auto mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/90 dark:bg-neutral-800 border border-violet-200/80 dark:border-neutral-700 text-[#7C3AED] dark:text-violet-400 text-xs font-semibold mb-3.5 shadow-2xs">
-            <span>Simple & Transparent Pricing</span>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* Top Badge & Heading */}
+        <div className="text-center max-w-xl mx-auto mb-7">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/90 dark:bg-[#19103B] border border-violet-200/80 dark:border-purple-500/30 text-[#7F22FE] dark:text-purple-300 text-xs font-bold mb-3 shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400" />
+            <span>Simple &amp; Transparent Pricing</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0F172A] dark:text-white mb-3">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A] dark:text-white mb-2.5">
             Choose Your Perfect Plan
           </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-neutral-400 leading-relaxed max-w-xl mx-auto">
-            Scale your business with our AI-powered automation tools. All plans include core features with no hidden fees.
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            Start with our core AI agent or unlock the full Pro Business suite with ERP, 1-click courier dispatch, and auto fraud protection.
           </p>
         </div>
 
-        {/* Pill Billing Cycle Switcher matching screenshot */}
-        <div className="flex flex-col items-center gap-3.5 mb-10">
-          <div className="inline-flex items-center p-1.5 rounded-full bg-white dark:bg-neutral-800 border border-violet-100 dark:border-neutral-700 shadow-sm">
+        {/* Pill Billing Cycle Switcher */}
+        <div className="flex flex-col items-center gap-3 mb-9">
+          <div className="inline-flex items-center p-1 rounded-full bg-white dark:bg-[#150D34] border border-violet-200/80 dark:border-purple-500/25 shadow-sm">
             <button
               type="button"
               onClick={() => handleModeChange('monthly')}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 durationMode === 'monthly'
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#DB2777] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-[#7F22FE] to-[#9333EA] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <span>Monthly</span>
@@ -111,7 +122,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                 className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                   durationMode === 'monthly'
                     ? 'bg-white/20 text-white'
-                    : 'bg-purple-100 dark:bg-purple-950 text-[#7C3AED] dark:text-purple-300'
+                    : 'bg-purple-100 dark:bg-purple-950 text-[#7F22FE] dark:text-purple-300'
                 }`}
               >
                 Up to 15% OFF
@@ -120,10 +131,10 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             <button
               type="button"
               onClick={() => handleModeChange('yearly')}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 durationMode === 'yearly'
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#DB2777] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-[#7F22FE] to-[#9333EA] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <span>Yearly (1Y – 6Y)</span>
@@ -131,7 +142,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                 className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                   durationMode === 'yearly'
                     ? 'bg-white/20 text-white'
-                    : 'bg-[#DCFCE7] text-[#15803D]'
+                    : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
                 }`}
               >
                 15% – 30% OFF
@@ -139,8 +150,8 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             </button>
           </div>
 
-          {/* Duration Pills with Explicit % Discount Badges */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl sm:rounded-full bg-white/90 dark:bg-neutral-900 border border-violet-200/70 dark:border-neutral-700 shadow-2xs">
+          {/* Duration Pills */}
+          <div className="inline-flex flex-wrap items-center justify-center gap-1 p-1 rounded-2xl sm:rounded-full bg-white/90 dark:bg-[#130C30] border border-violet-200/70 dark:border-purple-500/20 shadow-2xs">
             {filteredDurations.map((opt) => {
               const isSelected = opt.id === selectedDurationId;
               return (
@@ -148,19 +159,19 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                   key={opt.id}
                   type="button"
                   onClick={() => setSelectedDurationId(opt.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSelected
-                      ? 'bg-[#0F172A] dark:bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:bg-violet-50/70 dark:hover:bg-neutral-800'
+                      ? 'bg-[#7F22FE] text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-violet-50/70 dark:hover:bg-purple-950/40'
                   }`}
                 >
                   <span>{opt.label}</span>
                   {opt.discountPercent > 0 && (
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-tight ${
+                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold tracking-tight ${
                         isSelected
                           ? 'bg-emerald-400 text-slate-950'
-                          : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
+                          : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
                       }`}
                     >
                       {opt.discountPercent}% OFF
@@ -174,17 +185,22 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
         {loading ? (
           <div className="flex justify-center py-14">
-            <Loader2 className="w-7 h-7 animate-spin text-[#7C3AED]" />
+            <Loader2 className="w-7 h-7 animate-spin text-[#7F22FE]" />
           </div>
         ) : (
           <>
-            {/* 2 Cards Side-by-Side matching screenshot style */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 w-full items-stretch">
+            {/* Compact Centered 2-Card Grid (Narrower Width & Centered) */}
+            <div className="max-w-[680px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-5 items-start justify-center">
               {displayPlans.map((plan, index) => {
                 const isPro = plan.price >= 1950 || plan.id.includes('pro');
                 const originalPrice = calculateOriginalPlanPrice(plan.price, activeDuration.months);
                 const totalPrice = calculateCustomPlanPrice(plan.price, activeDuration.months);
                 const savedAmount = Math.max(0, originalPrice - totalPrice);
+
+                const halfIndex = Math.ceil(plan.features.length / 2);
+                const firstHalfFeatures = plan.features.slice(0, halfIndex);
+                const secondHalfFeatures = plan.features.slice(halfIndex);
+                const isExpanded = Boolean(expandedPlanIds[plan.id]);
 
                 return (
                   <motion.div
@@ -193,89 +209,146 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.3, delay: index * 0.08 }}
-                    className={`relative rounded-[24px] p-6 sm:p-7 transition-all flex flex-col justify-between bg-white dark:bg-[#140D2E]/95 ${
+                    className={`w-full max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all flex flex-col justify-between ${
                       isPro
-                        ? 'border-2 border-[#8B5CF6] shadow-xl shadow-purple-500/15'
-                        : 'border border-slate-200/90 dark:border-purple-500/20 shadow-lg shadow-slate-900/5'
+                        ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_16px_44px_-10px_rgba(127,34,254,0.34)] ring-1 ring-fuchsia-500/20'
+                        : 'bg-white/95 dark:bg-[#120B2B]/95 border border-violet-200/90 dark:border-purple-500/25 shadow-lg shadow-purple-950/5'
                     }`}
                   >
-                    {/* Top Center Floating Pill Badge for Most Popular Plan */}
-                    {isPro && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
-                        <Sparkles className="w-3 h-3" />
-                        <span>Most Popular • More Channels</span>
+                    {/* Top Floating Pill Badge */}
+                    {isPro ? (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] text-white text-[10px] font-extrabold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
+                        <Crown className="w-3 h-3" />
+                        <span>Most Popular • Full Pro Suite</span>
+                      </div>
+                    ) : (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-100 dark:bg-[#1E1445] border border-violet-200 dark:border-purple-500/30 text-slate-700 dark:text-purple-200 text-[10px] font-bold tracking-wide whitespace-nowrap">
+                        <span>Core AI Automation</span>
                       </div>
                     )}
 
                     <div>
-                      {/* Card Header with Right Pastel Icon Box matching screenshot */}
-                      <div className="flex items-start justify-between gap-3 mb-5">
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between gap-2.5 mb-3.5 pt-1">
                         <div>
-                          <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] dark:text-white">
+                          <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white">
                             {plan.name}
                           </h3>
-                          <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                             {isPro
-                              ? 'Connect up to 10 channels, 3 AI agents & unlimited multi-store scaling'
-                              : 'All SaaS AI features included for your business & up to 3 channels'}
+                              ? 'All new Pro features, ERP, Courier, Auto Fraud Check & 10 Channels'
+                              : 'Essential AI Auto-Reply & Order Capture for up to 3 Channels'}
                           </p>
                         </div>
 
                         <div
-                          className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isPro
-                              ? 'bg-[#FCE7F3] dark:bg-pink-950/60 text-[#DB2777] dark:text-pink-400'
-                              : 'bg-[#F3E8FF] dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-400'
+                              ? 'bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white shadow-md shadow-purple-500/25'
+                              : 'bg-purple-100 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300'
                           }`}
                         >
-                          {isPro ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
+                          {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                         </div>
                       </div>
 
-                      {/* Price Display matching screenshot */}
-                      <div className="mb-6 pb-5 border-b border-slate-100 dark:border-neutral-800">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+                      {/* Price Display */}
+                      <div className="mb-4 pb-3.5 border-b border-violet-100 dark:border-purple-500/15">
+                        <div className="flex flex-wrap items-baseline gap-1.5">
+                          <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#0F172A] dark:text-white">
                             TK {totalPrice.toLocaleString()}
                           </span>
-                          <span className="text-xs font-semibold text-slate-500 dark:text-neutral-400">
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                             /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                           </span>
                           {savedAmount > 0 && (
                             <>
-                              <span className="text-sm font-bold text-rose-500 line-through">
+                              <span className="text-xs font-bold text-rose-500 line-through">
                                 TK {originalPrice.toLocaleString()}
                               </span>
-                              <span className="px-2.5 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[11px] font-extrabold shadow-2xs">
-                                🔥 {activeDuration.discountPercent}% DISCOUNT (Save TK {savedAmount.toLocaleString()})
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                                Save TK {savedAmount.toLocaleString()}
                               </span>
                             </>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-neutral-400 font-medium mt-1.5">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                           {activeDuration.months === 1
-                            ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
-                            : savedAmount > 0
-                            ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% Discount applied (${activeDuration.days} Days access)`
-                            : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days total)`}
+                            ? `Base rate ${plan.price.toLocaleString()} TK/mo • ${activeDuration.days} Days access`
+                            : `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% OFF (${activeDuration.days} Days)`}
                         </p>
                       </div>
 
-                      {/* Feature Checklist with Mint Green Checkmarks matching screenshot */}
-                      <ul className="space-y-3 mb-7">
-                        {plan.features.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-neutral-300">
-                            <div className="w-5 h-5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#16A34A] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                              <Check className="w-3 h-3 stroke-[2.5]" />
+                      {/* First Half Features Always Visible */}
+                      <ul className="space-y-2">
+                        {firstHalfFeatures.map((feature, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200">
+                            <div
+                              className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                isPro
+                                  ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
+                                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                              }`}
+                            >
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
                             </div>
                             <span className="leading-snug font-medium">{feature}</span>
                           </li>
                         ))}
                       </ul>
+
+                      {/* Second Half Features Smooth Accordion */}
+                      {secondHalfFeatures.length > 0 && (
+                        <>
+                          <div
+                            className={`grid transition-all duration-300 ease-in-out ${
+                              isExpanded
+                                ? 'grid-rows-[1fr] opacity-100 mt-2'
+                                : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+                            }`}
+                          >
+                            <div className="overflow-hidden">
+                              <ul className="space-y-2 pt-0.5">
+                                {secondHalfFeatures.map((feature, i) => (
+                                  <li key={i} className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200">
+                                    <div
+                                      className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                        isPro
+                                          ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
+                                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                      }`}
+                                    >
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </div>
+                                    <span className="leading-snug font-medium">{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandFeatures(plan.id)}
+                            className="mt-3 mb-4 w-full py-1.5 px-3 rounded-xl bg-violet-50/80 dark:bg-purple-950/40 hover:bg-violet-100 dark:hover:bg-purple-900/50 text-[#7F22FE] dark:text-purple-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 border border-violet-200/60 dark:border-purple-500/20 transition-all cursor-pointer"
+                          >
+                            <span>
+                              {isExpanded
+                                ? 'Show Less Features'
+                                : `See More Features (+${secondHalfFeatures.length})`}
+                            </span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                                isExpanded ? 'rotate-180' : 'rotate-0'
+                              }`}
+                            />
+                          </button>
+                        </>
+                      )}
                     </div>
 
-                    {/* Action Buttons: Direct Buy + 2 Days Free Trial */}
-                    <div className="space-y-2.5 pt-2">
+                    {/* Action Buttons */}
+                    <div className="space-y-2 pt-1">
                       <button
                         type="button"
                         onClick={() =>
@@ -289,13 +362,14 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                             'buy'
                           )
                         }
-                        className="w-full py-3.5 px-5 rounded-full font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white border border-purple-300/30 shadow-[0_6px_20px_rgba(124,58,237,0.35)]"
+                        className={`w-full py-2.5 px-4 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          isPro
+                            ? 'bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#C026D3] hover:from-[#6D28D9] hover:to-[#A21CAF] text-white shadow-[0_6px_20px_rgba(127,34,254,0.38)]'
+                            : 'bg-[#1E1442] dark:bg-purple-950/90 hover:bg-[#7F22FE] dark:hover:bg-[#7F22FE] text-white border border-purple-500/30 shadow-sm'
+                        }`}
                       >
                         <span>
-                          Buy Plan Now — TK {totalPrice.toLocaleString()}
-                          {activeDuration.discountPercent > 0
-                            ? ` (${activeDuration.discountPercent}% OFF)`
-                            : ''}
+                          Buy {isPro ? 'Pro Plan' : 'Starter Plan'} — TK {totalPrice.toLocaleString()}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
@@ -313,9 +387,9 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                             'trial'
                           )
                         }
-                        className="w-full py-2.5 px-4 rounded-full bg-violet-50/70 dark:bg-[#1A103C] hover:bg-violet-100/80 dark:hover:bg-[#23164F] text-[#7C3AED] dark:text-purple-300 border border-violet-200/70 dark:border-purple-500/30 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-2 px-3 rounded-xl bg-violet-50/70 dark:bg-[#1A103C] hover:bg-violet-100/80 dark:hover:bg-[#23164F] text-[#7F22FE] dark:text-purple-300 border border-violet-200/70 dark:border-purple-500/25 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="w-3 h-3" />
                         <span>Start 2 Days Free Trial</span>
                       </button>
                     </div>
@@ -324,23 +398,18 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
               })}
             </div>
 
-            {/* Bottom 2 Days Free Trial Banner Card */}
-            <div className="w-full mt-7 p-5 sm:p-6 rounded-[24px] bg-white dark:bg-[#140D2E]/95 border border-violet-200/80 dark:border-purple-500/25 shadow-md shadow-violet-950/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3.5 text-center sm:text-left">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#DB2777] text-white flex items-center justify-center shrink-0 mx-auto sm:mx-0 shadow-sm">
-                  <Sparkles className="w-5 h-5" />
+            {/* Compact Centered Bottom Trial Banner */}
+            <div className="max-w-[680px] mx-auto mt-6 p-4 sm:p-5 rounded-2xl bg-white/95 dark:bg-[#140D2E]/95 border border-violet-200/80 dark:border-purple-500/25 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3 text-center sm:text-left">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white flex items-center justify-center shrink-0 mx-auto sm:mx-0 shadow-xs">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                    <h4 className="text-sm sm:text-base font-extrabold text-[#0F172A] dark:text-white">
-                      Want to test everything first? Try 2 Days Free Trial!
-                    </h4>
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider">
-                      2 Days Free
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-                    Experience full AI auto-reply on WhatsApp, Messenger, Instagram & Website for 2 days free, or buy any direct plan above.
+                  <h4 className="text-xs sm:text-sm font-extrabold text-[#0F172A] dark:text-white">
+                    Starter Plan users can preview all Pro tools inside the dashboard!
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Upgrade to Pro Business Plan anytime to unlock ERP, Courier Dispatch, Auto Fraud Check &amp; Multi-Store Sync.
                   </p>
                 </div>
               </div>
@@ -350,15 +419,15 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                 onClick={() =>
                   onSelectPlan(
                     {
-                      ...displayPlans[0],
+                      ...displayPlans[1],
                       trial_days: 2
                     },
                     'trial'
                   )
                 }
-                className="px-5 py-2.5 rounded-full bg-[#0F172A] dark:bg-[#7C3AED] hover:bg-slate-800 dark:hover:bg-[#6D28D9] text-white text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer shadow-xs"
+                className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6D28D9] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
               >
-                <span>Activate 2 Days Free Trial</span>
+                <span>Try Pro Free (2 Days)</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

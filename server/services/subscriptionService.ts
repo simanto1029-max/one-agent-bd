@@ -90,16 +90,19 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   const canAccessDashboard = !isGated;
 
   const planId = sub.plan_id || 'plan_starter';
-  const isProPlan = planId.includes('pro') || (plan.name || '').toLowerCase().includes('pro') || isAdmin;
+  const isProPlan =
+    planId.includes('pro') ||
+    (plan.name || '').toLowerCase().includes('pro') ||
+    Number(plan.price) >= 1950;
   const featureConfig = (plan as any).feature_config || {
-    website_stores: true,
-    call_requests: true,
-    vip_broadcast: true,
-    courier_dispatch: true,
-    csv_export: true,
+    website_stores: isProPlan,
+    call_requests: isProPlan,
+    vip_broadcast: isProPlan,
+    courier_dispatch: isProPlan,
+    csv_export: isProPlan,
     max_channels: isProPlan ? 10 : 3
   };
-  const canAccessStores = !isExpired && featureConfig?.website_stores !== false;
+  const canAccessStores = !isExpired && isProPlan;
 
   return {
     subscription: sub,

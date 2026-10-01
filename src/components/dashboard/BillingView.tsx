@@ -10,7 +10,8 @@ import {
   Sparkles,
   Zap,
   Crown,
-  Tag
+  Tag,
+  ChevronDown
 } from 'lucide-react';
 import { CountdownTimer } from '../common/CountdownTimer';
 import {
@@ -44,6 +45,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(OFFICIAL_PLANS[0]);
   const [durationMode, setDurationMode] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
+  const [expandedPlanIds, setExpandedPlanIds] = useState<Record<string, boolean>>({});
   const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
   const [preselectedMethod, setPreselectedMethod] = useState<PaymentMethodKey | null>(null);
   const [loading, setLoading] = useState(true);
@@ -355,8 +357,8 @@ export const BillingView: React.FC<BillingViewProps> = ({
           </div>
         </div>
 
-        {/* 2 Interactive Selectable Plan Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto items-stretch">
+        {/* 2 Narrow Centered Selectable Plan Cards Grid with See More Toggle */}
+        <div className="max-w-[680px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-5 items-start justify-center">
           {plans.map((plan) => {
             const isPro = plan.price >= 1950 || plan.id.includes('pro');
             const isSelected = selectedPlan?.id === plan.id;
@@ -366,29 +368,39 @@ export const BillingView: React.FC<BillingViewProps> = ({
             const displayFeatures = plan.features.filter(
               (feat) => !feat.toLowerCase().includes('free trial')
             );
+            const halfIndex = Math.ceil(displayFeatures.length / 2);
+            const firstHalfFeatures = displayFeatures.slice(0, halfIndex);
+            const secondHalfFeatures = displayFeatures.slice(halfIndex);
+            const isExpanded = Boolean(expandedPlanIds[plan.id]);
 
             return (
               <div
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan)}
-                className={`relative rounded-[24px] p-6 sm:p-7 transition-all flex flex-col justify-between bg-white dark:bg-slate-900 cursor-pointer ${
-                  isSelected
-                    ? 'border-2 border-[#7C3AED] ring-4 ring-[#7C3AED]/10 shadow-xl shadow-purple-500/10'
-                    : 'border border-slate-200/90 dark:border-slate-800 hover:border-[#7C3AED]/50 shadow-lg shadow-slate-900/5'
+                className={`w-full max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all flex flex-col justify-between cursor-pointer ${
+                  isPro
+                    ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_16px_44px_-10px_rgba(127,34,254,0.34)] ring-1 ring-fuchsia-500/20'
+                    : isSelected
+                    ? 'bg-white dark:bg-[#120B2B] border-2 border-[#7C3AED] ring-4 ring-[#7C3AED]/10 shadow-xl shadow-purple-500/10'
+                    : 'bg-white/95 dark:bg-[#120B2B]/95 border border-violet-200/90 dark:border-purple-500/25 hover:border-[#7C3AED]/50 shadow-lg shadow-purple-950/5'
                 }`}
               >
-                {isPro && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
-                    <Sparkles className="w-3 h-3" />
-                    <span>Most Popular • More Channels</span>
+                {isPro ? (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] text-white text-[10px] font-extrabold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
+                    <Crown className="w-3 h-3" />
+                    <span>Most Popular • Full Pro Suite</span>
+                  </div>
+                ) : (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-100 dark:bg-[#1E1445] border border-violet-200 dark:border-purple-500/30 text-slate-700 dark:text-purple-200 text-[10px] font-bold tracking-wide whitespace-nowrap">
+                    <span>Core AI Automation</span>
                   </div>
                 )}
 
                 <div>
-                  <div className="flex items-start justify-between gap-3 mb-5">
+                  <div className="flex items-start justify-between gap-2.5 mb-3.5 pt-1">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
+                        <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white">
                           {plan.name}
                         </h3>
                         {isSelected && (
@@ -397,81 +409,145 @@ export const BillingView: React.FC<BillingViewProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                         {isPro
-                          ? 'Connect up to 10 channels, 3 AI agents & unlimited multi-store scaling'
-                          : 'All SaaS AI features included for your business & up to 3 channels'}
+                          ? 'All new Pro features, ERP, Courier, Auto Fraud Check & 10 Channels'
+                          : 'Essential AI Auto-Reply & Order Capture for up to 3 Channels'}
                       </p>
                     </div>
 
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                        isSelected
-                          ? 'bg-gradient-to-br from-[#7C3AED] to-[#9333EA] text-white shadow-sm'
-                          : 'bg-[#F3E8FF] dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300'
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isPro
+                          ? 'bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white shadow-md shadow-purple-500/25'
+                          : 'bg-purple-100 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300'
                       }`}
                     >
-                      {isPro ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
+                      {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                     </div>
                   </div>
 
-                  <div className="mb-5 pb-5 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+                  <div className="mb-4 pb-3.5 border-b border-violet-100 dark:border-purple-500/15">
+                    <div className="flex flex-wrap items-baseline gap-1.5">
+                      <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#0F172A] dark:text-white">
                         TK {totalPrice.toLocaleString()}
                       </span>
-                      <span className="text-xs font-semibold text-slate-500">
+                      <span className="text-xs font-bold text-slate-500">
                         /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                       </span>
                       {savedAmount > 0 && (
                         <>
-                          <span className="text-sm font-bold text-rose-500 line-through">
+                          <span className="text-xs font-bold text-rose-500 line-through">
                             TK {originalPrice.toLocaleString()}
                           </span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 text-[11px] font-extrabold">
-                            🔥 {activeDuration.discountPercent}% DISCOUNT (Save TK {savedAmount.toLocaleString()})
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                            Save TK {savedAmount.toLocaleString()}
                           </span>
                         </>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                       {activeDuration.months === 1
-                        ? `Base rate ${plan.price.toLocaleString()} TK/month • ${activeDuration.days} Days access`
-                        : savedAmount > 0
-                        ? `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% Discount applied (${activeDuration.days} Days)`
-                        : `${plan.price.toLocaleString()} TK/mo × ${activeDuration.months} months (${activeDuration.days} Days)`}
+                        ? `Base rate ${plan.price.toLocaleString()} TK/mo • ${activeDuration.days} Days access`
+                        : `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% OFF (${activeDuration.days} Days)`}
                     </p>
                   </div>
 
-                  <ul className="space-y-2.5 mb-6">
-                    {displayFeatures.map((feat, i) => (
+                  {/* First Half Features */}
+                  <ul className="space-y-2">
+                    {firstHalfFeatures.map((feat, i) => (
                       <li
                         key={i}
-                        className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300"
+                        className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200"
                       >
-                        <div className="w-5 h-5 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0 mt-0.5">
-                          <Check className="w-3 h-3 stroke-[2.5]" />
+                        <div
+                          className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            isPro
+                              ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
+                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          }`}
+                        >
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                         <span className="leading-snug font-medium">{feat}</span>
                       </li>
                     ))}
                   </ul>
+
+                  {/* Second Half Features Smooth Accordion */}
+                  {secondHalfFeatures.length > 0 && (
+                    <>
+                      <div
+                        className={`grid transition-all duration-300 ease-in-out ${
+                          isExpanded
+                            ? 'grid-rows-[1fr] opacity-100 mt-2'
+                            : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+                        }`}
+                      >
+                        <div className="overflow-hidden">
+                          <ul className="space-y-2 pt-0.5">
+                            {secondHalfFeatures.map((feat, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200"
+                              >
+                                <div
+                                  className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                    isPro
+                                      ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
+                                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                  }`}
+                                >
+                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                </div>
+                                <span className="leading-snug font-medium">{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedPlanIds((prev) => ({
+                            ...prev,
+                            [plan.id]: !prev[plan.id]
+                          }));
+                        }}
+                        className="mt-3 mb-4 w-full py-1.5 px-3 rounded-xl bg-violet-50/80 dark:bg-purple-950/40 hover:bg-violet-100 dark:hover:bg-purple-900/50 text-[#7F22FE] dark:text-purple-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 border border-violet-200/60 dark:border-purple-500/20 transition-all cursor-pointer"
+                      >
+                        <span>
+                          {isExpanded
+                            ? 'Show Less Features'
+                            : `See More Features (+${secondHalfFeatures.length})`}
+                        </span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                            isExpanded ? 'rotate-180' : 'rotate-0'
+                          }`}
+                        />
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-1">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleOpenGatewayForPlan(plan, null);
                     }}
-                    className="w-full py-3.5 px-5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white shadow-[0_6px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_8px_25px_rgba(124,58,237,0.45)]"
+                    className={`w-full py-2.5 px-4 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isPro
+                        ? 'bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#C026D3] hover:from-[#6D28D9] hover:to-[#A21CAF] text-white shadow-[0_6px_20px_rgba(127,34,254,0.38)]'
+                        : 'bg-[#1E1442] dark:bg-purple-950/90 hover:bg-[#7F22FE] dark:hover:bg-[#7F22FE] text-white border border-purple-500/30 shadow-sm'
+                    }`}
                   >
                     <span>
-                      Buy Plan Now — TK {totalPrice.toLocaleString()}
-                      {activeDuration.discountPercent > 0
-                        ? ` (${activeDuration.discountPercent}% OFF)`
-                        : ''}
+                      Buy {isPro ? 'Pro Plan' : 'Starter Plan'} — TK {totalPrice.toLocaleString()}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>

@@ -45,11 +45,19 @@ interface UnifiedInboxProps {
   channels: Channel[];
   onNavigate?: (tab: string) => void;
   initialConvKey?: string | null;
+  isProPlan?: boolean;
+  onUpgradeToPro?: () => void;
 }
 
 type CategoryTab = 'all' | 'orders' | 'delivered' | 'new_customer';
 
-export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate, initialConvKey }) => {
+export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
+  channels,
+  onNavigate,
+  initialConvKey,
+  isProPlan = true,
+  onUpgradeToPro
+}) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvKey, setSelectedConvKey] = useState<string | null>(initialConvKey || null);
   const [filterPlatform, setFilterPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
@@ -938,6 +946,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                         <CustomerFraudBadge
                           phone={detectedPhone}
                           customerName={selectedConv.customerName}
+                          isProPlan={isProPlan}
+                          onUpgradeToPro={onUpgradeToPro}
                         />
                       ) : null;
                     })()}

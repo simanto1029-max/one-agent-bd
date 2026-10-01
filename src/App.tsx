@@ -19,10 +19,13 @@ import {
   Calendar,
   Mail,
   BarChart3,
-  ChevronDown
+  ChevronDown,
+  Crown,
+  Lock
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
+import { OFFICIAL_TWO_PLANS } from './utils/pricingPlans';
 
 // Common & Auth
 import { AuthModal } from './components/auth/AuthModal';
@@ -61,6 +64,7 @@ import { PlanLockOverlay } from './components/dashboard/PlanLockOverlay';
 import { WebhookTesterModal } from './components/dashboard/WebhookTesterModal';
 import { GettingStartedTour } from './components/dashboard/GettingStartedTour';
 import { MerchantBroadcastBanner } from './components/dashboard/MerchantBroadcastBanner';
+import { ProFeatureBlurWrapper } from './components/dashboard/ProFeatureBlurWrapper';
 
 // Admin
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -247,7 +251,7 @@ export default function App() {
     label: string;
     defaultTab: TabId;
     icon: any;
-    tabs: { id: TabId; label: string; icon: any; desc: string }[];
+    tabs: { id: TabId; label: string; icon: any; desc: string; isProOnly?: boolean }[];
   }[] = [
     {
       groupId: 'dashboard',
@@ -265,9 +269,9 @@ export default function App() {
       icon: MessageSquare,
       tabs: [
         { id: 'inbox', label: 'Live Chat', icon: MessageSquare, desc: 'WhatsApp, Messenger & Instagram chats' },
-        { id: 'call-requests', label: 'Call Requests', icon: PhoneCall, desc: 'Customer callback & live handover queue' },
         { id: 'contacts', label: 'Contacts CRM', icon: Users, desc: 'Customer directory & chat history' },
-        { id: 'email-campaigns', label: 'AI Broadcast', icon: Mail, desc: 'AI email campaigns & broadcast' }
+        { id: 'call-requests', label: 'Call Requests', icon: PhoneCall, desc: 'Customer callback & live handover queue', isProOnly: true },
+        { id: 'email-campaigns', label: 'AI Broadcast', icon: Mail, desc: 'AI email campaigns & broadcast', isProOnly: true }
       ]
     },
     {
@@ -277,8 +281,8 @@ export default function App() {
       icon: ShoppingBag,
       tabs: [
         { id: 'orders', label: 'All Orders', icon: ShoppingBag, desc: 'AI-captured & manual customer orders' },
-        { id: 'delivery-courier', label: 'Courier & Steadfast', icon: Truck, desc: '1-click courier booking & tracking' },
-        { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Automated slot booking & calendar' }
+        { id: 'delivery-courier', label: 'Courier & Steadfast', icon: Truck, desc: '1-click courier booking & tracking', isProOnly: true },
+        { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Automated slot booking & calendar', isProOnly: true }
       ]
     },
     {
@@ -288,8 +292,8 @@ export default function App() {
       icon: Package,
       tabs: [
         { id: 'products', label: 'Product Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
-        { id: 'business-erp', label: 'Accounts & Stock ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook' },
-        { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync' }
+        { id: 'business-erp', label: 'Accounts & Stock ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook', isProOnly: true },
+        { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync', isProOnly: true }
       ]
     },
     {
@@ -300,7 +304,7 @@ export default function App() {
       tabs: [
         { id: 'channels', label: 'Connect Channels', icon: Smartphone, desc: 'Facebook Page, Instagram & WhatsApp' },
         { id: 'settings', label: 'AI Persona & Training', icon: Sparkles, desc: 'Business rules, delivery rates & prompts' },
-        { id: 'website-widget', label: 'Website Widget', icon: Bot, desc: 'Embeddable live chat widget for websites' }
+        { id: 'website-widget', label: 'Website Widget', icon: Bot, desc: 'Embeddable live chat widget for websites', isProOnly: true }
       ]
     },
     {
@@ -311,6 +315,19 @@ export default function App() {
       tabs: [{ id: 'billing', label: 'Billing & Plans', icon: CreditCard, desc: 'Subscription status, trial & payments' }]
     }
   ];
+
+  const isProPlan = Boolean(
+    subStatus?.isProPlan ||
+      subStatus?.planId?.includes('pro') ||
+      (subStatus?.planName || '').toLowerCase().includes('pro') ||
+      (subStatus?.price && subStatus.price >= 1950)
+  );
+
+  const handleNavigateToProUpgrade = () => {
+    setSelectedPlan(OFFICIAL_TWO_PLANS[1]);
+    setActiveTab('billing');
+    setIsLockBypassedForBilling(true);
+  };
 
   const currentPrimarySection =
     primarySections.find((sec) => sec.tabs.some((t) => t.id === activeTab)) || primarySections[0];
@@ -530,14 +547,22 @@ export default function App() {
                                         setActiveTab(sub.id);
                                         setIsMobileMenuOpen(false);
                                       }}
-                                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
+                                      className={`w-full px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                                         isSubActive
                                           ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-bold'
                                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                       }`}
                                     >
-                                      <SubIcon className="w-3.5 h-3.5" />
-                                      <span>{sub.label}</span>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <SubIcon className="w-3.5 h-3.5 shrink-0" />
+                                        <span className="truncate">{sub.label}</span>
+                                      </div>
+                                      {sub.isProOnly && !isProPlan && (
+                                        <span className="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[9px] font-black uppercase shrink-0 flex items-center gap-0.5">
+                                          <Lock className="w-2.5 h-2.5" />
+                                          <span>PRO</span>
+                                        </span>
+                                      )}
                                     </button>
                                   );
                                 })}
@@ -670,8 +695,15 @@ export default function App() {
                                         <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#7C3AED] dark:text-purple-300' : 'text-slate-400'}`} />
                                         <span className="truncate">{sub.label}</span>
                                       </div>
-                                      {isSubActive && (
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0" />
+                                      {sub.isProOnly && !isProPlan ? (
+                                        <span className="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[9px] font-black uppercase shrink-0 flex items-center gap-0.5">
+                                          <Lock className="w-2.5 h-2.5" />
+                                          <span>PRO</span>
+                                        </span>
+                                      ) : (
+                                        isSubActive && (
+                                          <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0" />
+                                        )
                                       )}
                                     </button>
                                   );
@@ -688,10 +720,11 @@ export default function App() {
 
               {/* Bottom Sidebar Compact Workspace Status Card */}
               <div className="pt-4 border-t border-slate-200/70 dark:border-purple-500/15">
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#160F35] border border-slate-200/80 dark:border-purple-500/20 space-y-2">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#160F35] border border-slate-200/80 dark:border-purple-500/20 space-y-2.5">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {subStatus?.planName || 'Starter AI Plan'}
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1">
+                      {isProPlan && <Crown className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />}
+                      <span>{isProPlan ? 'Pro Business Plan' : 'Starter AI Plan'}</span>
                     </span>
                     <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
                       {subStatus?.isExpired
@@ -701,6 +734,40 @@ export default function App() {
                         : '● Trial'}
                     </span>
                   </div>
+
+                  {/* Quick Starter vs Pro Mode Switcher for Testing Blurred vs Unlocked Features */}
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await api.switchPlan('plan_starter');
+                        await refreshUserData();
+                      }}
+                      className={`py-1 px-2 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                        !isProPlan
+                          ? 'bg-[#7C3AED] text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                      }`}
+                    >
+                      Starter (1250)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await api.switchPlan('plan_pro');
+                        await refreshUserData();
+                      }}
+                      className={`py-1 px-2 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isProPlan
+                          ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                      }`}
+                    >
+                      <Crown className="w-2.5 h-2.5" />
+                      <span>Pro (1950)</span>
+                    </button>
+                  </div>
+
                   {subStatus?.subscription?.end_date && !subStatus.isExpired && (
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                       <span>Remaining:</span>
@@ -713,7 +780,7 @@ export default function App() {
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5 pt-1">
+                  <div className="flex items-center gap-1.5 pt-0.5">
                     <button
                       onClick={() => {
                         setActiveTab('billing');
@@ -790,6 +857,8 @@ export default function App() {
 
               {activeTab === 'orders' && (
                 <OrdersView
+                  isProPlan={isProPlan}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
                   onGoToInbox={() => {
                     setActiveTab('inbox');
                   }}
@@ -797,56 +866,115 @@ export default function App() {
               )}
 
               {activeTab === 'delivery-courier' && (
-                <DeliveryCourierListView />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="1-Click Courier & Steadfast Dispatch"
+                  featureSubtitleBn="এই ফিচারটি শুধুমাত্র Pro Business Plan মেম্বারদের জন্য। Starter Plan-এ আপনি এর প্রিভিউ দেখতে পারছেন, তবে কুরিয়ারে পার্সেল বুকিং ও ট্র্যাকিং ব্যবহার করতে Pro Plan-এ আপগ্রেড করুন।"
+                  highlights={[
+                    '1-Click Steadfast, Pathao & RedX Parcel Booking',
+                    'AI Auto Customer Fraud & Delivery Ratio Check',
+                    'Bulk Courier Consignment Export & Live Tracking'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <DeliveryCourierListView />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'appointments' && (
-                <AppointmentsView
-                  onOpenCustomerChat={(platform, customerId) => {
-                    setInboxTargetConvKey(`${platform}_${customerId}`);
-                    setActiveTab('inbox');
-                  }}
-                />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="AI Appointments & Auto-Slot Booking"
+                  featureSubtitleBn="চ্যাট থেকে অটোমেটিক অ্যাপয়েন্টমেন্ট বুকিং এবং ক্যালেন্ডার শিডিউলিং শুধুমাত্র Pro Business Plan মেম্বারদের জন্য আনলক করা থাকে।"
+                  highlights={[
+                    'Autonomous Chat Appointment & Slot Booking',
+                    'Service Duration, Time Slot & Reminder Management',
+                    'Direct Customer Chat Handover from Calendar'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <AppointmentsView
+                    onOpenCustomerChat={(platform, customerId) => {
+                      setInboxTargetConvKey(`${platform}_${customerId}`);
+                      setActiveTab('inbox');
+                    }}
+                  />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'stores' && (
-                <StoresView
-                  subStatus={subStatus}
-                  onUpgradeToPro={() => {
-                    setActiveTab('billing');
-                    setIsLockBypassedForBilling(true);
-                  }}
-                  onNavigateToOrders={() => {
-                    setActiveTab('orders');
-                  }}
-                />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="Website, WooCommerce & Shopify Store Sync"
+                  featureSubtitleBn="আপনার ওয়েবসাইট, WooCommerce বা Shopify স্টোরের অর্ডার ও প্রোডাক্ট সিঙ্ক করার সুবিধাটি শুধুমাত্র Pro Business Plan-এ রয়েছে।"
+                  highlights={[
+                    'Unlimited Website, WooCommerce & Shopify Store Sync',
+                    'Real-Time Website Order Webhook & Catalog Sync',
+                    'Unified Order Management Across Social & Web'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <StoresView
+                    subStatus={subStatus}
+                    onUpgradeToPro={handleNavigateToProUpgrade}
+                    onNavigateToOrders={() => {
+                      setActiveTab('orders');
+                    }}
+                  />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'website-widget' && (
-                <WebsiteWidgetView
-                  currentUser={currentUser}
-                  onNavigateToInbox={() => {
-                    setActiveTab('inbox');
-                  }}
-                />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="Embeddable Website Live AI Chat Widget"
+                  featureSubtitleBn="যেকোনো ওয়েবসাইটে ১-ক্লিকে AI Live Chat Widget যুক্ত করার ফিচারটি শুধুমাত্র Pro Business Plan মেম্বারদের জন্য।"
+                  highlights={[
+                    '1-Line Script Embed for WordPress, Shopify & Custom Sites',
+                    '24/7 Voice, Image & Product Search on Your Website',
+                    'All Website Visitors Synced to Unified Inbox'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <WebsiteWidgetView
+                    currentUser={currentUser}
+                    onNavigateToInbox={() => {
+                      setActiveTab('inbox');
+                    }}
+                  />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'call-requests' && (
-                <CallRequestsView
-                  onNavigateToOrders={() => {
-                    setActiveTab('orders');
-                  }}
-                  onOpenCustomerChat={(platform, customerId) => {
-                    setInboxTargetConvKey(`${platform}_${customerId}`);
-                    setActiveTab('inbox');
-                  }}
-                />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="Customer Call Requests & Human Handover Queue"
+                  featureSubtitleBn="কাস্টমার কল রিকোয়েস্ট কিউ এবং হিউম্যান হ্যান্ডওভার ট্র্যাকিং শুধুমাত্র Pro Business Plan মেম্বারদের জন্য।"
+                  highlights={[
+                    'Automatic Detection When Customers Ask for a Phone Call',
+                    'Priority Callback Queue with Customer Phone & Notes',
+                    '1-Click Call Status Tracking & Chat Jump'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <CallRequestsView
+                    onNavigateToOrders={() => {
+                      setActiveTab('orders');
+                    }}
+                    onOpenCustomerChat={(platform, customerId) => {
+                      setInboxTargetConvKey(`${platform}_${customerId}`);
+                      setActiveTab('inbox');
+                    }}
+                  />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'inbox' && (
                 <UnifiedInbox
                   channels={channels}
                   initialConvKey={inboxTargetConvKey}
+                  isProPlan={isProPlan}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);
                     if (tab === 'billing') setIsLockBypassedForBilling(true);
@@ -880,11 +1008,35 @@ export default function App() {
               )}
 
               {activeTab === 'email-campaigns' && (
-                <EmailCampaignsView />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="AI Broadcast & Email Marketing Campaigns"
+                  featureSubtitleBn="সব কাস্টমারের কাছে এক ক্লিকে প্রমোশনাল অফার ও ইমেইল ক্যাম্পেইন পাঠানোর সুবিধাটি শুধুমাত্র Pro Business Plan-এ রয়েছে।"
+                  highlights={[
+                    'AI-Generated Promotional Broadcasts & Offer Templates',
+                    'Targeted Customer Segment Retargeting',
+                    'Campaign Delivery Analytics & Conversion Tracking'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <EmailCampaignsView />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'business-erp' && (
-                <BusinessErpView />
+                <ProFeatureBlurWrapper
+                  isProPlan={isProPlan}
+                  featureTitle="Accounts, Stock, Due & Profit ERP"
+                  featureSubtitleBn="প্রতিদিনের বিক্রি (Sales), ক্রয় (Purchase), স্টক হিসাব, বাকি (Due) এবং লাভ-ক্ষতির সম্পূর্ণ ERP সিস্টেমটি শুধুমাত্র Pro Business Plan মেম্বারদের জন্য।"
+                  highlights={[
+                    'Automated Sales, Purchase & Inventory Stock Ledger',
+                    'Customer Due / Baki Tracking & Cashbook Balance',
+                    'Real-Time Net Profit, Expense & Financial Reports'
+                  ]}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                >
+                  <BusinessErpView />
+                </ProFeatureBlurWrapper>
               )}
 
               {activeTab === 'billing' && (

@@ -196,6 +196,13 @@ export const api = {
     });
   },
 
+  async switchPlan(planId: 'plan_starter' | 'plan_pro'): Promise<{ status: SubscriptionStatusInfo; message: string }> {
+    return fetchJson('/api/subscriptions/switch-plan', {
+      method: 'POST',
+      body: JSON.stringify({ planId })
+    });
+  },
+
   // Payments & Coupons
   async applyCoupon(
     code: string,
