@@ -34,7 +34,9 @@ export const WebhookTesterModal: React.FC<WebhookTesterModalProps> = ({
   const [platform, setPlatform] = useState<'whatsapp' | 'messenger' | 'instagram'>('whatsapp');
   const [customerName, setCustomerName] = useState('Nabila Rahman');
   const [customerNumber, setCustomerNumber] = useState('+8801812345678');
-  const [messageBody, setMessageBody] = useState('Can you please send me pictures and details of your featured products?');
+  const [messageBody, setMessageBody] = useState('order korte cay');
+  const [showListDrawer, setShowListDrawer] = useState(false);
+  const [selectedListOption, setSelectedListOption] = useState<string>('');
 
   // Voice note state
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
@@ -149,12 +151,38 @@ export const WebhookTesterModal: React.FC<WebhookTesterModalProps> = ({
     }
   };
 
+  const dispatchSimulatedText = async (customText: string) => {
+    if (!customText.trim()) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setShowListDrawer(false);
+      setMessageBody(customText);
+
+      const res = await api.simulateInboundMessage({
+        platform,
+        customerName: customerName.trim(),
+        customerId: customerNumber.trim(),
+        messageText: customText.trim()
+      });
+
+      setResult(res);
+      const firstItem = res?.aiReplyMessage?.interactive_options?.listItems?.[0]?.title || '';
+      setSelectedListOption(firstItem);
+      if (onRefreshInbox) onRefreshInbox();
+    } catch (err: any) {
+      setError(err.message || 'Simulation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const textPresets = [
-    { label: '🛍️ Featured Catalog Details', text: 'Can you please send me pictures and details of your featured products?' },
-    { label: '⌚ Smartwatch Specs & Photo', text: 'Ultra Smartwatch er photo and ki ki features ache bistarito janan.' },
-    { label: '💼 Leather Wallet Photo & Price', text: 'Leather wallet er chobi dekhte chai and dam koto?' },
-    { label: '🎧 Earbuds Details & Warranty', text: 'What is the price, battery life, and warranty for the Wireless Earbuds?' },
-    { label: '📦 Confirm Order', text: 'Amar name Arif, phone 01711223344, House 12 Road 5 Dhanmondi Dhaka. Order ta confirm kore pathan.' }
+    { label: '🛒 order korte cay (Interactive Menu)', text: 'order korte cay' },
+    { label: '🏠 হোম পেজ (Main Menu)', text: 'হোম পেজ' },
+    { label: '🛍️ প্রোডাক্ট লিস্ট দেখান', text: 'আপনাদের কাছে কী কী পণ্য আছে? প্রোডাক্ট লিস্ট দেখান।' },
+    { label: '📦 Order Now (অর্ডার ফর্ম)', text: 'Order Now' },
+    { label: '✅ Confirm Order', text: 'Amar name Arif, phone 01711223344, House 12 Road 5 Dhanmondi Dhaka. Order ta confirm kore pathan.' }
   ];
 
   const sampleCatalogPhotos = [
@@ -520,40 +548,147 @@ export const WebhookTesterModal: React.FC<WebhookTesterModalProps> = ({
               </div>
             )}
 
-            {/* AI Text Reply */}
-            <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs space-y-2">
-              <span className="font-bold text-[#7F22FE] block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                AI Auto-Reply Output:
-              </span>
-              <p className="text-neutral-900 dark:text-white leading-relaxed whitespace-pre-line">
-                {result.aiReplyMessage?.message_text || result.replyText}
-              </p>
+            {/* AI Text Reply + WhatsApp/Messenger Interactive Buttons & Product Picker */}
+            <div className="p-4 rounded-2xl bg-[#111B21] text-white border border-neutral-800 text-xs space-y-3 shadow-lg">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <span className="font-bold text-emerald-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI Interactive Auto-Reply ({platform.toUpperCase()}):
+                </span>
+                <span className="text-[10px] text-neutral-400">Tap any button below to test live flow</span>
+              </div>
 
-              {/* Attached Official Product Image */}
-              {(result.aiReplyMessage?.has_image || result.aiReplyMessage?.image_url || result.attachedImageUrl) && (
-                <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 rounded-md bg-[#7F22FE]/10 text-[#7F22FE] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                      <ImageIcon className="w-3 h-3" />
-                      Official Product Photo Sent to Customer
-                    </span>
-                    {(result.aiReplyMessage?.product_name || result.attachedProductName) && (
-                      <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1">
-                        <ShoppingBag className="w-3 h-3 text-neutral-400" />
-                        {result.aiReplyMessage?.product_name || result.attachedProductName}
+              <div className="bg-[#202C33] rounded-2xl p-3.5 border border-white/5 space-y-3">
+                <p className="text-neutral-100 leading-relaxed whitespace-pre-line text-[13px]">
+                  {result.aiReplyMessage?.message_text || result.replyText}
+                </p>
+
+                {/* Attached Official Product Image */}
+                {(result.aiReplyMessage?.has_image || result.aiReplyMessage?.image_url || result.attachedImageUrl) && (
+                  <div className="pt-2 border-t border-white/10">
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 max-w-xs shadow-xs">
+                      <img
+                        src={result.aiReplyMessage?.image_url || result.attachedImageUrl}
+                        alt="Product Sent by AI"
+                        className="w-full h-44 object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Interactive List Trigger Button (☰ পছন্দ করুন) — Matches Screenshot 1 */}
+                {result.aiReplyMessage?.interactive_options?.listItems &&
+                  result.aiReplyMessage.interactive_options.listItems.length > 0 && (
+                    <div className="pt-2 border-t border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedListOption) {
+                            setSelectedListOption(
+                              result.aiReplyMessage.interactive_options.listItems[0]?.title || ''
+                            );
+                          }
+                          setShowListDrawer((prev) => !prev);
+                        }}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#2A3942] hover:bg-[#32444f] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#00A884]/30"
+                      >
+                        <span className="text-base leading-none">☰</span>
+                        <span>
+                          {result.aiReplyMessage.interactive_options.listButtonTitle || 'পছন্দ করুন'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                {/* Interactive Quick Reply / Action Buttons (Order Now, ↩️ আরও দেখুন, 🏠 হোম পেজ) — Matches Screenshot 2 */}
+                {result.aiReplyMessage?.interactive_options?.buttons &&
+                  result.aiReplyMessage.interactive_options.buttons.length > 0 && (
+                    <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+                      {result.aiReplyMessage.interactive_options.buttons.map((btn: any, idx: number) => (
+                        <button
+                          key={btn.id || idx}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => dispatchSimulatedText(btn.payload || btn.label)}
+                          className="w-full py-2 px-3 rounded-xl bg-[#2A3942] hover:bg-[#344651] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/5"
+                        >
+                          {btn.icon === 'back' && <span>↩️</span>}
+                          {btn.icon === 'home' && <span>🏠</span>}
+                          {btn.icon === 'order' && <span>🛒</span>}
+                          {btn.icon === 'list' && <span>☰</span>}
+                          <span>{btn.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+              </div>
+
+              {/* WhatsApp-Style Interactive Product Selection Drawer (Matches Screenshot 1 radio list!) */}
+              {showListDrawer &&
+                result.aiReplyMessage?.interactive_options?.listItems &&
+                result.aiReplyMessage.interactive_options.listItems.length > 0 && (
+                  <div className="rounded-2xl bg-[#182229] border border-[#00A884]/40 overflow-hidden shadow-2xl animate-in fade-in duration-150">
+                    <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowListDrawer(false)}
+                        className="text-neutral-400 hover:text-white text-sm font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                      <span className="font-bold text-sm text-white">
+                        {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
                       </span>
-                    )}
+                      <span className="w-4" />
+                    </div>
+
+                    <div className="px-4 py-2 text-[11px] font-bold text-[#00A884]">
+                      {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
+                    </div>
+
+                    <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
+                      {result.aiReplyMessage.interactive_options.listItems.map((item: any, idx: number) => {
+                        const isSelected = selectedListOption === item.title;
+                        return (
+                          <label
+                            key={item.id || idx}
+                            onClick={() => setSelectedListOption(item.title)}
+                            className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-white/5 cursor-pointer transition-colors"
+                          >
+                            <div>
+                              <div className="text-[13px] font-semibold text-white">{item.title}</div>
+                              {item.description && (
+                                <div className="text-[11px] text-neutral-400 mt-0.5">{item.description}</div>
+                              )}
+                            </div>
+                            <span
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                isSelected ? 'border-[#00A884]' : 'border-neutral-500'
+                              }`}
+                            >
+                              {isSelected && <span className="w-2.5 h-2.5 rounded-full bg-[#00A884]" />}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div className="px-4 py-3 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
+                      <span className="text-xs text-neutral-300 font-medium truncate">
+                        {selectedListOption || 'একটি অপশন সিলেক্ট করুন'}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!selectedListOption || loading}
+                        onClick={() => dispatchSimulatedText(selectedListOption)}
+                        className="w-10 h-10 rounded-full bg-[#00A884] hover:bg-[#029072] disabled:opacity-50 text-neutral-950 font-black flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95"
+                        title="Send Selected Option"
+                      >
+                        ➤
+                      </button>
+                    </div>
                   </div>
-                  <div className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 max-w-xs shadow-xs">
-                    <img
-                      src={result.aiReplyMessage?.image_url || result.attachedImageUrl}
-                      alt="Product Sent by AI"
-                      className="w-full h-44 object-cover"
-                    />
-                  </div>
-                </div>
-              )}
+                )}
             </div>
 
             <div className="text-[11px] text-neutral-500 font-mono flex items-center justify-between">

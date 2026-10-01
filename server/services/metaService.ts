@@ -1,4 +1,4 @@
-import { db, Channel, Message, Order, CallRequest } from '../db/database.js';
+import { db, Channel, Message, Order, CallRequest, InteractiveMessageConfig } from '../db/database.js';
 import { generateAIReply } from './aiService.js';
 import { getUserSubscriptionStatus } from './subscriptionService.js';
 import {
@@ -309,6 +309,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   // 6. Generate single AI reply (transcribes, handles product images & catalog queries)
   let aiReplyText = '';
   let attachedImageUrl: string | undefined = undefined;
+  let interactiveOptions: InteractiveMessageConfig | undefined = undefined;
 
   try {
     const aiResult = await generateAIReply({
@@ -329,6 +330,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
 
     aiReplyText = aiResult.replyText;
     attachedImageUrl = aiResult.attachedImageUrl;
+    interactiveOptions = aiResult.interactiveOptions;
 
     // If voice was transcribed, update inbound message with the actual words spoken
     if (aiResult.transcript) {
@@ -449,8 +451,8 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     console.warn('[Call Request Engine] Error processing call request:', callErr);
   }
 
-  // 7. Send message to Meta Graph API
-  await sendMetaMessage(channel, event.customerId, aiReplyText, attachedImageUrl);
+  // 7. Send message to Meta Graph API (with Interactive List / Reply Buttons when available)
+  await sendMetaMessage(channel, event.customerId, aiReplyText, attachedImageUrl, interactiveOptions);
 
   // 8. Log outbound AI reply message
   const outbound: Message = db.createMessage({
@@ -465,6 +467,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     is_ai_reply: true,
     has_image: Boolean(attachedImageUrl),
     image_url: attachedImageUrl,
+    interactive_options: interactiveOptions,
     status: 'sent',
     created_at: new Date().toISOString()
   });
@@ -539,32 +542,107 @@ async function sendMetaMessage(
   channel: Channel,
   recipientId: string,
   text: string,
-  imageUrl?: string
+  imageUrl?: string,
+  interactiveOptions?: InteractiveMessageConfig
 ): Promise<{ ok: boolean; outsideWindow?: boolean; error?: string }> {
   // If token is demo/simulated, don't make outbound network call
   if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
-    console.log(`[Meta Simulation] Outbound ${channel.platform} message sent to ${recipientId}: "${text}" ${imageUrl ? `[Image: ${imageUrl}]` : ''}`);
+    console.log(
+      `[Meta Simulation] Outbound ${channel.platform} message sent to ${recipientId}: "${text}" ${
+        imageUrl ? `[Image: ${imageUrl}]` : ''
+      } ${interactiveOptions ? `[Interactive: ${interactiveOptions.type}]` : ''}`
+    );
     return { ok: true };
   }
 
   try {
     if (channel.platform === 'whatsapp') {
       const url = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
-      const bodyPayload: any = imageUrl
-        ? {
+
+      // If there's an image attachment, send the image first
+      if (imageUrl && interactiveOptions) {
+        await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${channel.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             messaging_product: 'whatsapp',
             to: recipientId,
             type: 'image',
-            image: { link: imageUrl, caption: text }
-          }
-        : {
-            messaging_product: 'whatsapp',
-            to: recipientId,
-            type: 'text',
-            text: { body: text }
-          };
+            image: { link: imageUrl }
+          })
+        }).catch(() => {});
+      }
 
-      const res = await fetch(url, {
+      let bodyPayload: any;
+
+      if (interactiveOptions?.type === 'list' && interactiveOptions.listItems && interactiveOptions.listItems.length > 0) {
+        bodyPayload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipientId,
+          type: 'interactive',
+          interactive: {
+            type: 'list',
+            body: {
+              text: (text || 'তালিকা থেকে আপনার পছন্দের পণ্যটি নির্বাচন করুন:').slice(0, 1024)
+            },
+            action: {
+              button: (interactiveOptions.listButtonTitle || 'পছন্দ করুন').slice(0, 20),
+              sections: [
+                {
+                  title: (interactiveOptions.listSectionTitle || 'পছন্দ করুন').slice(0, 24),
+                  rows: interactiveOptions.listItems.slice(0, 10).map((item, idx) => ({
+                    id: (item.title || `item_${idx}`).slice(0, 200),
+                    title: (item.title || `পণ্য ${idx + 1}`).slice(0, 24),
+                    description: (item.description || (item.price ? `মূল্য: ৳${item.price}` : '')).slice(0, 72)
+                  }))
+                }
+              ]
+            }
+          }
+        };
+      } else if (interactiveOptions?.buttons && interactiveOptions.buttons.length > 0) {
+        bodyPayload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipientId,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: {
+              text: (text || 'অনুগ্রহ করে নিচের অপশন থেকে বেছে নিন:').slice(0, 1024)
+            },
+            action: {
+              buttons: interactiveOptions.buttons.slice(0, 3).map((btn, idx) => ({
+                type: 'reply',
+                reply: {
+                  id: (btn.payload || btn.label || `btn_${idx}`).slice(0, 256),
+                  title: (btn.label || 'অপশন').slice(0, 20)
+                }
+              }))
+            }
+          }
+        };
+      } else if (imageUrl) {
+        bodyPayload = {
+          messaging_product: 'whatsapp',
+          to: recipientId,
+          type: 'image',
+          image: { link: imageUrl, caption: text }
+        };
+      } else {
+        bodyPayload = {
+          messaging_product: 'whatsapp',
+          to: recipientId,
+          type: 'text',
+          text: { body: text }
+        };
+      }
+
+      let res = await fetch(url, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${channel.access_token}`,
@@ -572,6 +650,23 @@ async function sendMetaMessage(
         },
         body: JSON.stringify(bodyPayload)
       });
+
+      // Fallback to standard text if interactive payload had any formatting issue
+      if (!res.ok && bodyPayload.type === 'interactive') {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${channel.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: recipientId,
+            type: 'text',
+            text: { body: text }
+          })
+        });
+      }
       if (!res.ok) {
         const err: any = await res.json().catch(() => ({}));
         console.error('[WhatsApp Outbound Error]', err);
@@ -607,15 +702,42 @@ async function sendMetaMessage(
         }).catch((err) => console.error(`[${channel.platform} Outbound Image Error]`, err));
       }
 
-      // 2. Send text message with details
+      // 2. Send text message with details (and Messenger/Instagram Quick Replies if interactiveOptions present)
       if (text) {
+        const quickReplies: Array<{ content_type: 'text'; title: string; payload: string }> = [];
+        if (!isCommentLead && interactiveOptions) {
+          if (interactiveOptions.listItems && interactiveOptions.listItems.length > 0) {
+            for (const item of interactiveOptions.listItems.slice(0, 8)) {
+              quickReplies.push({
+                content_type: 'text',
+                title: item.title.slice(0, 20),
+                payload: item.title.slice(0, 100)
+              });
+            }
+          }
+          if (interactiveOptions.buttons && interactiveOptions.buttons.length > 0) {
+            for (const btn of interactiveOptions.buttons.slice(0, 3)) {
+              quickReplies.push({
+                content_type: 'text',
+                title: btn.label.slice(0, 20),
+                payload: (btn.payload || btn.label).slice(0, 100)
+              });
+            }
+          }
+        }
+
+        const msgObject: any = { text };
+        if (quickReplies.length > 0) {
+          msgObject.quick_replies = quickReplies.slice(0, 11);
+        }
+
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipient: recipientObj,
             ...(isCommentLead ? {} : { messaging_type: 'RESPONSE' }),
-            message: { text }
+            message: msgObject
           })
         });
         if (res.ok) {

@@ -334,6 +334,30 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface InteractiveOptionItem {
+  id: string;
+  title: string;
+  description?: string;
+  price?: number;
+}
+
+export interface InteractiveMessageButton {
+  id: string;
+  label: string;
+  payload: string;
+  icon?: 'order' | 'back' | 'home' | 'list' | 'call';
+}
+
+export interface InteractiveMessageConfig {
+  type: 'list' | 'buttons' | 'order_card';
+  listButtonLabel?: string;
+  footerText?: string;
+  orderCardText?: string;
+  orderButtonLabel?: string;
+  items?: InteractiveOptionItem[];
+  buttons?: InteractiveMessageButton[];
+}
+
 export interface Message {
   id: string;
   user_id: string;
@@ -358,6 +382,7 @@ export interface Message {
   has_video?: boolean;
   video_base64?: string;
   video_mime_type?: string;
+  interactive_options?: InteractiveMessageConfig;
   created_at: string;
 }
 

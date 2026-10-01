@@ -88,7 +88,16 @@ webhooksRouter.post(['/meta', '/'], async (req: Request, res: Response) => {
             const imageMediaId = isImage ? messageObj.image?.id : undefined;
             const imageMimeType = isImage ? (messageObj.image?.mime_type || 'image/jpeg') : undefined;
 
+            const interactiveReplyText =
+              messageObj.interactive?.list_reply?.title ||
+              messageObj.interactive?.button_reply?.title ||
+              messageObj.interactive?.list_reply?.id ||
+              messageObj.interactive?.button_reply?.id ||
+              messageObj.button?.text ||
+              messageObj.button?.payload;
+
             const messageText =
+              interactiveReplyText ||
               messageObj.text?.body ||
               messageObj.caption ||
               (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
@@ -142,7 +151,10 @@ webhooksRouter.post(['/meta', '/'], async (req: Request, res: Response) => {
               }
             }
 
-            const rawText = event.message.text || '';
+            const rawText =
+              event.message.quick_reply?.payload ||
+              event.message.text ||
+              '';
             const messageText =
               rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
@@ -161,6 +173,22 @@ webhooksRouter.post(['/meta', '/'], async (req: Request, res: Response) => {
                 rawPayload: event
               }).catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
             );
+          } else if (event.postback) {
+            const senderId = event.sender?.id;
+            const postbackText = event.postback?.title || event.postback?.payload || '';
+            if (senderId && postbackText) {
+              tasks.push(
+                handleInboundWebhook({
+                  platform: targetPlatform,
+                  identifier: assetId,
+                  customerId: senderId,
+                  customerName: `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`,
+                  messageText: postbackText,
+                  messageId: event.postback?.mid || `pb_${Date.now()}`,
+                  rawPayload: event
+                }).catch((err) => console.error(`[Unified ${targetPlatform} Postback Error]:`, err))
+              );
+            }
           }
         }
 
@@ -279,7 +307,19 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
             const imageMediaId = isImage ? messageObj.image?.id : undefined;
             const imageMimeType = isImage ? (messageObj.image?.mime_type || 'image/jpeg') : undefined;
 
-            const messageText = messageObj.text?.body || messageObj.caption || (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
+            const interactiveReplyText =
+              messageObj.interactive?.list_reply?.title ||
+              messageObj.interactive?.button_reply?.title ||
+              messageObj.interactive?.list_reply?.id ||
+              messageObj.interactive?.button_reply?.id ||
+              messageObj.button?.text ||
+              messageObj.button?.payload;
+
+            const messageText =
+              interactiveReplyText ||
+              messageObj.text?.body ||
+              messageObj.caption ||
+              (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
 
             tasks.push(
               handleInboundWebhook({
@@ -381,7 +421,7 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
               }
             }
 
-            const rawText = event.message.text || '';
+            const rawText = event.message.quick_reply?.payload || event.message.text || '';
             const messageText = rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
             tasks.push(
@@ -401,6 +441,24 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
                 console.error('[Messenger Webhook Processing Error]:', err);
               })
             );
+          } else if (event.postback) {
+            const senderId = event.sender?.id;
+            const postbackText = event.postback?.title || event.postback?.payload || '';
+            if (senderId && postbackText) {
+              tasks.push(
+                handleInboundWebhook({
+                  platform: 'messenger',
+                  identifier: pageId,
+                  customerId: senderId,
+                  customerName: `Messenger User (${senderId.slice(-4)})`,
+                  messageText: postbackText,
+                  messageId: event.postback?.mid || `pb_${Date.now()}`,
+                  rawPayload: event
+                }).catch((err) => {
+                  console.error('[Messenger Postback Processing Error]:', err);
+                })
+              );
+            }
           }
         }
 

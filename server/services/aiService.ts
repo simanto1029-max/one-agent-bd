@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { db, Message, Product } from '../db/database.js';
+import { db, Message, Product, InteractiveMessageConfig, InteractiveOptionItem } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav, detectAudioMimeTypeFromBuffer, mp4ToAdtsAac } from './audioDownloader.js';
 import { buildAppointmentAIContext } from './appointmentService.js';
 
@@ -271,6 +271,351 @@ export interface GenerateReplyResult {
   attachedImageUrl?: string;
   attachedProductName?: string;
   attachedProductPrice?: number;
+  interactiveOptions?: InteractiveMessageConfig;
+}
+
+export function extractCatalogItemsForInteractiveMenu(
+  merchantProducts: Product[],
+  systemPrompt: string,
+  isOneAgentSaaS: boolean
+): InteractiveOptionItem[] {
+  const items: InteractiveOptionItem[] = [];
+
+  // 1. Add real products from merchant's Products & Store catalog
+  for (const prod of merchantProducts) {
+    items.push({
+      id: prod.id,
+      title: prod.name,
+      description: `৳${prod.price} ${prod.currency || 'BDT'}${
+        prod.stock_status === 'out_of_stock' ? ' (স্টক আউট)' : ''
+      }`,
+      price: prod.price
+    });
+  }
+
+  // 2. Also parse any product-price lines written inside the merchant's System Prompt / Knowledge Base
+  // e.g., "কাঠবাদাম - ১৫০০৳" or "- আজওয়া খেজুর: ১৩০০ টাকা/কেজি"
+  if (items.length === 0 && systemPrompt) {
+    const lines = systemPrompt.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].replace(/^[•\-–—*০-৯0-9.)\s]+/, '').trim();
+      if (!line || line.length > 90) continue;
+      // Match patterns like "কাঠবাদাম - ১৫০০৳" or "আজওয়া খেজুর: ১৩০০ টাকা"
+      const m = line.match(
+        /^([^:–\-—]{2,45})\s*[:\-–—]\s*(?:৳\s*)?([০-৯0-9,]{2,7})\s*(?:৳|টাকা|taka|tk|bdt)?([^\n]*)$/i
+      );
+      if (m) {
+        const title = m[1].trim();
+        const rawPrice = m[2].trim();
+        const unitSuffix = (m[3] || '').trim();
+        // Skip phone numbers or hours
+        if (/phone|helpline|support|নাম্বার|হেল্পলাইন|সময়/i.test(title)) continue;
+        if (!items.some((x) => x.title.toLowerCase() === title.toLowerCase())) {
+          items.push({
+            id: `kb_item_${items.length + 1}`,
+            title,
+            description: `${rawPrice}৳${unitSuffix ? ` ${unitSuffix}` : ''}`
+          });
+        }
+      }
+    }
+  }
+
+  // 3. If it's One Agent BD SaaS and no physical products exist, provide the official SaaS Plans as selectable items
+  if (items.length === 0 && isOneAgentSaaS) {
+    items.push(
+      {
+        id: 'plan_starter',
+        title: 'Starter AI Plan',
+        description: '১,২৫০৳ / মাস (সব চ্যানেল + কুরিয়ার)',
+        price: 1250
+      },
+      {
+        id: 'plan_pro',
+        title: 'Pro Business Plan',
+        description: '১,৯৫০৳ / মাস (১০ চ্যানেল + ৩ AI এজেন্ট)',
+        price: 1950
+      },
+      {
+        id: 'plan_trial',
+        title: '২ দিনের ফ্রি ট্রায়াল',
+        description: 'সম্পূর্ণ ফ্রিতে সব ফিচার টেস্ট করুন',
+        price: 0
+      }
+    );
+  }
+
+  return items.slice(0, 10);
+}
+
+export function buildInteractiveConversationEnvelope(params: {
+  incomingMessage: string;
+  aiReplyText: string;
+  businessName: string;
+  merchantProducts: Product[];
+  matchedProduct?: Product;
+  systemPrompt: string;
+  isOneAgentSaaS: boolean;
+}): { replyText: string; interactiveOptions: InteractiveMessageConfig } {
+  const {
+    incomingMessage,
+    aiReplyText,
+    businessName,
+    merchantProducts,
+    matchedProduct,
+    systemPrompt,
+    isOneAgentSaaS
+  } = params;
+
+  const q = (incomingMessage || '').trim();
+  const qLower = q.toLowerCase();
+  const catalogItems = extractCatalogItemsForInteractiveMenu(
+    merchantProducts,
+    systemPrompt,
+    isOneAgentSaaS
+  );
+
+  // Check if customer tapped or typed one of the extracted KB items directly
+  const matchedCatalogItem =
+    !matchedProduct && catalogItems.length > 0
+      ? catalogItems.find(
+          (item) =>
+            qLower === item.title.toLowerCase() ||
+            (item.title.length >= 3 && qLower.includes(item.title.toLowerCase()))
+        )
+      : undefined;
+
+  // 1. Did the customer click "🏠 হোম পেজ" / "Main Menu"?
+  const isHomeMenuIntent =
+    qLower === 'হোম পেজ' ||
+    qLower === 'home' ||
+    qLower === 'home page' ||
+    qLower === 'main menu' ||
+    qLower === 'মেনু';
+
+  if (isHomeMenuIntent) {
+    const listPreview =
+      catalogItems.length > 0
+        ? '\n\nপ্রধান আইটেমসমূহ:\n' +
+          catalogItems
+            .slice(0, 6)
+            .map((it) => `• ${it.title} - ${it.description}`)
+            .join('\n')
+        : '';
+
+    return {
+      replyText: `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। 🌟${listPreview}\n\nনিচের বাটন থেকে আপনার পছন্দের অপশনটি বেছে নিন:`,
+      interactiveOptions: {
+        type: catalogItems.length > 0 ? 'list' : 'buttons',
+        listButtonLabel: 'পছন্দ করুন',
+        footerText: `${businessName} AI Assistant`,
+        items: catalogItems,
+        buttons: [
+          {
+            id: 'btn_order_now',
+            label: '🛒 অর্ডার করুন',
+            payload: 'অর্ডার করতে চাই',
+            icon: 'order'
+          },
+          {
+            id: 'btn_see_more',
+            label: '↩️ আরও দেখুন',
+            payload: 'আরও দেখুন',
+            icon: 'back'
+          },
+          {
+            id: 'btn_call',
+            label: '📞 কল করুন',
+            payload: 'আমি ফোনে কথা বলতে চাই',
+            icon: 'call'
+          }
+        ]
+      }
+    };
+  }
+
+  // 2. Did the customer click "🛒 অর্ডার করুন" / "Order Now" or say "order korte cay" / "অর্ডার করতে চাই" (without giving phone + address yet)?
+  const hasPhoneInMsg = /(?:\+?88)?01[3-9]\d{8}/.test(q);
+  const isOrderFormIntent =
+    !hasPhoneInMsg &&
+    (qLower === 'order now' ||
+      qLower === 'অর্ডার করতে চাই' ||
+      qLower === 'অর্ডার ফর্ম দিন' ||
+      qLower === '🛒 অর্ডার করুন' ||
+      qLower.includes('order korte cay') ||
+      qLower.includes('order korte chai') ||
+      qLower.includes('order korbo') ||
+      qLower.includes('অর্ডার করতে চাই') ||
+      qLower.includes('অর্ডার করবো') ||
+      qLower.includes('অর্ডার নিবো'));
+
+  if (isOrderFormIntent) {
+    const selectedProdHint = matchedProduct
+      ? ` (${matchedProduct.name} - ৳${matchedProduct.price})`
+      : matchedCatalogItem
+      ? ` (${matchedCatalogItem.title} - ${matchedCatalogItem.description})`
+      : '';
+
+    const orderFormReply = `আপনার অর্ডারটি${selectedProdHint} সম্পন্ন করতে দয়া করে নিচের তথ্যগুলো দিন:\n\n১. নাম\n২. মোবাইল নম্বর\n৩. ডেলিভারি ঠিকানা\n৪. প্রোডাক্টের নাম ও পরিমাণ`;
+
+    return {
+      replyText: orderFormReply,
+      interactiveOptions: {
+        type: 'order_card',
+        orderCardText: 'Tap Order Now, or type your order details here — either works.',
+        orderButtonLabel: 'Order Now',
+        footerText: `${businessName} AI Assistant`,
+        buttons: [
+          {
+            id: 'btn_order_now',
+            label: 'Order Now',
+            payload: 'অর্ডার ফর্ম দিন',
+            icon: 'order'
+          },
+          {
+            id: 'btn_see_more',
+            label: '↩️ আরও দেখুন',
+            payload: 'আরও দেখুন',
+            icon: 'back'
+          },
+          {
+            id: 'btn_home',
+            label: '🏠 হোম পেজ',
+            payload: 'হোম পেজ',
+            icon: 'home'
+          }
+        ]
+      }
+    };
+  }
+
+  // 3. Did the customer click "↩️ আরও দেখুন" / "পছন্দ করুন" or ask for the product/price list?
+  const isSeeMoreOrCatalogListIntent =
+    qLower === 'আরও দেখুন' ||
+    qLower === '↩️ আরও দেখুন' ||
+    qLower === 'পছন্দ করুন' ||
+    qLower === 'সব প্রোডাক্ট' ||
+    ((qLower.includes('দাম কত') ||
+      qLower.includes('dam koto') ||
+      qLower.includes('price') ||
+      qLower.includes('কি কি আছে') ||
+      qLower.includes('ki ki ache') ||
+      qLower.includes('তালিকা') ||
+      qLower.includes('list')) &&
+      !matchedProduct &&
+      !matchedCatalogItem &&
+      catalogItems.length > 0);
+
+  if (isSeeMoreOrCatalogListIntent && catalogItems.length > 0) {
+    const formattedList = catalogItems
+      .map((it) => `${it.title} - ${it.description}`)
+      .join('\n');
+
+    const listMessageText = `পছন্দ করুন\nআমাদের প্রোডাক্ট ও মূল্য তালিকা:\n${formattedList}`;
+
+    return {
+      replyText: listMessageText,
+      interactiveOptions: {
+        type: 'list',
+        listButtonLabel: 'পছন্দ করুন',
+        footerText: `${businessName} AI Assistant`,
+        items: catalogItems,
+        buttons: [
+          {
+            id: 'btn_order_now',
+            label: '🛒 অর্ডার করুন',
+            payload: 'অর্ডার করতে চাই',
+            icon: 'order'
+          },
+          {
+            id: 'btn_home',
+            label: '🏠 হোম পেজ',
+            payload: 'হোম পেজ',
+            icon: 'home'
+          }
+        ]
+      }
+    };
+  }
+
+  // 4. Did the customer select/ask about a SPECIFIC product (either from Products & Store or from "পছন্দ করুন" list)?
+  if (matchedProduct || matchedCatalogItem) {
+    const prodTitle = matchedProduct ? matchedProduct.name : matchedCatalogItem!.title;
+    const prodPriceText = matchedProduct
+      ? `${matchedProduct.price}৳`
+      : matchedCatalogItem!.description || '';
+
+    // If the user literally just tapped the product name from the "পছন্দ করুন" list, give a crisp, direct price reply like Screenshot 1!
+    const isDirectSelectionTap =
+      qLower === prodTitle.toLowerCase() || q.length <= prodTitle.length + 6;
+    const finalReply = isDirectSelectionTap
+      ? matchedProduct
+        ? `${matchedProduct.name}-এর দাম ${matchedProduct.price}৳।${
+            matchedProduct.description ? `\n${matchedProduct.description}` : ''
+          }`
+        : `${prodTitle}-এর দাম ${prodPriceText}।`
+      : aiReplyText;
+
+    return {
+      replyText: finalReply,
+      interactiveOptions: {
+        type: 'buttons',
+        footerText: `${businessName} AI Assistant`,
+        items: catalogItems.length > 1 ? catalogItems : undefined,
+        buttons: [
+          {
+            id: 'btn_order_item',
+            label: '🛒 অর্ডার করুন',
+            payload: `${prodTitle} অর্ডার করতে চাই`,
+            icon: 'order'
+          },
+          {
+            id: 'btn_see_more',
+            label: '↩️ আরও দেখুন',
+            payload: 'আরও দেখুন',
+            icon: 'back'
+          },
+          {
+            id: 'btn_home',
+            label: '🏠 হোম পেজ',
+            payload: 'হোম পেজ',
+            icon: 'home'
+          }
+        ]
+      }
+    };
+  }
+
+  // 5. Default for any AI reply: attach interactive buttons + "পছন্দ করুন" list if catalog items exist
+  return {
+    replyText: aiReplyText,
+    interactiveOptions: {
+      type: catalogItems.length > 0 ? 'list' : 'buttons',
+      listButtonLabel: catalogItems.length > 0 ? 'পছন্দ করুন' : undefined,
+      footerText: `${businessName} AI Assistant`,
+      items: catalogItems.length > 0 ? catalogItems : undefined,
+      buttons: [
+        {
+          id: 'btn_order_now',
+          label: '🛒 অর্ডার করুন',
+          payload: 'অর্ডার করতে চাই',
+          icon: 'order'
+        },
+        {
+          id: 'btn_see_more',
+          label: '↩️ আরও দেখুন',
+          payload: 'আরও দেখুন',
+          icon: 'back'
+        },
+        {
+          id: 'btn_home',
+          label: '🏠 হোম পেজ',
+          payload: 'হোম পেজ',
+          icon: 'home'
+        }
+      ]
+    }
+  };
 }
 
 // Supported Gemini models in priority order (gemini-3-flash-preview natively supports audio/mp4, audio/aac, audio/ogg, audio/wav)
@@ -1705,17 +2050,66 @@ Customer's Exact Question:
 
 Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct answer and a smart closing follow-up question):`;
 
+  // Check if customer clicked an interactive button/menu shortcut that can be answered deterministically & instantaneously
+  const earlyInteractiveCheck = buildInteractiveConversationEnvelope({
+    incomingMessage: params.incomingMessage,
+    aiReplyText: '',
+    businessName,
+    merchantProducts,
+    matchedProduct,
+    systemPrompt: combinedSystemPrompt,
+    isOneAgentSaaS
+  });
+
+  const qNormalized = (params.incomingMessage || '').trim().toLowerCase();
+  const isDirectInteractiveCommand =
+    qNormalized === 'হোম পেজ' ||
+    qNormalized === 'home' ||
+    qNormalized === 'আরও দেখুন' ||
+    qNormalized === '↩️ আরও দেখুন' ||
+    qNormalized === 'পছন্দ করুন' ||
+    qNormalized === 'order now' ||
+    qNormalized === 'অর্ডার করতে চাই' ||
+    qNormalized === 'অর্ডার ফর্ম দিন' ||
+    qNormalized === '🛒 অর্ডার করুন' ||
+    qNormalized.includes('order korte cay') ||
+    qNormalized.includes('order korte chai');
+
+  if (isDirectInteractiveCommand && earlyInteractiveCheck.replyText) {
+    return {
+      replyText: earlyInteractiveCheck.replyText,
+      interactiveOptions: earlyInteractiveCheck.interactiveOptions,
+      transcript: voiceTranscript,
+      isVoice: Boolean(voiceTranscript || params.audioBase64),
+      attachedImageUrl: matchedProduct?.image_url,
+      attachedProductName: matchedProduct?.name,
+      attachedProductPrice: matchedProduct?.price
+    };
+  }
+
   const geminiReply = await callGemini(fullPrompt, effectiveApiKey, systemInstruction);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
 
   if (geminiReply) {
+    const cleanReply = ensureConversationalFollowUp(
+      geminiReply,
+      params.incomingMessage,
+      isOneAgentSaaS,
+      merchantProducts.length > 0
+    );
+    const interactiveEnvelope = buildInteractiveConversationEnvelope({
+      incomingMessage: params.incomingMessage,
+      aiReplyText: cleanReply,
+      businessName,
+      merchantProducts,
+      matchedProduct,
+      systemPrompt: combinedSystemPrompt,
+      isOneAgentSaaS
+    });
+
     return {
-      replyText: ensureConversationalFollowUp(
-        geminiReply,
-        params.incomingMessage,
-        isOneAgentSaaS,
-        merchantProducts.length > 0
-      ),
+      replyText: interactiveEnvelope.replyText,
+      interactiveOptions: interactiveEnvelope.interactiveOptions,
       transcript: voiceTranscript,
       isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
@@ -1733,13 +2127,26 @@ Write a natural, human-like Bangla reply (with \\n\\n spacing between the direct
     matchedProduct
   );
 
+  const fallbackWithFollowUp = ensureConversationalFollowUp(
+    smartBanglaReply,
+    params.incomingMessage,
+    isOneAgentSaaS,
+    merchantProducts.length > 0
+  );
+
+  const fallbackEnvelope = buildInteractiveConversationEnvelope({
+    incomingMessage: params.incomingMessage,
+    aiReplyText: fallbackWithFollowUp,
+    businessName,
+    merchantProducts,
+    matchedProduct,
+    systemPrompt: combinedSystemPrompt,
+    isOneAgentSaaS
+  });
+
   return {
-    replyText: ensureConversationalFollowUp(
-      smartBanglaReply,
-      params.incomingMessage,
-      isOneAgentSaaS,
-      merchantProducts.length > 0
-    ),
+    replyText: fallbackEnvelope.replyText,
+    interactiveOptions: fallbackEnvelope.interactiveOptions,
     transcript: voiceTranscript,
     isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
