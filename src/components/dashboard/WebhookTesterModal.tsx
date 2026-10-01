@@ -548,25 +548,20 @@ export const WebhookTesterModal: React.FC<WebhookTesterModalProps> = ({
               </div>
             )}
 
-            {/* AI Text Reply + WhatsApp/Messenger Interactive Buttons & Product Picker */}
-            <div className="p-4 rounded-2xl bg-[#111B21] text-white border border-neutral-800 text-xs space-y-3 shadow-lg">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <span className="font-bold text-emerald-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+            {/* AI Text Reply (Clean standard box for SaaS/General, or Interactive Menu for E-Commerce Stores with Products) */}
+            {!result.aiReplyMessage?.interactive_options ? (
+              <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs space-y-2">
+                <span className="font-bold text-[#7F22FE] block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
-                  AI Interactive Auto-Reply ({platform.toUpperCase()}):
+                  AI Auto-Reply Output:
                 </span>
-                <span className="text-[10px] text-neutral-400">Tap any button below to test live flow</span>
-              </div>
-
-              <div className="bg-[#202C33] rounded-2xl p-3.5 border border-white/5 space-y-3">
-                <p className="text-neutral-100 leading-relaxed whitespace-pre-line text-[13px]">
+                <p className="text-neutral-900 dark:text-white leading-relaxed whitespace-pre-line text-[13px]">
                   {result.aiReplyMessage?.message_text || result.replyText}
                 </p>
 
-                {/* Attached Official Product Image */}
                 {(result.aiReplyMessage?.has_image || result.aiReplyMessage?.image_url || result.attachedImageUrl) && (
-                  <div className="pt-2 border-t border-white/10">
-                    <div className="relative rounded-xl overflow-hidden border border-white/10 max-w-xs shadow-xs">
+                  <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+                    <div className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 max-w-xs shadow-xs">
                       <img
                         src={result.aiReplyMessage?.image_url || result.attachedImageUrl}
                         alt="Product Sent by AI"
@@ -575,121 +570,165 @@ export const WebhookTesterModal: React.FC<WebhookTesterModalProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-[#111B21] text-white border border-neutral-800 text-xs space-y-3 shadow-lg">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <span className="font-bold text-emerald-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    E-Commerce Interactive Reply ({platform.toUpperCase()}):
+                  </span>
+                  <span className="text-[10px] text-neutral-400">Tap any button below to test live flow</span>
+                </div>
 
-                {/* Interactive List Trigger Button (☰ পছন্দ করুন) — Matches Screenshot 1 */}
-                {result.aiReplyMessage?.interactive_options?.listItems &&
-                  result.aiReplyMessage.interactive_options.listItems.length > 0 && (
+                <div className="bg-[#202C33] rounded-2xl p-3.5 border border-white/5 space-y-3">
+                  <p className="text-neutral-100 leading-relaxed whitespace-pre-line text-[13px]">
+                    {result.aiReplyMessage?.message_text || result.replyText}
+                  </p>
+
+                  {/* Attached Official Product Image */}
+                  {(result.aiReplyMessage?.has_image || result.aiReplyMessage?.image_url || result.attachedImageUrl) && (
                     <div className="pt-2 border-t border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!selectedListOption) {
-                            setSelectedListOption(
-                              result.aiReplyMessage.interactive_options.listItems[0]?.title || ''
-                            );
-                          }
-                          setShowListDrawer((prev) => !prev);
-                        }}
-                        className="w-full py-2.5 px-4 rounded-xl bg-[#2A3942] hover:bg-[#32444f] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#00A884]/30"
-                      >
-                        <span className="text-base leading-none">☰</span>
-                        <span>
-                          {result.aiReplyMessage.interactive_options.listButtonTitle || 'পছন্দ করুন'}
-                        </span>
-                      </button>
+                      <div className="relative rounded-xl overflow-hidden border border-white/10 max-w-xs shadow-xs">
+                        <img
+                          src={result.aiReplyMessage?.image_url || result.attachedImageUrl}
+                          alt="Product Sent by AI"
+                          className="w-full h-44 object-cover"
+                        />
+                      </div>
                     </div>
                   )}
 
-                {/* Interactive Quick Reply / Action Buttons (Order Now, ↩️ আরও দেখুন, 🏠 হোম পেজ) — Matches Screenshot 2 */}
-                {result.aiReplyMessage?.interactive_options?.buttons &&
-                  result.aiReplyMessage.interactive_options.buttons.length > 0 && (
-                    <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
-                      {result.aiReplyMessage.interactive_options.buttons.map((btn: any, idx: number) => (
+                  {/* Interactive List Trigger Button (☰ পছন্দ করুন) */}
+                  {(result.aiReplyMessage.interactive_options.listItems ||
+                    result.aiReplyMessage.interactive_options.items) &&
+                    (result.aiReplyMessage.interactive_options.listItems ||
+                      result.aiReplyMessage.interactive_options.items)!.length > 0 && (
+                      <div className="pt-2 border-t border-white/10">
                         <button
-                          key={btn.id || idx}
                           type="button"
-                          disabled={loading}
-                          onClick={() => dispatchSimulatedText(btn.payload || btn.label)}
-                          className="w-full py-2 px-3 rounded-xl bg-[#2A3942] hover:bg-[#344651] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/5"
+                          onClick={() => {
+                            const itemsList =
+                              result.aiReplyMessage.interactive_options.listItems ||
+                              result.aiReplyMessage.interactive_options.items ||
+                              [];
+                            if (!selectedListOption) {
+                              setSelectedListOption(itemsList[0]?.title || '');
+                            }
+                            setShowListDrawer((prev) => !prev);
+                          }}
+                          className="w-full py-2.5 px-4 rounded-xl bg-[#2A3942] hover:bg-[#32444f] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-[#00A884]/30"
                         >
-                          {btn.icon === 'back' && <span>↩️</span>}
-                          {btn.icon === 'home' && <span>🏠</span>}
-                          {btn.icon === 'order' && <span>🛒</span>}
-                          {btn.icon === 'list' && <span>☰</span>}
-                          <span>{btn.label}</span>
+                          <span className="text-base leading-none">☰</span>
+                          <span>
+                            {result.aiReplyMessage.interactive_options.listButtonTitle ||
+                              result.aiReplyMessage.interactive_options.listButtonLabel ||
+                              'পছন্দ করুন'}
+                          </span>
                         </button>
-                      ))}
+                      </div>
+                    )}
+
+                  {/* Interactive Quick Reply / Action Buttons (Order Now, আরও দেখুন, হোম পেজ) */}
+                  {result.aiReplyMessage.interactive_options.buttons &&
+                    result.aiReplyMessage.interactive_options.buttons.length > 0 && (
+                      <div className="pt-2 border-t border-white/10 flex flex-col gap-1.5">
+                        {result.aiReplyMessage.interactive_options.buttons.map((btn: any, idx: number) => {
+                          const cleanLabel = String(btn.label || '').replace(/^[🛒↩️🏠☰📞\s]+/u, '');
+                          return (
+                            <button
+                              key={btn.id || idx}
+                              type="button"
+                              disabled={loading}
+                              onClick={() => dispatchSimulatedText(btn.payload || cleanLabel)}
+                              className="w-full py-2 px-3 rounded-xl bg-[#2A3942] hover:bg-[#344651] text-[#00A884] font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/5"
+                            >
+                              {btn.icon === 'back' && <span>↩️</span>}
+                              {btn.icon === 'home' && <span>🏠</span>}
+                              {btn.icon === 'order' && <span>🛒</span>}
+                              {btn.icon === 'list' && <span>☰</span>}
+                              <span>{cleanLabel}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                </div>
+
+                {/* WhatsApp-Style Interactive Product Selection Drawer */}
+                {showListDrawer &&
+                  (result.aiReplyMessage.interactive_options.listItems ||
+                    result.aiReplyMessage.interactive_options.items) &&
+                  (result.aiReplyMessage.interactive_options.listItems ||
+                    result.aiReplyMessage.interactive_options.items)!.length > 0 && (
+                    <div className="rounded-2xl bg-[#182229] border border-[#00A884]/40 overflow-hidden shadow-2xl animate-in fade-in duration-150">
+                      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setShowListDrawer(false)}
+                          className="text-neutral-400 hover:text-white text-sm font-bold cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                        <span className="font-bold text-sm text-white">
+                          {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
+                        </span>
+                        <span className="w-4" />
+                      </div>
+
+                      <div className="px-4 py-2 text-[11px] font-bold text-[#00A884]">
+                        {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
+                      </div>
+
+                      <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
+                        {(
+                          result.aiReplyMessage.interactive_options.listItems ||
+                          result.aiReplyMessage.interactive_options.items ||
+                          []
+                        ).map((item: any, idx: number) => {
+                          const isSelected = selectedListOption === item.title;
+                          return (
+                            <label
+                              key={item.id || idx}
+                              onClick={() => setSelectedListOption(item.title)}
+                              className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-white/5 cursor-pointer transition-colors"
+                            >
+                              <div>
+                                <div className="text-[13px] font-semibold text-white">{item.title}</div>
+                                {item.description && (
+                                  <div className="text-[11px] text-neutral-400 mt-0.5">{item.description}</div>
+                                )}
+                              </div>
+                              <span
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                  isSelected ? 'border-[#00A884]' : 'border-neutral-500'
+                                }`}
+                              >
+                                {isSelected && <span className="w-2.5 h-2.5 rounded-full bg-[#00A884]" />}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <div className="px-4 py-3 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
+                        <span className="text-xs text-neutral-300 font-medium truncate">
+                          {selectedListOption || 'একটি অপশন সিলেক্ট করুন'}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={!selectedListOption || loading}
+                          onClick={() => dispatchSimulatedText(selectedListOption)}
+                          className="w-10 h-10 rounded-full bg-[#00A884] hover:bg-[#029072] disabled:opacity-50 text-neutral-950 font-black flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95"
+                          title="Send Selected Option"
+                        >
+                          ➤
+                        </button>
+                      </div>
                     </div>
                   )}
               </div>
-
-              {/* WhatsApp-Style Interactive Product Selection Drawer (Matches Screenshot 1 radio list!) */}
-              {showListDrawer &&
-                result.aiReplyMessage?.interactive_options?.listItems &&
-                result.aiReplyMessage.interactive_options.listItems.length > 0 && (
-                  <div className="rounded-2xl bg-[#182229] border border-[#00A884]/40 overflow-hidden shadow-2xl animate-in fade-in duration-150">
-                    <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setShowListDrawer(false)}
-                        className="text-neutral-400 hover:text-white text-sm font-bold cursor-pointer"
-                      >
-                        ✕
-                      </button>
-                      <span className="font-bold text-sm text-white">
-                        {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
-                      </span>
-                      <span className="w-4" />
-                    </div>
-
-                    <div className="px-4 py-2 text-[11px] font-bold text-[#00A884]">
-                      {result.aiReplyMessage.interactive_options.listSectionTitle || 'পছন্দ করুন'}
-                    </div>
-
-                    <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
-                      {result.aiReplyMessage.interactive_options.listItems.map((item: any, idx: number) => {
-                        const isSelected = selectedListOption === item.title;
-                        return (
-                          <label
-                            key={item.id || idx}
-                            onClick={() => setSelectedListOption(item.title)}
-                            className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-white/5 cursor-pointer transition-colors"
-                          >
-                            <div>
-                              <div className="text-[13px] font-semibold text-white">{item.title}</div>
-                              {item.description && (
-                                <div className="text-[11px] text-neutral-400 mt-0.5">{item.description}</div>
-                              )}
-                            </div>
-                            <span
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                isSelected ? 'border-[#00A884]' : 'border-neutral-500'
-                              }`}
-                            >
-                              {isSelected && <span className="w-2.5 h-2.5 rounded-full bg-[#00A884]" />}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-
-                    <div className="px-4 py-3 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
-                      <span className="text-xs text-neutral-300 font-medium truncate">
-                        {selectedListOption || 'একটি অপশন সিলেক্ট করুন'}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={!selectedListOption || loading}
-                        onClick={() => dispatchSimulatedText(selectedListOption)}
-                        className="w-10 h-10 rounded-full bg-[#00A884] hover:bg-[#029072] disabled:opacity-50 text-neutral-950 font-black flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95"
-                        title="Send Selected Option"
-                      >
-                        ➤
-                      </button>
-                    </div>
-                  </div>
-                )}
-            </div>
+            )}
 
             <div className="text-[11px] text-neutral-500 font-mono flex items-center justify-between">
               <span>Channel: {result.channelName || result.platform}</span>

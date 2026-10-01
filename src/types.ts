@@ -167,10 +167,13 @@ export interface InteractiveMessageButton {
 export interface InteractiveMessageConfig {
   type: 'list' | 'buttons' | 'order_card';
   listButtonLabel?: string;
+  listButtonTitle?: string;
+  listSectionTitle?: string;
   footerText?: string;
   orderCardText?: string;
   orderButtonLabel?: string;
   items?: InteractiveOptionItem[];
+  listItems?: InteractiveOptionItem[];
   buttons?: InteractiveMessageButton[];
 }
 

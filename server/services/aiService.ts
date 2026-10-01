@@ -279,6 +279,11 @@ export function extractCatalogItemsForInteractiveMenu(
   systemPrompt: string,
   isOneAgentSaaS: boolean
 ): InteractiveOptionItem[] {
+  // Never generate e-commerce product buttons/lists for One Agent BD SaaS itself
+  if (isOneAgentSaaS) {
+    return [];
+  }
+
   const items: InteractiveOptionItem[] = [];
 
   // 1. Add real products from merchant's Products & Store catalog
@@ -308,8 +313,10 @@ export function extractCatalogItemsForInteractiveMenu(
         const title = m[1].trim();
         const rawPrice = m[2].trim();
         const unitSuffix = (m[3] || '').trim();
-        // Skip phone numbers or hours
-        if (/phone|helpline|support|নাম্বার|হেল্পলাইন|সময়/i.test(title)) continue;
+        // Skip phone numbers, delivery charges, or SaaS plans
+        if (/phone|helpline|support|delivery|dhaka|plan|starter|pro|নাম্বার|হেল্পলাইন|সময়|ডেলিভারি|ঢাকা|প্ল্যান/i.test(title)) {
+          continue;
+        }
         if (!items.some((x) => x.title.toLowerCase() === title.toLowerCase())) {
           items.push({
             id: `kb_item_${items.length + 1}`,
@@ -319,30 +326,6 @@ export function extractCatalogItemsForInteractiveMenu(
         }
       }
     }
-  }
-
-  // 3. If it's One Agent BD SaaS and no physical products exist, provide the official SaaS Plans as selectable items
-  if (items.length === 0 && isOneAgentSaaS) {
-    items.push(
-      {
-        id: 'plan_starter',
-        title: 'Starter AI Plan',
-        description: '১,২৫০৳ / মাস (সব চ্যানেল + কুরিয়ার)',
-        price: 1250
-      },
-      {
-        id: 'plan_pro',
-        title: 'Pro Business Plan',
-        description: '১,৯৫০৳ / মাস (১০ চ্যানেল + ৩ AI এজেন্ট)',
-        price: 1950
-      },
-      {
-        id: 'plan_trial',
-        title: '২ দিনের ফ্রি ট্রায়াল',
-        description: 'সম্পূর্ণ ফ্রিতে সব ফিচার টেস্ট করুন',
-        price: 0
-      }
-    );
   }
 
   return items.slice(0, 10);
@@ -356,7 +339,7 @@ export function buildInteractiveConversationEnvelope(params: {
   matchedProduct?: Product;
   systemPrompt: string;
   isOneAgentSaaS: boolean;
-}): { replyText: string; interactiveOptions: InteractiveMessageConfig } {
+}): { replyText: string; interactiveOptions?: InteractiveMessageConfig } {
   const {
     incomingMessage,
     aiReplyText,
@@ -367,13 +350,30 @@ export function buildInteractiveConversationEnvelope(params: {
     isOneAgentSaaS
   } = params;
 
-  const q = (incomingMessage || '').trim();
-  const qLower = q.toLowerCase();
+  // CRITICAL: Never show e-commerce interactive buttons (অর্ডার করুন, আরও দেখুন, হোম পেজ) for One Agent BD SaaS!
+  if (isOneAgentSaaS) {
+    return {
+      replyText: aiReplyText,
+      interactiveOptions: undefined
+    };
+  }
+
   const catalogItems = extractCatalogItemsForInteractiveMenu(
     merchantProducts,
     systemPrompt,
     isOneAgentSaaS
   );
+
+  // Only enable interactive e-commerce buttons when the merchant actually has e-commerce products
+  if (catalogItems.length === 0) {
+    return {
+      replyText: aiReplyText,
+      interactiveOptions: undefined
+    };
+  }
+
+  const q = (incomingMessage || '').trim();
+  const qLower = q.toLowerCase();
 
   // Check if customer tapped or typed one of the extracted KB items directly
   const matchedCatalogItem =
@@ -406,42 +406,39 @@ export function buildInteractiveConversationEnvelope(params: {
     return {
       replyText: `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। 🌟${listPreview}\n\nনিচের বাটন থেকে আপনার পছন্দের অপশনটি বেছে নিন:`,
       interactiveOptions: {
-        type: catalogItems.length > 0 ? 'list' : 'buttons',
+        type: 'list',
         listButtonLabel: 'পছন্দ করুন',
+        listButtonTitle: 'পছন্দ করুন',
+        listSectionTitle: 'পছন্দ করুন',
         footerText: `${businessName} AI Assistant`,
         items: catalogItems,
+        listItems: catalogItems,
         buttons: [
           {
             id: 'btn_order_now',
-            label: '🛒 অর্ডার করুন',
+            label: 'Order Now',
             payload: 'অর্ডার করতে চাই',
             icon: 'order'
           },
           {
             id: 'btn_see_more',
-            label: '↩️ আরও দেখুন',
+            label: 'আরও দেখুন',
             payload: 'আরও দেখুন',
             icon: 'back'
-          },
-          {
-            id: 'btn_call',
-            label: '📞 কল করুন',
-            payload: 'আমি ফোনে কথা বলতে চাই',
-            icon: 'call'
           }
         ]
       }
     };
   }
 
-  // 2. Did the customer click "🛒 অর্ডার করুন" / "Order Now" or say "order korte cay" / "অর্ডার করতে চাই" (without giving phone + address yet)?
+  // 2. Did the customer click "Order Now" or say "order korte cay" / "অর্ডার করতে চাই" (without giving phone + address yet)?
   const hasPhoneInMsg = /(?:\+?88)?01[3-9]\d{8}/.test(q);
   const isOrderFormIntent =
     !hasPhoneInMsg &&
     (qLower === 'order now' ||
       qLower === 'অর্ডার করতে চাই' ||
       qLower === 'অর্ডার ফর্ম দিন' ||
-      qLower === '🛒 অর্ডার করুন' ||
+      qLower === 'অর্ডার করুন' ||
       qLower.includes('order korte cay') ||
       qLower.includes('order korte chai') ||
       qLower.includes('order korbo') ||
@@ -464,7 +461,12 @@ export function buildInteractiveConversationEnvelope(params: {
         type: 'order_card',
         orderCardText: 'Tap Order Now, or type your order details here — either works.',
         orderButtonLabel: 'Order Now',
+        listButtonLabel: 'পছন্দ করুন',
+        listButtonTitle: 'পছন্দ করুন',
+        listSectionTitle: 'পছন্দ করুন',
         footerText: `${businessName} AI Assistant`,
+        items: catalogItems,
+        listItems: catalogItems,
         buttons: [
           {
             id: 'btn_order_now',
@@ -474,13 +476,13 @@ export function buildInteractiveConversationEnvelope(params: {
           },
           {
             id: 'btn_see_more',
-            label: '↩️ আরও দেখুন',
+            label: 'আরও দেখুন',
             payload: 'আরও দেখুন',
             icon: 'back'
           },
           {
             id: 'btn_home',
-            label: '🏠 হোম পেজ',
+            label: 'হোম পেজ',
             payload: 'হোম পেজ',
             icon: 'home'
           }
@@ -489,7 +491,7 @@ export function buildInteractiveConversationEnvelope(params: {
     };
   }
 
-  // 3. Did the customer click "↩️ আরও দেখুন" / "পছন্দ করুন" or ask for the product/price list?
+  // 3. Did the customer click "আরও দেখুন" / "পছন্দ করুন" or ask for the product/price list?
   const isSeeMoreOrCatalogListIntent =
     qLower === 'আরও দেখুন' ||
     qLower === '↩️ আরও দেখুন' ||
@@ -518,18 +520,21 @@ export function buildInteractiveConversationEnvelope(params: {
       interactiveOptions: {
         type: 'list',
         listButtonLabel: 'পছন্দ করুন',
+        listButtonTitle: 'পছন্দ করুন',
+        listSectionTitle: 'পছন্দ করুন',
         footerText: `${businessName} AI Assistant`,
         items: catalogItems,
+        listItems: catalogItems,
         buttons: [
           {
             id: 'btn_order_now',
-            label: '🛒 অর্ডার করুন',
+            label: 'Order Now',
             payload: 'অর্ডার করতে চাই',
             icon: 'order'
           },
           {
             id: 'btn_home',
-            label: '🏠 হোম পেজ',
+            label: 'হোম পেজ',
             payload: 'হোম পেজ',
             icon: 'home'
           }
@@ -545,7 +550,6 @@ export function buildInteractiveConversationEnvelope(params: {
       ? `${matchedProduct.price}৳`
       : matchedCatalogItem!.description || '';
 
-    // If the user literally just tapped the product name from the "পছন্দ করুন" list, give a crisp, direct price reply like Screenshot 1!
     const isDirectSelectionTap =
       qLower === prodTitle.toLowerCase() || q.length <= prodTitle.length + 6;
     const finalReply = isDirectSelectionTap
@@ -560,24 +564,28 @@ export function buildInteractiveConversationEnvelope(params: {
       replyText: finalReply,
       interactiveOptions: {
         type: 'buttons',
+        listButtonLabel: 'পছন্দ করুন',
+        listButtonTitle: 'পছন্দ করুন',
+        listSectionTitle: 'পছন্দ করুন',
         footerText: `${businessName} AI Assistant`,
         items: catalogItems.length > 1 ? catalogItems : undefined,
+        listItems: catalogItems.length > 1 ? catalogItems : undefined,
         buttons: [
           {
             id: 'btn_order_item',
-            label: '🛒 অর্ডার করুন',
+            label: 'Order Now',
             payload: `${prodTitle} অর্ডার করতে চাই`,
             icon: 'order'
           },
           {
             id: 'btn_see_more',
-            label: '↩️ আরও দেখুন',
+            label: 'আরও দেখুন',
             payload: 'আরও দেখুন',
             icon: 'back'
           },
           {
             id: 'btn_home',
-            label: '🏠 হোম পেজ',
+            label: 'হোম পেজ',
             payload: 'হোম পেজ',
             icon: 'home'
           }
@@ -586,30 +594,33 @@ export function buildInteractiveConversationEnvelope(params: {
     };
   }
 
-  // 5. Default for any AI reply: attach interactive buttons + "পছন্দ করুন" list if catalog items exist
+  // 5. Default for E-Commerce merchant AI reply: include product list & buttons
   return {
     replyText: aiReplyText,
     interactiveOptions: {
-      type: catalogItems.length > 0 ? 'list' : 'buttons',
-      listButtonLabel: catalogItems.length > 0 ? 'পছন্দ করুন' : undefined,
+      type: 'list',
+      listButtonLabel: 'পছন্দ করুন',
+      listButtonTitle: 'পছন্দ করুন',
+      listSectionTitle: 'পছন্দ করুন',
       footerText: `${businessName} AI Assistant`,
-      items: catalogItems.length > 0 ? catalogItems : undefined,
+      items: catalogItems,
+      listItems: catalogItems,
       buttons: [
         {
           id: 'btn_order_now',
-          label: '🛒 অর্ডার করুন',
+          label: 'Order Now',
           payload: 'অর্ডার করতে চাই',
           icon: 'order'
         },
         {
           id: 'btn_see_more',
-          label: '↩️ আরও দেখুন',
+          label: 'আরও দেখুন',
           payload: 'আরও দেখুন',
           icon: 'back'
         },
         {
           id: 'btn_home',
-          label: '🏠 হোম পেজ',
+          label: 'হোম পেজ',
           payload: 'হোম পেজ',
           icon: 'home'
         }

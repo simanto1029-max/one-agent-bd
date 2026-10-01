@@ -351,10 +351,13 @@ export interface InteractiveMessageButton {
 export interface InteractiveMessageConfig {
   type: 'list' | 'buttons' | 'order_card';
   listButtonLabel?: string;
+  listButtonTitle?: string;
+  listSectionTitle?: string;
   footerText?: string;
   orderCardText?: string;
   orderButtonLabel?: string;
   items?: InteractiveOptionItem[];
+  listItems?: InteractiveOptionItem[];
   buttons?: InteractiveMessageButton[];
 }
 
@@ -1011,6 +1014,13 @@ class Database {
       parsed.products = parsed.products.filter(
         (p: Product) => !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
       );
+    }
+    if (Array.isArray(parsed.messages)) {
+      parsed.messages.forEach((m: Message) => {
+        if (m.user_id === 'usr_admin_001' || m.user_id === 'usr_admin_1') {
+          delete m.interactive_options;
+        }
+      });
     }
     if (!parsed.subscriptions) parsed.subscriptions = initialData.subscriptions;
     if (parsed.profiles) {

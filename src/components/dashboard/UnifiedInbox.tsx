@@ -1349,109 +1349,123 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({ channels, onNavigate
                         {/* Message Text */}
                         <p className="whitespace-pre-wrap">{m.message_text}</p>
 
-                        {/* Interactive List Button (☰ পছন্দ করুন) & Interactive Action Buttons (Order Now, ↩️ আরও দেখুন, 🏠 হোম পেজ) */}
+                        {/* Interactive List Button (☰ পছন্দ করুন) & Interactive Action Buttons (Order Now, আরও দেখুন, হোম পেজ) — Only for E-Commerce messages with interactive_options */}
                         {isOutbound && m.interactive_options && (
                           <div className="mt-3 pt-2.5 border-t border-white/20 space-y-2">
-                            {m.interactive_options.listItems && m.interactive_options.listItems.length > 0 && (
-                              <div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (openInteractiveMsgId === m.id) {
-                                      setOpenInteractiveMsgId(null);
-                                    } else {
-                                      setOpenInteractiveMsgId(m.id);
-                                      setSelectedInteractiveItem(
-                                        m.interactive_options?.listItems?.[0]?.title || ''
-                                      );
-                                    }
-                                  }}
-                                  className="w-full py-2 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/15"
-                                >
-                                  <span className="text-sm leading-none">☰</span>
-                                  <span>{m.interactive_options.listButtonTitle || 'পছন্দ করুন'}</span>
-                                </button>
+                            {(m.interactive_options.listItems || m.interactive_options.items) &&
+                              (m.interactive_options.listItems || m.interactive_options.items)!.length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const listArr =
+                                        m.interactive_options?.listItems ||
+                                        m.interactive_options?.items ||
+                                        [];
+                                      if (openInteractiveMsgId === m.id) {
+                                        setOpenInteractiveMsgId(null);
+                                      } else {
+                                        setOpenInteractiveMsgId(m.id);
+                                        setSelectedInteractiveItem(listArr[0]?.title || '');
+                                      }
+                                    }}
+                                    className="w-full py-2 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/15"
+                                  >
+                                    <span className="text-sm leading-none">☰</span>
+                                    <span>
+                                      {m.interactive_options.listButtonTitle ||
+                                        m.interactive_options.listButtonLabel ||
+                                        'পছন্দ করুন'}
+                                    </span>
+                                  </button>
 
-                                {openInteractiveMsgId === m.id && (
-                                  <div className="mt-2 rounded-xl bg-[#182229] text-white border border-emerald-500/40 overflow-hidden shadow-xl">
-                                    <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-xs font-bold">
-                                      <button
-                                        type="button"
-                                        onClick={() => setOpenInteractiveMsgId(null)}
-                                        className="text-neutral-400 hover:text-white cursor-pointer"
-                                      >
-                                        ✕
-                                      </button>
-                                      <span>{m.interactive_options.listSectionTitle || 'পছন্দ করুন'}</span>
-                                      <span className="w-3" />
-                                    </div>
-                                    <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
-                                      {m.interactive_options.listItems.map((item, idx) => {
-                                        const isSel = selectedInteractiveItem === item.title;
-                                        return (
-                                          <label
-                                            key={item.id || idx}
-                                            onClick={() => setSelectedInteractiveItem(item.title)}
-                                            className="px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-white/5 cursor-pointer"
-                                          >
-                                            <div>
-                                              <div className="text-xs font-bold text-white">{item.title}</div>
-                                              {item.description && (
-                                                <div className="text-[10px] text-neutral-400">{item.description}</div>
-                                              )}
-                                            </div>
-                                            <span
-                                              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                                isSel ? 'border-[#00A884]' : 'border-neutral-500'
-                                              }`}
+                                  {openInteractiveMsgId === m.id && (
+                                    <div className="mt-2 rounded-xl bg-[#182229] text-white border border-emerald-500/40 overflow-hidden shadow-xl">
+                                      <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-xs font-bold">
+                                        <button
+                                          type="button"
+                                          onClick={() => setOpenInteractiveMsgId(null)}
+                                          className="text-neutral-400 hover:text-white cursor-pointer"
+                                        >
+                                          ✕
+                                        </button>
+                                        <span>{m.interactive_options.listSectionTitle || 'পছন্দ করুন'}</span>
+                                        <span className="w-3" />
+                                      </div>
+                                      <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
+                                        {(
+                                          m.interactive_options.listItems ||
+                                          m.interactive_options.items ||
+                                          []
+                                        ).map((item, idx) => {
+                                          const isSel = selectedInteractiveItem === item.title;
+                                          return (
+                                            <label
+                                              key={item.id || idx}
+                                              onClick={() => setSelectedInteractiveItem(item.title)}
+                                              className="px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-white/5 cursor-pointer"
                                             >
-                                              {isSel && <span className="w-2 h-2 rounded-full bg-[#00A884]" />}
-                                            </span>
-                                          </label>
-                                        );
-                                      })}
+                                              <div>
+                                                <div className="text-xs font-bold text-white">{item.title}</div>
+                                                {item.description && (
+                                                  <div className="text-[10px] text-neutral-400">{item.description}</div>
+                                                )}
+                                              </div>
+                                              <span
+                                                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                                  isSel ? 'border-[#00A884]' : 'border-neutral-500'
+                                                }`}
+                                              >
+                                                {isSel && <span className="w-2 h-2 rounded-full bg-[#00A884]" />}
+                                              </span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                      <div className="px-3 py-2 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
+                                        <span className="text-[11px] text-neutral-300 truncate">
+                                          {selectedInteractiveItem}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={!selectedInteractiveItem || simulating}
+                                          onClick={() =>
+                                            handleSimulateInteractiveOptionClick(selectedInteractiveItem)
+                                          }
+                                          className="w-8 h-8 rounded-full bg-[#00A884] hover:bg-[#029072] text-neutral-950 font-black flex items-center justify-center shadow-sm cursor-pointer"
+                                          title="Simulate Customer Selecting This Option"
+                                        >
+                                          ➤
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div className="px-3 py-2 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
-                                      <span className="text-[11px] text-neutral-300 truncate">
-                                        {selectedInteractiveItem}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        disabled={!selectedInteractiveItem || simulating}
-                                        onClick={() =>
-                                          handleSimulateInteractiveOptionClick(selectedInteractiveItem)
-                                        }
-                                        className="w-8 h-8 rounded-full bg-[#00A884] hover:bg-[#029072] text-neutral-950 font-black flex items-center justify-center shadow-sm cursor-pointer"
-                                        title="Simulate Customer Selecting This Option"
-                                      >
-                                        ➤
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                  )}
+                                </div>
+                              )}
 
                             {m.interactive_options.buttons && m.interactive_options.buttons.length > 0 && (
                               <div className="flex flex-col gap-1.5">
-                                {m.interactive_options.buttons.map((btn, idx) => (
-                                  <button
-                                    key={btn.id || idx}
-                                    type="button"
-                                    disabled={simulating}
-                                    onClick={() =>
-                                      handleSimulateInteractiveOptionClick(btn.payload || btn.label)
-                                    }
-                                    className="w-full py-1.5 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/15"
-                                    title="Click to simulate customer tapping this button"
-                                  >
-                                    {btn.icon === 'back' && <span>↩️</span>}
-                                    {btn.icon === 'home' && <span>🏠</span>}
-                                    {btn.icon === 'order' && <span>🛒</span>}
-                                    {btn.icon === 'list' && <span>☰</span>}
-                                    <span>{btn.label}</span>
-                                  </button>
-                                ))}
+                                {m.interactive_options.buttons.map((btn, idx) => {
+                                  const cleanLabel = String(btn.label || '').replace(/^[🛒↩️🏠☰📞\s]+/u, '');
+                                  return (
+                                    <button
+                                      key={btn.id || idx}
+                                      type="button"
+                                      disabled={simulating}
+                                      onClick={() =>
+                                        handleSimulateInteractiveOptionClick(btn.payload || cleanLabel)
+                                      }
+                                      className="w-full py-1.5 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/15"
+                                      title="Click to simulate customer tapping this button"
+                                    >
+                                      {btn.icon === 'back' && <span>↩️</span>}
+                                      {btn.icon === 'home' && <span>🏠</span>}
+                                      {btn.icon === 'order' && <span>🛒</span>}
+                                      {btn.icon === 'list' && <span>☰</span>}
+                                      <span>{cleanLabel}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
