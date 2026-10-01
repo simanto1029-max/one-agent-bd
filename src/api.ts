@@ -1774,9 +1774,13 @@ export const api = {
   async updateErpStock(
     productId: string,
     data: {
+      name?: string;
+      category?: string;
       stock_quantity?: number;
       buying_price?: number;
       price?: number;
+      description?: string;
+      image_url?: string;
     }
   ): Promise<{
     success: boolean;
@@ -1786,6 +1790,16 @@ export const api = {
     return fetchJson(`/api/erp/stock/${productId}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  },
+
+  async deleteErpStock(productId: string): Promise<{
+    success: boolean;
+    summary: any;
+    message: string;
+  }> {
+    return fetchJson(`/api/erp/stock/${productId}`, {
+      method: 'DELETE'
     });
   },
 

@@ -645,78 +645,7 @@ export const defaultSeedReviews: ReviewItem[] = [
   }
 ];
 
-export const defaultSeedProducts: Product[] = [
-  {
-    id: 'prod_001',
-    user_id: 'usr_demo_002',
-    name: 'Premium Semi-Drop Cotton Panjabi',
-    price: 1850,
-    currency: 'BDT',
-    category: "Men's Fashion",
-    description: '100% fine spun combed cotton with minimalist contrast neck embroidery and customized metallic snap buttons. Breathable, anti-wrinkle, tailored slim fit. Available sizes: 38, 40, 42, 44.',
-    image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80',
-    stock_status: 'in_stock',
-    keywords: ['panjabi', 'punjabi', 'panzabi', 'cotton panjabi', 'eid panjabi', 'পাঞ্জাবি', 'পাঞ্জাবী', 'পোশাক', 'শার্ট'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'prod_002',
-    user_id: 'usr_demo_002',
-    name: 'Ultra AMOLED Smartwatch Series 9 (Bluetooth Calling)',
-    price: 2450,
-    currency: 'BDT',
-    category: 'Electronics & Gadgets',
-    description: '2.02-inch HD AMOLED screen with always-on display, direct HD microphone Bluetooth calling, continuous heart-rate / SpO2 / sleep health monitoring, 100+ sports modes, 7-day battery life, and IP68 waterproof rating. 6-month replacement warranty included.',
-    image_url: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=800&q=80',
-    stock_status: 'in_stock',
-    keywords: ['smartwatch', 'smart watch', 'watch', 'ghori', 'smart ghori', 'হাত ঘড়ি', 'ঘড়ি', 'স্মার্ট ওয়াচ'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'prod_003',
-    user_id: 'usr_demo_002',
-    name: 'Handcrafted Full-Grain Genuine Leather Wallet',
-    price: 950,
-    currency: 'BDT',
-    category: 'Accessories',
-    description: 'Crafted from 100% genuine vegetable-tanned cowhide leather. Features 8 dedicated credit/debit card slots, dual full-length cash compartments, hidden ID window, and built-in military grade RFID theft blocking protection. Delivered in premium gift box packaging.',
-    image_url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=800&q=80',
-    stock_status: 'in_stock',
-    keywords: ['wallet', 'leather wallet', 'money bag', 'bag', 'মানিব্যাগ', 'লেদার ওয়ালেট', 'ওয়ালেট', 'পার্স'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'prod_004',
-    user_id: 'usr_demo_002',
-    name: 'Pro Wireless ANC Noise-Cancelling Earbuds (Deep Bass)',
-    price: 1650,
-    currency: 'BDT',
-    category: 'Audio & Tech',
-    description: 'True Wireless Stereo (TWS) with Active Noise Cancellation (ANC) up to 35dB, transparent ambient mode, ultra-low 45ms gaming latency, 13mm composite titanium drivers for rich punchy bass, 32-hour playback with magnetic USB-C charging case.',
-    image_url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-    stock_status: 'in_stock',
-    keywords: ['earbuds', 'headphone', 'airpods', 'earphone', 'wireless earbuds', 'ইয়ারবাড', 'হেডফোন', 'ব্লুটুথ'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'prod_005',
-    user_id: 'usr_demo_002',
-    name: 'Urban Breathable Cushion Running Sneakers',
-    price: 2200,
-    currency: 'BDT',
-    category: 'Footwear',
-    description: 'Engineered fly-knit aerodynamic mesh upper with dual-density memory foam insole and slip-resistant rubber tread sole. Feather-light ergonomic design for all-day running, walking, or gym workouts. Available sizes: 40, 41, 42, 43, 44.',
-    image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
-    stock_status: 'in_stock',
-    keywords: ['sneaker', 'shoes', 'shoe', 'juta', 'keds', 'স্নিকার্স', 'জুতা', 'কেডস'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
+export const defaultSeedProducts: Product[] = [];
 
 // Initial seed data
 const initialData: DatabaseSchema = {
@@ -1051,7 +980,13 @@ class Database {
     if (!parsed.appointments) parsed.appointments = [];
     if (!parsed.email_subscribers) parsed.email_subscribers = [];
     if (!parsed.email_campaigns) parsed.email_campaigns = [];
-    if (!parsed.products || parsed.products.length === 0) parsed.products = defaultSeedProducts;
+    if (!parsed.products) {
+      parsed.products = [];
+    } else {
+      parsed.products = parsed.products.filter(
+        (p: Product) => !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
+      );
+    }
     if (!parsed.subscriptions) parsed.subscriptions = initialData.subscriptions;
     if (parsed.profiles) {
       const seenEmails = new Set<string>();

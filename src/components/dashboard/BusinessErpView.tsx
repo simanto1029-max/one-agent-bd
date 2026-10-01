@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Plus,
   Minus,
+  Edit2,
   Trash2,
   RefreshCw,
   CheckCircle2,
@@ -110,9 +111,17 @@ export const BusinessErpView: React.FC = () => {
   const [txMethod, setTxMethod] = useState<'cash' | 'bkash' | 'nagad' | 'bank'>('bkash');
   const [submittingTx, setSubmittingTx] = useState(false);
 
-  // Stock Filter
+  // Stock Filter & Add/Edit Product Modal State
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all');
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [editingStockProduct, setEditingStockProduct] = useState<Product | null>(null);
+  const [stockFormName, setStockFormName] = useState('');
+  const [stockFormCategory, setStockFormCategory] = useState('General');
+  const [stockFormBuyCost, setStockFormBuyCost] = useState('500');
+  const [stockFormSellPrice, setStockFormSellPrice] = useState('950');
+  const [stockFormQty, setStockFormQty] = useState('25');
+  const [savingStockProduct, setSavingStockProduct] = useState(false);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToast({ text, type });
@@ -187,6 +196,80 @@ export const BusinessErpView: React.FC = () => {
       showToast(res.message || 'Stock updated!');
     } catch (err: any) {
       showToast(err?.message || 'Failed to update stock', 'error');
+    }
+  };
+
+  const handleOpenAddStockProduct = () => {
+    setEditingStockProduct(null);
+    setStockFormName('');
+    setStockFormCategory('General');
+    setStockFormBuyCost('550');
+    setStockFormSellPrice('950');
+    setStockFormQty('25');
+    setIsStockModalOpen(true);
+  };
+
+  const handleOpenEditStockProduct = (prod: Product) => {
+    setEditingStockProduct(prod);
+    setStockFormName(prod.name);
+    setStockFormCategory(prod.category || 'General');
+    setStockFormBuyCost(String(prod.buying_price ?? Math.round((prod.price || 0) * 0.6)));
+    setStockFormSellPrice(String(prod.price || 0));
+    setStockFormQty(String(prod.stock_quantity ?? 20));
+    setIsStockModalOpen(true);
+  };
+
+  const handleSaveStockProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stockFormName.trim()) {
+      showToast('Product name is required.', 'error');
+      return;
+    }
+    setSavingStockProduct(true);
+    try {
+      const qtyNum = Math.max(0, Number(stockFormQty) || 0);
+      const buyNum = Math.max(0, Number(stockFormBuyCost) || 0);
+      const sellNum = Math.max(0, Number(stockFormSellPrice) || 0);
+
+      if (editingStockProduct) {
+        const res = await api.updateErpStock(editingStockProduct.id, {
+          name: stockFormName.trim(),
+          category: stockFormCategory.trim() || 'General',
+          buying_price: buyNum,
+          price: sellNum,
+          stock_quantity: qtyNum
+        });
+        applySummary(res.summary);
+        showToast(res.message || 'Product & Stock updated!');
+      } else {
+        await api.createProduct({
+          name: stockFormName.trim(),
+          category: stockFormCategory.trim() || 'General',
+          buying_price: buyNum,
+          price: sellNum,
+          stock_quantity: qtyNum,
+          stock_status: qtyNum <= 0 ? 'out_of_stock' : qtyNum <= 5 ? 'low_stock' : 'in_stock',
+          currency: 'BDT',
+          description: `${stockFormName.trim()} (${stockFormCategory.trim() || 'General'})`
+        });
+        await loadErp();
+        showToast(`Added "${stockFormName.trim()}" (${qtyNum} pcs) to Stock & Product Catalog!`);
+      }
+      setIsStockModalOpen(false);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save product', 'error');
+    } finally {
+      setSavingStockProduct(false);
+    }
+  };
+
+  const handleDeleteStockProduct = async (prod: Product) => {
+    try {
+      const res = await api.deleteErpStock(prod.id);
+      applySummary(res.summary);
+      showToast(res.message || `Deleted "${prod.name}".`);
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to delete product', 'error');
     }
   };
 
@@ -1094,10 +1177,10 @@ export const BusinessErpView: React.FC = () => {
           <div className="p-5 border-b border-slate-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                Live Stock &amp; Inventory Control (Auto-Synced with AI Agent)
+                Live Stock &amp; Inventory Control (Synced with Products &amp; Store)
               </h3>
               <p className="text-xs text-slate-500">
-                When Stock hits 0, your AI Chatbot automatically informs customers that the item is Out of Stock.
+                100% synced with your Products &amp; Store catalog. Add, edit, or delete products and stock quantities directly here.
               </p>
             </div>
 
@@ -1116,11 +1199,20 @@ export const BusinessErpView: React.FC = () => {
                   {st.replace(/_/g, ' ')}
                 </button>
               ))}
+
+              <button
+                type="button"
+                onClick={handleOpenAddStockProduct}
+                className="px-3.5 py-1.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1bd9] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Product / Stock</span>
+              </button>
             </div>
           </div>
 
-          <div className="p-4 border-b border-slate-100 dark:border-neutral-800">
-            <div className="relative max-w-sm">
+          <div className="p-4 border-b border-slate-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative max-w-sm w-full">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
@@ -1130,88 +1222,130 @@ export const BusinessErpView: React.FC = () => {
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-neutral-700 text-xs"
               />
             </div>
+            <div className="text-xs text-slate-500 font-semibold">
+              Showing <strong className="text-slate-900 dark:text-white">{filteredProducts.length}</strong> product(s) in your catalog
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-neutral-800/60 text-slate-400 uppercase border-b border-slate-100 dark:border-neutral-800">
-                <tr>
-                  <th className="py-3 px-4">Product</th>
-                  <th className="py-3 px-4">Buying Cost</th>
-                  <th className="py-3 px-4">Selling Price</th>
-                  <th className="py-3 px-4">Stock Value</th>
-                  <th className="py-3 px-4">Stock Status</th>
-                  <th className="py-3 px-4 text-right">Quick Stock Adjust</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
-                {filteredProducts.map((prod) => {
-                  const qty = prod.stock_quantity ?? 20;
-                  const buyCost = prod.buying_price || Math.round(prod.price * 0.6);
-                  return (
-                    <tr key={prod.id} className="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white">{prod.name}</div>
-                        <div className="text-[11px] text-slate-400">{prod.category}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-600 dark:text-neutral-300">
-                        ৳ {buyCost.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                        ৳ {(prod.price || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-blue-600">
-                        ৳ {(qty * (prod.price || 0)).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${
-                            prod.stock_status === 'in_stock'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : prod.stock_status === 'low_stock'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {qty} pcs ({prod.stock_status.replace(/_/g, ' ').toUpperCase()})
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStockAdjust(prod, -1)}
-                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-rose-100 text-slate-700 dark:text-neutral-200 cursor-pointer"
-                            title="Deduct 1 unit"
+          {filteredProducts.length === 0 ? (
+            <div className="p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-neutral-800 text-slate-400 flex items-center justify-center mx-auto">
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="text-sm font-bold text-slate-800 dark:text-white">
+                No products in your stock catalog yet
+              </div>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Any product you add here or in <strong>Products &amp; Store</strong> will appear here with real-time stock tracking.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenAddStockProduct}
+                className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1bd9] text-white text-xs font-bold shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Add First Product &amp; Stock</span>
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-neutral-800/60 text-slate-400 uppercase border-b border-slate-100 dark:border-neutral-800">
+                  <tr>
+                    <th className="py-3 px-4">Product</th>
+                    <th className="py-3 px-4">Buying Cost</th>
+                    <th className="py-3 px-4">Selling Price</th>
+                    <th className="py-3 px-4">Stock Value</th>
+                    <th className="py-3 px-4">Stock Status</th>
+                    <th className="py-3 px-4 text-right">Quick Stock Adjust &amp; Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
+                  {filteredProducts.map((prod) => {
+                    const qty = prod.stock_quantity ?? 20;
+                    const buyCost = prod.buying_price ?? Math.round((prod.price || 0) * 0.6);
+                    return (
+                      <tr key={prod.id} className="hover:bg-slate-50/60 dark:hover:bg-neutral-800/40">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 dark:text-white">{prod.name}</div>
+                          <div className="text-[11px] text-slate-400">{prod.category}</div>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-600 dark:text-neutral-300 whitespace-nowrap">
+                          ৳ {buyCost.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                          ৳ {(prod.price || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-blue-600 whitespace-nowrap">
+                          ৳ {(qty * (prod.price || 0)).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap ${
+                              prod.stock_status === 'in_stock'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : prod.stock_status === 'low_stock'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}
                           >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-10 text-center font-extrabold text-slate-900 dark:text-white">
-                            {qty}
+                            {qty} pcs ({prod.stock_status.replace(/_/g, ' ').toUpperCase()})
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStockAdjust(prod, 1)}
-                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-emerald-100 text-slate-700 dark:text-neutral-200 cursor-pointer"
-                            title="Add 1 unit"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStockAdjust(prod, 10)}
-                            className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] hover:bg-blue-100 cursor-pointer"
-                          >
-                            +10
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickStockAdjust(prod, -1)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-rose-100 text-slate-700 dark:text-neutral-200 cursor-pointer"
+                              title="Deduct 1 unit"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-10 text-center font-extrabold text-slate-900 dark:text-white">
+                              {qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickStockAdjust(prod, 1)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-emerald-100 text-slate-700 dark:text-neutral-200 cursor-pointer"
+                              title="Add 1 unit"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickStockAdjust(prod, 10)}
+                              className="px-2 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] hover:bg-blue-100 cursor-pointer"
+                              title="Add 10 units"
+                            >
+                              +10
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditStockProduct(prod)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-purple-100 text-slate-600 hover:text-[#7F22FE] cursor-pointer ml-1"
+                              title="Edit Product Name, Price & Stock"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStockProduct(prod)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-neutral-800 hover:bg-rose-100 text-rose-500 hover:text-rose-700 cursor-pointer"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -1648,6 +1782,115 @@ export const BusinessErpView: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Product & Stock Modal */}
+      {isStockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-neutral-800 flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                {editingStockProduct ? 'Edit Product & Stock' : 'Add New Product & Stock'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsStockModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveStockProduct} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                  Product Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={stockFormName}
+                  onChange={(e) => setStockFormName(e.target.value)}
+                  placeholder="e.g., Cargo Jogger Pant"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={stockFormCategory}
+                    onChange={(e) => setStockFormCategory(e.target.value)}
+                    placeholder="e.g., Pants, Watches"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                    Stock Quantity (Pcs) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={stockFormQty}
+                    onChange={(e) => setStockFormQty(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                    Buying Cost / Unit (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={stockFormBuyCost}
+                    onChange={(e) => setStockFormBuyCost(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-neutral-300 mb-1">
+                    Selling Price / Unit (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={stockFormSellPrice}
+                    onChange={(e) => setStockFormSellPrice(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStockModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-neutral-300 font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStockProduct}
+                  className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1bd9] text-white font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {savingStockProduct ? 'Saving...' : editingStockProduct ? 'Save Changes' : '+ Add Product'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -11,26 +11,31 @@ import { getAuthenticatedUser } from './auth.js';
 export const erpRouter = Router();
 
 function buildErpSummary(userId: string) {
-  const rawProducts = db.getProducts(userId);
-  const allProducts = rawProducts.length > 0 ? rawProducts : db.getProducts();
+  // Strictly load ONLY the authenticated user's own products (100% synced with Products & Store)
+  const allProducts = db.getProducts(userId);
 
-  // Normalize stock_quantity for every product
-  const products = allProducts.map((p, idx) => {
+  // Normalize stock_quantity for every product without inventing random numbers
+  const products = allProducts.map((p) => {
     const defaultStock =
       p.stock_status === 'out_of_stock'
         ? 0
         : p.stock_status === 'low_stock'
         ? 4
-        : 20 + ((idx * 7) % 35);
+        : 20;
     const stockQty =
-      p.stock_quantity !== undefined ? Math.max(0, Number(p.stock_quantity)) : defaultStock;
+      p.stock_quantity !== undefined && p.stock_quantity !== null && !isNaN(Number(p.stock_quantity))
+        ? Math.max(0, Number(p.stock_quantity))
+        : defaultStock;
     const status: Product['stock_status'] =
       stockQty <= 0 ? 'out_of_stock' : stockQty <= 5 ? 'low_stock' : 'in_stock';
     return {
       ...p,
       stock_quantity: stockQty,
       stock_status: status,
-      buying_price: p.buying_price || Math.round((Number(p.price) || 500) * 0.58)
+      buying_price:
+        p.buying_price !== undefined && !isNaN(Number(p.buying_price))
+          ? Number(p.buying_price)
+          : Math.round((Number(p.price) || 0) * 0.6)
     };
   });
 
@@ -47,14 +52,13 @@ function buildErpSummary(userId: string) {
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const totalSales = ordersSalesTotal + extraSalesIncome;
 
-  // 2. Purchase Calculation
+  // 2. Purchase Calculation (logged supplier purchases + buying cost of inventory)
   const loggedPurchasesTotal = purchases.reduce((sum, p) => sum + (Number(p.total_cost) || 0), 0);
   const estimatedInventoryCost = products.reduce(
     (sum, p) => sum + (Number(p.buying_price) || 0) * (Number(p.stock_quantity) || 0),
     0
   );
-  const totalPurchase =
-    loggedPurchasesTotal > 0 ? loggedPurchasesTotal : Math.round(estimatedInventoryCost * 0.65);
+  const totalPurchase = loggedPurchasesTotal > 0 ? loggedPurchasesTotal : estimatedInventoryCost;
 
   // 3. Due Ledger (Auto Order COD Dues + Manual Customer & Supplier Dues)
   const orderDueEntries: DueRecord[] = activeOrders
@@ -103,18 +107,18 @@ function buildErpSummary(userId: string) {
   const lowStockCount = products.filter((p) => p.stock_status === 'low_stock').length;
   const outOfStockCount = products.filter((p) => p.stock_status === 'out_of_stock').length;
 
-  const denom = Math.max(1, totalProducts);
-  const inStockPct = Math.round((inStockCount / denom) * 100);
-  const lowStockPct = Math.round((lowStockCount / denom) * 100);
-  const outOfStockPct = Math.max(0, 100 - inStockPct - lowStockPct);
+  const inStockPct = totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0;
+  const lowStockPct = totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0;
+  const outOfStockPct =
+    totalProducts > 0 ? Math.max(0, 100 - inStockPct - lowStockPct) : 0;
 
-  // 5. Top Selling Products
+  // 5. Top Selling Products (100% real sold counts)
   const topProducts = products
-    .map((prod, index) => {
+    .map((prod) => {
       const matchedOrdersQty = activeOrders
         .filter((o) => (o.items || '').toLowerCase().includes(prod.name.toLowerCase()))
         .reduce((sum, o) => sum + (Number(o.quantity) || 1), 0);
-      const soldQty = (prod.sold_count || 0) + matchedOrdersQty || Math.max(2, 18 - index * 3);
+      const soldQty = Math.max(Number(prod.sold_count) || 0, matchedOrdersQty);
       return {
         id: prod.id,
         name: prod.name,
@@ -129,20 +133,32 @@ function buildErpSummary(userId: string) {
     .sort((a, b) => b.soldQty - a.soldQty)
     .slice(0, 6);
 
-  // 6. Sales Overview Trend (Last 6 Months / Periods)
-  const monthNames = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
-  const baseSale = Math.max(12000, Math.round(totalSales / 3));
-  const salesOverview = monthNames.map((m, idx) => {
-    const factor = 0.55 + idx * 0.11;
-    const periodSales =
-      idx === monthNames.length - 1
-        ? Math.max(totalSales, 18500)
-        : Math.round(baseSale * factor);
-    const periodPurchase = Math.round(periodSales * 0.58);
+  // 6. Sales Overview Trend (Last 6 Months based on real orders & purchases)
+  const now = new Date();
+  const salesOverview = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const label = d.toLocaleString('en-US', { month: 'short' });
+    const monthIdx = d.getMonth();
+    const yearIdx = d.getFullYear();
+
+    const monthSales = activeOrders
+      .filter((o) => {
+        const od = new Date(o.created_at);
+        return od.getMonth() === monthIdx && od.getFullYear() === yearIdx;
+      })
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+    const monthPurchases = purchases
+      .filter((p) => {
+        const pd = new Date(p.created_at);
+        return pd.getMonth() === monthIdx && pd.getFullYear() === yearIdx;
+      })
+      .reduce((sum, p) => sum + (Number(p.total_cost) || 0), 0);
+
     return {
-      label: m,
-      sales: periodSales,
-      purchase: periodPurchase
+      label,
+      sales: i === 5 && monthSales === 0 ? totalSales : monthSales,
+      purchase: i === 5 && monthPurchases === 0 ? totalPurchase : monthPurchases
     };
   });
 
@@ -181,7 +197,7 @@ function buildErpSummary(userId: string) {
     },
     salesOverview,
     topProducts,
-    recentOrders: orders.slice(0, 12),
+    recentOrders: orders.slice(0, 15),
     products,
     purchases,
     dues: combinedDues,
@@ -220,6 +236,7 @@ erpRouter.post('/purchases', (req: Request, res: Response) => {
     paid_amount,
     payment_method = 'cash',
     selling_price,
+    category = 'General',
     notes
   } = req.body || {};
 
@@ -239,11 +256,14 @@ erpRouter.post('/purchases', (req: Request, res: Response) => {
     db.updateProduct(targetProduct.id, {
       stock_quantity: nextStock,
       buying_price: unit || targetProduct.buying_price,
+      ...(selling_price !== undefined && Number(selling_price) > 0
+        ? { price: Number(selling_price) }
+        : {}),
       stock_status: nextStock <= 0 ? 'out_of_stock' : nextStock <= 5 ? 'low_stock' : 'in_stock'
     });
   } else if (finalProductName) {
     targetProduct = db.createProduct({
-      id: `prod_${Date.now()}`,
+      id: `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       user_id: user.id,
       name: finalProductName,
       price: Number(selling_price) || Math.round(unit * 1.45) || 500,
@@ -251,10 +271,9 @@ erpRouter.post('/purchases', (req: Request, res: Response) => {
       stock_quantity: qty,
       sold_count: 0,
       currency: 'BDT',
-      category: 'General',
+      category: String(category || 'General').trim(),
       description: `Added via Purchase ERP from ${supplier_name || 'Supplier'}`,
-      image_url:
-        'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+      image_url: '',
       stock_status: qty <= 5 ? 'low_stock' : 'in_stock',
       keywords: finalProductName.toLowerCase().split(/\s+/),
       created_at: new Date().toISOString(),
@@ -322,7 +341,7 @@ erpRouter.delete('/purchases/:id', (req: Request, res: Response) => {
   });
 });
 
-// PUT /api/erp/stock/:productId - Quick Stock Quantity & Price Adjustment
+// PUT /api/erp/stock/:productId - Quick Stock Quantity & Product Details Adjustment
 erpRouter.put('/stock/:productId', (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
@@ -334,7 +353,7 @@ erpRouter.put('/stock/:productId', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Product not found' });
   }
 
-  const { stock_quantity, buying_price, price } = req.body || {};
+  const { name, category, stock_quantity, buying_price, price, description, image_url } = req.body || {};
   const nextQty =
     stock_quantity !== undefined
       ? Math.max(0, Number(stock_quantity))
@@ -345,14 +364,38 @@ erpRouter.put('/stock/:productId', (req: Request, res: Response) => {
   db.updateProduct(product.id, {
     stock_quantity: nextQty,
     stock_status: nextStatus,
+    ...(name !== undefined && String(name).trim() ? { name: String(name).trim() } : {}),
+    ...(category !== undefined && String(category).trim() ? { category: String(category).trim() } : {}),
     ...(buying_price !== undefined ? { buying_price: Math.max(0, Number(buying_price)) } : {}),
-    ...(price !== undefined ? { price: Math.max(0, Number(price)) } : {})
+    ...(price !== undefined ? { price: Math.max(0, Number(price)) } : {}),
+    ...(description !== undefined ? { description: String(description).trim() } : {}),
+    ...(image_url !== undefined ? { image_url: String(image_url).trim() } : {})
   });
 
   return res.json({
     success: true,
     summary: buildErpSummary(user.id),
-    message: `Stock updated for "${product.name}" (${nextQty} units — ${nextStatus.replace('_', ' ').toUpperCase()})`
+    message: `Updated "${name || product.name}" (${nextQty} pcs — ${nextStatus.replace(/_/g, ' ').toUpperCase()})`
+  });
+});
+
+// DELETE /api/erp/stock/:productId - Delete Product from Stock & Catalog
+erpRouter.delete('/stock/:productId', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const product = db.getProductById(req.params.productId);
+  if (!product) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  db.deleteProduct(product.id);
+  return res.json({
+    success: true,
+    summary: buildErpSummary(user.id),
+    message: `Deleted "${product.name}" from Stock & Product Catalog.`
   });
 });
 
