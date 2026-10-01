@@ -60,8 +60,8 @@ function getSaasIntelligentFallback(question: string, lang: 'bn' | 'en'): string
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'We have 2 official plans plus a 2-Day Free Trial:\n• Starter AI Plan — 1,250 TK/month (Includes all SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store & Courier Dispatch)\n• Pro Business Plan — 1,950 TK/month (Connect up to 10 Channels, 3 AI Agents, Unlimited Multi-Store Sync, VIP Broadcast & Priority Support)\n\nPlus, enjoy 15% OFF on 1-Year subscriptions and 20% OFF on 2-Year subscriptions!'
-      : 'আমাদের ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে:\n• Starter AI Plan — ৳১,২৫০/মাস (সব SaaS ফিচার: WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI, ৩টি চ্যানেল ও কুরিয়ার বুকিং)\n• Pro Business Plan — ৳১,৯৫০/মাস (১০টি পর্যন্ত চ্যানেল কানেকশন, ৩টি AI এজেন্ট, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n\nএছাড়া ১ বছরের সাবস্ক্রিপশনে ১৫% ডিসকাউন্ট এবং ২ বছরের সাবস্ক্রিপশনে ২০% ডিসকাউন্ট পাবেন!';
+      ? 'We have 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Dispatch)\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Multi-Store Sync & VIP Broadcast)\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
+      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল কানেকশন, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
   }
 
   // Free Trial
@@ -144,8 +144,8 @@ aiChatRouter.post('/hero-query', async (req: Request, res: Response) => {
 
       const languageInstruction =
         lang === 'en'
-          ? 'CRITICAL LANGUAGE RULE: The visitor asked in English. Reply in clear, natural, and concise English (2-3 sentences).'
-          : 'CRITICAL LANGUAGE RULE: কাস্টমার বাংলা (Bangla) অথবা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর, মার্জিত ও প্রাকৃতিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) ২-৩ বাক্যে উত্তর দিন।';
+          ? 'CRITICAL LANGUAGE & SERIAL LIST RULE: The visitor asked in English. Reply in clear, natural English. Whenever listing plans, prices, features, what is available, or details, format them as a clean serial numbered list (1., 2., 3.) on separate lines.'
+          : 'CRITICAL LANGUAGE & SERIAL LIST RULE: কাস্টমার বাংলা (Bangla) অথবা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন। কাস্টমার যখনই প্ল্যান, দাম, কী কী আছে (ki ki ase), সার্ভিস বা বিস্তারিত (details) জানতে চাইবে, কখনোই এক প্যারাগ্রাফে হিজিবিজি করে লিখবেন না—অবশ্যই নিচে নিচে সিরিয়াল নাম্বার (১., ২., ৩.) দিয়ে পয়েন্ট আকারে সাজিয়ে উত্তর দেবেন।';
 
       const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
 
@@ -153,8 +153,8 @@ Channel UI: ${platform === 'whatsapp' ? 'WhatsApp Business' : 'Facebook Messenge
 ${languageInstruction}
 CRITICAL REMINDER & CONVERSATION STYLE:
 1. The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন"). Answer directly in this chat!
-2. Talk naturally like a real human (conversational like ChatGPT).
-3. Put an empty line (\\n\\n) between your main answer and your closing follow-up question!
+2. Whenever the visitor asks about plans, pricing, features, what we have ("ki ki ase"), or details — ALWAYS write a 1-line intro, followed by a serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) with each item on its own line!
+3. Put an empty line (\\n\\n) before the numbered list and an empty line (\\n\\n) before your closing follow-up question!
 4. Always end your reply with 1 smart, context-aware follow-up question based on what the visitor asked!
 
 Previous conversation:
@@ -268,7 +268,7 @@ RULES OF ENGAGEMENT:
 1. Always adhere strictly to the store's products, prices, and delivery terms provided above.
 2. If the customer is inquiring about price, size, or availability, provide exact details based on the catalog and prompt them politely to share delivery details if they want to order.
 3. If the customer is providing their delivery address and phone number to place an order, celebrate their order, summarize the items, delivery charge, total price in BDT, and confirm that their order is booked!
-4. Keep your answer concise (2-3 short sentences), put an empty line (\\n\\n) before your closing follow-up question, and always ask 1 relevant follow-up question!
+4. Whenever the customer asks what products are available ("ki ki ase"), prices, features, or details, NEVER write a dense paragraph — always format the items/details as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines, put an empty line (\\n\\n) before your closing follow-up question, and always ask 1 relevant follow-up question!
 5. CRITICAL LANGUAGE RULE: ${
         lang === 'en'
           ? 'The customer asked in English. Respond in clear, natural, and polite English.'

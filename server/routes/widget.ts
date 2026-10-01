@@ -309,8 +309,8 @@ function getSaasBilingualFallback(
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'One Agent BD offers 2 transparent plans plus a 2-Day Free Trial:\n1) Starter AI Plan — 1,250 TK/month (Includes ALL SaaS features: WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, up to 3 Channels, 1 Website Store, Unlimited Products, Auto Order & Courier Booking).\n2) Pro Business Plan — 1,950 TK/month (Connect up to 10 Channels & Multi-Page, 3 AI Agents, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 VIP Priority Support).\n\nPlus, get 15% OFF on 1-Year plans and 20% OFF on 2-Year plans!'
-      : 'One Agent BD-তে ২ দিনের ফ্রি ট্রায়াল সহ ২টি অফিসিয়াল প্ল্যান রয়েছে:\n১) Starter AI Plan — ৳১,২৫০/মাস (সব SaaS ফিচার আনলকড: WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI, ৩টি চ্যানেল, ১টি ওয়েবসাইট স্টোর এবং কুরিয়ার বুকিং)।\n২) Pro Business Plan — ৳১,৯৫০/মাস (১০টি পর্যন্ত চ্যানেল ও মাল্টি-পেজ কানেকশন, ৩টি AI এজেন্ট, আনলিমিটেড ওয়েবসাইট স্টোর সিঙ্ক ও VIP ব্রডকাস্ট)।\n\nএছাড়া ১ বছরের সাবস্ক্রিপশনে ১৫% ডিসকাউন্ট এবং ২ বছরের সাবস্ক্রিপশনে ২০% ডিসকাউন্ট রয়েছে!';
+      ? 'One Agent BD offers 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Booking)\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 Priority Support)\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
+      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর সিঙ্ক ও VIP ব্রডকাস্ট)\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
   }
 
   // Website AI Chatbot integration
@@ -767,18 +767,17 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
 
 ${languageDirective}
 
-IMPORTANT REMINDER & HUMAN CONVERSATION RULES:
+IMPORTANT REMINDER & SERIAL LIST FORMATTING RULES:
 - The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন" or "Visit our website".
-- Talk naturally like a real human (conversational like ChatGPT).
-- Keep your answer concise (2-3 short sentences).
-- MANDATORY PARAGRAPH SPACING: Put an empty line (\\n\\n) between your main answer and your closing follow-up question! Never cram everything into one single block of text.
+- MANDATORY SERIAL NUMBERED LIST (১. ২. ৩. / 1. 2. 3.): Whenever the visitor asks about plans, prices, what is available ("ki ki ase"), products, features, or details — NEVER write a cramped paragraph! Always start with a short 1-line intro, then list the items/plans/details serially as ১., ২., ৩. (in Bangla) or 1., 2., 3. (in English) on separate lines so it looks super clean on mobile screens.
+- MANDATORY PARAGRAPH SPACING: Put an empty line (\\n\\n) before the numbered list and an empty line (\\n\\n) before your closing follow-up question!
 - MANDATORY FOLLOW-UP QUESTION: Always end your reply (in a new paragraph after \\n\\n) with 1 smart, relevant follow-up question based on what the visitor asked!
 
 ${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}
 ${hasImage ? 'The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n' : ''}
 Visitor Message: "${effectiveQueryText || '[Image Attached - Please analyze and reply concisely]'}"
 
-Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevant closing follow-up question:`;
+Provide a clean, mobile-friendly response (using serial numbers ১., ২., ৩. on separate lines when listing plans, products, or details, plus \\n\\n paragraph spacing and 1 relevant closing follow-up question):`;
 
           parts.push({ text: promptText });
 
@@ -810,7 +809,7 @@ Provide a SHORT, human-like response with \\n\\n paragraph spacing and 1 relevan
     // Built-in Zero-Key Cloud LLM Fallback for text queries when Gemini key is absent or rate-limited
     if (!aiReplyText && !hasAudio && !hasImage && rawText) {
       try {
-        const cloudPrompt = `${baseKnowledge}\n\n${languageDirective}\n\n${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}Visitor Message: "${rawText}"\n\nReply naturally like a real human in 2-3 short sentences with \\n\\n paragraph spacing and 1 smart closing follow-up question:`;
+        const cloudPrompt = `${baseKnowledge}\n\n${languageDirective}\n\n${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}Visitor Message: "${rawText}"\n\nReply naturally like a real human (using a clean serial numbered list ১., ২., ৩. on separate lines whenever listing plans, prices, products, or details, with \\n\\n paragraph spacing and 1 smart closing follow-up question):`;
         const cloudRes = await fetch('https://text.pollinations.ai/openai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

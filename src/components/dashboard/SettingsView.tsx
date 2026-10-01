@@ -91,8 +91,8 @@ Business Knowledge Base:
 5. Helpline & Support Hours:
    ${kbHelpline}
 
-SMART REASONING & SHORT REPLY RULES:
-- Always keep replies concise and to the point (maximum 2 to 3 sentences). Never send long paragraphs or unnecessary lists.
+SMART REASONING & SERIAL LIST FORMATTING RULES:
+- Whenever a customer asks about plans, prices, products, what is available ("ki ki ase"), features, or details, always format the items/options as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines so it is easy to read on mobile phones.
 - Reply in natural Bangla when the customer messages in Bangla or Banglish, and in English when the customer messages in English.`;
   };
 
@@ -360,8 +360,8 @@ Business Knowledge Base (Services & Policies):
    - Email: support.oneagentbd@gmail.com
    - Website: https://www.oneagentbd.online
 
-SMART REASONING & SHORT REPLY RULES:
-- Always keep replies concise and to the point (maximum 2 to 3 sentences).
+SMART REASONING & SERIAL LIST FORMATTING RULES:
+- Whenever a customer asks about plans, prices, features, what is available ("ki ki ase"), or details, always format the items/plans as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines so it looks clean on mobile phones.
 - Reply in natural Bangla when the customer messages in Bangla or Banglish, and in English when they message in English.`
     },
     {

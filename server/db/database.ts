@@ -715,8 +715,9 @@ Business Knowledge Base:
 2. Payment & Support:
    - bKash, Nagad & Rocket automated gateway (pay.oneagentbd.online). Helpline: +8801601705804.
 
-MANDATORY LANGUAGE & SHORT REPLY RULES:
-- Reply in the same language the customer uses (if the customer asks in Bangla, Banglish, or Bangla voice note, reply in natural Bangla; if they ask in English, reply in clear English) in 2-3 concise sentences.`,
+MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
+- Reply in the same language the customer uses (if the customer asks in Bangla, Banglish, or Bangla voice note, reply in natural Bangla; if they ask in English, reply in clear English).
+- Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), features, or details, always reply in a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.`,
       created_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
     }
@@ -1067,9 +1068,16 @@ Business Knowledge Base:
 5. Support & Helpline:
    - Open daily from 9:00 AM to 11:00 PM. Helpline: 01811-998877.
 
-MANDATORY LANGUAGE & REPLY RULES:
+MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 - If the customer writes in Bangla or Banglish, reply in natural, polite Bangla script. If the customer writes in English, reply in clear English.
-- Keep replies concise, clear, and within 1-3 sentences.`;
+- Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), features, or details, always format them as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.`;
+        }
+        if (p.system_prompt) {
+          p.system_prompt = p.system_prompt
+            .replace(/Never send long paragraphs or unnecessary lists\./gi, '')
+            .replace(/Keep replies concise, clear, and within 1-3 sentences\./gi, 'Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), or details, format them as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.')
+            .replace(/Always keep replies concise and to the point \(maximum 2 to 3 sentences\)\./gi, 'Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), or details, format them as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.')
+            .replace(/in 2-3 concise sentences\./gi, 'using a clean serial numbered list (১., ২., ৩.) when listing plans, prices, products, or details.');
         }
         if (p.automation_settings) {
           if (
