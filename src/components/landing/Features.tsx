@@ -67,8 +67,8 @@ export const Features: React.FC = () => {
       id: 'one-click-courier',
       icon: Truck,
       iconColor: 'text-indigo-600 dark:text-indigo-400',
-      title: '1-Click Steadfast, Pathao & RedX',
-      description: 'Send confirmed orders directly to Steadfast, Pathao, or RedX courier in one click with live consignment tracking.'
+      title: '1-Click Courier & Auto Delivery Tracking',
+      description: 'Dispatch orders to Steadfast, Pathao & RedX in 1 click, while AI tracks live parcel status and updates customers automatically.'
     },
     {
       id: 'business-erp',

@@ -732,15 +732,15 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       trial_days: 2,
       is_active: true,
       features: [
-        '24/7 Active AI Sales & Auto-Reply Agent',
+        '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)',
+        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
+        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
+        'AI Auto Delivery Tracking & Customer Live Status Update',
+        'VIP Customer Retargeting & Smart Follow-Up Message',
         'WhatsApp, Facebook Messenger & Instagram Auto-Reply',
-        'Connect up to 3 Social Channels',
         'Voice Note AI Listening & Product Photo Recognition',
         'Auto Post Comment Reply + Direct Inbox (DM) Automation',
-        'Unlimited Product Catalog & Visual Photo Search',
-        'Autonomous Chat Order Capture & Live Unified Inbox',
-        'Custom Brand AI Persona & Business Prompt Training',
-        'Real-Time Dashboard Analytics & Conversation Logs',
+        'Unlimited Product Catalog & Autonomous Chat Order Capture',
         'Unlimited Customer Conversations (0 TK per-msg fee)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
@@ -748,8 +748,8 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       feature_config: {
         website_stores: false,
         call_requests: false,
-        vip_broadcast: false,
-        courier_dispatch: false,
+        vip_broadcast: true,
+        courier_dispatch: true,
         csv_export: false,
         max_channels: 3
       }
@@ -765,14 +765,14 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       features: [
         'Everything in Starter Plan + Connect up to 10 Channels',
         'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)',
+        'AI Appointments & Google Calendar Auto-Slot Booking',
+        'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
+        'AI Auto Delivery Tracking & Customer Live Status Update',
+        'VIP Customer Retargeting Message & AI Email Marketing',
         '1-Click Steadfast, Pathao & RedX Courier Dispatch',
         'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-        'AI Appointments & Google Calendar Auto-Slot Booking',
-        'AI Email Marketing & Customer Broadcast Campaigns',
-        'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
         'Customer Callback Queue, Human Handover & CSV/Text Export',
-        '3 Autonomous AI Sales Agents (Run Multiple Brands)',
-        '24/7 VIP Priority Support & Dedicated Setup Onboarding'
+        '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),

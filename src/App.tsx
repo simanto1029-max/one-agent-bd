@@ -281,7 +281,7 @@ export default function App() {
       icon: ShoppingBag,
       tabs: [
         { id: 'orders', label: 'All Orders', icon: ShoppingBag, desc: 'AI-captured & manual customer orders' },
-        { id: 'delivery-courier', label: 'Courier & Steadfast', icon: Truck, desc: '1-click courier booking & tracking', isProOnly: true },
+        { id: 'delivery-courier', label: 'Courier & Steadfast', icon: Truck, desc: '1-click courier booking & tracking' },
         { id: 'appointments', label: 'Appointments', icon: Calendar, desc: 'Automated slot booking & calendar', isProOnly: true }
       ]
     },
@@ -857,7 +857,7 @@ export default function App() {
 
               {activeTab === 'orders' && (
                 <OrdersView
-                  isProPlan={isProPlan}
+                  isProPlan={true}
                   onUpgradeToPro={handleNavigateToProUpgrade}
                   onGoToInbox={() => {
                     setActiveTab('inbox');
@@ -866,19 +866,7 @@ export default function App() {
               )}
 
               {activeTab === 'delivery-courier' && (
-                <ProFeatureBlurWrapper
-                  isProPlan={isProPlan}
-                  featureTitle="1-Click Courier & Steadfast Dispatch"
-                  featureSubtitleBn="এই ফিচারটি শুধুমাত্র Pro Business Plan মেম্বারদের জন্য। Starter Plan-এ আপনি এর প্রিভিউ দেখতে পারছেন, তবে কুরিয়ারে পার্সেল বুকিং ও ট্র্যাকিং ব্যবহার করতে Pro Plan-এ আপগ্রেড করুন।"
-                  highlights={[
-                    '1-Click Steadfast, Pathao & RedX Parcel Booking',
-                    'AI Auto Customer Fraud & Delivery Ratio Check',
-                    'Bulk Courier Consignment Export & Live Tracking'
-                  ]}
-                  onUpgradeToPro={handleNavigateToProUpgrade}
-                >
-                  <DeliveryCourierListView />
-                </ProFeatureBlurWrapper>
+                <DeliveryCourierListView />
               )}
 
               {activeTab === 'appointments' && (
@@ -973,7 +961,7 @@ export default function App() {
                 <UnifiedInbox
                   channels={channels}
                   initialConvKey={inboxTargetConvKey}
-                  isProPlan={isProPlan}
+                  isProPlan={true}
                   onUpgradeToPro={handleNavigateToProUpgrade}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);

@@ -358,7 +358,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
         </div>
 
         {/* 2 Narrow Centered Selectable Plan Cards Grid with See More Toggle */}
-        <div className="max-w-[680px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-5 items-start justify-center">
+        <div className="max-w-[680px] mx-auto relative">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-4 rounded-[36px] bg-gradient-to-r from-violet-500/12 via-purple-500/15 to-fuchsia-500/12 blur-2xl -z-10"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start justify-center">
           {plans.map((plan) => {
             const isPro = plan.price >= 1950 || plan.id.includes('pro');
             const isSelected = selectedPlan?.id === plan.id;
@@ -377,12 +382,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
               <div
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan)}
-                className={`w-full max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all flex flex-col justify-between cursor-pointer ${
+                className={`w-full max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all duration-300 flex flex-col justify-between cursor-pointer hover:-translate-y-1.5 ${
                   isPro
-                    ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_16px_44px_-10px_rgba(127,34,254,0.34)] ring-1 ring-fuchsia-500/20'
+                    ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_28px_70px_-10px_rgba(127,34,254,0.38),0_16px_36px_-8px_rgba(219,39,119,0.24),0_4px_16px_rgba(15,23,42,0.08)] hover:shadow-[0_34px_80px_-10px_rgba(127,34,254,0.48),0_18px_40px_-8px_rgba(219,39,119,0.3)] ring-1 ring-fuchsia-500/20'
                     : isSelected
-                    ? 'bg-white dark:bg-[#120B2B] border-2 border-[#7C3AED] ring-4 ring-[#7C3AED]/10 shadow-xl shadow-purple-500/10'
-                    : 'bg-white/95 dark:bg-[#120B2B]/95 border border-violet-200/90 dark:border-purple-500/25 hover:border-[#7C3AED]/50 shadow-lg shadow-purple-950/5'
+                    ? 'bg-white dark:bg-[#120B2B] border-2 border-[#7C3AED] ring-4 ring-[#7C3AED]/10 shadow-[0_26px_64px_-12px_rgba(124,58,237,0.3),0_12px_28px_-8px_rgba(15,23,42,0.12)]'
+                    : 'bg-white dark:bg-[#120B2B]/95 border border-violet-200/95 dark:border-purple-500/25 hover:border-[#7C3AED]/50 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.16),0_14px_32px_-8px_rgba(124,58,237,0.18),0_4px_14px_rgba(15,23,42,0.06)] hover:shadow-[0_30px_70px_-12px_rgba(124,58,237,0.28)]'
                 }`}
               >
                 {isPro ? (
@@ -411,8 +416,8 @@ export const BillingView: React.FC<BillingViewProps> = ({
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                         {isPro
-                          ? 'All new Pro features, ERP, Courier, Auto Fraud Check & 10 Channels'
-                          : 'Essential AI Auto-Reply & Order Capture for up to 3 Channels'}
+                          ? 'Full ERP, Website Store Sync, Appointments & up to 10 Channels'
+                          : 'AI Auto-Reply, Courier Dispatch, Auto Fraud Check & 3 Channels'}
                       </p>
                     </div>
 
@@ -555,6 +560,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
