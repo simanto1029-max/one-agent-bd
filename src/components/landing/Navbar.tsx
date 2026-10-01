@@ -78,13 +78,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => scrollToSection('testimonials')}
-            className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
-          >
-            Reviews
-          </button>
-          <button
-            type="button"
             onClick={() => scrollToSection('faq')}
             className="hover:text-[#8B5CF6] dark:hover:text-white transition-colors cursor-pointer"
           >
@@ -172,7 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Collapsible Mobile Dropdown Menu */}
       {mobileNavOpen && (
         <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3.5 space-y-3 shadow-xl animate-in slide-in-from-top-2 duration-150">
-          <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+          <div className="grid grid-cols-3 gap-2 text-xs font-bold">
             <button
               type="button"
               onClick={() => {
@@ -192,16 +185,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
             >
               Pricing & Plans
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileNavOpen(false);
-                scrollToSection('testimonials');
-              }}
-              className="text-left px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-[#673DE6] cursor-pointer"
-            >
-              Merchant Reviews
             </button>
             <button
               type="button"

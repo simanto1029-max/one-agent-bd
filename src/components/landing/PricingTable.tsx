@@ -84,23 +84,19 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   return (
     <section
       id="pricing"
-      className="py-16 sm:py-20 bg-gradient-to-b from-[#F4EFFE] via-[#FAF8FF] to-white dark:from-[#09051A] dark:via-[#110A2E] dark:to-[#080517] border-t border-violet-200/60 dark:border-purple-500/15 relative overflow-hidden transition-colors"
+      className="py-14 sm:py-18 bg-white dark:bg-[#0B0720] border-t border-slate-100 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
-      {/* Brand ambient radial lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[640px] h-[280px] bg-gradient-to-tr from-[#7F22FE]/20 via-fuchsia-500/15 to-transparent dark:from-[#7F22FE]/25 dark:via-fuchsia-600/15 rounded-full blur-3xl pointer-events-none" />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
-        {/* Top Badge & Heading */}
+        {/* Top Heading */}
         <div className="text-center max-w-xl mx-auto mb-7">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/90 dark:bg-[#19103B] border border-violet-200/80 dark:border-purple-500/30 text-[#7F22FE] dark:text-purple-300 text-xs font-bold mb-3 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400" />
-            <span>Simple &amp; Transparent Pricing</span>
-          </div>
+          <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-400 block mb-2">
+            PRICING PLANS
+          </span>
 
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A] dark:text-white mb-2.5">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A] dark:text-white mb-2">
             Choose Your Perfect Plan
           </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
             Start with our core AI agent or unlock the full Pro Business suite with ERP, 1-click courier dispatch, and auto fraud protection.
           </p>
         </div>
@@ -396,40 +392,6 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                   </motion.div>
                 );
               })}
-            </div>
-
-            {/* Compact Centered Bottom Trial Banner */}
-            <div className="max-w-[680px] mx-auto mt-6 p-4 sm:p-5 rounded-2xl bg-white/95 dark:bg-[#140D2E]/95 border border-violet-200/80 dark:border-purple-500/25 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3 text-center sm:text-left">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white flex items-center justify-center shrink-0 mx-auto sm:mx-0 shadow-xs">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-extrabold text-[#0F172A] dark:text-white">
-                    Starter Plan users can preview all Pro tools inside the dashboard!
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Upgrade to Pro Business Plan anytime to unlock ERP, Courier Dispatch, Auto Fraud Check &amp; Multi-Store Sync.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  onSelectPlan(
-                    {
-                      ...displayPlans[1],
-                      trial_days: 2
-                    },
-                    'trial'
-                  )
-                }
-                className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6D28D9] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
-              >
-                <span>Try Pro Free (2 Days)</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
             </div>
           </>
         )}

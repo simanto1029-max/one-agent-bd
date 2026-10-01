@@ -378,8 +378,8 @@ export default function App() {
             />
             <Features />
             <PricingTable onSelectPlan={handleSelectPlanFromLanding} />
-            <Testimonials />
             <FAQ />
+            <Testimonials />
           </main>
           <Footer onOpenAuth={() => handleOpenAuth('signup')} />
         </div>

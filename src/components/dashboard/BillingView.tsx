@@ -264,13 +264,13 @@ export const BillingView: React.FC<BillingViewProps> = ({
         )}
       </div>
 
-      {/* Main Pricing Section matching Screenshot Design */}
-      <div className="p-6 sm:p-8 rounded-[28px] bg-gradient-to-b from-[#EDE7FE] via-[#F4F0FF] to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 border border-violet-200/70 dark:border-slate-800 shadow-xs space-y-8">
-        {/* Header & Pill Switcher */}
-        <div className="text-center max-w-xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/90 dark:bg-slate-800 border border-violet-200/80 dark:border-slate-700 text-[#7C3AED] dark:text-violet-300 text-xs font-semibold shadow-2xs">
-            <span>Simple & Transparent Pricing</span>
-          </div>
+      {/* Main Pricing Section */}
+      <div className="p-6 sm:p-8 rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-8">
+        {/* Header */}
+        <div className="text-center max-w-xl mx-auto space-y-2">
+          <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-400 block">
+            PRICING PLANS
+          </span>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
             Choose Your Perfect Plan
