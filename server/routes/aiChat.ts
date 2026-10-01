@@ -5,7 +5,8 @@ import {
   getCandidateGeminiKeys,
   CANDIDATE_MODELS,
   formatCleanChatMessage,
-  ensureConversationalFollowUp
+  ensureConversationalFollowUp,
+  getShortGreetingOrSmallTalkReply
 } from '../services/aiService.js';
 import {
   detectLanguageMode,
@@ -60,8 +61,8 @@ function getSaasIntelligentFallback(question: string, lang: 'bn' | 'en'): string
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'We have 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Dispatch)\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Multi-Store Sync & VIP Broadcast)\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
-      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল কানেকশন, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
+      ? 'We have 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Dispatch)\n\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Multi-Store Sync & VIP Broadcast)\n\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
+      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল কানেকশন, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
   }
 
   // Free Trial
@@ -129,6 +130,11 @@ aiChatRouter.post('/hero-query', async (req: Request, res: Response) => {
     const trimmedMsg = message.trim();
     const lang = detectLanguageMode(trimmedMsg);
 
+    const shortGreeting = getShortGreetingOrSmallTalkReply(trimmedMsg, 'One Agent BD', lang);
+    if (shortGreeting) {
+      return res.json({ reply: shortGreeting, source: 'greeting', detectedLanguage: lang });
+    }
+
     const couponReply = handleSaasCouponFlow(trimmedMsg, history, 'hero_visitor', lang);
     if (couponReply) {
       return res.json({ reply: couponReply, source: 'coupon-generator', detectedLanguage: lang });
@@ -144,8 +150,8 @@ aiChatRouter.post('/hero-query', async (req: Request, res: Response) => {
 
       const languageInstruction =
         lang === 'en'
-          ? 'CRITICAL LANGUAGE & SERIAL LIST RULE: The visitor asked in English. Reply in clear, natural English. Whenever listing plans, prices, features, what is available, or details, format them as a clean serial numbered list (1., 2., 3.) on separate lines.'
-          : 'CRITICAL LANGUAGE & SERIAL LIST RULE: কাস্টমার বাংলা (Bangla) অথবা বাংলিশ (Banglish) এ প্রশ্ন করেছে। সর্বদা সুন্দর ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দিন। কাস্টমার যখনই প্ল্যান, দাম, কী কী আছে (ki ki ase), সার্ভিস বা বিস্তারিত (details) জানতে চাইবে, কখনোই এক প্যারাগ্রাফে হিজিবিজি করে লিখবেন না—অবশ্যই নিচে নিচে সিরিয়াল নাম্বার (১., ২., ৩.) দিয়ে পয়েন্ট আকারে সাজিয়ে উত্তর দেবেন।';
+          ? 'CRITICAL LANGUAGE & SMART LENGTH RULE: The visitor asked in English. Reply in clear, natural English. If it is a short question or greeting, reply briefly in 1-2 lines. Whenever listing plans, prices, features, or details, format them as a serial numbered list (1., 2., 3.) with 1 empty line (\\n\\n) between each numbered point.'
+          : 'CRITICAL LANGUAGE & SMART LENGTH RULE: কাস্টমার বাংলা বা বাংলিশে প্রশ্ন করেছে। সালাম বা ছোট প্রশ্ন করলে ১–২ লাইনে সংক্ষেপে উত্তর দেবেন (অযথা বড় লিস্ট দেবেন না)। আর যখন প্ল্যান, দাম, কী কী আছে (ki ki ase) বা বিস্তারিত জানতে চাইবে, তখন নিচে নিচে সিরিয়াল নাম্বার (১., ২., ৩.) দিয়ে পয়েন্ট আকারে লিখবেন এবং ১. এর পর ১ লাইন ফাঁকা (\\n\\n) রেখে ২., আবার ১ লাইন ফাঁকা রেখে ৩. লিখবেন।';
 
       const fullPrompt = `${ONE_AGENT_SAAS_KNOWLEDGE}
 
@@ -153,7 +159,7 @@ Channel UI: ${platform === 'whatsapp' ? 'WhatsApp Business' : 'Facebook Messenge
 ${languageInstruction}
 CRITICAL REMINDER & CONVERSATION STYLE:
 1. The visitor is ALREADY on our website (oneagentbd.online). Never tell them to visit our website ("বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন"). Answer directly in this chat!
-2. Whenever the visitor asks about plans, pricing, features, what we have ("ki ki ase"), or details — ALWAYS write a 1-line intro, followed by a serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) with each item on its own line!
+2. Short question = Short 1-2 line answer. Detailed/list question (plans, pricing, features, "ki ki ase", details) = 1-line intro + serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) with 1 empty line (\\n\\n) between each numbered point!
 3. Put an empty line (\\n\\n) before the numbered list and an empty line (\\n\\n) before your closing follow-up question!
 4. Always end your reply with 1 smart, context-aware follow-up question based on what the visitor asked!
 
@@ -244,6 +250,11 @@ aiChatRouter.post('/business-sandbox', async (req: Request, res: Response) => {
 
     const trimmedMsg = message.trim();
     const lang = detectLanguageMode(trimmedMsg);
+
+    const sandboxGreeting = getShortGreetingOrSmallTalkReply(trimmedMsg, businessName, lang);
+    if (sandboxGreeting) {
+      return res.json({ reply: sandboxGreeting, detectedOrder: null, source: 'greeting' });
+    }
 
     try {
       const formattedHistory = Array.isArray(history)

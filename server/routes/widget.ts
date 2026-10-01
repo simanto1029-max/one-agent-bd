@@ -8,6 +8,7 @@ import {
   CANDIDATE_MODELS,
   formatCleanChatMessage,
   ensureConversationalFollowUp,
+  getShortGreetingOrSmallTalkReply,
   UNCLEAR_VOICE_REPLY,
   isUnclearVoiceText
 } from '../services/aiService.js';
@@ -309,8 +310,8 @@ function getSaasBilingualFallback(
     q.includes('সাবস্ক্রিপশন')
   ) {
     return lang === 'en'
-      ? 'One Agent BD offers 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Booking)\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 Priority Support)\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
-      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর সিঙ্ক ও VIP ব্রডকাস্ট)\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
+      ? 'One Agent BD offers 2 official plans plus a 2-Day Free Trial:\n\n1. Starter AI Plan — 1,250 TK/month (1 AI Agent, WhatsApp, Messenger, Instagram & Website AI Chatbot, Voice & Image AI, 3 Channels & Courier Booking)\n\n2. Pro Business Plan — 1,950 TK/month (3 AI Agents, up to 10 Channels, Unlimited Website Multi-Store Sync, VIP Broadcast & 24/7 Priority Support)\n\n3. Free Trial — 2-Day full-featured Free Trial upon signup\n\nWhich plan (1. Starter or 2. Pro) would you like to activate?'
+      : 'আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website AI Chatbot, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর সিঙ্ক ও VIP ব্রডকাস্ট)\n\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?';
   }
 
   // Website AI Chatbot integration
@@ -685,8 +686,20 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
 
     let aiReplyText = '';
 
+    // 0A. Check if user just sent a simple greeting ("আসসালামু আলাইকুম", "হ্যালো", "Hi", "কেমন আছেন")
+    if (!hasImage && !hasAudio && rawText) {
+      const greetingReply = getShortGreetingOrSmallTalkReply(
+        rawText,
+        isSaasOfficial ? 'One Agent BD' : config.business_name,
+        detectedLang
+      );
+      if (greetingReply) {
+        aiReplyText = greetingReply;
+      }
+    }
+
     // 0. Check if user is requesting a coupon code or answering the AI's business review/revenue question for a 45-min auto coupon
-    if (isSaasOfficial && rawText) {
+    if (!aiReplyText && isSaasOfficial && rawText) {
       const couponFlowReply = handleSaasCouponFlow(rawText, history || [], cleanVisitorId, detectedLang);
       if (couponFlowReply) {
         aiReplyText = couponFlowReply;
@@ -767,17 +780,17 @@ CRITICAL LANGUAGE MATCHING RULE (MUST FOLLOW STRICTLY):
 
 ${languageDirective}
 
-IMPORTANT REMINDER & SERIAL LIST FORMATTING RULES:
+IMPORTANT REMINDER & SMART REPLY LENGTH / SERIAL LIST RULES:
 - The visitor is ALREADY on our website (oneagentbd.online). Do NOT say "বিস্তারিত জানতে আমাদের ওয়েবসাইট ভিজিট করুন" or "Visit our website".
-- MANDATORY SERIAL NUMBERED LIST (১. ২. ৩. / 1. 2. 3.): Whenever the visitor asks about plans, prices, what is available ("ki ki ase"), products, features, or details — NEVER write a cramped paragraph! Always start with a short 1-line intro, then list the items/plans/details serially as ১., ২., ৩. (in Bangla) or 1., 2., 3. (in English) on separate lines so it looks super clean on mobile screens.
-- MANDATORY PARAGRAPH SPACING: Put an empty line (\\n\\n) before the numbered list and an empty line (\\n\\n) before your closing follow-up question!
+- SHORT QUESTION = SHORT REPLY: If the visitor asks a simple question or greeting, reply briefly in 1-2 lines. Do NOT dump a huge list of features unless they ask for details/plans/features!
+- DETAILED / LIST QUESTION = SERIAL NUMBERED LIST (১. ২. ৩. / 1. 2. 3.) WITH EMPTY LINES: Whenever the visitor asks about plans, prices, what is available ("ki ki ase"), products, features, or details — start with a short 1-line intro, then list the items/plans/details serially as ১., ২., ৩. (in Bangla) or 1., 2., 3. (in English) with 1 empty line (\\n\\n) after 1., 1 empty line (\\n\\n) after 2., and 1 empty line (\\n\\n) after 3.
 - MANDATORY FOLLOW-UP QUESTION: Always end your reply (in a new paragraph after \\n\\n) with 1 smart, relevant follow-up question based on what the visitor asked!
 
 ${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}
 ${hasImage ? 'The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n' : ''}
 Visitor Message: "${effectiveQueryText || '[Image Attached - Please analyze and reply concisely]'}"
 
-Provide a clean, mobile-friendly response (using serial numbers ১., ২., ৩. on separate lines when listing plans, products, or details, plus \\n\\n paragraph spacing and 1 relevant closing follow-up question):`;
+Provide a clean, mobile-friendly response (short 1-2 lines for simple questions, or serial numbers ১., ২., ৩. separated by \\n\\n empty lines when listing plans, products, or details, plus 1 relevant closing follow-up question):`;
 
           parts.push({ text: promptText });
 

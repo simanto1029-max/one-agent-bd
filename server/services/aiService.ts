@@ -161,19 +161,10 @@ export function formatCleanChatMessage(raw: string): string {
       }
       return [sentences[0], `${sentences[1]} ${sentences[2]}`];
     }
-    // 4+ sentences: if they are declarative detail sentences, convert the middle detail sentences into serial numbers
+    // 4+ sentences: keep readable paragraphs and separate closing question
     const lastSentence = sentences[sentences.length - 1];
     const isLastQuestion = lastSentence.endsWith('?');
     const bodySentences = isLastQuestion ? sentences.slice(0, -1) : sentences;
-
-    if (bodySentences.length >= 3) {
-      const intro = bodySentences[0];
-      const listItems = bodySentences.slice(1).map((item, idx) => {
-        const prefix = isBanglaText ? `${toBengaliNumber(idx + 1)}.` : `${idx + 1}.`;
-        return `${prefix} ${item}`;
-      });
-      return isLastQuestion ? [intro, ...listItems, lastSentence] : [intro, ...listItems];
-    }
 
     const mid = Math.ceil(bodySentences.length / 2);
     const para1 = bodySentences.slice(0, mid).join(' ');
@@ -210,28 +201,129 @@ export function formatCleanChatMessage(raw: string): string {
     }
   });
 
+  // Always put 1 empty line (\n\n) between every paragraph AND between 1., 2., 3. serial items!
   if (serializedLines.length > 1) {
-    const rebuilt: string[] = [];
-    for (let i = 0; i < serializedLines.length; i++) {
-      const curr = serializedLines[i];
-      const prev = i > 0 ? serializedLines[i - 1] : '';
-      const isCurrBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(curr);
-      const isPrevBullet = /^[•\-–—*০-৯0-9]+[.)]?\s/.test(prev);
-
-      if (i === 0) {
-        rebuilt.push(curr);
-      } else if (isCurrBullet && isPrevBullet) {
-        rebuilt.push('\n' + curr);
-      } else {
-        rebuilt.push('\n\n' + curr);
-      }
-    }
-    text = rebuilt.join('');
+    text = serializedLines.join('\n\n');
   } else if (serializedLines.length === 1) {
     text = serializedLines[0];
   }
 
   return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function getShortGreetingOrSmallTalkReply(
+  incomingMessage: string,
+  businessName = 'One Agent BD',
+  lang: 'bn' | 'en' = 'bn'
+): string | null {
+  if (!incomingMessage) return null;
+  const raw = incomingMessage.trim();
+  if (raw.length > 55) return null;
+
+  const lower = raw.toLowerCase();
+
+  // If the message contains any real business/product/price/order question words, it's NOT just a greeting
+  const questionKeywords = [
+    'price', 'plan', 'cost', 'fee', 'subscription', 'trial', 'free', 'order', 'buy', 'delivery',
+    'charge', 'courier', 'bkash', 'nagad', 'payment', 'coupon', 'discount', 'website', 'whatsapp',
+    'messenger', 'page', 'ban', 'limit', 'voice', 'photo', 'image', 'product', 'service', 'feature',
+    'details', 'koto', 'dam', 'daam', 'kivabe', 'ki ki', 'ki ase', 'ki ache', 'taka', 'tk', 'bdt',
+    'দাম', 'কত', 'প্ল্যান', 'প্যাকেজ', 'ট্রায়াল', 'ফ্রি', 'অর্ডার', 'কিনব', 'নিতে', 'ডেলিভারি', 'চার্জ',
+    'কুরিয়ার', 'বিকাশ', 'নগদ', 'পেমেন্ট', 'কুপন', 'ডিসকাউন্ট', 'ছাড়', 'ওয়েবসাইট', 'ব্যান', 'লিমিট',
+    'ভয়েস', 'ছবি', 'প্রোডাক্ট', 'সার্ভিস', 'ফিচার', 'বিস্তারিত', 'কী কী', 'কি কি', 'কীভাবে', 'কিভাবে', 'টাকা'
+  ];
+  if (questionKeywords.some((kw) => lower.includes(kw))) {
+    return null;
+  }
+
+  // Strip punctuation, emojis, and polite address words to inspect the core greeting
+  const stripped = lower
+    .replace(/[.,?!।'"\-_*~`()[\]{}]/g, ' ')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
+    .replace(/\b(vai|vaia|bhaiya|bhai|apu|sir|boss|bro|dear|ভাইয়া|ভাইয়া|ভাই|আপু|স্যার|বস)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!stripped) return null;
+
+  // 1. Salam / Assalamu Alaikum variations
+  const salamPatterns = [
+    'আসসালামু আলাইকুম',
+    'আসসালামুয়ালাইকুম',
+    'আসসালামু ওয়ালাইকুম',
+    'সালাম',
+    'স্লামালাইকুম',
+    'আসসালামু',
+    'assalamu alaikum',
+    'assalamualaikum',
+    'as salamu alaikum',
+    'as-salamu alaykum',
+    'salam',
+    'slm',
+    'assalam'
+  ];
+  if (salamPatterns.some((p) => stripped === p || stripped.startsWith(p))) {
+    return lang === 'en' && !/[\u0980-\u09FF]/.test(raw) && !lower.includes('vai')
+      ? `Wa Alaikum Assalam! Welcome to ${businessName}. 😊\n\nHow can I help you today?`
+      : `ওয়ালাইকুম আসসালাম! ${businessName}-এ আপনাকে স্বাগতম। 😊\n\nবলুন, আপনাকে কীভাবে সাহায্য করতে পারি?`;
+  }
+
+  // 2. How are you / Kemon achen variations
+  const howAreYouPatterns = [
+    'কেমন আছেন',
+    'কেমন আছো',
+    'কি খবর',
+    'কী খবর',
+    'kemon achen',
+    'kemon asen',
+    'kmn achen',
+    'kmn asen',
+    'ki khobor',
+    'how are you',
+    'how r u'
+  ];
+  if (howAreYouPatterns.some((p) => stripped === p || stripped.includes(p))) {
+    return lang === 'en' && stripped.includes('how')
+      ? `Alhamdulillah, we are doing great! Hope you are doing well too. 😊\n\nHow can I help you today?`
+      : `আলহামদুলিল্লাহ, ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊\n\nবলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি?`;
+  }
+
+  // 3. Hello / Hi / Hey / Keu achen variations
+  const helloPatterns = [
+    'হ্যালো',
+    'হাই',
+    'হেলো',
+    'হে',
+    'কেউ আছেন',
+    'আছেন',
+    'hello',
+    'hi',
+    'hey',
+    'hlw',
+    'hlo',
+    'keu achen',
+    'keu asen'
+  ];
+  if (helloPatterns.some((p) => stripped === p)) {
+    return lang === 'en' && /^[a-z\s]+$/i.test(stripped) && !stripped.includes('keu')
+      ? `Hello! Welcome to ${businessName}. 😊\n\nHow can I help you today?`
+      : `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। 😊\n\nবলুন, আপনাকে কীভাবে সাহায্য করতে পারি?`;
+  }
+
+  // 4. Short polite address only (e.g., "ভাইয়া", "আপু")
+  if (/^(ভাইয়া|ভাইয়া|ভাই|আপু|স্যার|vai|vaia|bhaiya|bhai|apu|sir)$/i.test(raw.replace(/[.,?!।]/g, '').trim())) {
+    return `আসসালামু আলাইকুম! জ্বী বলুন, আপনাকে কীভাবে সাহায্য করতে পারি? 😊`;
+  }
+
+  // 5. Thanks / Ok
+  const thanksPatterns = ['ধন্যবাদ', 'থ্যাংক ইউ', 'থ্যাংকস', 'ওকে', 'আচ্ছা', 'ঠিক আছে', 'thanks', 'thank you', 'tnx', 'ty', 'ok', 'okay'];
+  if (thanksPatterns.some((p) => stripped === p)) {
+    return lang === 'en' && /^[a-z\s]+$/i.test(stripped)
+      ? `You're most welcome! 😊\n\nLet me know if you have any other questions.`
+      : `আপনাকেও অসংখ্য ধন্যবাদ! 😊\n\nআপনার আর কোনো বিষয়ে জানার থাকলে নিঃসংকোচে বলতে পারেন।`;
+  }
+
+  return null;
 }
 
 export function ensureConversationalFollowUp(
@@ -479,7 +571,7 @@ export function buildInteractiveConversationEnvelope(params: {
           catalogItems
             .slice(0, 6)
             .map((it, idx) => `${toBengaliNumber(idx + 1)}. ${it.title} — ${it.description}`)
-            .join('\n')
+            .join('\n\n')
         : '';
 
     return {
@@ -532,7 +624,7 @@ export function buildInteractiveConversationEnvelope(params: {
       ? ` (${matchedCatalogItem.title} - ${matchedCatalogItem.description})`
       : '';
 
-    const orderFormReply = `আপনার অর্ডারটি${selectedProdHint} সম্পন্ন করতে দয়া করে নিচের তথ্যগুলো দিন:\n\n১. নাম\n২. মোবাইল নম্বর\n৩. ডেলিভারি ঠিকানা\n৪. প্রোডাক্টের নাম ও পরিমাণ`;
+    const orderFormReply = `আপনার অর্ডারটি${selectedProdHint} সম্পন্ন করতে দয়া করে নিচের তথ্যগুলো দিন:\n\n১. নাম\n\n২. মোবাইল নম্বর\n\n৩. ডেলিভারি ঠিকানা\n\n৪. প্রোডাক্টের নাম ও পরিমাণ`;
 
     return {
       replyText: orderFormReply,
@@ -590,7 +682,7 @@ export function buildInteractiveConversationEnvelope(params: {
   if (isSeeMoreOrCatalogListIntent && catalogItems.length > 0) {
     const formattedList = catalogItems
       .map((it, idx) => `${toBengaliNumber(idx + 1)}. ${it.title} — ${it.description}`)
-      .join('\n');
+      .join('\n\n');
 
     const listMessageText = `আমাদের প্রোডাক্ট ও মূল্য তালিকা নিচে দেওয়া হলো:\n\n${formattedList}\n\nনিচের "পছন্দ করুন" বাটনে ক্লিক করে আপনার পছন্দের প্রোডাক্টটি বেছে নিন:`;
 
@@ -1363,19 +1455,19 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('2 mas') || q.includes('2 month') || q.includes('two month') || q.includes('২ মাস') || q.includes('দুই মাস');
 
     if (isYearly) {
-      return `জ্বী ভাইয়া, আমাদের ১ বছরের (১২ মাসের) সাবস্ক্রিপশনে সরাসরি ১৫% ডিসকাউন্ট দেওয়া হচ্ছে:\n\n১. Starter AI Plan — ৳১২,৭৫০ টাকা/বছর (মূল দাম ৳১৫,০০০)\n২. Pro Business Plan — ৳১৯,৮৯০ টাকা/বছর (মূল দাম ৳২৩,৪০০)\n৩. ২ বছরের প্ল্যান — সরাসরি ২০% ডিসকাউন্ট (Starter ৳২৪,০০০ এবং Pro ৳৩৭,৪৪০)\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল নিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করতে চাচ্ছেন?`;
+      return `জ্বী ভাইয়া, আমাদের ১ বছরের (১২ মাসের) সাবস্ক্রিপশনে সরাসরি ১৫% ডিসকাউন্ট দেওয়া হচ্ছে:\n\n১. Starter AI Plan — ৳১২,৭৫০ টাকা/বছর (মূল দাম ৳১৫,০০০)\n\n২. Pro Business Plan — ৳১৯,৮৯০ টাকা/বছর (মূল দাম ৳২৩,৪০০)\n\n৩. ২ বছরের প্ল্যান — সরাসরি ২০% ডিসকাউন্ট (Starter ৳২৪,০০০ এবং Pro ৳৩৭,৪৪০)\n\nআপনি কি প্রথমে ২ দিনের ফ্রি ট্রায়াল নিয়ে টেস্ট করে দেখতে চান, নাকি সরাসরি কোনো প্ল্যান অ্যাক্টিভ করতে চাচ্ছেন?`;
     }
 
     if (isSixMonths) {
-      return `আমাদের ৬ মাসের সাবস্ক্রিপশনে সরাসরি ১০% ডিসকাউন্ট রয়েছে:\n\n১. Starter AI Plan — ৳৬,৭৫০ টাকা (মূল দাম ৳৭,৫০০)\n২. Pro Business Plan — ৳১০,৫৩০ টাকা (মূল দাম ৳১১,৭০০)\n\nআপনি কোন প্ল্যানটি নেওয়ার কথা ভাবছেন?`;
+      return `আমাদের ৬ মাসের সাবস্ক্রিপশনে সরাসরি ১০% ডিসকাউন্ট রয়েছে:\n\n১. Starter AI Plan — ৳৬,৭৫০ টাকা (মূল দাম ৳৭,৫০০)\n\n২. Pro Business Plan — ৳১০,৫৩০ টাকা (মূল দাম ৳১১,৭০০)\n\nআপনি কোন প্ল্যানটি নেওয়ার কথা ভাবছেন?`;
     }
 
     if (isThreeMonths) {
-      return `আমাদের ৩ মাসের সাবস্ক্রিপশন প্ল্যান দুটি নিচে দেওয়া হলো:\n\n১. Starter AI Plan — ৳৩,৭৫০ টাকা (৩ মাস)\n২. Pro Business Plan — ৳৫,৮৫০ টাকা (৩ মাস)\n\nআপনি কি প্রথমে আমাদের ২ দিনের ফ্রি ট্রায়াল দিয়ে সব ফিচার যাচাই করে দেখতে চান?`;
+      return `আমাদের ৩ মাসের সাবস্ক্রিপশন প্ল্যান দুটি নিচে দেওয়া হলো:\n\n১. Starter AI Plan — ৳৩,৭৫০ টাকা (৩ মাস)\n\n২. Pro Business Plan — ৳৫,৮৫০ টাকা (৩ মাস)\n\nআপনি কি প্রথমে আমাদের ২ দিনের ফ্রি ট্রায়াল দিয়ে সব ফিচার যাচাই করে দেখতে চান?`;
     }
 
     if (isTwoMonths) {
-      return `আমাদের ২ মাসের সাবস্ক্রিপশন প্ল্যান দুটি নিচে দেওয়া হলো:\n\n১. Starter AI Plan — ৳২,৫০০ টাকা (২ মাস)\n২. Pro Business Plan — ৳৩,৯০০ টাকা (২ মাস)\n\nআপনার বিজনেস বা পেজের জন্য কোন প্ল্যানটি অ্যাক্টিভ করতে চাচ্ছেন?`;
+      return `আমাদের ২ মাসের সাবস্ক্রিপশন প্ল্যান দুটি নিচে দেওয়া হলো:\n\n১. Starter AI Plan — ৳২,৫০০ টাকা (২ মাস)\n\n২. Pro Business Plan — ৳৩,৯০০ টাকা (২ মাস)\n\nআপনার বিজনেস বা পেজের জন্য কোন প্ল্যানটি অ্যাক্টিভ করতে চাচ্ছেন?`;
     }
 
     // 2B. Voice & Photo recognition inquiry
@@ -1535,7 +1627,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('মাসিক') ||
       q.includes('মাসে')
     ) {
-      return `আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website অটো-রিপ্লাই, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?`;
+      return `আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website অটো-রিপ্লাই, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?`;
     }
 
     // 2K. Features / Services / "ki ki ase" / details inquiry
@@ -1553,7 +1645,7 @@ function buildSmartBanglaFallbackFromPrompt(
       q.includes('বিস্তারিত') ||
       q.includes('details')
     ) {
-      return `আমাদের প্ল্যাটফর্মের প্রধান সার্ভিস ও সুবিধাসমূহ নিচে দেওয়া হলো:\n\n১. ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই (Facebook, Instagram, WhatsApp ও Website)\n২. ভয়েস মেসেজ শুনে ও প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক উত্তর প্রদান\n৩. চ্যাটের ভেতরেই অটো অর্ডার গ্রহণ এবং ১-ক্লিকে Steadfast, Pathao ও RedX কুরিয়ার বুকিং\n৪. প্ল্যান মূল্য: Starter Plan ১,২৫০ টাকা/মাস এবং Pro Plan ১,৯৫০ টাকা/মাস (সাথে ২ দিনের ফ্রি ট্রায়াল)\n\nআপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?`;
+      return `আমাদের প্ল্যাটফর্মের প্রধান সার্ভিস ও সুবিধাসমূহ নিচে দেওয়া হলো:\n\n১. ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই (Facebook, Instagram, WhatsApp ও Website)\n\n২. ভয়েস মেসেজ শুনে ও প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক উত্তর প্রদান\n\n৩. চ্যাটের ভেতরেই অটো অর্ডার গ্রহণ এবং ১-ক্লিকে Steadfast, Pathao ও RedX কুরিয়ার বুকিং\n\n৪. প্ল্যান মূল্য: Starter Plan ১,২৫০ টাকা/মাস এবং Pro Plan ১,৯৫০ টাকা/মাস (সাথে ২ দিনের ফ্রি ট্রায়াল)\n\nআপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?`;
     }
 
     // 2L. Contact / Support inquiry
@@ -1998,41 +2090,63 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     };
   }
 
-  // 3. Intelligent Human-like Conversation, Serial Numbered List Formatting & Context-Aware Follow-Up Question
-  const languageDirective = `CRITICAL SERIAL LIST FORMATTING, SPACING & FOLLOW-UP QUESTION RULES (অবশ্যই পালনীয়):
-১. সিরিয়াল নাম্বার দিয়ে পয়েন্ট আকারে উত্তর (MANDATORY SERIAL NUMBERED LIST — ১. ২. ৩.):
-   - কাস্টমার যখনই প্ল্যান, দাম, কী কী আছে (ki ki ase), প্রোডাক্ট লিস্ট, সার্ভিস, ফিচার, ডেলিভারি নিয়ম বা কোনো কিছুর বিস্তারিত (details) জানতে চাইবে—কখনোই এক প্যারাগ্রাফে লম্বা বাক্য লিখে হিজিবিজি করবেন না!
-   - অবশ্যই প্রথমে ১ লাইনের ছোট ভূমিকা দিয়ে, এরপর নিচে নিচে সিরিয়াল নাম্বার (১., ২., ৩. অথবা ইংরেজিতে হলে 1., 2., 3.) দিয়ে পয়েন্ট আকারে সাজিয়ে লিখবেন, যাতে মোবাইলের স্ক্রিনে এক নজরেই পরিষ্কার ও সুন্দর দেখা যায়!
-   - প্রতিটি পয়েন্ট (১., ২., ৩.) অবশ্যই আলাদা আলাদা নতুন লাইনে (New Line-এ) লিখবেন।
-২. প্যারাগ্রাফ ও লাইন স্পেসিং (MANDATORY PARAGRAPH SPACING):
-   - ভূমিকা, সিরিয়াল লিস্ট (১. ২. ৩.), এবং শেষের প্রশ্নের মাঝখানে অবশ্যই একটি খালি লাইন (Double Newline / \\n\\n) ফাঁকা রাখবেন।
-৩. উত্তর বুঝে শেষে ১টি প্রাসঙ্গিক প্রশ্ন করা (MANDATORY SMART FOLLOW-UP QUESTION):
-   - উত্তরের সবশেষে নতুন প্যারাগ্রাফে কাস্টমারকে ১টি ছোট ও প্রাসঙ্গিক প্রশ্ন (Follow-up Question) করবেন যাতে কনভারসেশন চলতে থাকে!
+  // 3. Intelligent Human-like Conversation, Smart Short vs. Detailed Replies & 1-Line Spacing Between Serial Items
+  const shortGreetingReply = getShortGreetingOrSmallTalkReply(params.incomingMessage, businessName, 'bn');
+  if (shortGreetingReply && !params.imageBase64) {
+    const greetingEnvelope = buildInteractiveConversationEnvelope({
+      incomingMessage: params.incomingMessage,
+      aiReplyText: shortGreetingReply,
+      businessName,
+      merchantProducts,
+      matchedProduct,
+      systemPrompt: combinedSystemPrompt,
+      isOneAgentSaaS
+    });
+    return {
+      replyText: greetingEnvelope.replyText,
+      interactiveOptions: greetingEnvelope.interactiveOptions,
+      transcript: voiceTranscript,
+      isVoice: Boolean(voiceTranscript || params.audioBase64)
+    };
+  }
+
+  const languageDirective = `CRITICAL SMART REPLY LENGTH, SERIAL LIST FORMATTING & SPACING RULES (অবশ্যই পালনীয়):
+১. ছোট প্রশ্নের ছোট উত্তর এবং বিস্তারিত প্রশ্নের বিস্তারিত উত্তর (SMART QUESTION-SIZE MATCHING):
+   - কাস্টমার যদি সালাম দেয় ("আসসালামু আলাইকুম", "হ্যালো", "হাই"), কুশল জিজ্ঞেস করে ("কেমন আছেন?"), অথবা কোনো ছোট এক কথার প্রশ্ন করে (যেমন: "পেজ ব্যান হবে না তো?", "ফ্রি ট্রায়াল আছে?", "বিকাশ করা যাবে?") — তবে কখনোই অযথা বড় লিস্ট বা সব ফিচার লিখে মেসেজ বড় করবেন না! ছোট প্রশ্নের উত্তর ১–২ লাইনে সংক্ষেপে দেবেন এবং শেষে ১টি ছোট প্রশ্ন করবেন।
+   - উদাহরণ (সালাম দিলে):
+     "ওয়ালাইকুম আসসালাম! আমাদের পেজে স্বাগতম। 😊
+
+     বলুন, আপনাকে কীভাবে সাহায্য করতে পারি?"
+   - উদাহরণ (ছোট প্রশ্ন করলে — যেমন "পেজ ব্যান হওয়ার ঝুঁকি আছে?"):
+     "না ভাইয়া, আপনার পেজ ১০০% নিরাপদ থাকবে! আমরা মেটার অফিশিয়াল API ব্যবহার করি তাই ব্যান হওয়ার কোনো ঝুঁকিই নেই।
+
+     আপনি কি আপনার ফেসবুক পেজে এটি কানেক্ট করতে চাচ্ছেন?"
+
+২. বিস্তারিত বা লিস্ট জাতীয় প্রশ্নে ১ লাইন করে ফাঁকা রেখে সিরিয়াল লিস্ট (SERIAL LIST WITH EMPTY LINE BETWEEN 1., 2., 3.):
+   - কাস্টমার যখনই প্ল্যান, দাম, কী কী আছে (ki ki ase), প্রোডাক্ট লিস্ট, সার্ভিস বা বিস্তারিত (details) জানতে চাইবে—তখন সিরিয়াল নাম্বার (১., ২., ৩. অথবা ইংরেজিতে 1., 2., 3.) দিয়ে সাজিয়ে লিখবেন।
+   - বিশেষ নিয়ম: ১. এর লেখা শেষ হলে নিচে অবশ্যই ১ লাইন ফাঁকা (\\n\\n) রেখে ২. লিখবেন, আবার ১ লাইন ফাঁকা (\\n\\n) রেখে ৩. লিখবেন!
    - উদাহরণ ১ (প্ল্যান বা দাম জানতে চাইলে — যেমন "Apnader plan nite cai" বা "দাম কত?"):
      "আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:
 
      ১. স্টার্টার প্ল্যান (Starter AI Plan) — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, অটো মেসেজ ও কমেন্ট রিপ্লাই, কুরিয়ার বুকিং)
+
      ২. প্রো বিজনেস প্ল্যান (Pro Business Plan) — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ভয়েস ও ছবির রিপ্লাই, আনলিমিটেড প্রোডাক্ট ও ভিআইপি সাপোর্ট)
+
      ৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল
 
      আপনি কি ১ নম্বর (স্টার্টার) নাকি ২ নম্বর (প্রো) প্ল্যানটি নিতে চাচ্ছেন?"
-   - উদাহরণ ২ (কী কী আছে / সার্ভিস বা প্রোডাক্ট জানতে চাইলে):
-     "আমাদের প্রধান সার্ভিস ও সুবিধাসমূহ নিচে দেওয়া হলো:
-
-     ১. ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই (Facebook, Instagram, WhatsApp ও Website)
-     ২. ভয়েস মেসেজ শুনে এবং প্রোডাক্টের ছবি দেখে সঠিক দাম ও উত্তর প্রদান
-     ৩. চ্যাটের ভেতরেই অটো অর্ডার গ্রহণ এবং ১-ক্লিকে কুরিয়ার বুকিং
-
-     আপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট নিয়ে কাজ করে?"
-   - উদাহরণ ৩ (ই-কমার্স বিজনেসের ক্ষেত্রে কাস্টমার "কী কী প্রোডাক্ট আছে", "দাম কত" বা "ডিটেইলস" জানতে চাইলে):
+   - উদাহরণ ২ (ই-কমার্স বিজনেসের ক্ষেত্রে কাস্টমার "কী কী প্রোডাক্ট আছে", "দাম কত" বা "ডিটেইলস" জানতে চাইলে):
      "আমাদের প্রোডাক্ট ও বিস্তারিত নিচে দেওয়া হলো:
 
      ১. প্রিমিয়াম কটন টি-শার্ট — ৪৯০ টাকা (সাইজ: M, L, XL, ১০০% কটন)
+
      ২. পোলো শার্ট — ৭৫০ টাকা (কালার: নেভি ব্লু, ব্ল্যাক ও হোয়াইট)
+
      ৩. ডেলিভারি চার্জ — ঢাকার ভেতরে ৬০ টাকা এবং ঢাকার বাইরে ১২০ টাকা
 
      আপনি কোন প্রোডাক্টটি অর্ডার করতে চাচ্ছেন?"
-৪. পরিষ্কার ফরম্যাট (Clean Formatting):
+
+৩. পরিষ্কার ফরম্যাট (Clean Formatting):
    - সর্বদা সহজ ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
 
   const orderSettings = db.getOrderSettings(params.userId);
@@ -2145,15 +2259,15 @@ If the customer is asking about their order, parcel, delivery date, or tracking 
 
   const systemInstruction = `You are a warm, intelligent Customer Support & Sales Executive for "${businessName}".
 CRITICAL FORMATTING RULES FOR MOBILE CHAT:
-1. Whenever the customer asks about plans, prices, products, features, what is available ("ki ki ase"), or details — NEVER write a dense paragraph! Always format the items/plans/details as a clean numbered serial list (১., ২., ৩. in Bangla, or 1., 2., 3. in English), with each numbered point on its own new line.
-2. Put an empty line (\\n\\n) before the numbered list and an empty line (\\n\\n) after the numbered list before your closing question.
+1. SHORT QUESTION = SHORT REPLY: If the customer just says a greeting ("আসসালামু আলাইকুম", "হ্যালো", "Hi") or asks a simple single question, reply in 1-2 short, natural lines + 1 short follow-up question. Do NOT dump a long list of features when the customer did not ask for details!
+2. DETAILED / LIST QUESTION = SERIAL NUMBERED LIST WITH EMPTY LINES: Whenever the customer asks about plans, prices, products, features, what is available ("ki ki ase"), or details — format the items/plans/details as a clean numbered serial list (১., ২., ৩. in Bangla, or 1., 2., 3. in English), and put 1 empty line (\\n\\n) after 1., 1 empty line (\\n\\n) after 2., and 1 empty line (\\n\\n) after 3.
 3. Always end your reply with 1 short, natural follow-up question in Bangla based on what the customer asked.
 4. Never output markdown asterisks (**).`;
 
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
 ${combinedSystemPrompt}
 
-Serial Numbered List Formatting, Paragraph Spacing & Follow-Up Question Rules:
+Smart Reply Length, Serial List Formatting & Paragraph Spacing Rules:
 ${languageDirective}
 
 Merchant Product Catalog:
@@ -2172,7 +2286,7 @@ ${recentHistory || '(No previous messages)'}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a clean, mobile-friendly Bangla reply (using numbered serial points ১., ২., ৩. on separate lines when listing plans, products, features, or details, plus \\n\\n spacing before a short closing follow-up question):`;
+Write a clean, mobile-friendly Bangla reply (if it is a greeting or short question, reply briefly in 1-2 lines; if the customer is asking for plans, products, "ki ki ase", or details, use serial numbers ১., ২., ৩. with 1 empty line \\n\\n between each numbered point, and end with 1 short follow-up question):`;
 
   // Check if customer clicked an interactive button/menu shortcut that can be answered deterministically & instantaneously
   const earlyInteractiveCheck = buildInteractiveConversationEnvelope({
