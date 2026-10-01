@@ -436,7 +436,124 @@ inboxRouter.post('/customer-control', (req: Request, res: Response) => {
   });
 });
 
-// POST /api/inbox/broadcast-segment - Send targeted offer/follow-up broadcast to a customer segment
+// Helper to compute WhatsApp & VIP Broadcast Quota per 24 hours
+function computeWhatsAppBroadcastQuota(userId: string) {
+  const profile = db.getProfileById(userId);
+  const autoSettings = profile?.automation_settings;
+  const dailyLimit = Math.max(1, Number(autoSettings?.daily_whatsapp_vip_limit) || 50);
+  const perCustomerDailyLimit = Math.max(1, Number(autoSettings?.per_customer_daily_limit) || 1);
+  const enforce24hWindow =
+    autoSettings?.enforce_whatsapp_24h_window !== undefined
+      ? Boolean(autoSettings.enforce_whatsapp_24h_window)
+      : true;
+
+  const nowMs = Date.now();
+  const window24hMs = 24 * 60 * 60 * 1000;
+  const allMessages = db.getMessages(userId);
+
+  const recentBroadcasts = allMessages.filter(
+    (m) =>
+      m.direction === 'outbound' &&
+      m.id.includes('_bcast_') &&
+      nowMs - new Date(m.created_at).getTime() <= window24hMs
+  );
+
+  const usedToday = recentBroadcasts.length;
+  const remainingToday = Math.max(0, dailyLimit - usedToday);
+  const isLimitReached = remainingToday <= 0;
+
+  const customerCountMap = new Map<string, number>();
+  let oldestBroadcastMs = nowMs;
+  for (const b of recentBroadcasts) {
+    const key = `${b.platform}_${b.customer_id}`;
+    customerCountMap.set(key, (customerCountMap.get(key) || 0) + 1);
+    customerCountMap.set(b.customer_id, (customerCountMap.get(b.customer_id) || 0) + 1);
+    const t = new Date(b.created_at).getTime();
+    if (t < oldestBroadcastMs) oldestBroadcastMs = t;
+  }
+
+  const messagedCustomerIdsToday = Array.from(customerCountMap.entries())
+    .filter(([, count]) => count >= perCustomerDailyLimit)
+    .map(([id]) => id);
+
+  const nextResetAt =
+    recentBroadcasts.length > 0
+      ? new Date(oldestBroadcastMs + window24hMs).toISOString()
+      : new Date(nowMs + window24hMs).toISOString();
+
+  return {
+    dailyLimit,
+    perCustomerDailyLimit,
+    enforce24hWindow,
+    usedToday,
+    remainingToday,
+    isLimitReached,
+    messagedCustomerIdsToday,
+    nextResetAt,
+    customerCountMap
+  };
+}
+
+// GET /api/inbox/broadcast-quota - Get WhatsApp & VIP Broadcast Limit Status
+inboxRouter.get('/broadcast-quota', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const quota = computeWhatsAppBroadcastQuota(user.id);
+  return res.json({
+    dailyLimit: quota.dailyLimit,
+    perCustomerDailyLimit: quota.perCustomerDailyLimit,
+    enforce24hWindow: quota.enforce24hWindow,
+    usedToday: quota.usedToday,
+    remainingToday: quota.remainingToday,
+    isLimitReached: quota.isLimitReached,
+    messagedCustomerIdsToday: quota.messagedCustomerIdsToday,
+    nextResetAt: quota.nextResetAt
+  });
+});
+
+// PUT /api/inbox/broadcast-quota - Configure WhatsApp Daily VIP Broadcast Limit Rules
+inboxRouter.put('/broadcast-quota', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { dailyLimit, perCustomerDailyLimit, enforce24hWindow } = req.body || {};
+  const current = db.getAutomationSettings(user.id);
+  const updated = db.updateAutomationSettings(user.id, {
+    ...current,
+    daily_whatsapp_vip_limit:
+      dailyLimit !== undefined ? Math.min(250, Math.max(1, Number(dailyLimit) || 50)) : current.daily_whatsapp_vip_limit,
+    per_customer_daily_limit:
+      perCustomerDailyLimit !== undefined
+        ? Math.min(5, Math.max(1, Number(perCustomerDailyLimit) || 1))
+        : current.per_customer_daily_limit,
+    enforce_whatsapp_24h_window:
+      enforce24hWindow !== undefined ? Boolean(enforce24hWindow) : current.enforce_whatsapp_24h_window
+  });
+
+  const quota = computeWhatsAppBroadcastQuota(user.id);
+  return res.json({
+    success: true,
+    settings: updated,
+    quota: {
+      dailyLimit: quota.dailyLimit,
+      perCustomerDailyLimit: quota.perCustomerDailyLimit,
+      enforce24hWindow: quota.enforce24hWindow,
+      usedToday: quota.usedToday,
+      remainingToday: quota.remainingToday,
+      isLimitReached: quota.isLimitReached,
+      messagedCustomerIdsToday: quota.messagedCustomerIdsToday,
+      nextResetAt: quota.nextResetAt
+    },
+    message: `WhatsApp VIP messaging limit updated to ${quota.dailyLimit} messages per 24 hours.`
+  });
+});
+
+// POST /api/inbox/broadcast-segment - Send targeted offer/follow-up broadcast to a customer segment or single VIP
 inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
@@ -448,13 +565,29 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
     platformFilter,
     platform,
     messageTemplate,
-    messageText
+    messageText,
+    targetCustomerId
   } = req.body || {};
   const finalPlatformFilter = platformFilter || platform || 'all';
   const finalMessage = String(messageText || messageTemplate || '').trim();
 
   if (!finalMessage) {
     return res.status(400).json({ error: 'Broadcast message text is required' });
+  }
+
+  // 1. Check Official WhatsApp Daily Broadcast Quota First
+  const quotaBefore = computeWhatsAppBroadcastQuota(user.id);
+  if (quotaBefore.isLimitReached || quotaBefore.remainingToday <= 0) {
+    return res.status(429).json({
+      success: false,
+      limitReached: true,
+      reason: 'daily_quota_exceeded',
+      usedToday: quotaBefore.usedToday,
+      dailyLimit: quotaBefore.dailyLimit,
+      remainingToday: 0,
+      nextResetAt: quotaBefore.nextResetAt,
+      error: `Daily WhatsApp & VIP Messaging Limit Reached (${quotaBefore.usedToday}/${quotaBefore.dailyLimit} sent in 24h). According to WhatsApp Business anti-ban rules, you cannot send more promotional messages until the 24-hour quota resets.`
+    });
   }
 
   const allMessages = db.getMessages(user.id);
@@ -518,12 +651,54 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
     }
   }
 
-  const targets = Array.from(customerMap.values()).filter((c) => {
+  const rawTargets = Array.from(customerMap.values()).filter((c) => {
+    if (targetCustomerId) {
+      return c.customerId === targetCustomerId || `${c.platform}_${c.customerId}` === targetCustomerId;
+    }
     if (segment === 'unordered') return !c.hasOrdered;
     if (segment === 'buyers' || segment === 'ordered') return c.hasOrdered;
     if (segment === 'vip') return c.isVip;
     return true; // 'all'
   });
+
+  if (rawTargets.length === 0) {
+    return res.status(400).json({
+      error: 'No eligible customers found in this segment.'
+    });
+  }
+
+  // 2. Enforce Per-Customer 24h Cooldown Rule (Max N promo messages per customer per 24h)
+  let skippedCooldownCount = 0;
+  const cooldownFilteredTargets = rawTargets.filter((c) => {
+    const key = `${c.platform}_${c.customerId}`;
+    const sentToCustomerToday = quotaBefore.customerCountMap.get(key) || 0;
+    if (sentToCustomerToday >= quotaBefore.perCustomerDailyLimit) {
+      skippedCooldownCount++;
+      return false;
+    }
+    return true;
+  });
+
+  if (cooldownFilteredTargets.length === 0 && skippedCooldownCount > 0) {
+    return res.status(429).json({
+      success: false,
+      limitReached: true,
+      reason: 'customer_cooldown_reached',
+      usedToday: quotaBefore.usedToday,
+      dailyLimit: quotaBefore.dailyLimit,
+      remainingToday: quotaBefore.remainingToday,
+      skippedCooldownCount,
+      nextResetAt: quotaBefore.nextResetAt,
+      error:
+        targetCustomerId
+          ? `WhatsApp Rule Limit Reached: This VIP customer has already received ${quotaBefore.perCustomerDailyLimit} promotional message(s) in the last 24 hours. Please wait 24 hours before messaging them again.`
+          : `WhatsApp Anti-Spam Limit Reached: All ${skippedCooldownCount} customer(s) in this segment have already received their daily promotional message within the last 24 hours.`
+    });
+  }
+
+  // 3. Cap batch to remaining daily WhatsApp quota
+  const targets = cooldownFilteredTargets.slice(0, quotaBefore.remainingToday);
+  const cappedByDailyLimitCount = Math.max(0, cooldownFilteredTargets.length - targets.length);
 
   let sentCount = 0;
   let outsideWindowCount = 0;
@@ -584,17 +759,35 @@ inboxRouter.post('/broadcast-segment', async (req: Request, res: Response) => {
     }
   }
 
-  const summaryMessage =
-    outsideWindowCount > 0
-      ? `Successfully delivered broadcast message to ${sentCount} active customer(s)! (${outsideWindowCount} customer(s) were skipped by Meta because they are outside the 24-hour/7-day messaging window)`
-      : `Successfully sent offer broadcast message to ${sentCount} customer(s)!`;
+  const quotaAfter = computeWhatsAppBroadcastQuota(user.id);
+
+  let summaryMessage = `Successfully sent VIP/Offer broadcast message to ${sentCount} customer(s)! (${quotaAfter.remainingToday} of ${quotaAfter.dailyLimit} daily WhatsApp quota remaining)`;
+  if (quotaAfter.isLimitReached) {
+    summaryMessage = `Sent to ${sentCount} customer(s) — Daily WhatsApp Limit (${quotaAfter.usedToday}/${quotaAfter.dailyLimit}) is now REACHED! Further broadcasts are locked for 24 hours.`;
+  } else if (skippedCooldownCount > 0) {
+    summaryMessage = `Sent to ${sentCount} customer(s)! (${skippedCooldownCount} customer(s) skipped because they already received today's broadcast within 24h)`;
+  } else if (outsideWindowCount > 0) {
+    summaryMessage = `Delivered to ${sentCount} active customer(s)! (${outsideWindowCount} skipped by Meta 24-hour messaging window rule)`;
+  }
 
   return res.json({
     success: true,
     sentCount,
     outsideWindowCount,
-    totalTargeted: targets.length,
+    skippedCooldownCount,
+    cappedByDailyLimitCount,
+    totalTargeted: rawTargets.length,
     segment,
+    quota: {
+      dailyLimit: quotaAfter.dailyLimit,
+      perCustomerDailyLimit: quotaAfter.perCustomerDailyLimit,
+      enforce24hWindow: quotaAfter.enforce24hWindow,
+      usedToday: quotaAfter.usedToday,
+      remainingToday: quotaAfter.remainingToday,
+      isLimitReached: quotaAfter.isLimitReached,
+      messagedCustomerIdsToday: quotaAfter.messagedCustomerIdsToday,
+      nextResetAt: quotaAfter.nextResetAt
+    },
     message: summaryMessage
   });
 });

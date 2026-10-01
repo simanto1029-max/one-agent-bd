@@ -841,15 +841,65 @@ export const api = {
     });
   },
 
+  async getBroadcastQuota(): Promise<{
+    dailyLimit: number;
+    perCustomerDailyLimit: number;
+    enforce24hWindow: boolean;
+    usedToday: number;
+    remainingToday: number;
+    isLimitReached: boolean;
+    messagedCustomerIdsToday: string[];
+    nextResetAt: string;
+  }> {
+    return fetchJson('/api/inbox/broadcast-quota');
+  },
+
+  async updateBroadcastQuota(data: {
+    dailyLimit?: number;
+    perCustomerDailyLimit?: number;
+    enforce24hWindow?: boolean;
+  }): Promise<{
+    success: boolean;
+    quota: {
+      dailyLimit: number;
+      perCustomerDailyLimit: number;
+      enforce24hWindow: boolean;
+      usedToday: number;
+      remainingToday: number;
+      isLimitReached: boolean;
+      messagedCustomerIdsToday: string[];
+      nextResetAt: string;
+    };
+    message: string;
+  }> {
+    return fetchJson('/api/inbox/broadcast-quota', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   async sendSegmentBroadcast(data: {
     segment: 'all' | 'unordered' | 'vip' | 'ordered' | 'buyers';
     platform?: 'all' | 'whatsapp' | 'messenger' | 'instagram';
     platformFilter?: 'all' | 'whatsapp' | 'messenger' | 'instagram';
     messageText: string;
+    targetCustomerId?: string;
   }): Promise<{
     success: boolean;
     sentCount: number;
+    skippedCooldownCount?: number;
+    cappedByDailyLimitCount?: number;
     segment: string;
+    quota?: {
+      dailyLimit: number;
+      perCustomerDailyLimit: number;
+      enforce24hWindow: boolean;
+      usedToday: number;
+      remainingToday: number;
+      isLimitReached: boolean;
+      messagedCustomerIdsToday: string[];
+      nextResetAt: string;
+    };
     message: string;
   }> {
     return fetchJson('/api/inbox/broadcast-segment', {
@@ -859,7 +909,8 @@ export const api = {
         platform: data.platform || data.platformFilter || 'all',
         platformFilter: data.platform || data.platformFilter || 'all',
         messageText: data.messageText,
-        messageTemplate: data.messageText
+        messageTemplate: data.messageText,
+        targetCustomerId: data.targetCustomerId
       })
     });
   },

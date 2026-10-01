@@ -242,6 +242,7 @@ export interface ContactLead {
   channelId?: string;
   totalMessages: number;
   lastContactDate: string;
+  lastInboundDate?: string;
   lastMessage: string;
   hasOrdered?: boolean;
   totalOrders?: number;
@@ -249,6 +250,20 @@ export interface ContactLead {
   isVip?: boolean;
   isBlocked?: boolean;
   isAiPaused?: boolean;
+  within24hWindow?: boolean;
+  vipBroadcastSentToday?: number;
+  lastBroadcastAt?: string;
+}
+
+export interface WhatsAppBroadcastQuota {
+  dailyLimit: number;
+  perCustomerDailyLimit: number;
+  enforce24hWindow: boolean;
+  usedToday: number;
+  remainingToday: number;
+  isLimitReached: boolean;
+  messagedCustomerIdsToday: string[];
+  nextResetAt: string;
 }
 
 export interface AutomationSettings {
@@ -267,6 +282,9 @@ export interface AutomationSettings {
   daily_ad_spend_bdt?: number;
   avg_product_cost_percent?: number;
   return_courier_loss_per_order?: number;
+  daily_whatsapp_vip_limit?: number;
+  per_customer_daily_limit?: number;
+  enforce_whatsapp_24h_window?: boolean;
 }
 
 export interface AdminMetrics {

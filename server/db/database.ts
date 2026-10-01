@@ -33,6 +33,9 @@ export interface AutomationSettings {
   daily_ad_spend_bdt?: number;
   avg_product_cost_percent?: number;
   return_courier_loss_per_order?: number;
+  daily_whatsapp_vip_limit?: number;
+  per_customer_daily_limit?: number;
+  enforce_whatsapp_24h_window?: boolean;
 }
 
 export interface AppointmentBookingSettings {

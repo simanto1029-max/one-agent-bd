@@ -16,22 +16,31 @@ contactsRouter.get('/', (req: Request, res: Response) => {
   const profile = db.getProfileById(user.id);
   const pausedList = profile?.automation_settings?.paused_customers || [];
   const blockedList = profile?.automation_settings?.blocked_customers || [];
+  const nowMs = Date.now();
+  const window24hMs = 24 * 60 * 60 * 1000;
 
-  const contactsMap = new Map<string, {
-    customerId: string;
-    customerName: string;
-    platform: 'whatsapp' | 'messenger' | 'instagram';
-    channelId?: string;
-    totalMessages: number;
-    lastContactDate: string;
-    lastMessage: string;
-    hasOrdered: boolean;
-    totalOrders: number;
-    totalSpent: number;
-    isVip: boolean;
-    isBlocked: boolean;
-    isAiPaused: boolean;
-  }>();
+  const contactsMap = new Map<
+    string,
+    {
+      customerId: string;
+      customerName: string;
+      platform: 'whatsapp' | 'messenger' | 'instagram';
+      channelId?: string;
+      totalMessages: number;
+      lastContactDate: string;
+      lastInboundDate?: string;
+      lastMessage: string;
+      hasOrdered: boolean;
+      totalOrders: number;
+      totalSpent: number;
+      isVip: boolean;
+      isBlocked: boolean;
+      isAiPaused: boolean;
+      within24hWindow: boolean;
+      vipBroadcastSentToday: number;
+      lastBroadcastAt?: string;
+    }
+  >();
 
   for (const msg of messages) {
     const key = `${msg.platform}_${msg.customer_id}`;
@@ -62,22 +71,47 @@ contactsRouter.get('/', (req: Request, res: Response) => {
         channelId: msg.channel_id,
         totalMessages: 0,
         lastContactDate: msg.created_at,
+        lastInboundDate: msg.direction === 'inbound' ? msg.created_at : undefined,
         lastMessage: msg.message_text,
         hasOrdered: validOrders.length > 0,
         totalOrders: validOrders.length,
         totalSpent,
         isVip,
         isBlocked: blockedList.includes(msg.customer_id) || blockedList.includes(key),
-        isAiPaused: pausedList.includes(msg.customer_id) || pausedList.includes(key)
+        isAiPaused: pausedList.includes(msg.customer_id) || pausedList.includes(key),
+        within24hWindow: false,
+        vipBroadcastSentToday: 0
       });
     }
 
     const contact = contactsMap.get(key)!;
     contact.totalMessages += 1;
-    if (new Date(msg.created_at).getTime() > new Date(contact.lastContactDate).getTime()) {
+
+    const msgTime = new Date(msg.created_at).getTime();
+    if (msgTime > new Date(contact.lastContactDate).getTime()) {
       contact.lastContactDate = msg.created_at;
       contact.lastMessage = msg.message_text;
     }
+
+    if (msg.direction === 'inbound') {
+      if (!contact.lastInboundDate || msgTime > new Date(contact.lastInboundDate).getTime()) {
+        contact.lastInboundDate = msg.created_at;
+      }
+    }
+
+    if (msg.direction === 'outbound' && msg.id.includes('_bcast_') && nowMs - msgTime <= window24hMs) {
+      contact.vipBroadcastSentToday += 1;
+      if (!contact.lastBroadcastAt || msgTime > new Date(contact.lastBroadcastAt).getTime()) {
+        contact.lastBroadcastAt = msg.created_at;
+      }
+    }
+  }
+
+  for (const contact of contactsMap.values()) {
+    const refDate = contact.lastInboundDate || contact.lastContactDate;
+    contact.within24hWindow = Boolean(
+      refDate && nowMs - new Date(refDate).getTime() <= window24hMs
+    );
   }
 
   const contacts = Array.from(contactsMap.values()).sort(
