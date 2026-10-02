@@ -45,6 +45,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(OFFICIAL_PLANS[0]);
   const [durationMode, setDurationMode] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [expandedPlanIds, setExpandedPlanIds] = useState<Record<string, boolean>>({});
   const [isGatewayModalOpen, setIsGatewayModalOpen] = useState(false);
   const [preselectedMethod, setPreselectedMethod] = useState<PaymentMethodKey | null>(null);
@@ -267,93 +268,89 @@ export const BillingView: React.FC<BillingViewProps> = ({
       {/* Main Pricing Section */}
       <div className="p-4 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="text-center max-w-xl mx-auto space-y-2">
-          <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-400 block">
+        <div className="text-center max-w-lg mx-auto space-y-1.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7F22FE] dark:text-purple-400 block">
             PRICING PLANS
           </span>
 
           <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
             Choose Your Perfect Plan
           </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Select your preferred plan and duration below. Promo & coupon codes are supported at checkout.
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            2-Day Free Trial • Zero Per-Message Fee • Promo Codes Supported
           </p>
         </div>
 
-        {/* Duration Pill Switcher */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="inline-flex flex-wrap items-center justify-center p-1 sm:p-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-slate-800 border border-violet-100 dark:border-slate-700 shadow-sm max-w-full">
+        {/* Single Sleek Duration Dropdown Selector */}
+        <div className="flex justify-center">
+          <div className="relative inline-block">
             <button
               type="button"
-              onClick={() => handleModeChange('monthly')}
-              className={`px-3 sm:px-5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
-                durationMode === 'monthly'
-                  ? 'bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="pl-3.5 pr-3 py-2 rounded-full bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 shadow-xs hover:border-[#7C3AED]/60 transition-all flex items-center gap-2.5 cursor-pointer"
             >
-              <span>Monthly</span>
-              <span
-                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold ${
-                  durationMode === 'monthly'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-purple-100 dark:bg-purple-950 text-[#7C3AED] dark:text-purple-300'
-                }`}
-              >
-                Up to 15% OFF
+              <Clock className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400 shrink-0" />
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Billing Duration:
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeChange('yearly')}
-              className={`px-3 sm:px-5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
-                durationMode === 'yearly'
-                  ? 'bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-              }`}
-            >
-              <span>Yearly (1Y–6Y)</span>
-              <span
-                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold ${
-                  durationMode === 'yearly'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-[#DCFCE7] text-[#15803D]'
-                }`}
-              >
-                15%–30% OFF
+              <span className="px-2.5 py-0.5 rounded-full bg-[#7C3AED] text-white text-xs font-extrabold flex items-center gap-1.5">
+                <span>{activeDuration.label}</span>
+                {activeDuration.discountPercent > 0 && (
+                  <span className="text-[10px] text-purple-100 font-bold">
+                    • Save {activeDuration.discountPercent}%
+                  </span>
+                )}
               </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-500 dark:text-purple-300 transition-transform duration-200 ${
+                  dropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
-          </div>
 
-          <div className="inline-flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl sm:rounded-full bg-white/90 dark:bg-slate-800/90 border border-violet-200/70 dark:border-slate-700 shadow-2xs">
-            {filteredDurations.map((opt) => {
-              const isSelected = opt.id === selectedDurationId;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedDurationId(opt.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  {opt.discountPercent > 0 && (
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+            {dropdownOpen && (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-60 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.22)] p-1.5 z-30">
+                {PLAN_DURATION_OPTIONS.map((opt) => {
+                  const isSelected = opt.id === selectedDurationId;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDurationId(opt.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-emerald-400 text-slate-950'
-                          : 'bg-[#DCFCE7] dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400'
+                          ? 'bg-[#7C3AED] text-white'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-violet-50 dark:hover:bg-slate-700/60'
                       }`}
                     >
-                      {opt.discountPercent}% OFF
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                      <span>{opt.label}</span>
+                      {opt.discountPercent > 0 ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          }`}
+                        >
+                          Save {opt.discountPercent}%
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-semibold ${
+                            isSelected ? 'text-purple-200' : 'text-slate-400'
+                          }`}
+                        >
+                          Standard
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -393,19 +390,19 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 {isPro ? (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] text-white text-[10px] font-extrabold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
                     <Crown className="w-3 h-3" />
-                    <span>Most Popular • Full Pro Suite</span>
+                    <span>Most Popular</span>
                   </div>
                 ) : (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-100 dark:bg-[#1E1445] border border-violet-200 dark:border-purple-500/30 text-slate-700 dark:text-purple-200 text-[10px] font-bold tracking-wide whitespace-nowrap">
-                    <span>Core AI Automation</span>
+                    <span>Starter Suite</span>
                   </div>
                 )}
 
                 <div>
-                  <div className="flex items-start justify-between gap-2.5 mb-3.5 pt-1">
+                  <div className="flex items-center justify-between gap-2.5 mb-3.5 pt-1">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white">
+                        <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white leading-tight">
                           {plan.name}
                         </h3>
                         {isSelected && (
@@ -414,10 +411,10 @@ export const BillingView: React.FC<BillingViewProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                         {isPro
-                          ? 'Full ERP, Website Store Sync, Appointments & up to 10 Channels'
-                          : 'AI Auto-Reply, Courier Dispatch, Auto Fraud Check & 3 Channels'}
+                          ? 'Up to 10 Channels • Full ERP & Web'
+                          : 'Up to 3 Channels • Full AI & Courier'}
                       </p>
                     </div>
 
@@ -441,20 +438,13 @@ export const BillingView: React.FC<BillingViewProps> = ({
                         /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                       </span>
                       {savedAmount > 0 && (
-                        <>
-                          <span className="text-xs font-bold text-rose-500 line-through">
-                            TK {originalPrice.toLocaleString()}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
-                            Save TK {savedAmount.toLocaleString()}
-                          </span>
-                        </>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                          Save TK {savedAmount.toLocaleString()}
+                        </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                      {activeDuration.months === 1
-                        ? `Base rate ${plan.price.toLocaleString()} TK/mo • ${activeDuration.days} Days access`
-                        : `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% OFF (${activeDuration.days} Days)`}
+                    <p className="text-[10px] text-slate-400 dark:text-slate-400 font-semibold mt-0.5">
+                      {activeDuration.days} Days Access • Unlimited 0 TK/Msg
                     </p>
                   </div>
 

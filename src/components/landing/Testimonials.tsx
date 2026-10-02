@@ -230,15 +230,19 @@ export const Testimonials: React.FC = () => {
       id="testimonials"
       className="py-16 sm:py-20 bg-white dark:bg-[#0B0720] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
-      <div id="reviews" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Clean Minimal Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+      <div id="reviews" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* $100K Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-9">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-widest text-[#7C3AED] dark:text-[#A78BFA] block mb-2">
-              CUSTOMER REVIEWS
-            </span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#7F22FE]/10 dark:bg-purple-500/15 border border-[#7F22FE]/25 text-[#7F22FE] dark:text-purple-300 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>VERIFIED MERCHANT REVIEWS</span>
+            </div>
             <h2 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              Trusted by Growing E-Commerce Brands
+              Trusted by Growing{' '}
+              <span className="bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
+                E-Commerce Brands
+              </span>
             </h2>
           </div>
 
@@ -250,7 +254,7 @@ export const Testimonials: React.FC = () => {
                 setSubmitError(null);
                 setIsModalOpen(true);
               }}
-              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold shadow-md shadow-purple-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#C026D3] hover:from-[#6D28D9] hover:to-[#A21CAF] text-white text-xs font-extrabold shadow-[0_8px_20px_rgba(127,34,254,0.3)] flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Write a Review</span>
@@ -260,7 +264,7 @@ export const Testimonials: React.FC = () => {
               type="button"
               onClick={() => handleManualScroll('left')}
               aria-label="Scroll reviews left"
-              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#160F35] hover:bg-slate-200 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-purple-500/20 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-full bg-white dark:bg-[#160F35] hover:bg-violet-50 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-purple-500/25 shadow-2xs flex items-center justify-center transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -268,102 +272,115 @@ export const Testimonials: React.FC = () => {
               type="button"
               onClick={() => handleManualScroll('right')}
               aria-label="Scroll reviews right"
-              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#160F35] hover:bg-slate-200 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-purple-500/20 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-full bg-white dark:bg-[#160F35] hover:bg-violet-50 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-purple-500/25 shadow-2xs flex items-center justify-center transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Horizontally Scrollable + Slow Seamless Infinite Loop Track */}
+        {/* Horizontally Scrollable + Slow Seamless Infinite Loop Track inside Dot-Matrix Frame */}
         {reviews.length === 0 ? (
           <div className="p-8 rounded-2xl bg-slate-50 dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 text-center text-sm text-slate-500 dark:text-slate-400">
             No reviews published yet. Click "Write a Review" to share your experience!
           </div>
         ) : (
-          <div
-            ref={scrollContainerRef}
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
-            onTouchStart={() => setIsPaused(true)}
-            onTouchEnd={() => setIsPaused(false)}
-            onScroll={() => {
-              const el = scrollContainerRef.current;
-              if (!el) return;
-              const halfWidth = el.scrollWidth / 2;
-              if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
-                el.scrollLeft -= halfWidth;
-              }
-            }}
-            className="flex items-stretch gap-5 overflow-x-auto pb-3 pt-1 select-none"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {loopedReviews.map((item, idx) => {
-              const initials = item.name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase();
+          <div className="relative rounded-[32px] p-4 sm:p-6 bg-slate-50/75 dark:bg-[#110A2A]/90 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_25px_70px_-20px_rgba(124,58,237,0.14)] overflow-hidden">
+            {/* Dot-Matrix Background */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(139,92,246,0.2)_1px,transparent_1px)] [background-size:20px_20px] opacity-55"
+            />
 
-              return (
-                <article
-                  key={`${item.id}_${idx}`}
-                  className="w-[285px] sm:w-[350px] shrink-0 p-5 sm:p-6 rounded-2xl bg-[#F8F7FC] dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/45 shadow-xs flex flex-col justify-between transition-all"
-                >
-                  <div>
-                    {/* Stars */}
-                    <div className="flex items-center gap-1 mb-4">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < (item.rating || 5)
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-slate-300 dark:text-slate-700'
-                          }`}
-                        />
-                      ))}
-                    </div>
+            <div
+              ref={scrollContainerRef}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+              onTouchStart={() => setIsPaused(true)}
+              onTouchEnd={() => setIsPaused(false)}
+              onScroll={() => {
+                const el = scrollContainerRef.current;
+                if (!el) return;
+                const halfWidth = el.scrollWidth / 2;
+                if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
+                  el.scrollLeft -= halfWidth;
+                }
+              }}
+              className="relative z-10 flex items-stretch gap-4 sm:gap-5 overflow-x-auto pb-2 pt-1 select-none"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {loopedReviews.map((item, idx) => {
+                const initials = item.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
 
-                    {/* Clean English Quote */}
-                    <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-                      "{item.review_text}"
-                    </p>
-                  </div>
-
-                  {/* Reviewer Footer */}
-                  <div className="flex items-center gap-3 pt-5 mt-5 border-t border-slate-200/70 dark:border-purple-500/15">
-                    {item.avatar_url ? (
-                      <img
-                        src={item.avatar_url}
-                        alt={item.name}
-                        className="w-10 h-10 rounded-full object-cover border border-purple-500/20 shrink-0"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#9333EA] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        {initials || 'M'}
+                return (
+                  <article
+                    key={`${item.id}_${idx}`}
+                    className="w-[280px] sm:w-[335px] shrink-0 p-5 rounded-2xl bg-white dark:bg-[#160E35]/95 border border-slate-200/90 dark:border-purple-500/25 hover:border-[#7F22FE]/60 shadow-[0_14px_34px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_20px_44px_-12px_rgba(127,34,254,0.2)] flex flex-col justify-between transition-all duration-300"
+                  >
+                    <div>
+                      {/* Top Row: 5 Stars + Verified Badge */}
+                      <div className="flex items-center justify-between gap-2 mb-3.5">
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3.5 h-3.5 ${
+                                i < (item.rating || 5)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-slate-300 dark:text-slate-700'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[9px] font-extrabold uppercase tracking-wider">
+                          ✓ Verified Store
+                        </span>
                       </div>
-                    )}
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          {item.name}
-                        </h3>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#A78BFA] shrink-0" />
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {item.role} · {item.business}
+                      {/* Concise Quote */}
+                      <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed font-medium line-clamp-4">
+                        &ldquo;{item.review_text}&rdquo;
                       </p>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
+
+                    {/* Reviewer Footer */}
+                    <div className="flex items-center gap-3 pt-3.5 mt-4 border-t border-slate-100 dark:border-purple-500/15">
+                      {item.avatar_url ? (
+                        <img
+                          src={item.avatar_url}
+                          alt={item.name}
+                          className="w-9 h-9 rounded-xl object-cover border border-purple-500/25 shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white text-xs font-black flex items-center justify-center shrink-0">
+                          {initials || 'M'}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                            {item.name}
+                          </h3>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                          {item.role} · {item.business}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

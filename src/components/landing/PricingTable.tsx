@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Check,
-  Sparkles,
   ArrowRight,
   Loader2,
   Zap,
   Crown,
   Clock,
   ChevronDown,
-  ShieldCheck
+  Calendar
 } from 'lucide-react';
 import { api } from '../../api';
 import { Plan } from '../../types';
@@ -27,12 +26,23 @@ interface PricingTableProps {
 export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [durationMode, setDurationMode] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [expandedPlanIds, setExpandedPlanIds] = useState<Record<string, boolean>>({});
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadPlans();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const loadPlans = async () => {
@@ -63,16 +73,6 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   const displayPlans = plans.length === 2 ? plans : OFFICIAL_PLANS;
   const activeDuration =
     PLAN_DURATION_OPTIONS.find((d) => d.id === selectedDurationId) || PLAN_DURATION_OPTIONS[0];
-  const filteredDurations = PLAN_DURATION_OPTIONS.filter((d) => d.type === durationMode);
-
-  const handleModeChange = (mode: 'monthly' | 'yearly') => {
-    setDurationMode(mode);
-    if (mode === 'monthly' && !selectedDurationId.endsWith('m')) {
-      setSelectedDurationId('1m');
-    } else if (mode === 'yearly' && !selectedDurationId.endsWith('y')) {
-      setSelectedDurationId('1y');
-    }
-  };
 
   const toggleExpandFeatures = (planId: string) => {
     setExpandedPlanIds((prev) => ({
@@ -87,95 +87,91 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
       className="py-14 sm:py-18 bg-white dark:bg-[#0B0720] border-t border-slate-100 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
-        {/* Top Heading */}
-        <div className="text-center max-w-xl mx-auto mb-7">
-          <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-400 block mb-2">
+        {/* Clean Minimal Header */}
+        <div className="text-center max-w-lg mx-auto mb-6">
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7F22FE] dark:text-purple-400 block mb-1.5">
             PRICING PLANS
           </span>
 
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A] dark:text-white mb-2">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A] dark:text-white mb-1.5">
             Choose Your Perfect Plan
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Start with our core AI agent or unlock the full Pro Business suite with ERP, 1-click courier dispatch, and auto fraud protection.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+            2-Day Free Trial • Zero Per-Message Fee • Cancel Anytime
           </p>
         </div>
 
-        {/* Pill Billing Cycle Switcher */}
-        <div className="flex flex-col items-center gap-3 mb-9">
-          <div className="inline-flex items-center p-1 rounded-full bg-white dark:bg-[#150D34] border border-violet-200/80 dark:border-purple-500/25 shadow-sm">
+        {/* Single Sleek Duration Dropdown Selector */}
+        <div className="flex justify-center mb-9">
+          <div ref={dropdownRef} className="relative inline-block">
             <button
               type="button"
-              onClick={() => handleModeChange('monthly')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                durationMode === 'monthly'
-                  ? 'bg-gradient-to-r from-[#7F22FE] to-[#9333EA] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="pl-3.5 pr-3 py-2 rounded-full bg-white dark:bg-[#150D34] border border-slate-200/90 dark:border-purple-500/30 shadow-xs hover:border-[#7F22FE]/60 transition-all flex items-center gap-2.5 cursor-pointer"
             >
-              <span>Monthly</span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  durationMode === 'monthly'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-purple-100 dark:bg-purple-950 text-[#7F22FE] dark:text-purple-300'
-                }`}
-              >
-                Up to 15% OFF
+              <Calendar className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Billing Duration:
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeChange('yearly')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                durationMode === 'yearly'
-                  ? 'bg-gradient-to-r from-[#7F22FE] to-[#9333EA] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <span>Yearly (1Y – 6Y)</span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  durationMode === 'yearly'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
-                }`}
-              >
-                15% – 30% OFF
+              <span className="px-2.5 py-0.5 rounded-full bg-[#7F22FE] text-white text-xs font-extrabold flex items-center gap-1.5">
+                <span>{activeDuration.label}</span>
+                {activeDuration.discountPercent > 0 && (
+                  <span className="text-[10px] text-purple-100 font-bold">
+                    • Save {activeDuration.discountPercent}%
+                  </span>
+                )}
               </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-500 dark:text-purple-300 transition-transform duration-200 ${
+                  dropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
-          </div>
 
-          {/* Duration Pills */}
-          <div className="inline-flex flex-wrap items-center justify-center gap-1 p-1 rounded-2xl sm:rounded-full bg-white/90 dark:bg-[#130C30] border border-violet-200/70 dark:border-purple-500/20 shadow-2xs">
-            {filteredDurations.map((opt) => {
-              const isSelected = opt.id === selectedDurationId;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedDurationId(opt.id)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#7F22FE] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-violet-50/70 dark:hover:bg-purple-950/40'
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  {opt.discountPercent > 0 && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold tracking-tight ${
+            {/* Clean Dropdown List */}
+            {dropdownOpen && (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-60 rounded-2xl bg-white dark:bg-[#160E36] border border-slate-200/90 dark:border-purple-500/30 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.22)] p-1.5 z-30">
+                {PLAN_DURATION_OPTIONS.map((opt) => {
+                  const isSelected = opt.id === selectedDurationId;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDurationId(opt.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-emerald-400 text-slate-950'
-                          : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+                          ? 'bg-[#7F22FE] text-white'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-violet-50 dark:hover:bg-purple-950/60'
                       }`}
                     >
-                      {opt.discountPercent}% OFF
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                      <span>{opt.label}</span>
+                      {opt.discountPercent > 0 ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          }`}
+                        >
+                          Save {opt.discountPercent}%
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-semibold ${
+                            isSelected ? 'text-purple-200' : 'text-slate-400'
+                          }`}
+                        >
+                          Standard
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -185,7 +181,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           </div>
         ) : (
           <>
-            {/* Compact Centered 2-Card Grid (Narrower Width & Centered with Premium Ambient Shadow) */}
+            {/* Compact Centered 2-Card Grid */}
             <div className="max-w-[680px] mx-auto relative">
               <div
                 aria-hidden="true"
@@ -220,25 +216,25 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                     {isPro ? (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] text-white text-[10px] font-extrabold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
                         <Crown className="w-3 h-3" />
-                        <span>Most Popular • Full Pro Suite</span>
+                        <span>Most Popular</span>
                       </div>
                     ) : (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-100 dark:bg-[#1E1445] border border-violet-200 dark:border-purple-500/30 text-slate-700 dark:text-purple-200 text-[10px] font-bold tracking-wide whitespace-nowrap">
-                        <span>Core AI Automation</span>
+                        <span>Starter Suite</span>
                       </div>
                     )}
 
                     <div>
                       {/* Card Header */}
-                      <div className="flex items-start justify-between gap-2.5 mb-3.5 pt-1">
+                      <div className="flex items-center justify-between gap-2.5 mb-3.5 pt-1">
                         <div>
-                          <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white">
+                          <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white leading-tight">
                             {plan.name}
                           </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             {isPro
-                              ? 'Full ERP, Website Store Sync, Appointments & up to 10 Channels'
-                              : 'AI Auto-Reply, Courier Dispatch, Auto Fraud Check & 3 Channels'}
+                              ? 'Up to 10 Channels • Full ERP & Web'
+                              : 'Up to 3 Channels • Full AI & Courier'}
                           </p>
                         </div>
 
@@ -263,20 +259,13 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                             /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
                           </span>
                           {savedAmount > 0 && (
-                            <>
-                              <span className="text-xs font-bold text-rose-500 line-through">
-                                TK {originalPrice.toLocaleString()}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
-                                Save TK {savedAmount.toLocaleString()}
-                              </span>
-                            </>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
+                              Save TK {savedAmount.toLocaleString()}
+                            </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                          {activeDuration.months === 1
-                            ? `Base rate ${plan.price.toLocaleString()} TK/mo • ${activeDuration.days} Days access`
-                            : `Effective ${Math.round(totalPrice / activeDuration.months).toLocaleString()} TK/mo • ${activeDuration.discountPercent}% OFF (${activeDuration.days} Days)`}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-400 font-semibold mt-0.5">
+                          {activeDuration.days} Days Access • Unlimited 0 TK/Msg
                         </p>
                       </div>
 
@@ -397,95 +386,6 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
                   </motion.div>
                 );
               })}
-              </div>
-            </div>
-
-            {/* Free Done-For-You Setup & Risk-Free Guarantee Strip */}
-            <div className="max-w-[680px] mx-auto mt-6 p-4 rounded-2xl bg-gradient-to-r from-violet-50/90 via-purple-50/80 to-fuchsia-50/90 dark:from-[#160E36] dark:via-[#1B1142] dark:to-[#160E36] border border-violet-200/80 dark:border-purple-500/30 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-              <div className="flex flex-col sm:flex-row items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#7F22FE]/25">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                    100% Free &ldquo;Done-For-You&rdquo; Page &amp; Catalog Setup Included
-                  </h4>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
-                    Don&apos;t worry about technical setup—our team configures your Facebook Page, WhatsApp, product catalog &amp; courier APIs for free.
-                  </p>
-                </div>
-              </div>
-              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-[10px] font-extrabold uppercase tracking-wider shrink-0">
-                Free Setup + 2-Day Trial
-              </span>
-            </div>
-
-            {/* Why Merchants Switch to One Agent BD (Comparison vs Regular Chatbots & Moderators) */}
-            <div className="max-w-3xl mx-auto mt-10 rounded-[24px] bg-white dark:bg-[#120B2B]/95 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_20px_50px_-15px_rgba(15,23,42,0.1)] overflow-hidden">
-              <div className="px-5 py-4 bg-slate-50/90 dark:bg-[#18103A] border-b border-slate-200/80 dark:border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7F22FE] dark:text-purple-400">
-                    WHY MERCHANTS CHOOSE US
-                  </span>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                    One Agent BD vs. Ordinary Chatbots &amp; Human Moderators
-                  </h3>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 text-[10px] font-extrabold border border-purple-500/20 w-fit">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Save 8,500+ TK Every Month
-                </span>
-              </div>
-
-              <div className="divide-y divide-slate-100 dark:divide-purple-500/15 text-xs">
-                {[
-                  {
-                    feature: '24/7 Bangla, Banglish, Voice Note & Product Photo Reply',
-                    others: 'Text-only or robotic replies',
-                    ours: 'Included (Instant < 2 sec)'
-                  },
-                  {
-                    feature: '1-Click Steadfast, Pathao & RedX Courier Booking',
-                    others: 'Manual copy-paste to courier portal',
-                    ours: '1-Click Auto Dispatch & Live Tracking'
-                  },
-                  {
-                    feature: 'Customer Fake Order & Courier Delivery Ratio Check',
-                    others: 'Not available (High parcel return loss)',
-                    ours: '100% Auto Fraud Shield Included'
-                  },
-                  {
-                    feature: 'VIP Customer & Unordered Lead Retargeting',
-                    others: 'No CRM or lead recovery',
-                    ours: '1-Click Safe Retargeting Included'
-                  },
-                  {
-                    feature: 'Message Limit & Per-Reply Extra Charges',
-                    others: 'Extra fee after 1,000–2,000 messages',
-                    ours: 'Unlimited Replies (0 TK Extra)'
-                  },
-                  {
-                    feature: 'Monthly Cost for Your Business',
-                    others: 'Moderator: 8,000–12,000 TK/mo',
-                    ours: 'Starts at only 1,250 TK/mo'
-                  }
-                ].map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 sm:px-5 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center"
-                  >
-                    <div className="sm:col-span-6 font-bold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs">
-                      {row.feature}
-                    </div>
-                    <div className="sm:col-span-3 text-[11px] text-slate-400 dark:text-slate-500 line-through sm:no-underline">
-                      ✕ {row.others}
-                    </div>
-                    <div className="sm:col-span-3 flex items-center gap-1.5 font-extrabold text-[11px] text-emerald-600 dark:text-emerald-400">
-                      <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-500 shrink-0" />
-                      <span>{row.ours}</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </>

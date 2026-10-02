@@ -29,7 +29,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 2,
     days: 60,
     discountPercent: 3,
-    badge: '3% OFF'
+    badge: 'Save 3%'
   },
   {
     id: '3m',
@@ -39,7 +39,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 3,
     days: 90,
     discountPercent: 5,
-    badge: '5% OFF'
+    badge: 'Save 5%'
   },
   {
     id: '6m',
@@ -49,17 +49,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 6,
     days: 180,
     discountPercent: 10,
-    badge: '10% OFF'
-  },
-  {
-    id: '12m',
-    label: '1 Year (12M)',
-    shortLabel: '1Y',
-    type: 'monthly',
-    months: 12,
-    days: 365,
-    discountPercent: 15,
-    badge: '15% OFF'
+    badge: 'Save 10%'
   },
   {
     id: '1y',
@@ -69,7 +59,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 12,
     days: 365,
     discountPercent: 15,
-    badge: '15% OFF'
+    badge: 'Save 15%'
   },
   {
     id: '2y',
@@ -79,7 +69,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 24,
     days: 730,
     discountPercent: 20,
-    badge: '20% OFF'
+    badge: 'Save 20%'
   },
   {
     id: '3y',
@@ -89,7 +79,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 36,
     days: 1095,
     discountPercent: 25,
-    badge: '25% OFF'
+    badge: 'Save 25%'
   },
   {
     id: '6y',
@@ -99,7 +89,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     months: 72,
     days: 2190,
     discountPercent: 30,
-    badge: '30% OFF'
+    badge: 'Save 30%'
   }
 ];
 
@@ -113,16 +103,14 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
     trial_days: 2,
     is_active: true,
     features: [
-      '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)',
-      '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-      'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-      'AI Auto Delivery Tracking & Customer Live Status Update',
-      'VIP Customer Retargeting & Smart Follow-Up Message',
-      'WhatsApp, Facebook Messenger & Instagram Auto-Reply',
-      'Voice Note AI Listening & Product Photo Recognition',
-      'Auto Post Comment Reply + Direct Inbox (DM) Automation',
-      'Unlimited Product Catalog & Autonomous Chat Order Capture',
-      'Unlimited Customer Conversations (0 TK per-msg fee)'
+      '24/7 AI Auto-Reply (Up to 3 Channels)',
+      'Bangla Voice Note & Photo AI',
+      'Auto Comment Reply + Inbox DM',
+      '1-Click Steadfast, Pathao & RedX',
+      'AI Live Parcel Tracking Update',
+      'Fake Order & Courier Ratio Check',
+      'VIP Customer Offer & Retarget DM',
+      'Unlimited Chats (0 TK / Message)'
     ],
     feature_config: {
       website_stores: false,
@@ -144,16 +132,14 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
     trial_days: 2,
     is_active: true,
     features: [
-      'Everything in Starter Plan + Connect up to 10 Channels',
-      'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)',
-      'AI Appointments & Google Calendar Auto-Slot Booking',
-      'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
-      'AI Auto Delivery Tracking & Customer Live Status Update',
-      'VIP Customer Retargeting Message & AI Email Marketing',
-      '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-      'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-      'Customer Callback Queue, Human Handover & CSV/Text Export',
-      '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support'
+      'Everything in Starter (Up to 10 Channels)',
+      'Accounts, Stock & Profit ERP',
+      'Website & WooCommerce Live Sync',
+      'AI Appointments & Calendar Booking',
+      '1-Click Courier & Live Order Track',
+      'Fake Order Shield & Fraud Check',
+      'VIP Retargeting & Email Marketing',
+      '3 AI Agents + 24/7 VIP Support'
     ],
     feature_config: {
       website_stores: true,

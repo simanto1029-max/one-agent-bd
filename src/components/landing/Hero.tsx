@@ -1,17 +1,18 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   ArrowRight,
   Bot,
-  Globe,
+  Check,
   CheckCircle2,
   ShieldCheck,
   Sparkles,
   Truck,
   Zap,
-  Clock,
-  ShoppingBag,
-  CreditCard,
-  Calendar
+  Mic,
+  Image as ImageIcon,
+  MessageSquare,
+  Megaphone
 } from 'lucide-react';
 
 interface HeroProps {
@@ -24,176 +25,6 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({
   onStartTrial
 }) => {
-  const partnerBadges = [
-    {
-      name: 'Meta Official API',
-      tag: 'Verified Graph API',
-      dotColor: 'bg-blue-500',
-      iconBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-      icon: Globe
-    },
-    {
-      name: 'WhatsApp Cloud API',
-      tag: '0% Ban Protection',
-      dotColor: 'bg-emerald-500',
-      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      icon: Zap
-    },
-    {
-      name: 'Steadfast Courier',
-      tag: '1-Click Dispatch & Ratio',
-      dotColor: 'bg-teal-500',
-      iconBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
-      icon: Truck
-    },
-    {
-      name: 'Pathao Courier',
-      tag: 'Auto Booking & Tracking',
-      dotColor: 'bg-rose-500',
-      iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-      icon: Truck
-    },
-    {
-      name: 'RedX Logistics',
-      tag: 'Live Parcel Status',
-      dotColor: 'bg-red-500',
-      iconBg: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-      icon: ShieldCheck
-    },
-    {
-      name: 'WooCommerce Store',
-      tag: 'Real-Time Order Sync',
-      dotColor: 'bg-purple-500',
-      iconBg: 'bg-purple-500/10 text-[#7F22FE] dark:text-purple-400 border-purple-500/20',
-      icon: ShoppingBag
-    },
-    {
-      name: 'Shopify Store',
-      tag: 'Catalog & Webhook Sync',
-      dotColor: 'bg-emerald-500',
-      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      icon: ShoppingBag
-    },
-    {
-      name: 'bKash & Nagad Gateway',
-      tag: 'Instant Activation',
-      dotColor: 'bg-pink-500',
-      iconBg: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
-      icon: CreditCard
-    },
-    {
-      name: 'Google Calendar AI',
-      tag: 'Auto Slot Booking',
-      dotColor: 'bg-indigo-500',
-      iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
-      icon: Calendar
-    }
-  ];
-
-  const roiStats = [
-    {
-      value: '< 2 Sec',
-      label: 'Instant Bangla & Voice Reply',
-      subtext: 'Replies to texts, voice notes & product photos automatically',
-      icon: Zap,
-      color: 'text-[#7F22FE] dark:text-purple-400',
-      bg: 'bg-purple-500/10 border-purple-500/20'
-    },
-    {
-      value: '100% Auto',
-      label: 'Customer Fraud & Ratio Check',
-      subtext: 'Verifies Steadfast, Pathao & RedX delivery history on every order',
-      icon: ShieldCheck,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-500/10 border-emerald-500/20'
-    },
-    {
-      value: '0 TK',
-      label: 'Per-Message Extra Cost',
-      subtext: 'Unlimited customer conversations & auto order confirmations',
-      icon: Sparkles,
-      color: 'text-fuchsia-600 dark:text-fuchsia-400',
-      bg: 'bg-fuchsia-500/10 border-fuchsia-500/20'
-    },
-    {
-      value: '24/7 Live',
-      label: 'Night & Holiday Order Capture',
-      subtext: 'Never lose late-night Facebook, Instagram or WhatsApp buyers',
-      icon: Clock,
-      color: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-500/10 border-blue-500/20'
-    }
-  ];
-
-  const channels = [
-    {
-      id: 'whatsapp',
-      name: 'WhatsApp Business',
-      badge: 'Official Cloud API',
-      badgeClass:
-        'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
-      iconBg: 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-lg shadow-emerald-500/25',
-      accentBorder: 'hover:border-emerald-500/45',
-      description:
-        '0% ban risk with Official Meta Cloud API. Listens to Bangla voice notes & confirms COD orders in chat.',
-      metrics: 'Voice Note + Auto Order',
-      svg: (
-        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-          <path d="M12.031 2c-5.516 0-9.999 4.486-9.999 10.001 0 1.766.461 3.489 1.338 5.012L2 22l5.118-1.341c1.477.805 3.141 1.23 4.911 1.23h.004c5.515 0 9.998-4.486 9.998-10.001 0-2.672-1.04-5.184-2.928-7.073C17.214 3.04 14.703 2 12.031 2zm5.826 14.12c-.244.687-1.425 1.314-1.976 1.397-.505.075-1.144.107-1.846-.116-.426-.135-.974-.316-1.678-.62-2.953-1.275-4.881-4.249-5.029-4.446-.147-.197-1.2-1.596-1.2-3.045 0-1.449.759-2.161 1.029-2.456.27-.295.589-.369.785-.369.196 0 .392.002.564.01.181.009.424-.069.663.507.245.59.834 2.039.908 2.186.074.147.123.319.025.516-.098.197-.147.319-.295.491-.147.172-.31.384-.442.516-.147.147-.301.307-.129.602.172.295.763 1.259 1.639 2.04 1.126 1.004 2.075 1.315 2.37 1.462.295.147.466.123.638-.074.172-.197.736-.86.933-1.155.196-.295.392-.246.662-.147.27.098 1.718.81 2.012.958.295.147.491.221.565.344.073.123.073.712-.171 1.399z" />
-        </svg>
-      )
-    },
-    {
-      id: 'messenger',
-      name: 'Facebook Messenger',
-      badge: 'Comment + Inbox DM',
-      badgeClass:
-        'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25',
-      iconBg: 'bg-gradient-to-br from-[#00B2FF] to-[#006AFF] text-white shadow-lg shadow-blue-500/25',
-      accentBorder: 'hover:border-blue-500/45',
-      description:
-        'Replies to Facebook post comments publicly and sends product price & details straight to Messenger.',
-      metrics: 'Auto Comment-to-DM',
-      svg: (
-        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-          <path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7C22 6.13 17.64 2 12 2zm5.89 7.58-2.93 4.67c-.47.74-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.39c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.74 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.39c.42-.32.97.18.69.63z" />
-        </svg>
-      )
-    },
-    {
-      id: 'instagram',
-      name: 'Instagram Direct',
-      badge: 'DM, Story & Reels',
-      badgeClass:
-        'bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-500/25',
-      iconBg: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white shadow-lg shadow-pink-500/25',
-      accentBorder: 'hover:border-pink-500/45',
-      description:
-        'Recognizes product screenshots sent in DMs, replies to Story mentions & Reels comments automatically.',
-      metrics: 'Photo Search + Instant DM',
-      svg: (
-        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-        </svg>
-      )
-    },
-    {
-      id: 'website',
-      name: 'Website AI Widget',
-      badge: '1-Line Store Sync',
-      badgeClass:
-        'bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 border-purple-500/25',
-      iconBg: 'bg-gradient-to-br from-[#7F22FE] via-[#9333EA] to-[#C026D3] text-white shadow-lg shadow-purple-500/25',
-      accentBorder: 'hover:border-[#7F22FE]/55',
-      description:
-        'Embed our live AI chat widget on WordPress, WooCommerce, Shopify, or custom websites in 1 click.',
-      metrics: 'Store Sync + Live Chat',
-      svg: <Globe className="w-6 h-6" />
-    }
-  ];
-
-  const loopedPartners = [...partnerBadges, ...partnerBadges];
-
   return (
     <section className="relative pt-8 pb-12 sm:pt-14 sm:pb-20 bg-white dark:bg-gradient-to-br dark:from-[#0B0720] dark:via-[#130B32] dark:to-[#090518] overflow-hidden transition-colors">
       {/* Ambient Radial Glows */}
@@ -266,137 +97,276 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
-        {/* 1. AUTO-SCROLLING OFFICIAL INTEGRATION & COURIER PARTNER MARQUEE */}
-        <div className="mt-9 sm:mt-11">
-          <p className="text-center text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500 mb-3.5">
-            SEAMLESSLY INTEGRATED WITH OFFICIAL PLATFORMS &amp; COURIERS
-          </p>
-          <div className="relative w-full overflow-hidden py-2">
-            {/* Soft Left & Right Fade Edges */}
+        {/* =====================================================================
+            $100K ENTERPRISE VISUAL FLOWCHART BOX (Replaces Marquee & Channels)
+           ===================================================================== */}
+        <div id="channels" className="mt-12 sm:mt-16 scroll-mt-20">
+          {/* Minimalist Section Header */}
+          <div className="text-center max-w-2xl mx-auto mb-7">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#7F22FE]/10 dark:bg-purple-500/15 border border-[#7F22FE]/25 text-[#7F22FE] dark:text-purple-300 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.16em] mb-2.5">
+              <span className="w-2 h-2 rounded-full bg-[#7F22FE] animate-ping" />
+              <span>AUTONOMOUS AI WORKFLOW</span>
+            </div>
+            <h2 className="text-xl sm:text-3xl md:text-[34px] font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+              Why Pay <span className="line-through text-rose-500/85 decoration-2">10,000 TK</span> for a Moderator?
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
+              From customer message to live parcel tracking &amp; VIP retargeting — 100% automated.
+            </p>
+          </div>
+
+          {/* Flowchart Canvas Box */}
+          <div className="relative rounded-[32px] p-5 sm:p-7 lg:p-9 bg-slate-50/75 dark:bg-[#110A2A]/90 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_30px_80px_-20px_rgba(124,58,237,0.18),0_10px_30px_-10px_rgba(15,23,42,0.07)] overflow-hidden">
+            {/* Engineered Dot-Matrix Background Grid */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-10 sm:w-20 bg-gradient-to-r from-white dark:from-[#0B0720] to-transparent z-10"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] dark:bg-[radial-gradient(rgba(139,92,246,0.22)_1.2px,transparent_1.2px)] [background-size:20px_20px] opacity-70"
             />
+            {/* Ambient Center Glow */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 sm:w-20 bg-gradient-to-l from-white dark:from-[#0B0720] to-transparent z-10"
+              className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[560px] h-[220px] bg-gradient-to-r from-[#7F22FE]/15 via-fuchsia-500/15 to-emerald-500/15 blur-3xl rounded-full"
             />
 
-            <div className="animate-partner-marquee gap-3.5 sm:gap-4">
-              {loopedPartners.map((partner, idx) => {
-                const Icon = partner.icon;
-                return (
-                  <div
-                    key={`${partner.name}_${idx}`}
-                    className="shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white dark:bg-[#150E32]/90 border border-slate-200/85 dark:border-purple-500/20 shadow-[0_8px_20px_-8px_rgba(15,23,42,0.08)] hover:border-[#7F22FE]/45 transition-all"
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${partner.iconBg}`}
-                    >
-                      <Icon className="w-4 h-4" />
+            {/* 4-Node Visual Flowchart Row */}
+            <div className="relative z-10 flex flex-col lg:flex-row items-stretch justify-between gap-2 lg:gap-0">
+              {/* NODE 01: Buyer Messages */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3 }}
+                className="flex-1 bg-white dark:bg-[#170F36] rounded-2xl p-4 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_14px_34px_-10px_rgba(15,23,42,0.1)] flex flex-col justify-between hover:border-[#7F22FE]/50 transition-all"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-purple-950/80 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-purple-300">
+                      STEP 01 • CHANNELS
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  </div>
+
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4" />
                     </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-extrabold text-slate-900 dark:text-white whitespace-nowrap">
-                          {partner.name}
-                        </span>
-                        <span className={`w-1.5 h-1.5 rounded-full ${partner.dotColor} shrink-0`} />
-                      </div>
-                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                        {partner.tag}
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight">
+                        Buyer Messages
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-semibold">
+                        WhatsApp • FB • IG • Web
                       </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+                </div>
 
-        {/* Premium Omnichannel Architecture Hub (#channels) */}
-        <div id="channels" className="mt-10 sm:mt-14 scroll-mt-20">
-          <div className="relative rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 lg:p-10 bg-gradient-to-b from-[#FAF8FF] via-white to-[#F6F2FF] dark:from-[#150D34] dark:via-[#110A2A] dark:to-[#0E0823] border border-violet-200/90 dark:border-purple-500/25 shadow-[0_24px_60px_-15px_rgba(127,34,254,0.12),0_10px_30px_-10px_rgba(15,23,42,0.06)] overflow-hidden">
-            {/* Subtle Top Glow */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[520px] h-[180px] bg-gradient-to-r from-[#7F22FE]/15 via-[#9333EA]/15 to-[#DB2777]/15 blur-3xl"
-            />
+                <div className="flex flex-wrap gap-1 pt-2.5 border-t border-slate-100 dark:border-purple-500/15">
+                  <span className="px-2 py-0.5 rounded-md bg-violet-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300 text-[10px] font-bold flex items-center gap-1">
+                    <Mic className="w-2.5 h-2.5" /> Voice Note
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-pink-50 dark:bg-pink-950/50 text-pink-600 dark:text-pink-300 text-[10px] font-bold flex items-center gap-1">
+                    <ImageIcon className="w-2.5 h-2.5" /> Photo
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                    Bangla
+                  </span>
+                </div>
+              </motion.div>
 
-            {/* Header + Central AI Engine Pill */}
-            <div className="relative z-10 text-center max-w-4xl mx-auto mb-7 sm:mb-9">
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white dark:bg-[#1D1244] border border-violet-200/90 dark:border-purple-500/30 shadow-2xs mb-3">
-                <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400" />
-                <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-300">
-                  OMNICHANNEL AI ARCHITECTURE
-                </span>
+              {/* FLOW CONNECTOR 1 */}
+              <div className="shrink-0 lg:w-12 flex flex-col lg:flex-row items-center justify-center py-0.5 lg:py-0">
+                <div className="hidden lg:flex items-center w-full justify-center relative">
+                  <div className="h-[2px] w-full bg-gradient-to-r from-blue-500/40 via-[#7F22FE] to-[#7F22FE]" />
+                  <span className="absolute -top-5 px-2 py-0.5 rounded-full bg-[#7F22FE] text-white text-[8px] font-black tracking-wide shadow-sm whitespace-nowrap">
+                    &lt; 2 Sec
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#7F22FE] -ml-1.5 shrink-0" />
+                </div>
+                <div className="lg:hidden flex flex-col items-center">
+                  <div className="w-[2px] h-3.5 bg-gradient-to-b from-blue-500 to-[#7F22FE]" />
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#7F22FE] text-white text-[9px] font-black">
+                    ⚡ Instant &lt; 2 Sec
+                  </span>
+                  <div className="w-[2px] h-3.5 bg-[#7F22FE]" />
+                </div>
               </div>
 
-              <h2 className="text-[13.5px] sm:text-2xl md:text-3xl lg:text-[32px] font-black text-slate-900 dark:text-white tracking-tight leading-tight whitespace-nowrap">
-                Connect Every Channel to{' '}
-                <span className="bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
-                  One Smart AI Agent
-                </span>
-              </h2>
-              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300/85 max-w-2xl mx-auto leading-relaxed">
-                No need to switch between different apps. Customers message you anywhere—your AI agent replies in 2 seconds, verifies fraud ratio, and books orders 24/7.
-              </p>
-            </div>
+              {/* NODE 02: Central AI Brain Hub */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: 0.05 }}
+                className="flex-[1.25] bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1F124B] dark:via-[#180E3A] dark:to-[#130A30] rounded-2xl p-4 border-2 border-[#7F22FE] shadow-[0_20px_50px_-10px_rgba(127,34,254,0.35)] flex flex-col justify-between relative"
+              >
+                <div className="absolute -top-2.5 right-3 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[9px] font-black uppercase tracking-wider shadow-sm">
+                  AI Smart Closer
+                </div>
 
-            {/* 4 Premium Elevated Channel Cards */}
-            <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {channels.map((ch) => (
-                <div
-                  key={ch.id}
-                  className={`group relative rounded-2xl p-5 bg-white dark:bg-[#170F36]/95 border border-violet-100 dark:border-purple-500/20 ${ch.accentBorder} shadow-[0_14px_34px_-12px_rgba(15,23,42,0.08),0_4px_12px_-4px_rgba(124,58,237,0.06)] hover:shadow-[0_20px_44px_-12px_rgba(127,34,254,0.2)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between`}
-                >
-                  <div>
-                    {/* Top Row: Brand Icon + Status Pill */}
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <div
-                        className={`w-12 h-12 rounded-2xl ${ch.iconBg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300`}
-                      >
-                        {ch.svg}
-                      </div>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${ch.badgeClass} whitespace-nowrap`}
-                      >
-                        ● {ch.badge}
-                      </span>
-                    </div>
-
-                    {/* Channel Title & Description */}
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-                      {ch.name}
-                    </h3>
-                    <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-300/80 leading-relaxed">
-                      {ch.description}
-                    </p>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white flex items-center justify-center shadow-md shadow-[#7F22FE]/30 shrink-0">
+                    <Bot className="w-4 h-4" />
                   </div>
-
-                  {/* Bottom Capability Tag */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-purple-500/15 flex items-center justify-between text-[11px] font-bold text-[#7F22FE] dark:text-purple-300">
-                    <span>{ch.metrics}</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider">
-                      24/7 Active
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#7F22FE] dark:text-purple-300 block">
+                      STEP 02 • CORE ENGINE
                     </span>
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight">
+                      One Agent AI Brain
+                    </h3>
                   </div>
                 </div>
-              ))}
+
+                <div className="space-y-1.5 text-[11px] font-bold">
+                  <div className="px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-[#120A2E]/90 border border-violet-200/70 dark:border-purple-500/25 flex items-center justify-between gap-2 text-slate-800 dark:text-slate-100">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Check className="w-3.5 h-3.5 text-[#7F22FE] stroke-[3] shrink-0" />
+                      <span className="truncate">Auto Reply &amp; Order Confirm</span>
+                    </span>
+                    <span className="text-[9px] font-extrabold text-[#7F22FE] dark:text-purple-300 shrink-0">24/7</span>
+                  </div>
+                  <div className="px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-[#120A2E]/90 border border-violet-200/70 dark:border-purple-500/25 flex items-center justify-between gap-2 text-slate-800 dark:text-slate-100">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[3] shrink-0" />
+                      <span className="truncate">Fake Order Fraud Ratio Check</span>
+                    </span>
+                    <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 shrink-0">AUTO</span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* FLOW CONNECTOR 2 */}
+              <div className="shrink-0 lg:w-12 flex flex-col lg:flex-row items-center justify-center py-0.5 lg:py-0">
+                <div className="hidden lg:flex items-center w-full justify-center relative">
+                  <div className="h-[2px] w-full bg-gradient-to-r from-[#7F22FE] to-indigo-500" />
+                  <span className="absolute -top-5 px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[8px] font-black tracking-wide shadow-sm whitespace-nowrap">
+                    1-Click
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-indigo-600 -ml-1.5 shrink-0" />
+                </div>
+                <div className="lg:hidden flex flex-col items-center">
+                  <div className="w-[2px] h-3.5 bg-[#7F22FE]" />
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-[9px] font-black">
+                    1-Click Dispatch
+                  </span>
+                  <div className="w-[2px] h-3.5 bg-indigo-600" />
+                </div>
+              </div>
+
+              {/* NODE 03: Courier Dispatch + AI Auto Order Tracking */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="flex-[1.15] bg-white dark:bg-[#170F36] rounded-2xl p-4 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_14px_34px_-10px_rgba(15,23,42,0.1)] flex flex-col justify-between hover:border-indigo-500/50 transition-all"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-purple-950/80 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-purple-300">
+                      STEP 03 • COURIER &amp; TRACKING
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  </div>
+
+                  <div className="flex items-center gap-2.5 mb-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight">
+                        Courier &amp; Live Track
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-semibold">
+                        Steadfast • Pathao • RedX
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-purple-500/15">
+                  <div className="px-2.5 py-1.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200/70 dark:border-indigo-800/50 flex items-center gap-1.5 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300">
+                    <Check className="w-3 h-3 stroke-[3] shrink-0" />
+                    <span className="truncate">AI Tracks Parcel &amp; Updates Buyer</span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* FLOW CONNECTOR 3 */}
+              <div className="shrink-0 lg:w-12 flex flex-col lg:flex-row items-center justify-center py-0.5 lg:py-0">
+                <div className="hidden lg:flex items-center w-full justify-center relative">
+                  <div className="h-[2px] w-full bg-gradient-to-r from-indigo-500 to-emerald-500" />
+                  <span className="absolute -top-5 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[8px] font-black tracking-wide shadow-sm whitespace-nowrap">
+                    Retarget
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-600 -ml-1.5 shrink-0" />
+                </div>
+                <div className="lg:hidden flex flex-col items-center">
+                  <div className="w-[2px] h-3.5 bg-indigo-600" />
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black">
+                    VIP Retarget
+                  </span>
+                  <div className="w-[2px] h-3.5 bg-emerald-600" />
+                </div>
+              </div>
+
+              {/* NODE 04: VIP Retargeting, Discounts & New Product Offers */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.15 }}
+                className="flex-[1.15] bg-gradient-to-b from-emerald-50/90 to-white dark:from-emerald-950/35 dark:to-[#170F36] rounded-2xl p-4 border-2 border-emerald-500/40 shadow-[0_14px_34px_-10px_rgba(16,185,129,0.18)] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      STEP 04 • VIP RETARGET
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-white text-[8px] font-black uppercase">
+                      3x Sales
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 mb-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+                      <Megaphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight">
+                        VIP Offer &amp; Retarget
+                      </h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                        Discounts &amp; New Products
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40">
+                  <div className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300">
+                    <Check className="w-3 h-3 stroke-[3] shrink-0" />
+                    <span className="truncate">Send Promo &amp; New Arrival DM</span>
+                  </div>
+                </div>
+              </motion.div>
             </div>
 
-            {/* Bottom Unified Workflow Strip */}
-            <div className="relative z-10 mt-6 sm:mt-7 pt-5 border-t border-violet-200/60 dark:border-purple-500/20 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 text-xs">
-              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1B1140] border border-violet-200/80 dark:border-purple-500/25 text-slate-700 dark:text-slate-200 font-bold shadow-2xs">
-                <Zap className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
-                <span>2-Second Bangla &amp; Voice Reply</span>
+            {/* Sleek Bottom Dock Bar (3 Crisp Pills — Zero Clutter) */}
+            <div className="relative z-10 mt-6 pt-5 border-t border-slate-200/80 dark:border-purple-500/20 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4">
+              <div className="px-3.5 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/50 border border-rose-200/80 dark:border-rose-800/50 text-rose-600 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5">
+                <span className="line-through opacity-85">Human Moderator: 10,000 TK/mo</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1B1140] border border-violet-200/80 dark:border-purple-500/25 text-slate-700 dark:text-slate-200 font-bold shadow-2xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>AI Auto Customer Fraud Check</span>
+
+              <div className="px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-extrabold flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>One Agent BD: 1,250 TK/mo (0 TK / Msg)</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1B1140] border border-violet-200/80 dark:border-purple-500/25 text-slate-700 dark:text-slate-200 font-bold shadow-2xs">
-                <Truck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span>1-Click Steadfast, Pathao &amp; RedX + Auto Tracking</span>
+
+              <div className="px-3.5 py-1.5 rounded-full bg-violet-100/80 dark:bg-purple-950/80 border border-violet-200 dark:border-purple-500/30 text-[#7F22FE] dark:text-purple-200 text-[11px] font-extrabold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-300 shrink-0" />
+                <span>100% Free Team Setup + 2-Day Trial</span>
               </div>
             </div>
           </div>
