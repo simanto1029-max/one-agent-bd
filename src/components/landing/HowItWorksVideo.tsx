@@ -2,17 +2,63 @@ import React, { useState, useEffect } from 'react';
 import { Play, CheckCircle2, ArrowRight } from 'lucide-react';
 import { api } from '../../api';
 
-const DEFAULT_VIDEO_URL = 'https://www.youtube.com/watch?v=aircAruvnKk';
-const DEFAULT_THUMBNAIL_URL =
+export const DEFAULT_VIDEO_URL = 'https://www.youtube.com/watch?v=aircAruvnKk';
+export const DEFAULT_THUMBNAIL_URL =
   'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=85';
+
+const VIDEO_STORAGE_KEY = 'oneagentbd_promo_video_url';
+const THUMB_STORAGE_KEY = 'oneagentbd_promo_video_thumbnail';
 
 export const PROMO_VIDEO_UPDATED_EVENT = 'oneagentbd-video-updated';
 
+let globalPromoVideoUrl: string =
+  typeof window !== 'undefined' ? localStorage.getItem(VIDEO_STORAGE_KEY) || '' : '';
+let globalPromoThumbnailUrl: string =
+  typeof window !== 'undefined' ? localStorage.getItem(THUMB_STORAGE_KEY) || '' : '';
+
+export function extractYouTubeId(rawUrl: string): string | null {
+  const url = (rawUrl || '').trim();
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,15})/
+  );
+  return ytMatch && ytMatch[1] ? ytMatch[1] : null;
+}
+
+export function resolveEffectiveThumbnail(videoUrl: string, thumbnailUrl: string): string {
+  const cleanThumb = (thumbnailUrl || '').trim();
+  if (cleanThumb && cleanThumb !== DEFAULT_THUMBNAIL_URL) {
+    return cleanThumb;
+  }
+  const ytId = extractYouTubeId(videoUrl);
+  if (ytId && videoUrl.trim() !== DEFAULT_VIDEO_URL) {
+    return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+  }
+  return cleanThumb || DEFAULT_THUMBNAIL_URL;
+}
+
 export function notifyPromoVideoUpdated(videoUrl: string, thumbnailUrl: string) {
+  globalPromoVideoUrl = (videoUrl || '').trim();
+  globalPromoThumbnailUrl = (thumbnailUrl || '').trim();
+
   if (typeof window !== 'undefined') {
+    try {
+      if (globalPromoVideoUrl) {
+        localStorage.setItem(VIDEO_STORAGE_KEY, globalPromoVideoUrl);
+      } else {
+        localStorage.removeItem(VIDEO_STORAGE_KEY);
+      }
+      if (globalPromoThumbnailUrl) {
+        localStorage.setItem(THUMB_STORAGE_KEY, globalPromoThumbnailUrl);
+      } else {
+        localStorage.removeItem(THUMB_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors for large base64 images; module memory + server DB still hold it
+    }
+
     window.dispatchEvent(
       new CustomEvent(PROMO_VIDEO_UPDATED_EVENT, {
-        detail: { videoUrl, thumbnailUrl }
+        detail: { videoUrl: globalPromoVideoUrl, thumbnailUrl: globalPromoThumbnailUrl }
       })
     );
   }
@@ -24,13 +70,11 @@ function getEmbedUrl(rawUrl: string): { type: 'iframe' | 'video'; src: string } 
     return { type: 'iframe', src: 'https://www.youtube.com/embed/aircAruvnKk?autoplay=1&rel=0' };
   }
 
-  const ytMatch = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,15})/
-  );
-  if (ytMatch && ytMatch[1]) {
+  const ytId = extractYouTubeId(url);
+  if (ytId) {
     return {
       type: 'iframe',
-      src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0`
+      src: `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
     };
   }
 
@@ -54,8 +98,10 @@ interface HowItWorksVideoProps {
 }
 
 export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }) => {
-  const [videoUrl, setVideoUrl] = useState<string>(DEFAULT_VIDEO_URL);
-  const [thumbnailUrl, setThumbnailUrl] = useState<string>(DEFAULT_THUMBNAIL_URL);
+  const [videoUrl, setVideoUrl] = useState<string>(globalPromoVideoUrl || DEFAULT_VIDEO_URL);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>(
+    globalPromoThumbnailUrl || DEFAULT_THUMBNAIL_URL
+  );
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   useEffect(() => {
@@ -64,8 +110,22 @@ export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }
       .getPublicSettings()
       .then((data) => {
         if (!mounted) return;
-        if (data?.promo_video_url) setVideoUrl(data.promo_video_url);
-        if (data?.promo_video_thumbnail) setThumbnailUrl(data.promo_video_thumbnail);
+        const serverVideo = (data?.promo_video_url || '').trim();
+        const serverThumb = (data?.promo_video_thumbnail || '').trim();
+
+        const nextVideo =
+          serverVideo && serverVideo !== DEFAULT_VIDEO_URL
+            ? serverVideo
+            : globalPromoVideoUrl || serverVideo || DEFAULT_VIDEO_URL;
+        const nextThumb =
+          serverThumb && serverThumb !== DEFAULT_THUMBNAIL_URL
+            ? serverThumb
+            : globalPromoThumbnailUrl || serverThumb || DEFAULT_THUMBNAIL_URL;
+
+        globalPromoVideoUrl = nextVideo;
+        globalPromoThumbnailUrl = nextThumb;
+        setVideoUrl(nextVideo);
+        setThumbnailUrl(nextThumb);
       })
       .catch(() => {});
 
@@ -88,6 +148,7 @@ export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }
   }, []);
 
   const embedInfo = getEmbedUrl(videoUrl);
+  const effectiveThumbnail = resolveEffectiveThumbnail(videoUrl, thumbnailUrl);
 
   return (
     <section
@@ -123,7 +184,7 @@ export const HowItWorksVideo: React.FC<HowItWorksVideoProps> = ({ onStartTrial }
                 aria-label="Play how our AI works video"
               >
                 <img
-                  src={thumbnailUrl || DEFAULT_THUMBNAIL_URL}
+                  src={effectiveThumbnail}
                   alt="How One Agent BD AI Works"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = DEFAULT_THUMBNAIL_URL;

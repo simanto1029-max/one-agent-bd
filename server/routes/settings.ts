@@ -21,6 +21,31 @@ settingsRouter.get('/public', (_req: Request, res: Response) => {
   });
 });
 
+// PUT /api/settings/promo-video - Dedicated endpoint for updating landing page promo video & thumbnail
+settingsRouter.put('/promo-video', async (req: Request, res: Response) => {
+  const current = db.getSettings();
+  const { promo_video_url, promo_video_thumbnail } = req.body;
+
+  const updated = db.updateSettings({
+    promo_video_url:
+      promo_video_url !== undefined ? String(promo_video_url).trim() : current.promo_video_url,
+    promo_video_thumbnail:
+      promo_video_thumbnail !== undefined
+        ? String(promo_video_thumbnail).trim()
+        : current.promo_video_thumbnail
+  });
+
+  await db.flushToSupabase().catch(() => {});
+
+  return res.json({
+    success: true,
+    promo_video_url: updated.promo_video_url,
+    promo_video_thumbnail: updated.promo_video_thumbnail,
+    settings: updated,
+    message: 'Promo video & thumbnail saved successfully'
+  });
+});
+
 // GET /api/settings/reviews - Public list of approved customer reviews
 settingsRouter.get('/reviews', (_req: Request, res: Response) => {
   return res.json({

@@ -972,6 +972,21 @@ export const api = {
     return fetchJson<Partial<SystemSettings>>('/api/settings/public');
   },
 
+  async updatePromoVideo(data: {
+    promo_video_url: string;
+    promo_video_thumbnail: string;
+  }): Promise<{
+    success: boolean;
+    promo_video_url: string;
+    promo_video_thumbnail: string;
+    settings: SystemSettings;
+  }> {
+    return fetchJson('/api/settings/promo-video', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   async updateAdminSettings(settings: Partial<SystemSettings>): Promise<{ success: boolean; settings: SystemSettings }> {
     return fetchJson('/api/admin/settings', {
       method: 'PUT',

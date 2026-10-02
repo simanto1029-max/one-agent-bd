@@ -1326,7 +1326,12 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       };
     });
 
-    if ((this.data.settings as any)?.default_llm_api_key && !(incoming.settings as any)?.default_llm_api_key) {
+    if (hasInMemoryWrites && this.data?.settings) {
+      incoming.settings = {
+        ...(incoming.settings || {}),
+        ...this.data.settings
+      };
+    } else if ((this.data.settings as any)?.default_llm_api_key && !(incoming.settings as any)?.default_llm_api_key) {
       const localSysKey = String((this.data.settings as any).default_llm_api_key).trim();
       if (!localSysKey.startsWith('sk-proj-wJiInvQ')) {
         (incoming.settings as any).default_llm_api_key = localSysKey;
@@ -1391,7 +1396,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
       if (rawState && typeof rawState === 'object') {
         const remoteTs = Number(rawState._lastUpdatedAt || 0);
-        if (this.lastLocalWriteAt > 0 && remoteTs > 0 && this.lastLocalWriteAt > remoteTs) {
+        if (this.lastLocalWriteAt > 0 && (!remoteTs || this.lastLocalWriteAt >= remoteTs)) {
           // Local in-memory state is newer than cloud state; push local state to cloud instead
           await this.pushToSupabase();
           return;

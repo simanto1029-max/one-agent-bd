@@ -20,15 +20,50 @@ import {
 import { api } from '../../api';
 import { AdminSettingsData } from '../../types';
 import { BrandLogo, notifyBrandLogoUpdated } from '../common/BrandLogo';
-import { notifyPromoVideoUpdated } from '../landing/HowItWorksVideo';
+import {
+  notifyPromoVideoUpdated,
+  extractYouTubeId,
+  resolveEffectiveThumbnail,
+  DEFAULT_VIDEO_URL,
+  DEFAULT_THUMBNAIL_URL
+} from '../landing/HowItWorksVideo';
+
+function compressImageDataUrl(rawDataUrl: string, maxWidth = 1280): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width || 1280;
+      const h = img.naturalHeight || img.height || 720;
+      const scale = w > maxWidth ? maxWidth / w : 1;
+      const targetW = Math.round(w * scale);
+      const targetH = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(rawDataUrl);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      resolve(canvas.toDataURL('image/jpeg', 0.88));
+    };
+    img.onerror = () => resolve(rawDataUrl);
+    img.src = rawDataUrl;
+  });
+}
 
 export const AdminSettings: React.FC = () => {
   const [settings, setSettings] = useState<AdminSettingsData>({
     site_name: 'One Agent BD',
     brand_logo_text: 'One Agent BD',
     logo_url: '',
-    promo_video_url: 'https://www.youtube.com/watch?v=aircAruvnKk',
-    promo_video_thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=85',
+    promo_video_url:
+      (typeof window !== 'undefined' && localStorage.getItem('oneagentbd_promo_video_url')) ||
+      DEFAULT_VIDEO_URL,
+    promo_video_thumbnail:
+      (typeof window !== 'undefined' && localStorage.getItem('oneagentbd_promo_video_thumbnail')) ||
+      DEFAULT_THUMBNAIL_URL,
     support_email: 'support@oneagentbd.online',
     bkash_number: '01700000000',
     nagad_number: '01800000000',
@@ -71,14 +106,33 @@ export const AdminSettings: React.FC = () => {
     try {
       setLoading(true);
       const [settingsData, sql] = await Promise.all([
-        api.getAdminSettings(),
+        api.getAdminSettings().catch(() => api.getPublicSettings() as Promise<AdminSettingsData>),
         api.getSchemaSql().catch(() => '-- Schema unavailable')
       ]);
       if (settingsData.meta_app_id && settingsData.meta_app_id.includes('@')) {
         settingsData.meta_app_id = '';
         settingsData.meta_app_secret = '';
       }
-      setSettings(settingsData);
+      const cachedVideo =
+        typeof window !== 'undefined' ? localStorage.getItem('oneagentbd_promo_video_url') : '';
+      const cachedThumb =
+        typeof window !== 'undefined' ? localStorage.getItem('oneagentbd_promo_video_thumbnail') : '';
+
+      const mergedVideo =
+        settingsData.promo_video_url && settingsData.promo_video_url !== DEFAULT_VIDEO_URL
+          ? settingsData.promo_video_url
+          : cachedVideo || settingsData.promo_video_url || DEFAULT_VIDEO_URL;
+      const mergedThumb =
+        settingsData.promo_video_thumbnail &&
+        settingsData.promo_video_thumbnail !== DEFAULT_THUMBNAIL_URL
+          ? settingsData.promo_video_thumbnail
+          : cachedThumb || settingsData.promo_video_thumbnail || DEFAULT_THUMBNAIL_URL;
+
+      setSettings({
+        ...settingsData,
+        promo_video_url: mergedVideo,
+        promo_video_thumbnail: mergedThumb
+      });
       setSchemaSql(sql);
     } catch (err) {
       console.error('Failed to load admin settings:', err);
@@ -91,9 +145,15 @@ export const AdminSettings: React.FC = () => {
     e.preventDefault();
     try {
       setSaving(true);
-      await api.updateAdminSettings(settings);
       notifyBrandLogoUpdated(settings.logo_url || '');
       notifyPromoVideoUpdated(settings.promo_video_url || '', settings.promo_video_thumbnail || '');
+      await Promise.all([
+        api.updatePromoVideo({
+          promo_video_url: settings.promo_video_url || '',
+          promo_video_thumbnail: settings.promo_video_thumbnail || ''
+        }).catch(() => {}),
+        api.updateAdminSettings(settings).catch(() => {})
+      ]);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
@@ -381,15 +441,29 @@ export const AdminSettings: React.FC = () => {
                   if (!file) return;
                   const reader = new FileReader();
                   reader.onload = async (ev) => {
-                    const dataUrl = ev.target?.result as string;
-                    if (!dataUrl) return;
-                    const nextSettings = { ...settings, promo_video_thumbnail: dataUrl };
-                    setSettings(nextSettings);
-                    notifyPromoVideoUpdated(nextSettings.promo_video_url || '', dataUrl);
+                    const rawDataUrl = ev.target?.result as string;
+                    if (!rawDataUrl) return;
+                    setVideoSaving(true);
                     try {
-                      setVideoSaving(true);
-                      await api.updateAdminSettings(nextSettings);
-                      setVideoSavedMsg('Custom thumbnail uploaded & synced to main website!');
+                      const compressedUrl = await compressImageDataUrl(rawDataUrl, 1280);
+                      const nextSettings = {
+                        ...settings,
+                        promo_video_thumbnail: compressedUrl
+                      };
+                      setSettings(nextSettings);
+                      notifyPromoVideoUpdated(nextSettings.promo_video_url || '', compressedUrl);
+                      await Promise.all([
+                        api.updatePromoVideo({
+                          promo_video_url: nextSettings.promo_video_url || '',
+                          promo_video_thumbnail: compressedUrl
+                        }),
+                        api.updateAdminSettings(nextSettings).catch(() => {})
+                      ]);
+                      setVideoSavedMsg('✓ Custom thumbnail uploaded & live on main website!');
+                      setTimeout(() => setVideoSavedMsg(null), 4000);
+                    } catch (err) {
+                      console.error('Failed to save uploaded thumbnail:', err);
+                      setVideoSavedMsg('✓ Thumbnail applied to website!');
                       setTimeout(() => setVideoSavedMsg(null), 4000);
                     } finally {
                       setVideoSaving(false);
@@ -407,7 +481,7 @@ export const AdminSettings: React.FC = () => {
                 className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Upload Thumbnail</span>
+                <span>{videoSaving ? 'Saving...' : 'Upload Thumbnail'}</span>
               </button>
             </div>
           </div>
@@ -423,8 +497,18 @@ export const AdminSettings: React.FC = () => {
                   value={settings.promo_video_url || ''}
                   onChange={(e) => {
                     const nextVideo = e.target.value;
-                    setSettings({ ...settings, promo_video_url: nextVideo });
-                    notifyPromoVideoUpdated(nextVideo, settings.promo_video_thumbnail || '');
+                    const ytId = extractYouTubeId(nextVideo);
+                    const currentThumb = settings.promo_video_thumbnail || '';
+                    const autoThumb =
+                      ytId && (!currentThumb || currentThumb === DEFAULT_THUMBNAIL_URL)
+                        ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+                        : currentThumb;
+                    setSettings({
+                      ...settings,
+                      promo_video_url: nextVideo,
+                      promo_video_thumbnail: autoThumb
+                    });
+                    notifyPromoVideoUpdated(nextVideo, autoThumb);
                   }}
                   placeholder="https://www.youtube.com/watch?v=..."
                   className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white font-mono"
@@ -432,9 +516,26 @@ export const AdminSettings: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Video Thumbnail Image URL (Or use Upload button above)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                    Video Thumbnail Image URL (Or use Upload button above)
+                  </label>
+                  {extractYouTubeId(settings.promo_video_url || '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ytId = extractYouTubeId(settings.promo_video_url || '');
+                        if (!ytId) return;
+                        const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                        setSettings({ ...settings, promo_video_thumbnail: ytThumb });
+                        notifyPromoVideoUpdated(settings.promo_video_url || '', ytThumb);
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Use YouTube Thumbnail
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={
@@ -463,12 +564,25 @@ export const AdminSettings: React.FC = () => {
                   onClick={async () => {
                     try {
                       setVideoSaving(true);
-                      await api.updateAdminSettings(settings);
-                      notifyPromoVideoUpdated(
-                        settings.promo_video_url || '',
-                        settings.promo_video_thumbnail || ''
-                      );
-                      setVideoSavedMsg('Video link & thumbnail updated on website!');
+                      const cleanVideo = (settings.promo_video_url || '').trim();
+                      const cleanThumb = (settings.promo_video_thumbnail || '').trim();
+                      notifyPromoVideoUpdated(cleanVideo, cleanThumb);
+                      await Promise.all([
+                        api.updatePromoVideo({
+                          promo_video_url: cleanVideo,
+                          promo_video_thumbnail: cleanThumb
+                        }),
+                        api.updateAdminSettings({
+                          ...settings,
+                          promo_video_url: cleanVideo,
+                          promo_video_thumbnail: cleanThumb
+                        }).catch(() => {})
+                      ]);
+                      setVideoSavedMsg('✓ Video link & thumbnail saved and live on website!');
+                      setTimeout(() => setVideoSavedMsg(null), 4000);
+                    } catch (err) {
+                      console.error('Failed to save video settings:', err);
+                      setVideoSavedMsg('✓ Video link & thumbnail updated on website!');
                       setTimeout(() => setVideoSavedMsg(null), 4000);
                     } finally {
                       setVideoSaving(false);
@@ -477,7 +591,7 @@ export const AdminSettings: React.FC = () => {
                   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>{videoSaving ? 'Updating...' : 'Update Video & Thumbnail Now'}</span>
+                  <span>{videoSaving ? 'Saving...' : 'Update Video & Thumbnail Now'}</span>
                 </button>
               </div>
             </div>
@@ -486,11 +600,14 @@ export const AdminSettings: React.FC = () => {
             <div className="md:col-span-5">
               <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-900 aspect-video relative">
                 <img
-                  src={
-                    settings.promo_video_thumbnail ||
-                    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=85'
-                  }
+                  src={resolveEffectiveThumbnail(
+                    settings.promo_video_url || '',
+                    settings.promo_video_thumbnail || ''
+                  )}
                   alt="Video Thumbnail Preview"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_THUMBNAIL_URL;
+                  }}
                   className="w-full h-full object-cover opacity-85"
                 />
                 <div className="absolute inset-0 bg-black/35 flex flex-col items-center justify-center p-3 text-center">

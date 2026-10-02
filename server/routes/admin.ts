@@ -142,7 +142,7 @@ adminRouter.get('/settings', (req: Request, res: Response) => {
 });
 
 // PUT /api/admin/settings - Update system settings
-adminRouter.put('/settings', (req: Request, res: Response) => {
+adminRouter.put('/settings', async (req: Request, res: Response) => {
   const current = db.getSettings();
   const {
     site_name,
@@ -164,9 +164,12 @@ adminRouter.put('/settings', (req: Request, res: Response) => {
     site_name: site_name !== undefined ? site_name : current.site_name,
     site_tagline: site_tagline !== undefined ? site_tagline : current.site_tagline,
     logo_url: logo_url !== undefined ? logo_url : current.logo_url,
-    promo_video_url: promo_video_url !== undefined ? promo_video_url : current.promo_video_url,
+    promo_video_url:
+      promo_video_url !== undefined ? String(promo_video_url).trim() : current.promo_video_url,
     promo_video_thumbnail:
-      promo_video_thumbnail !== undefined ? promo_video_thumbnail : current.promo_video_thumbnail,
+      promo_video_thumbnail !== undefined
+        ? String(promo_video_thumbnail).trim()
+        : current.promo_video_thumbnail,
     bkash_number: bkash_number !== undefined ? bkash_number : current.bkash_number,
     nagad_number: nagad_number !== undefined ? nagad_number : current.nagad_number,
     support_email: support_email !== undefined ? support_email : current.support_email,
@@ -176,6 +179,8 @@ adminRouter.put('/settings', (req: Request, res: Response) => {
     meta_config_id: meta_config_id !== undefined ? meta_config_id.trim() : current.meta_config_id,
     meta_verify_token: meta_verify_token !== undefined ? meta_verify_token.trim() : current.meta_verify_token
   });
+
+  await db.flushToSupabase().catch(() => {});
 
   return res.json({
     success: true,
