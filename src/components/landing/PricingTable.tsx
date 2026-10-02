@@ -399,6 +399,95 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
               })}
               </div>
             </div>
+
+            {/* Free Done-For-You Setup & Risk-Free Guarantee Strip */}
+            <div className="max-w-[680px] mx-auto mt-6 p-4 rounded-2xl bg-gradient-to-r from-violet-50/90 via-purple-50/80 to-fuchsia-50/90 dark:from-[#160E36] dark:via-[#1B1142] dark:to-[#160E36] border border-violet-200/80 dark:border-purple-500/30 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#7F22FE]/25">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                    100% Free &ldquo;Done-For-You&rdquo; Page &amp; Catalog Setup Included
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                    Don&apos;t worry about technical setup—our team configures your Facebook Page, WhatsApp, product catalog &amp; courier APIs for free.
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-[10px] font-extrabold uppercase tracking-wider shrink-0">
+                Free Setup + 2-Day Trial
+              </span>
+            </div>
+
+            {/* Why Merchants Switch to One Agent BD (Comparison vs Regular Chatbots & Moderators) */}
+            <div className="max-w-3xl mx-auto mt-10 rounded-[24px] bg-white dark:bg-[#120B2B]/95 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_20px_50px_-15px_rgba(15,23,42,0.1)] overflow-hidden">
+              <div className="px-5 py-4 bg-slate-50/90 dark:bg-[#18103A] border-b border-slate-200/80 dark:border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7F22FE] dark:text-purple-400">
+                    WHY MERCHANTS CHOOSE US
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                    One Agent BD vs. Ordinary Chatbots &amp; Human Moderators
+                  </h3>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 text-[10px] font-extrabold border border-purple-500/20 w-fit">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Save 8,500+ TK Every Month
+                </span>
+              </div>
+
+              <div className="divide-y divide-slate-100 dark:divide-purple-500/15 text-xs">
+                {[
+                  {
+                    feature: '24/7 Bangla, Banglish, Voice Note & Product Photo Reply',
+                    others: 'Text-only or robotic replies',
+                    ours: 'Included (Instant < 2 sec)'
+                  },
+                  {
+                    feature: '1-Click Steadfast, Pathao & RedX Courier Booking',
+                    others: 'Manual copy-paste to courier portal',
+                    ours: '1-Click Auto Dispatch & Live Tracking'
+                  },
+                  {
+                    feature: 'Customer Fake Order & Courier Delivery Ratio Check',
+                    others: 'Not available (High parcel return loss)',
+                    ours: '100% Auto Fraud Shield Included'
+                  },
+                  {
+                    feature: 'VIP Customer & Unordered Lead Retargeting',
+                    others: 'No CRM or lead recovery',
+                    ours: '1-Click Safe Retargeting Included'
+                  },
+                  {
+                    feature: 'Message Limit & Per-Reply Extra Charges',
+                    others: 'Extra fee after 1,000–2,000 messages',
+                    ours: 'Unlimited Replies (0 TK Extra)'
+                  },
+                  {
+                    feature: 'Monthly Cost for Your Business',
+                    others: 'Moderator: 8,000–12,000 TK/mo',
+                    ours: 'Starts at only 1,250 TK/mo'
+                  }
+                ].map((row, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 sm:px-5 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center"
+                  >
+                    <div className="sm:col-span-6 font-bold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs">
+                      {row.feature}
+                    </div>
+                    <div className="sm:col-span-3 text-[11px] text-slate-400 dark:text-slate-500 line-through sm:no-underline">
+                      ✕ {row.others}
+                    </div>
+                    <div className="sm:col-span-3 flex items-center gap-1.5 font-extrabold text-[11px] text-emerald-600 dark:text-emerald-400">
+                      <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-500 shrink-0" />
+                      <span>{row.ours}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </>
         )}
       </div>

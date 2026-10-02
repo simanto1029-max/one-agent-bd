@@ -246,18 +246,22 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
 
           {/* Trust Badges */}
-          <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200/80 dark:border-purple-500/15 flex flex-wrap items-center justify-center gap-y-2 gap-x-4 sm:gap-x-6 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200/80 dark:border-purple-500/15 flex flex-wrap items-center justify-center gap-y-2 gap-x-4 sm:gap-x-6 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>2-Day Free Trial (No Card Needed)</span>
+              <span>2-Day Free Trial (No Advance Payment)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
+              <span>100% Free Done-For-You Page Setup</span>
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Meta Official Cloud API</span>
+              <span>Unlimited Replies (0 TK Per Message)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
-              <span>Instant bKash &amp; Nagad Gateway</span>
+              <span>Official Meta API • 0% Ban Risk</span>
             </div>
           </div>
         </div>
