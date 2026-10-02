@@ -71,8 +71,8 @@ export function detectHumanCallIntent(raw?: string): boolean {
 }
 
 export interface InboundWebhookEvent {
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
-  identifier: string; // phone_number_id, page_id, ig_account_id, or tiktok_open_id
+  platform: 'whatsapp' | 'messenger' | 'instagram';
+  identifier: string; // phone_number_id, page_id, or ig_account_id
   customerId: string; // sender phone, PSID, or IGSID
   customerName?: string;
   messageText: string;
@@ -897,26 +897,6 @@ async function sendMetaMessage(
         return { ok: false, outsideWindow: false, error: errMsg || 'Meta API error' };
       }
       return { ok: true };
-    } else if (channel.platform === 'tiktok') {
-      // TikTok Business Messaging API v2
-      const url = 'https://open.tiktokapis.com/v2/business/message/send/';
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${channel.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          recipient: { open_id: recipientId },
-          message_type: 'TEXT',
-          content: { text }
-        })
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        console.log(`[TikTok Outbound Success] Sent reply to ${recipientId}`);
-      }
-      return { ok: true };
     }
     return { ok: true };
   } catch (err: any) {
@@ -1082,8 +1062,8 @@ export async function sendManualMetaMessage(
 // FACEBOOK PAGE & INSTAGRAM COMMENT AUTO-REPLY + PRIVATE INBOX DM
 // ----------------------------------------------------------------------------
 export interface InboundCommentEvent {
-  platform: 'messenger' | 'instagram' | 'tiktok';
-  identifier: string; // page_id, ig_account_id, or tiktok_open_id
+  platform: 'messenger' | 'instagram';
+  identifier: string; // page_id or ig_account_id
   commentId: string;
   postId?: string;
   customerId: string;
@@ -1202,31 +1182,14 @@ export async function handleInboundCommentWebhook(event: InboundCommentEvent): P
     ? customCommentTemplate.replace(/\{customer_name\}/g, commenterName)
     : `Thank you ${commenterName}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩`;
 
-  // 4. Send Public Comment Reply & Private Inbox DM via Meta Graph API / TikTok API (if real token)
+  // 4. Send Public Comment Reply & Private Inbox DM via Meta Graph API (if real token)
   if (channel.access_token && !channel.access_token.includes('demo') && !channel.access_token.startsWith('sim_')) {
     try {
-      if (event.platform === 'tiktok') {
-        await fetch('https://open.tiktokapis.com/v2/business/comment/reply/create/', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${channel.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            video_id: event.postId || '',
-            comment_id: event.commentId,
-            text: publicCommentReply
-          })
-        }).catch(() => {});
-        if (event.customerId) {
-          await sendMetaMessage(channel, event.customerId, privateDmReply, attachedImageUrl);
-        }
-      } else {
-        // 4A. Public reply to the comment on the post
-        const publicReplyUrl =
-          event.platform === 'instagram'
-            ? `https://graph.facebook.com/v21.0/${encodeURIComponent(event.commentId)}/replies?access_token=${encodeURIComponent(channel.access_token)}`
-            : `https://graph.facebook.com/v21.0/${encodeURIComponent(event.commentId)}/comments?access_token=${encodeURIComponent(channel.access_token)}`;
+      // 4A. Public reply to the comment on the post
+      const publicReplyUrl =
+        event.platform === 'instagram'
+          ? `https://graph.facebook.com/v21.0/${encodeURIComponent(event.commentId)}/replies?access_token=${encodeURIComponent(channel.access_token)}`
+          : `https://graph.facebook.com/v21.0/${encodeURIComponent(event.commentId)}/comments?access_token=${encodeURIComponent(channel.access_token)}`;
 
         await fetch(publicReplyUrl, {
           method: 'POST',
@@ -1251,7 +1214,6 @@ export async function handleInboundCommentWebhook(event: InboundCommentEvent): P
         } else if (attachedImageUrl && event.customerId) {
           await sendMetaMessage(channel, event.customerId, '', attachedImageUrl);
         }
-      }
     } catch (err) {
       console.error('[Comment Auto-Reply] Graph API error:', err);
     }

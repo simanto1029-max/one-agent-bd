@@ -60,7 +60,7 @@ export interface Appointment {
   customer_name: string;
   customer_phone: string;
   customer_email?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'website' | 'manual';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual';
   channel_id?: string;
   service_name: string;
   appointment_date: string; // YYYY-MM-DD
@@ -228,7 +228,7 @@ export interface Coupon {
 export interface Channel {
   id: string;
   user_id: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
+  platform: 'whatsapp' | 'messenger' | 'instagram';
   name: string;
   identifier: string; // phone_number_id, page_id, or instagram_account_id
   access_token: string;
@@ -313,7 +313,7 @@ export interface WhatsAppPhoneNumber {
 
 export interface WebhookEventLog {
   id: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
+  platform: 'whatsapp' | 'messenger' | 'instagram';
   event_type: string;
   identifier?: string;
   sender_id?: string;
@@ -365,7 +365,7 @@ export interface Message {
   id: string;
   user_id: string;
   channel_id?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
+  platform: 'whatsapp' | 'messenger' | 'instagram';
   customer_id: string;
   customer_name?: string;
   direction: 'inbound' | 'outbound';
@@ -477,7 +477,7 @@ export interface CallRequest {
   customer_name: string;
   customer_phone: string;
   customer_id?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'website';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website';
   message_excerpt: string;
   status: 'pending' | 'called' | 'converted_to_order' | 'cancelled';
   notes?: string;
@@ -492,7 +492,7 @@ export interface Order {
   customer_name: string;
   customer_phone?: string;
   customer_address?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'shopify' | 'woocommerce' | 'custom_website';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'shopify' | 'woocommerce' | 'custom_website';
   channel_id?: string;
   items: string;
   quantity: number;
@@ -518,6 +518,11 @@ export interface Order {
   payment_trx_id?: string;
   buying_cost?: number;
   notes?: string;
+  product_summary?: string;
+  courier_name?: string;
+  courier_consignment_id?: string;
+  courier_tracking_code?: string;
+  courier_status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -559,9 +564,6 @@ export interface SystemSettings {
   meta_app_secret?: string;
   meta_config_id?: string;
   meta_verify_token?: string;
-  tiktok_client_key?: string;
-  tiktok_client_secret?: string;
-  tiktok_webhook_secret?: string;
   cron_last_run: string;
   cron_status: string;
 }
@@ -1581,7 +1583,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     return this.data.channels.find((c) => c.id === id);
   }
 
-  getChannelByIdentifier(platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok', identifier: string): Channel | undefined {
+  getChannelByIdentifier(platform: 'whatsapp' | 'messenger' | 'instagram', identifier: string): Channel | undefined {
     const cleanId = String(identifier || '').trim().toLowerCase();
     if (!cleanId) return undefined;
 

@@ -79,7 +79,7 @@ function buildErpSummary(userId: string) {
         total_amount: total,
         paid_amount: paid,
         due_amount: due,
-        status: due === 0 ? 'settled' : paid > 0 ? 'partial' : 'unpaid',
+        status: (due === 0 ? 'settled' : paid > 0 ? 'partial' : 'unpaid') as 'unpaid' | 'partial' | 'settled',
         created_at: o.created_at,
         updated_at: o.updated_at
       };

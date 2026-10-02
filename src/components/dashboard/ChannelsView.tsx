@@ -78,7 +78,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     privateInboxReply: string;
   } | null>(null);
 
-  // Admin-only Meta & TikTok App Setup state
+  // Admin-only Meta App Setup state
   const [publicTunnelUrl, setPublicTunnelUrl] = useState<string | null>(null);
   const [metaConfig, setMetaConfig] = useState<{
     configured: boolean;
@@ -88,23 +88,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [metaAppIdInput, setMetaAppIdInput] = useState('');
   const [metaAppSecretInput, setMetaAppSecretInput] = useState('');
   const [savingMetaConfig, setSavingMetaConfig] = useState(false);
-
-  // TikTok OAuth & Connect Modal state
-  const [tiktokConfig, setTiktokConfig] = useState<{
-    configured: boolean;
-    clientKey?: string;
-    redirectUri?: string;
-    webhookUrl?: string;
-  } | null>(null);
-  const [tiktokClientKeyInput, setTiktokClientKeyInput] = useState('');
-  const [tiktokClientSecretInput, setTiktokClientSecretInput] = useState('');
-  const [savingTiktokConfig, setSavingTiktokConfig] = useState(false);
-  const [isTikTokModalOpen, setIsTikTokModalOpen] = useState(false);
-  const [tiktokConnectTab, setTiktokConnectTab] = useState<'oauth' | 'manual'>('oauth');
-  const [tiktokAccountName, setTiktokAccountName] = useState('');
-  const [tiktokUsername, setTiktokUsername] = useState('');
-  const [tiktokAccessToken, setTiktokAccessToken] = useState('');
-  const [connectingTikTok, setConnectingTikTok] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -121,14 +104,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       .then((cfg) => {
         setMetaConfig(cfg);
         if (cfg.appId) setMetaAppIdInput(cfg.appId);
-      })
-      .catch(() => {});
-
-    api
-      .getTikTokConfig()
-      .then((cfg) => {
-        setTiktokConfig(cfg);
-        if (cfg.clientKey) setTiktokClientKeyInput(cfg.clientKey);
       })
       .catch(() => {});
 
@@ -150,7 +125,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       })
       .catch(() => {});
 
-    // Check URL params if redirected from Meta or TikTok OAuth
+    // Check URL params if redirected from Meta OAuth
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('meta_auth') === 'success') {
       const plat = (urlParams.get('platform') as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
@@ -159,14 +134,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       setSuccessMessage('Meta account verified! Please select your Page to complete connection.');
     } else if (urlParams.get('meta_error')) {
       setError(`Meta login error: ${decodeURIComponent(urlParams.get('meta_error') || '')}`);
-    } else if (urlParams.get('tiktok_auth') === 'success') {
-      setSuccessMessage('TikTok Business Account connected! AI Auto-Reply is now active.');
-      onRefresh();
-    } else if (urlParams.get('tiktok_error')) {
-      setError(`TikTok login error: ${decodeURIComponent(urlParams.get('tiktok_error') || '')}`);
     }
 
-    // Listen for Popup postMessage from Meta or TikTok OAuth callback
+    // Listen for Popup postMessage from Meta OAuth callback
     const handlePopupMessage = (event: MessageEvent) => {
       const data = event.data;
       if (!data || typeof data !== 'object') return;
@@ -176,14 +146,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         setIsAutoConnectModalOpen(true);
       } else if (data.type === 'META_OAUTH_ERROR') {
         setError(data.error || 'Meta login was not completed.');
-      } else if (data.type === 'TIKTOK_OAUTH_SUCCESS') {
-        setIsTikTokModalOpen(false);
-        setSuccessMessage(
-          `TikTok channel "${data.channelName || 'TikTok Business'}" connected & AI Auto-Reply activated!`
-        );
-        onRefresh();
-      } else if (data.type === 'TIKTOK_OAUTH_ERROR') {
-        setError(data.error || 'TikTok login was not completed.');
       }
     };
 
@@ -375,87 +337,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     }
   };
 
-  // Save Admin TikTok App Credentials
-  const handleSaveTikTokConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSavingTiktokConfig(true);
-      setError(null);
-      setSuccessMessage(null);
-      const res = await api.updateTikTokConfig({
-        clientKey: tiktokClientKeyInput.trim(),
-        clientSecret: tiktokClientSecretInput.trim()
-      });
-      setTiktokConfig(res.config);
-      setSuccessMessage('TikTok Client Key & Secret saved! Users can now connect TikTok with 1-Click OAuth.');
-    } catch (err: any) {
-      setError(err.message || 'Failed to save TikTok configuration.');
-    } finally {
-      setSavingTiktokConfig(false);
-    }
-  };
-
-  // Launch Official TikTok OAuth 2.0 Popup (or switch to Sandbox/Manual if Client Key not configured yet)
-  const handleTikTokOAuthPopup = async () => {
-    try {
-      setConnectingTikTok(true);
-      setError(null);
-      const res = await api.getTikTokAuthUrl();
-      if (res.configured && res.authUrl) {
-        const width = 600;
-        const height = 720;
-        const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
-        const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
-        const popup = window.open(
-          res.authUrl,
-          'oneagentbd_tiktok_oauth',
-          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
-        );
-        if (!popup) {
-          setError('Popup was blocked by your browser. Please allow popups for this site.');
-        }
-        setConnectingTikTok(false);
-        return;
-      }
-      setConnectingTikTok(false);
-      setTiktokConnectTab('manual');
-    } catch (err: any) {
-      setConnectingTikTok(false);
-      setError(err.message || 'Failed to start TikTok OAuth.');
-    }
-  };
-
-  // Connect TikTok via Sandbox / Manual Token
-  const handleManualTikTokConnect = async (e: React.FormEvent, isSandboxDemo = false) => {
-    e.preventDefault();
-    try {
-      setConnectingTikTok(true);
-      setError(null);
-      const res = await api.connectTikTokAccount({
-        accountName: tiktokAccountName.trim() || undefined,
-        username: tiktokUsername.trim() || undefined,
-        accessToken: tiktokAccessToken.trim() || undefined,
-        isSandboxDemo
-      });
-      setIsTikTokModalOpen(false);
-      setTiktokAccountName('');
-      setTiktokUsername('');
-      setTiktokAccessToken('');
-      setSuccessMessage(
-        `"${res.channel.name}" connected successfully! TikTok DMs & Video Comments AI Auto-Reply is now active.`
-      );
-      onRefresh();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect TikTok channel.');
-    } finally {
-      setConnectingTikTok(false);
-    }
-  };
-
   const facebookChannels = channels.filter((c) => c.platform === 'messenger');
   const instagramChannels = channels.filter((c) => c.platform === 'instagram');
   const whatsappChannels = channels.filter((c) => c.platform === 'whatsapp');
-  const tiktokChannels = channels.filter((c) => c.platform === 'tiktok');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-6xl mx-auto">
@@ -536,9 +420,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         </div>
       )}
 
-      {/* VIEW 1: 4 HORIZONTAL CHANNEL BOXES (FACEBOOK, INSTAGRAM, WHATSAPP, TIKTOK) */}
+      {/* VIEW 1: 3 HORIZONTAL CHANNEL BOXES (FACEBOOK, INSTAGRAM, WHATSAPP) */}
       {viewMode === 'channels' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* BOX 1: FACEBOOK */}
           <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
             <div>
@@ -990,148 +874,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                   <>
                     <Smartphone className="w-4 h-4" />
                     <span>Connect WhatsApp</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* BOX 4: TIKTOK */}
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
-            <div>
-              {/* Card Header */}
-              <div className="flex items-center justify-between pb-5 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center shadow-md shadow-pink-500/20 border border-pink-500/30 shrink-0">
-                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                      TikTok
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      Direct Messages &amp; Video Comments
-                    </p>
-                  </div>
-                </div>
-
-                {tiktokChannels.length > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Connected ({tiktokChannels.length})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                    Not Connected
-                  </span>
-                )}
-              </div>
-
-              {/* Card Body */}
-              <div className="py-5 space-y-3">
-                {tiktokChannels.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {tiktokChannels.map((ttCh) => {
-                      const commentOn = ttCh.auto_comment_reply !== false;
-                      const followUpOn = ttCh.auto_followup_enabled !== false;
-                      return (
-                        <div
-                          key={ttCh.id}
-                          className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
-                                {ttCh.name}
-                              </h4>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-pink-600 dark:text-pink-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                                AI Auto-Reply Active
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => setChannelToDelete({ id: ttCh.id, name: ttCh.name })}
-                                className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                                title="Disconnect TikTok"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(ttCh, 'auto_comment_reply')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                commentOn
-                                  ? 'bg-pink-100/80 dark:bg-pink-950/70 text-pink-600 dark:text-pink-300 border border-pink-200 dark:border-pink-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
-                              }`}
-                            >
-                              <span>💬 Video Comment + DM: {commentOn ? 'ON' : 'OFF'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(ttCh, 'auto_followup_enabled')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                followUpOn
-                                  ? 'bg-purple-100/80 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
-                              }`}
-                            >
-                              <span>⏰ Auto Follow-up: {followUpOn ? 'ON' : 'OFF'}</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Connect your TikTok Business account. AI replies to video comments and Direct Messages to automate orders 24/7.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-300">
-                        ✓ Video Comment + DM Reply
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE] dark:text-purple-300">
-                        ✓ Order Booking in Inbox
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Single Action Button */}
-            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setSuccessMessage(null);
-                  setIsTikTokModalOpen(true);
-                }}
-                className="w-full py-3.5 px-5 rounded-2xl bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {tiktokChannels.length > 0 ? (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Connect Another TikTok</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                    </svg>
-                    <span>Connect TikTok</span>
                   </>
                 )}
               </button>
@@ -1609,278 +1351,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-
-          {/* TIKTOK DEVELOPER APP SETUP (ADMIN ONLY) */}
-          <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-black text-white flex items-center justify-center border border-pink-500/30">
-                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                    TikTok Developer App &amp; Webhook Setup (developers.tiktok.com)
-                  </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Copy these URLs into your TikTok Developer Portal and paste your Client Key &amp; Client Secret below.
-                  </p>
-                </div>
-              </div>
-              {tiktokConfig?.configured ? (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
-                  TikTok Active ✓
-                </span>
-              ) : (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400">
-                  Sandbox / Manual Ready
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                    1. TikTok Login Kit Redirect URI:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(`${effectiveOrigin}/api/channels/tiktok/callback`, 'tt_redirect')}
-                    className="text-[#7F22FE] font-bold hover:underline cursor-pointer"
-                  >
-                    {copiedText === 'tt_redirect' ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <div className="font-mono text-[11px] text-neutral-800 dark:text-neutral-200 break-all">
-                  {`${effectiveOrigin}/api/channels/tiktok/callback`}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                    2. TikTok Webhook Callback URL:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(`${effectiveOrigin}/api/webhooks/tiktok`, 'tt_webhook')}
-                    className="text-[#7F22FE] font-bold hover:underline cursor-pointer"
-                  >
-                    {copiedText === 'tt_webhook' ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <div className="font-mono text-[11px] text-neutral-800 dark:text-neutral-200 break-all">
-                  {`${effectiveOrigin}/api/webhooks/tiktok`}
-                </div>
-              </div>
-            </div>
-
-            <form onSubmit={handleSaveTikTokConfig} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  TikTok Client Key
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={tiktokClientKeyInput}
-                  onChange={(e) => setTiktokClientKeyInput(e.target.value)}
-                  placeholder="e.g. aw1234567890abcdef"
-                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  TikTok Client Secret
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={tiktokClientSecretInput}
-                  onChange={(e) => setTiktokClientSecretInput(e.target.value)}
-                  placeholder="e.g. 9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c"
-                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
-                />
-              </div>
-
-              <div className="sm:col-span-2 flex justify-end pt-1">
-                <button
-                  type="submit"
-                  disabled={savingTiktokConfig}
-                  className="py-2.5 px-6 rounded-xl bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  {savingTiktokConfig ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Save TikTok Credentials</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* TIKTOK CONNECT MODAL (1-CLICK OAUTH POPUP + SANDBOX / MANUAL TOKEN) */}
-      {isTikTokModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden">
-            <div className="p-5 sm:p-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center border border-pink-500/40 shadow-md">
-                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-neutral-900 dark:text-white">
-                    Connect TikTok Business Account
-                  </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Automate TikTok Direct Messages (DMs) &amp; Video Comment Replies
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTikTokModalOpen(false)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-5 sm:p-6 space-y-5">
-              {/* Mode Switch Tabs */}
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setTiktokConnectTab('oauth')}
-                  className={`py-2 rounded-xl transition-all cursor-pointer ${
-                    tiktokConnectTab === 'oauth'
-                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-2xs'
-                      : 'text-neutral-500 dark:text-neutral-400'
-                  }`}
-                >
-                  1-Click TikTok OAuth
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTiktokConnectTab('manual')}
-                  className={`py-2 rounded-xl transition-all cursor-pointer ${
-                    tiktokConnectTab === 'manual'
-                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-2xs'
-                      : 'text-neutral-500 dark:text-neutral-400'
-                  }`}
-                >
-                  Sandbox / Manual Token
-                </button>
-              </div>
-
-              {tiktokConnectTab === 'oauth' ? (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-2 text-xs text-neutral-600 dark:text-neutral-300">
-                    <div className="font-bold text-neutral-900 dark:text-white">
-                      How 1-Click TikTok Connect Works:
-                    </div>
-                    <p>
-                      1. Click <strong>Continue with TikTok</strong> below to open the official TikTok authorization popup.
-                    </p>
-                    <p>
-                      2. Approve permissions for your TikTok Business account (DMs &amp; Video Comments).
-                    </p>
-                    <p>
-                      3. Your TikTok channel will automatically appear as <strong>Connected</strong> and start replying 24/7.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTikTokOAuthPopup}
-                    disabled={connectingTikTok}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-black hover:bg-neutral-900 text-white text-sm font-bold shadow-lg flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                    </svg>
-                    <span>{connectingTikTok ? 'Opening TikTok Login...' : 'Continue with TikTok (OAuth 2.0)'}</span>
-                  </button>
-
-                  <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
-                    <span className="text-neutral-500">Recording App Review Video or testing in Sandbox?</span>
-                    <button
-                      type="button"
-                      onClick={(e) => handleManualTikTokConnect(e as any, true)}
-                      disabled={connectingTikTok}
-                      className="text-[#7F22FE] font-bold hover:underline cursor-pointer"
-                    >
-                      Activate Sandbox Demo Account →
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={(e) => handleManualTikTokConnect(e, false)} className="space-y-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                      TikTok Shop / Business Display Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={tiktokAccountName}
-                      onChange={(e) => setTiktokAccountName(e.target.value)}
-                      placeholder="e.g. Soumik Fashion TikTok"
-                      className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                      TikTok Username (@handle)
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={tiktokUsername}
-                      onChange={(e) => setTiktokUsername(e.target.value)}
-                      placeholder="e.g. @soumikshopbd"
-                      className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                      TikTok Sandbox / Business Access Token (Optional for Sandbox Test)
-                    </label>
-                    <input
-                      type="password"
-                      value={tiktokAccessToken}
-                      onChange={(e) => setTiktokAccessToken(e.target.value)}
-                      placeholder="Paste token from developers.tiktok.com Sandbox (or leave empty for test)"
-                      className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={connectingTikTok}
-                    className="w-full py-3 px-5 rounded-2xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {connectingTikTok ? 'Connecting TikTok...' : 'Save & Connect TikTok Channel'}
-                  </button>
-                </form>
-              )}
-            </div>
           </div>
         </div>
       )}

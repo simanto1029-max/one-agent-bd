@@ -557,23 +557,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     { label: '🚚 Courier Status', text: 'Your order has been booked with Steadfast Courier! You will receive an SMS tracking link shortly.' }
   ];
 
-  const getPlatformIcon = (platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok', className = 'w-3 h-3') => {
+  const getPlatformIcon = (platform: 'whatsapp' | 'messenger' | 'instagram' | string, className = 'w-3 h-3') => {
     if (platform === 'whatsapp') return <Smartphone className={className} />;
     if (platform === 'messenger') return <Facebook className={className} />;
-    if (platform === 'tiktok') {
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-        </svg>
-      );
-    }
     return <Instagram className={className} />;
   };
 
-  const getPlatformBadgeStyle = (platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok') => {
+  const getPlatformBadgeStyle = (platform: 'whatsapp' | 'messenger' | 'instagram' | string) => {
     if (platform === 'whatsapp') return 'bg-emerald-500 text-white';
     if (platform === 'messenger') return 'bg-blue-600 text-white';
-    if (platform === 'tiktok') return 'bg-black text-white border border-pink-500/50';
     return 'bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 text-white';
   };
 

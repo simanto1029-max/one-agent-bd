@@ -265,7 +265,7 @@ export interface DetectAppointmentParams {
   userId: string;
   customerId: string;
   customerName?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'website';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website';
   channelId?: string;
   messageText: string;
   recentHistory?: string;
