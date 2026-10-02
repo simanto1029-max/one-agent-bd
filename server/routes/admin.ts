@@ -157,7 +157,10 @@ adminRouter.put('/settings', async (req: Request, res: Response) => {
     meta_app_id,
     meta_app_secret,
     meta_config_id,
-    meta_verify_token
+    meta_verify_token,
+    tiktok_client_key,
+    tiktok_client_secret,
+    tiktok_webhook_secret
   } = req.body;
 
   const updated = db.updateSettings({
@@ -177,7 +180,10 @@ adminRouter.put('/settings', async (req: Request, res: Response) => {
     meta_app_id: meta_app_id !== undefined ? meta_app_id.trim() : current.meta_app_id,
     meta_app_secret: meta_app_secret !== undefined ? meta_app_secret.trim() : current.meta_app_secret,
     meta_config_id: meta_config_id !== undefined ? meta_config_id.trim() : current.meta_config_id,
-    meta_verify_token: meta_verify_token !== undefined ? meta_verify_token.trim() : current.meta_verify_token
+    meta_verify_token: meta_verify_token !== undefined ? meta_verify_token.trim() : current.meta_verify_token,
+    tiktok_client_key: tiktok_client_key !== undefined ? String(tiktok_client_key).trim() : current.tiktok_client_key,
+    tiktok_client_secret: tiktok_client_secret !== undefined ? String(tiktok_client_secret).trim() : current.tiktok_client_secret,
+    tiktok_webhook_secret: tiktok_webhook_secret !== undefined ? String(tiktok_webhook_secret).trim() : current.tiktok_webhook_secret
   });
 
   await db.flushToSupabase().catch(() => {});

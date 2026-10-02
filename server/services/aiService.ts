@@ -423,7 +423,7 @@ export interface GenerateReplyParams {
   incomingMessage: string;
   customerName?: string;
   customerId: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   channelName?: string;
   history?: Message[];
   audioBase64?: string;
@@ -2442,7 +2442,7 @@ export interface SummarizeConversationParams {
   userId: string;
   customerId: string;
   customerName: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   messages: Message[];
   latestOrderId?: string;
   latestOrderStatus?: string;
@@ -2454,7 +2454,7 @@ export interface SummarizeConversationParams {
 export interface SummarizeConversationResult {
   customerName: string;
   customerId: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   stageKey: 'new_inquiry' | 'discussion' | 'awaiting_order_details' | 'order_confirmed' | 'delivered';
   stageStep: 1 | 2 | 3 | 4;
   stageLabel: string;

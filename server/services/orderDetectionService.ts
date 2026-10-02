@@ -24,7 +24,7 @@ export interface OrderDetectionParams {
   userId: string;
   customerId: string;
   customerName?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   channelId?: string;
   messageText: string;
   recentHistory?: string;
@@ -529,7 +529,7 @@ export function detectAndRecordPaymentUpdate(params: {
   userId: string;
   customerId: string;
   customerName?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   messageText: string;
   aiReplyText?: string;
   hasImage?: boolean;

@@ -494,6 +494,55 @@ export const api = {
     return fetchJson(`/api/channels/meta/auth-url?platform=${platform}${onboarding ? '&onboarding=true' : ''}`);
   },
 
+  // TikTok OAuth & Channel Connect
+  async getTikTokConfig(): Promise<{
+    configured: boolean;
+    clientKey?: string;
+    redirectUri?: string;
+    webhookUrl?: string;
+  }> {
+    return fetchJson('/api/channels/tiktok/config');
+  },
+
+  async updateTikTokConfig(data: {
+    clientKey: string;
+    clientSecret: string;
+    webhookSecret?: string;
+  }): Promise<{
+    success: boolean;
+    config: { configured: boolean; clientKey?: string; redirectUri?: string; webhookUrl?: string };
+  }> {
+    return fetchJson('/api/channels/tiktok/config', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async getTikTokAuthUrl(): Promise<{
+    configured: boolean;
+    authUrl?: string;
+    redirectUri?: string;
+    error?: string;
+  }> {
+    return fetchJson('/api/channels/tiktok/auth-url');
+  },
+
+  async connectTikTokAccount(data: {
+    accountName?: string;
+    username?: string;
+    openId?: string;
+    accessToken?: string;
+    isSandboxDemo?: boolean;
+  }): Promise<{
+    success: boolean;
+    channel: Channel;
+  }> {
+    return fetchJson('/api/channels/tiktok/connect', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async exchangeMetaToken(
     accessToken: string,
     platform: 'messenger' | 'instagram' | 'whatsapp' = 'messenger'

@@ -100,7 +100,7 @@ export interface Coupon {
 export interface Channel {
   id: string;
   user_id: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   name: string;
   identifier: string; // phone_number_id, page_id, or instagram_account_id
   access_token?: string;
@@ -181,7 +181,7 @@ export interface Message {
   id: string;
   user_id: string;
   channel_id?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   customer_id: string;
   customer_name?: string;
   direction: 'inbound' | 'outbound';
@@ -207,7 +207,7 @@ export interface Message {
 export interface Conversation {
   customerId: string;
   customerName: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   channelId?: string;
   lastMessage: Message;
   messages: Message[];
@@ -223,7 +223,7 @@ export interface Conversation {
 export interface ConversationSummaryResult {
   customerName: string;
   customerId: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   stageKey: 'new_inquiry' | 'discussion' | 'awaiting_order_details' | 'order_confirmed' | 'delivered';
   stageStep: 1 | 2 | 3 | 4;
   stageLabel: string;
@@ -316,7 +316,7 @@ export interface AccountTransaction {
 export interface ContactLead {
   customerId: string;
   customerName: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok';
   channelId?: string;
   totalMessages: number;
   lastContactDate: string;
@@ -379,6 +379,7 @@ export interface AdminMetrics {
     whatsapp: number;
     messenger: number;
     instagram?: number;
+    tiktok?: number;
   };
 }
 
@@ -431,6 +432,9 @@ export interface SystemSettings {
   meta_app_secret?: string;
   meta_config_id?: string;
   meta_verify_token?: string;
+  tiktok_client_key?: string;
+  tiktok_client_secret?: string;
+  tiktok_webhook_secret?: string;
   cron_last_run?: string;
   cron_status?: string;
 }
@@ -461,7 +465,7 @@ export interface CallRequest {
   customer_name: string;
   customer_phone: string;
   customer_id?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'website';
   message_excerpt: string;
   status: 'pending' | 'called' | 'converted_to_order' | 'cancelled';
   notes?: string;
@@ -476,7 +480,7 @@ export interface Order {
   customer_name: string;
   customer_phone?: string;
   customer_address?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'shopify' | 'woocommerce' | 'custom_website';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'shopify' | 'woocommerce' | 'custom_website';
   channel_id?: string;
   items: string;
   quantity: number;
@@ -555,7 +559,7 @@ export interface Appointment {
   customer_name: string;
   customer_phone: string;
   customer_email?: string;
-  platform: 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual';
+  platform: 'whatsapp' | 'messenger' | 'instagram' | 'tiktok' | 'website' | 'manual';
   channel_id?: string;
   service_name: string;
   appointment_date: string;
