@@ -918,38 +918,38 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* CARD A: FACEBOOK & INSTAGRAM AUTO COMMENT REPLY + PRIVATE INBOX DM */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between space-y-5">
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-4 sm:p-6 flex flex-col justify-between space-y-5">
               <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#1877F2] flex items-center justify-center shrink-0 font-bold text-lg">
-                      💬
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+                <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#1877F2] flex items-center justify-center shrink-0 font-bold text-base sm:text-lg">
+                        💬
+                      </div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white leading-snug">
                         Post Comment Auto-Reply + Inbox DM
                       </h3>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Auto-reply to Facebook Page &amp; Instagram Post comments and send price details to Inbox
-                      </p>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !autoCommentEnabled;
-                      setAutoCommentEnabled(next);
-                      handleSaveAutomationSettings({ auto_comment_reply_enabled: next });
-                    }}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                      autoCommentEnabled
-                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    {autoCommentEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !autoCommentEnabled;
+                        setAutoCommentEnabled(next);
+                        handleSaveAutomationSettings({ auto_comment_reply_enabled: next });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                        autoCommentEnabled
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      {autoCommentEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                    Auto-reply to Facebook Page &amp; Instagram Post comments and send price details directly to Inbox.
+                  </p>
                 </div>
 
                 {/* How it works badges */}
@@ -974,11 +974,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
                 {/* Public Comment Template */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
                     <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                       Public Comment Reply Template ({'{customer_name}'} auto-filled)
                     </label>
-                    <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#7F22FE] cursor-pointer">
+                    <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#7F22FE] cursor-pointer whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={sendPrivateInboxOnComment}
@@ -986,16 +986,16 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                           setSendPrivateInboxOnComment(e.target.checked);
                           handleSaveAutomationSettings({ send_private_inbox_on_comment: e.target.checked });
                         }}
-                        className="rounded accent-[#7F22FE]"
+                        className="rounded accent-[#7F22FE] shrink-0"
                       />
                       <span>Also send AI reply to Inbox</span>
                     </label>
                   </div>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={publicCommentTemplate}
                     onChange={(e) => setPublicCommentTemplate(e.target.value)}
-                    className="w-full text-xs p-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white focus:outline-none focus:border-[#7F22FE]"
+                    className="w-full text-xs p-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white focus:outline-none focus:border-[#7F22FE] leading-relaxed"
                   />
                 </div>
 
@@ -1010,13 +1010,13 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                       value={testCommentText}
                       onChange={(e) => setTestCommentText(e.target.value)}
                       placeholder="Enter sample customer comment (e.g. What is the price?)"
-                      className="flex-1 text-xs px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                      className="flex-1 text-xs px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
                     />
                     <button
                       type="button"
                       onClick={handleTestCommentReply}
                       disabled={testingComment}
-                      className="px-4 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                      className="px-4 py-2.5 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
                     >
                       {testingComment ? 'Testing...' : 'Test Comment Reply'}
                     </button>
@@ -1043,38 +1043,38 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             </div>
 
             {/* CARD B: SMART AUTO FOLLOW-UP MESSAGE (WITHIN 24H META WINDOW) */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between space-y-5">
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-4 sm:p-6 flex flex-col justify-between space-y-5">
               <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] flex items-center justify-center shrink-0 font-bold text-lg">
-                      ⏰
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+                <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] flex items-center justify-center shrink-0 font-bold text-base sm:text-lg">
+                        ⏰
+                      </div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white leading-snug">
                         Smart Auto Follow-up Message
                       </h3>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Automated reminder message for customers who inquired about price but haven&apos;t ordered yet
-                      </p>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !autoFollowUpEnabled;
-                      setAutoFollowUpEnabled(next);
-                      handleSaveAutomationSettings({ auto_followup_enabled: next });
-                    }}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                      autoFollowUpEnabled
-                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    {autoFollowUpEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !autoFollowUpEnabled;
+                        setAutoFollowUpEnabled(next);
+                        handleSaveAutomationSettings({ auto_followup_enabled: next });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                        autoFollowUpEnabled
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                          : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      {autoFollowUpEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                    Automated reminder message for customers who inquired about price but haven&apos;t ordered yet.
+                  </p>
                 </div>
 
                 {/* Follow-up Timing Selector */}

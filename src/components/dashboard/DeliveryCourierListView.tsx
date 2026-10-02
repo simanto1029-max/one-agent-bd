@@ -274,29 +274,29 @@ export const DeliveryCourierListView: React.FC<DeliveryCourierListViewProps> = (
         </div>
 
         {/* 3 Metric Pills */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-white/15">
-          <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-5 sm:mt-6 pt-4 sm:pt-6 border-t border-white/15">
+          <div className="p-2.5 sm:p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
             <div>
-              <div className="text-white/80 text-xs font-medium">Pending Dispatch</div>
-              <div className="text-2xl font-black text-white mt-0.5">{pendingDispatchCount}</div>
+              <div className="text-white/80 text-[10px] sm:text-xs font-medium">Pending</div>
+              <div className="text-lg sm:text-2xl font-black text-white mt-0.5">{pendingDispatchCount}</div>
             </div>
-            <Clock className="w-6 h-6 text-white/70" />
+            <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-white/70 hidden sm:block" />
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
+          <div className="p-2.5 sm:p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
             <div>
-              <div className="text-white/80 text-xs font-medium">In Transit (Dispatched)</div>
-              <div className="text-2xl font-black text-white mt-0.5">{dispatchedCount}</div>
+              <div className="text-white/80 text-[10px] sm:text-xs font-medium">In Transit</div>
+              <div className="text-lg sm:text-2xl font-black text-white mt-0.5">{dispatchedCount}</div>
             </div>
-            <Truck className="w-6 h-6 text-white/70" />
+            <Truck className="w-4 h-4 sm:w-6 sm:h-6 text-white/70 hidden sm:block" />
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
+          <div className="p-2.5 sm:p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center justify-between">
             <div>
-              <div className="text-white/80 text-xs font-medium">Successfully Delivered</div>
-              <div className="text-2xl font-black text-white mt-0.5">{deliveredCount}</div>
+              <div className="text-white/80 text-[10px] sm:text-xs font-medium">Delivered</div>
+              <div className="text-lg sm:text-2xl font-black text-white mt-0.5">{deliveredCount}</div>
             </div>
-            <CheckCircle2 className="w-6 h-6 text-white/70" />
+            <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6 text-white/70 hidden sm:block" />
           </div>
         </div>
       </div>
@@ -452,8 +452,136 @@ export const DeliveryCourierListView: React.FC<DeliveryCourierListViewProps> = (
             <p className="text-[11px] text-neutral-400 mt-1">Try adjusting your filters or search terms.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <>
+            {/* MOBILE PARCEL CARDS (Phone View) */}
+            <div className="md:hidden divide-y divide-neutral-100 dark:divide-neutral-800">
+              {filteredOrders.map((order) => {
+                const isSelected = selectedOrderIds.has(order.id);
+                const courier = getCourierById(order.courier_provider || 'steadfast') || COURIER_PROVIDERS[0];
+
+                return (
+                  <div
+                    key={order.id}
+                    className={`p-3.5 space-y-2.5 transition-colors ${
+                      isSelected ? 'bg-[#7F22FE]/5 dark:bg-[#7F22FE]/15' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(order.id)}
+                          className="mt-1 rounded text-[#7F22FE] focus:ring-[#7F22FE] cursor-pointer shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-[#7F22FE]">
+                              #{order.id.slice(-6).toUpperCase()}
+                            </span>
+                            <span className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+                              {order.customer_name}
+                            </span>
+                          </div>
+                          {order.customer_phone && (
+                            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <a
+                                href={`tel:${order.customer_phone}`}
+                                className="inline-flex items-center gap-1 font-medium"
+                              >
+                                <Phone className="w-3 h-3 text-neutral-400" />
+                                {order.customer_phone}
+                              </a>
+                              <CustomerFraudBadge
+                                phone={order.customer_phone}
+                                customerName={order.customer_name}
+                                allOrders={activeOrdersList}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-black text-neutral-900 dark:text-white">
+                          COD ৳{Number(order.total_amount || 0).toLocaleString()}
+                        </div>
+                        <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border ${courier.badgeBg}`}>
+                          {courier.name.split(' ')[0]}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-700/50 text-[11px] space-y-1">
+                      <div className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                        {order.items}
+                      </div>
+                      <div className="text-neutral-500 dark:text-neutral-400 truncate">
+                        📍 {order.customer_address || 'No address provided'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <div>
+                        {order.status === 'confirmed' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7F22FE]/10 text-[#7F22FE] border border-[#7F22FE]/20">
+                            Pending Dispatch
+                          </span>
+                        )}
+                        {order.status === 'processing' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7F22FE]/15 text-[#7F22FE] border border-[#7F22FE]/30 inline-flex items-center gap-1">
+                            <Truck className="w-3 h-3" />
+                            In Transit
+                          </span>
+                        )}
+                        {order.status === 'delivered' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-[#7F22FE]" />
+                            Delivered
+                          </span>
+                        )}
+                        {order.status === 'cancelled' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+                            Cancelled
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleCopyOrderForCourier(order)}
+                          title="Copy Courier Slip"
+                          className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 cursor-pointer"
+                        >
+                          {copiedId === order.id ? (
+                            <Check className="w-3.5 h-3.5 text-[#7F22FE]" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (onOpenIndividualCourierModal) {
+                              onOpenIndividualCourierModal(order);
+                            } else {
+                              setInternalCourierOrder(order);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                        >
+                          <Truck className="w-3 h-3" />
+                          <span>Book Courier</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP TABLE */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[11px] font-bold text-neutral-400 uppercase tracking-wider bg-neutral-50/50 dark:bg-neutral-800/30">
                   <th className="py-3 px-4 w-10">
@@ -627,6 +755,7 @@ export const DeliveryCourierListView: React.FC<DeliveryCourierListViewProps> = (
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

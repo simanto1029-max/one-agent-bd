@@ -877,116 +877,118 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       >
         {selectedConv ? (
           <>
-            {/* Thread Header */}
-            <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2 bg-white dark:bg-neutral-900 shrink-0">
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setMobileShowThread(false)}
-                  className="md:hidden px-2.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-bold shrink-0 cursor-pointer"
-                >
-                  ← Chats
-                </button>
-                <div className="relative shrink-0">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-xs ${getPlatformBadgeStyle(
-                      selectedConv.platform
-                    )}`}
+            {/* Thread Header (Mobile-First 2-Row Clean Layout, Single-Row on Desktop) */}
+            <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-b border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shrink-0 space-y-2 sm:space-y-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setMobileShowThread(false)}
+                    className="md:hidden px-2.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-bold shrink-0 cursor-pointer"
                   >
-                    {selectedConv.customerName.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-extrabold text-neutral-900 dark:text-white truncate">
-                      {selectedConv.customerName}
-                    </h3>
-                    <span className="text-neutral-300 dark:text-neutral-700">·</span>
-                    <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 capitalize">
-                      {selectedConv.platform}
-                    </span>
-                    {selectedConv.orderCategory === 'orders' && (
-                      <span className="text-[11px] font-bold text-[#7F22FE] dark:text-purple-400 flex items-center gap-1">
-                        · <ShoppingBag className="w-3 h-3" /> Order Confirmed
-                      </span>
-                    )}
-                    {selectedConv.orderCategory === 'delivered' && (
-                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        · <CheckCircle2 className="w-3 h-3" /> Delivered
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap text-[11px] text-neutral-400 mt-0.5">
-                    <span className="font-mono">{selectedConv.customerId}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyCustomerId(selectedConv.customerId)}
-                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
-                      title="Copy Customer ID / Phone"
+                    ← Chats
+                  </button>
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-xs sm:text-sm font-black text-white shadow-xs ${getPlatformBadgeStyle(
+                        selectedConv.platform
+                      )}`}
                     >
-                      {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                    </button>
-                    {(() => {
-                      const rawIdDigits = String(selectedConv.customerId || '').replace(/\D/g, '');
-                      const idPhone = rawIdDigits.startsWith('8801') ? rawIdDigits.slice(2) : rawIdDigits;
-                      const isIdBdPhone = /^01[3-9]\d{8}$/.test(idPhone);
-                      const msgTextCombined = selectedConv.messages.map((m) => m.message_text || '').join(' ');
-                      const extractedMatch = msgTextCombined.match(/(?:\+?88)?(01[3-9]\d{8})/);
-                      const detectedPhone = isIdBdPhone
-                        ? idPhone
-                        : extractedMatch
-                        ? extractedMatch[1]
-                        : selectedConv.orderCategory === 'orders' || selectedConv.orderCategory === 'delivered'
-                        ? selectedConv.customerId
-                        : undefined;
-                      return detectedPhone ? (
-                        <CustomerFraudBadge
-                          phone={detectedPhone}
-                          customerName={selectedConv.customerName}
-                          isProPlan={isProPlan}
-                          onUpgradeToPro={onUpgradeToPro}
-                        />
-                      ) : null;
-                    })()}
+                      {selectedConv.customerName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h3 className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white truncate">
+                        {selectedConv.customerName}
+                      </h3>
+                      <span className="text-neutral-300 dark:text-neutral-700 shrink-0">·</span>
+                      <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 capitalize shrink-0">
+                        {selectedConv.platform}
+                      </span>
+                      {selectedConv.orderCategory === 'orders' && (
+                        <span className="hidden sm:inline-flex text-[11px] font-bold text-[#7F22FE] dark:text-purple-400 items-center gap-1 shrink-0">
+                          · <ShoppingBag className="w-3 h-3" /> Order Confirmed
+                        </span>
+                      )}
+                      {selectedConv.orderCategory === 'delivered' && (
+                        <span className="hidden sm:inline-flex text-[11px] font-bold text-emerald-600 dark:text-emerald-400 items-center gap-1 shrink-0">
+                          · <CheckCircle2 className="w-3 h-3" /> Delivered
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Desktop-Only Inline ID & Fraud Badge */}
+                    <div className="hidden sm:flex items-center gap-2 flex-wrap text-[11px] text-neutral-400 mt-0.5">
+                      <span className="font-mono truncate max-w-[180px]">{selectedConv.customerId}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCustomerId(selectedConv.customerId)}
+                        className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0"
+                        title="Copy Customer ID / Phone"
+                      >
+                        {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                      {(() => {
+                        const rawIdDigits = String(selectedConv.customerId || '').replace(/\D/g, '');
+                        const idPhone = rawIdDigits.startsWith('8801') ? rawIdDigits.slice(2) : rawIdDigits;
+                        const isIdBdPhone = /^01[3-9]\d{8}$/.test(idPhone);
+                        const msgTextCombined = selectedConv.messages.map((m) => m.message_text || '').join(' ');
+                        const extractedMatch = msgTextCombined.match(/(?:\+?88)?(01[3-9]\d{8})/);
+                        const detectedPhone = isIdBdPhone
+                          ? idPhone
+                          : extractedMatch
+                          ? extractedMatch[1]
+                          : selectedConv.orderCategory === 'orders' || selectedConv.orderCategory === 'delivered'
+                          ? selectedConv.customerId
+                          : undefined;
+                        return detectedPhone ? (
+                          <CustomerFraudBadge
+                            phone={detectedPhone}
+                            customerName={selectedConv.customerName}
+                            isProPlan={isProPlan}
+                            onUpgradeToPro={onUpgradeToPro}
+                          />
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right Header Controls: Clean AI Status Pill + More Actions Dropdown (⋯) */}
-              <div className="flex items-center gap-2 shrink-0 relative">
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleToggleCustomerControl(
-                      selectedConv.customerId,
-                      pausedCustomers.includes(selectedConv.customerId) ? 'resume_ai' : 'pause_ai'
-                    )
-                  }
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
-                    pausedCustomers.includes(selectedConv.customerId)
-                      ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
-                      : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300'
-                  }`}
-                  title={
-                    pausedCustomers.includes(selectedConv.customerId)
-                      ? 'AI is currently paused (Human Mode). Click to resume AI Auto-Reply.'
-                      : 'AI is active. Click to pause AI for manual chat.'
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
+                {/* Right Header Controls: Clean AI Status Pill + More Actions Dropdown (⋯) */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleCustomerControl(
+                        selectedConv.customerId,
+                        pausedCustomers.includes(selectedConv.customerId) ? 'resume_ai' : 'pause_ai'
+                      )
+                    }
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
                       pausedCustomers.includes(selectedConv.customerId)
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500 animate-pulse'
+                        ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300'
                     }`}
-                  />
-                  <span>
-                    {pausedCustomers.includes(selectedConv.customerId) ? 'Human Mode' : 'AI Active'}
-                  </span>
-                </button>
+                    title={
+                      pausedCustomers.includes(selectedConv.customerId)
+                        ? 'AI is currently paused (Human Mode). Click to resume AI Auto-Reply.'
+                        : 'AI is active. Click to pause AI for manual chat.'
+                    }
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        pausedCustomers.includes(selectedConv.customerId)
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500 animate-pulse'
+                      }`}
+                    />
+                    <span>
+                      {pausedCustomers.includes(selectedConv.customerId) ? 'Human Mode' : 'AI Active'}
+                    </span>
+                  </button>
 
                 {/* More Actions Icon Menu */}
                 <div className="relative">
@@ -1077,6 +1079,44 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   )}
                 </div>
               </div>
+              </div>
+
+              {/* Mobile-Only Clean Second Row for Customer ID + AI Fraud Check Badge */}
+              <div className="flex sm:hidden items-center justify-between gap-2 pt-1.5 border-t border-neutral-100 dark:border-neutral-800/80 text-[11px] text-neutral-500">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-mono truncate max-w-[140px]">{selectedConv.customerId}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCustomerId(selectedConv.customerId)}
+                    className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0"
+                    title="Copy Customer ID / Phone"
+                  >
+                    {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+                {(() => {
+                  const rawIdDigits = String(selectedConv.customerId || '').replace(/\D/g, '');
+                  const idPhone = rawIdDigits.startsWith('8801') ? rawIdDigits.slice(2) : rawIdDigits;
+                  const isIdBdPhone = /^01[3-9]\d{8}$/.test(idPhone);
+                  const msgTextCombined = selectedConv.messages.map((m) => m.message_text || '').join(' ');
+                  const extractedMatch = msgTextCombined.match(/(?:\+?88)?(01[3-9]\d{8})/);
+                  const detectedPhone = isIdBdPhone
+                    ? idPhone
+                    : extractedMatch
+                    ? extractedMatch[1]
+                    : selectedConv.orderCategory === 'orders' || selectedConv.orderCategory === 'delivered'
+                    ? selectedConv.customerId
+                    : undefined;
+                  return detectedPhone ? (
+                    <CustomerFraudBadge
+                      phone={detectedPhone}
+                      customerName={selectedConv.customerName}
+                      isProPlan={isProPlan}
+                      onUpgradeToPro={onUpgradeToPro}
+                    />
+                  ) : null;
+                })()}
+              </div>
             </div>
 
             {/* Collapsible Conversation Summary & Stage Analysis Banner */}
@@ -1152,7 +1192,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-1.5 text-[10px] font-bold">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold">
                         {[
                           { step: 1, label: '1. New Inquiry' },
                           { step: 2, label: '2. Price & Details' },
@@ -1666,13 +1706,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 </div>
               ) : (
                 /* Standard Reply Form with Direct Device Picture/Video Picker & Voice Button */
-                <form onSubmit={handleSendReply} className="flex gap-2 items-center">
+                <form onSubmit={handleSendReply} className="flex gap-1.5 sm:gap-2 items-center">
                   <button
                     id="direct-media-upload-btn"
                     type="button"
                     onClick={() => replyMediaInputRef.current?.click()}
                     disabled={sendingReply}
-                    className="p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] hover:border-[#7F22FE]/40 hover:bg-violet-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+                    className="p-2 sm:p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] hover:border-[#7F22FE]/40 hover:bg-violet-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
                     title="Send Picture or Video from device storage"
                   >
                     <ImageIcon className="w-4 h-4" />
@@ -1683,7 +1723,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     type="button"
                     onClick={handleStartReplyVoice}
                     disabled={sendingReply}
-                    className="p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-emerald-600 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+                    className="p-2 sm:p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-emerald-600 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
                     title="Record & send voice message (WhatsApp / Messenger / Instagram)"
                   >
                     <Mic className="w-4 h-4" />
@@ -1696,20 +1736,20 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder={
                       replyMedia
-                        ? `Add an optional caption for this ${replyMedia.type}...`
-                        : `Reply to ${selectedConv.customerName} on ${selectedConv.platform}...`
+                        ? `Add caption...`
+                        : `Reply to ${selectedConv.customerName}...`
                     }
-                    className="flex-1 bg-neutral-50 dark:bg-neutral-800/90 text-neutral-900 dark:text-white text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
+                    className="flex-1 min-w-0 bg-neutral-50 dark:bg-neutral-800/90 text-neutral-900 dark:text-white text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
                   />
 
                   <button
                     id="manual-reply-send-btn"
                     type="submit"
                     disabled={(!replyText.trim() && !replyMedia) || sendingReply}
-                    className="px-4 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#7F22FE]/25 shrink-0"
+                    className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#7F22FE]/25 shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{sendingReply ? 'Sending...' : 'Send'}</span>
+                    <span className="hidden xs:inline">{sendingReply ? '...' : 'Send'}</span>
                   </button>
                 </form>
               )}

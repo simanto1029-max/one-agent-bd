@@ -327,7 +327,7 @@ export const Hero: React.FC<HeroProps> = ({
                 </span>
               </div>
 
-              <h2 className="text-[17px] sm:text-2xl md:text-3xl lg:text-[32px] font-black text-slate-900 dark:text-white tracking-tight leading-tight whitespace-nowrap">
+              <h2 className="text-[13.5px] sm:text-2xl md:text-3xl lg:text-[32px] font-black text-slate-900 dark:text-white tracking-tight leading-tight whitespace-nowrap">
                 Connect Every Channel to{' '}
                 <span className="bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
                   One Smart AI Agent

@@ -1,7 +1,6 @@
 import React from 'react';
-import { Sparkles, Clock, Shield, Globe, Activity, LogOut, Menu, X } from 'lucide-react';
+import { Shield, Globe, LogOut, Menu, X } from 'lucide-react';
 import { ThemeToggle } from '../common/ThemeToggle';
-import { CountdownTimer } from '../common/CountdownTimer';
 import { BrandLogo } from '../common/BrandLogo';
 import { UserProfile, SubscriptionStatusInfo } from '../../types';
 
@@ -23,31 +22,22 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   user,
-  subStatus,
   isDark,
   onToggleTheme,
-  onOpenWebhookTester,
-  onOpenTour,
   onGoToLanding,
   onGoToAdmin,
   onLogout,
-  onTimerExpire,
   isMobileMenuOpen = false,
   onToggleMobileMenu,
   activeTabLabel
 }) => {
-  const isTrialing = subStatus?.subscription?.status === 'trialing';
-  const isActive = subStatus?.subscription?.status === 'active';
-  const isPending = subStatus?.subscription?.status === 'pending_approval';
-  const endDate = subStatus?.subscription?.end_date;
-
   return (
     <>
-      <div className="h-16 shrink-0" aria-hidden="true" />
-      <header className="fixed top-0 left-0 right-0 z-40 w-full h-16 bg-white/95 dark:bg-[#0F0A24]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-purple-500/15 transition-colors">
-        <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-3">
-          {/* Left: Brand Logo + Mobile Menu + Current Section */}
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+      <div className="h-14 sm:h-16 shrink-0" aria-hidden="true" />
+      <header className="fixed top-0 left-0 right-0 z-40 w-full h-14 sm:h-16 bg-white/95 dark:bg-[#0F0A24]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-purple-500/15 transition-colors">
+        <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-2">
+          {/* Left: Mobile Menu Toggle + Brand Logo + Current Section */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {onToggleMobileMenu && (
               <button
                 type="button"
@@ -65,16 +55,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
             <div
               onClick={onGoToLanding}
-              className="flex items-center gap-2.5 cursor-pointer group shrink-0"
+              className="flex items-center gap-2 cursor-pointer group shrink-0"
               title="Back to Main Website"
             >
               <BrandLogo size="sm" />
-              <span className="font-black text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">
+              <span className="font-black text-[15px] sm:text-lg tracking-tight text-slate-900 dark:text-white whitespace-nowrap leading-none">
                 One Agent <span className="text-[#7C3AED] dark:text-[#A78BFA]">BD</span>
               </span>
             </div>
 
-            <div className="hidden md:flex items-center gap-2.5 pl-4 border-l border-slate-200 dark:border-purple-500/20">
+            <div className="hidden md:flex items-center gap-2.5 pl-4 border-l border-slate-200 dark:border-purple-500/20 min-w-0">
               <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Workspace</span>
               <span className="text-slate-300 dark:text-slate-600">/</span>
               <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
@@ -83,8 +73,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </div>
           </div>
 
-          {/* Right: Clean Actions */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Right: Clean Actions (Never overlaps Brand Name on Mobile) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Website Link */}
             <button
               onClick={onGoToLanding}
@@ -98,7 +88,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             {user.role === 'admin' && (
               <button
                 onClick={onGoToAdmin}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
                 title="Return to Admin Portal"
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -109,8 +99,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <ThemeToggle isDark={isDark} onToggle={onToggleTheme} />
 
             {/* User Profile + Logout */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-purple-500/20">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#9333EA] text-white text-xs font-bold flex items-center justify-center shadow-xs shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 dark:border-purple-500/20">
+              <div className="hidden sm:flex w-8 h-8 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#9333EA] text-white text-xs font-bold items-center justify-center shadow-xs shrink-0">
                 {(user.full_name || user.email || 'M').charAt(0).toUpperCase()}
               </div>
               <div className="hidden xl:block text-left max-w-[130px]">
@@ -123,7 +113,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </div>
               <button
                 onClick={onLogout}
-                className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-slate-100 dark:hover:bg-[#191138] transition-colors cursor-pointer"
+                className="p-2 text-slate-500 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 rounded-xl hover:bg-slate-100 dark:hover:bg-[#191138] transition-colors cursor-pointer"
                 title="Sign out"
               >
                 <LogOut className="w-4 h-4" />

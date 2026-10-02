@@ -265,14 +265,14 @@ export const BillingView: React.FC<BillingViewProps> = ({
       </div>
 
       {/* Main Pricing Section */}
-      <div className="p-6 sm:p-8 rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-8">
+      <div className="p-4 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center max-w-xl mx-auto space-y-2">
           <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#7F22FE] dark:text-purple-400 block">
             PRICING PLANS
           </span>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+          <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
             Choose Your Perfect Plan
           </h2>
           <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -281,12 +281,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
         </div>
 
         {/* Duration Pill Switcher */}
-        <div className="flex flex-col items-center gap-3.5">
-          <div className="inline-flex items-center p-1.5 rounded-full bg-white dark:bg-slate-800 border border-violet-100 dark:border-slate-700 shadow-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="inline-flex flex-wrap items-center justify-center p-1 sm:p-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-slate-800 border border-violet-100 dark:border-slate-700 shadow-sm max-w-full">
             <button
               type="button"
               onClick={() => handleModeChange('monthly')}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3 sm:px-5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
                 durationMode === 'monthly'
                   ? 'bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -294,7 +294,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
             >
               <span>Monthly</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold ${
                   durationMode === 'monthly'
                     ? 'bg-white/20 text-white'
                     : 'bg-purple-100 dark:bg-purple-950 text-[#7C3AED] dark:text-purple-300'
@@ -306,21 +306,21 @@ export const BillingView: React.FC<BillingViewProps> = ({
             <button
               type="button"
               onClick={() => handleModeChange('yearly')}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3 sm:px-5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
                 durationMode === 'yearly'
                   ? 'bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#9333EA] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
               }`}
             >
-              <span>Yearly (1Y – 6Y)</span>
+              <span>Yearly (1Y–6Y)</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold ${
                   durationMode === 'yearly'
                     ? 'bg-white/20 text-white'
                     : 'bg-[#DCFCE7] text-[#15803D]'
                 }`}
               >
-                15% – 30% OFF
+                15%–30% OFF
               </span>
             </button>
           </div>

@@ -300,29 +300,29 @@ export const ContactsView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowBroadcastBox(!showBroadcastBox)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-initial justify-center px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap ${
               quota.isLimitReached
                 ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20'
                 : 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white shadow-purple-500/25'
             }`}
           >
-            <Megaphone className="w-3.5 h-3.5" />
+            <Megaphone className="w-3.5 h-3.5 shrink-0" />
             <span>
               {quota.isLimitReached
-                ? 'VIP Broadcast (Daily Limit Reached)'
-                : '1-Click VIP & Retargeting Broadcast'}
+                ? 'VIP Broadcast (Limit Reached)'
+                : '1-Click VIP Broadcast'}
             </span>
           </button>
 
           <button
             onClick={loadContactsAndQuota}
-            className="px-3.5 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3.5 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -392,10 +392,10 @@ export const ContactsView: React.FC = () => {
           </div>
 
           {/* Configurable Daily Limit Tier Selector */}
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs font-bold text-neutral-600 dark:text-neutral-300 flex items-center gap-1">
-              <Sliders className="w-3.5 h-3.5 text-purple-600" />
-              Safe Daily Limit:
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto min-w-0">
+            <label className="text-xs font-bold text-neutral-600 dark:text-neutral-300 flex items-center gap-1 shrink-0">
+              <Sliders className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Safe Daily Limit:</span>
             </label>
             <select
               value={
@@ -405,24 +405,24 @@ export const ContactsView: React.FC = () => {
               }
               disabled={updatingLimit}
               onChange={(e) => handleUpdateDailyLimit(Number(e.target.value))}
-              className="px-3 py-1.5 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-900 dark:text-white cursor-pointer"
+              className="w-full sm:w-auto max-w-full truncate px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-900 dark:text-white cursor-pointer"
             >
               <option value={2}>2 Messages / 24h (Quick Limit Test)</option>
-              <option value={10}>10 Messages / 24h (New Number Warmup — 100% Safe)</option>
-              <option value={25}>25 Messages / 24h (Starter Store — 100% Safe)</option>
-              <option value={50}>50 Messages / 24h (Recommended Anti-Ban Default)</option>
-              <option value={100}>100 Messages / 24h (Active Store Safe Limit)</option>
-              <option value={250}>250 Messages / 24h (Meta Unverified Official Max)</option>
-              <option value={1000}>1,000 Messages / 24h (Meta Verified Business Only)</option>
+              <option value={10}>10 Messages / 24h (New Number Warmup)</option>
+              <option value={25}>25 Messages / 24h (Starter Store Safe)</option>
+              <option value={50}>50 Messages / 24h (Recommended Default)</option>
+              <option value={100}>100 Messages / 24h (Active Store Safe)</option>
+              <option value={250}>250 Messages / 24h (Meta Official Max)</option>
+              <option value={1000}>1,000 Messages / 24h (Meta Verified Only)</option>
             </select>
           </div>
         </div>
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-bold">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-bold">
             <span className="text-neutral-600 dark:text-neutral-300">
-              24-Hour VIP & Broadcast Usage: {quota.usedToday} / {quota.dailyLimit} messages sent ({usagePercent}%)
+              24-Hour VIP &amp; Broadcast Usage: {quota.usedToday} / {quota.dailyLimit} sent ({usagePercent}%)
             </span>
             <span
               className={

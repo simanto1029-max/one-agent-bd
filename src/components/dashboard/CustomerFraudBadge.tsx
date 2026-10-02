@@ -164,7 +164,7 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
   const autoSummaryText = !report.isValidBdPhone
     ? 'AI Alert: Unverified No.'
     : report.riskLevel === 'safe'
-    ? `AI Check: ${report.successRate}% Safe (${report.deliveredParcels}/${report.totalParcels} Delivered)`
+    ? `AI Check: ${report.successRate}% Safe (${report.deliveredParcels}/${report.totalParcels})`
     : report.riskLevel === 'moderate'
     ? `AI Check: ${report.successRate}% Moderate (${report.deliveredParcels}/${report.totalParcels})`
     : `AI Fraud Alert: ${report.successRate}% Risk (${report.returnedParcels} Returned!)`;
@@ -178,7 +178,7 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
           if (onUpgradeToPro) onUpgradeToPro();
         }}
         title="AI Auto Fraud Check is a Pro Business Plan feature. Click to upgrade."
-        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold border border-purple-500/30 bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 hover:bg-purple-500/20 transition-all cursor-pointer"
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border border-purple-500/30 bg-purple-500/10 text-[#7F22FE] dark:text-purple-300 hover:bg-purple-500/20 transition-all cursor-pointer whitespace-nowrap shrink-0"
       >
         <Lock className="w-2.5 h-2.5 shrink-0" />
         <span className="px-1 py-0.2 rounded bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[8px] font-black uppercase">
@@ -198,7 +198,7 @@ export const CustomerFraudBadge: React.FC<CustomerFraudBadgeProps> = ({
           setOpenModal(true);
         }}
         title="Automatically checked by AI. Click for full Steadfast, Pathao & RedX breakdown."
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${badgeStyles}`}
+        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${badgeStyles}`}
       >
         <BadgeIcon className="w-3 h-3 shrink-0" />
         <span>{autoSummaryText}</span>

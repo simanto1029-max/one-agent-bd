@@ -421,7 +421,7 @@ export default function App() {
       {currentView === 'dashboard' && currentUser && (
         <div
           className={`${
-            activeTab === 'inbox' ? 'h-screen overflow-hidden' : 'min-h-screen'
+            activeTab === 'inbox' ? 'h-dvh overflow-hidden' : 'min-h-dvh'
           } flex flex-col bg-[#F8F7FC] dark:bg-[#0B0720] relative`}
         >
           <DashboardHeader
@@ -457,14 +457,14 @@ export default function App() {
             }
           />
 
-          {/* MOBILE DRAWER MENU (6 Clean Primary Sections + Sub-Tabs) */}
+          {/* MOBILE DRAWER MENU (6 Clean Primary Sections + Sub-Tabs + Plan Switcher) */}
           {isMobileMenuOpen && (
-            <div className="md:hidden fixed inset-x-0 top-16 bottom-0 z-30 flex flex-col">
+            <div className="md:hidden fixed inset-x-0 top-14 sm:top-16 bottom-0 z-40 flex flex-col">
               <div
-                className="fixed inset-0 top-16 bg-black/50 backdrop-blur-2xs"
+                className="fixed inset-0 top-14 sm:top-16 bg-black/50 backdrop-blur-2xs"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
-              <div className="relative z-10 max-h-[calc(100vh-64px)] overflow-y-auto bg-white dark:bg-[#110B29] border-b border-slate-200 dark:border-purple-500/20 shadow-2xl p-4 space-y-3 animate-in slide-in-from-top-2 duration-150">
+              <div className="relative z-10 max-h-[calc(100dvh-3.5rem)] overflow-y-auto bg-white dark:bg-[#110B29] border-b border-slate-200 dark:border-purple-500/20 shadow-2xl p-4 space-y-3 animate-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-slate-400">
                     Workspace Navigation
@@ -575,6 +575,54 @@ export default function App() {
                   })}
                 </div>
 
+                {/* Mobile Plan Status & Quick Switcher Card */}
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#160F35] border border-slate-200/80 dark:border-purple-500/20 space-y-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1">
+                      {isProPlan && <Crown className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />}
+                      <span>{isProPlan ? 'Pro Business Plan' : 'Starter AI Plan'}</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                      {subStatus?.isExpired
+                        ? 'Expired'
+                        : subStatus?.subscription?.status === 'active'
+                        ? '● Active'
+                        : '● Trial'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await api.switchPlan('plan_starter');
+                        await refreshUserData();
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                        !isProPlan
+                          ? 'bg-[#7C3AED] text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                      }`}
+                    >
+                      Starter (1250)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await api.switchPlan('plan_pro');
+                        await refreshUserData();
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isProPlan
+                          ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                      }`}
+                    >
+                      <Crown className="w-2.5 h-2.5" />
+                      <span>Pro (1950)</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -599,6 +647,44 @@ export default function App() {
                     <span>Main Website</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MOBILE SUB-TAB PILL BAR (Shown on mobile when current section has multiple sub-tabs) */}
+          {currentPrimarySection.tabs.length > 1 && (
+            <div className="md:hidden bg-white dark:bg-[#0F0A24] border-b border-slate-200/80 dark:border-purple-500/15 px-3 py-2 shrink-0 overflow-x-auto scrollbar-none">
+              <div className="flex items-center gap-1.5 min-w-max">
+                {currentPrimarySection.tabs.map((sub) => {
+                  const SubIcon = sub.icon;
+                  const isSubActive = activeTab === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveTab(sub.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                        isSubActive
+                          ? 'bg-[#7C3AED] text-white shadow-2xs'
+                          : 'bg-slate-100 dark:bg-[#191138] text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <SubIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{sub.label}</span>
+                      {sub.isProOnly && !isProPlan && (
+                        <span
+                          className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${
+                            isSubActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white'
+                          }`}
+                        >
+                          PRO
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -807,8 +893,8 @@ export default function App() {
             <main
               className={`flex-1 min-w-0 max-w-[1280px] mx-auto w-full ${
                 activeTab === 'inbox'
-                  ? 'p-2 sm:p-3 lg:px-5 lg:py-2.5 flex flex-col min-h-0 h-[calc(100vh-4rem)] overflow-hidden'
-                  : 'p-4 sm:p-6 lg:p-7'
+                  ? 'p-1.5 sm:p-3 lg:px-5 lg:py-2.5 pb-16 md:pb-2.5 flex flex-col min-h-0 h-[calc(100dvh-6.25rem)] md:h-[calc(100vh-4rem)] overflow-hidden'
+                  : 'p-3.5 sm:p-6 lg:p-7 pb-20 md:pb-7'
               }`}
             >
               {/* Show Trial / Expiry Alert Banner ONLY when trial is expiring or expired (no duplicate banner on active plans) */}
@@ -1037,6 +1123,38 @@ export default function App() {
             </main>
           </div>
 
+          {/* MOBILE BOTTOM NAVIGATION BAR (Fast 1-Tap Switching on Phone View) */}
+          <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-white/95 dark:bg-[#0F0A24]/95 backdrop-blur-xl border-t border-slate-200/85 dark:border-purple-500/20 px-1.5 flex items-center justify-around shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
+            {[
+              { id: 'overview', groupId: 'dashboard', label: 'Home', icon: LayoutDashboard },
+              { id: 'inbox', groupId: 'inbox-hub', label: 'Inbox', icon: MessageSquare },
+              { id: 'orders', groupId: 'orders-hub', label: 'Orders', icon: ShoppingBag },
+              { id: 'products', groupId: 'catalog-hub', label: 'Products', icon: Package },
+              { id: 'channels', groupId: 'ai-channels-hub', label: 'AI & Meta', icon: Bot }
+            ].map((item) => {
+              const Icon = item.icon;
+              const isItemActive = currentPrimarySection.groupId === item.groupId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setActiveTab(item.id as TabId);
+                  }}
+                  className={`flex-1 py-1.5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                    isItemActive
+                      ? 'text-[#7C3AED] dark:text-purple-400 font-extrabold'
+                      : 'text-slate-500 dark:text-slate-400 font-semibold'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isItemActive ? 'stroke-[2.5]' : ''}`} />
+                  <span className="text-[10px] leading-tight">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {/* Automatic Plan Lock Overlay when 2-Day Trial or 30-Day Subscription Expires */}
           {isPlanLocked && (
             <PlanLockOverlay
@@ -1090,8 +1208,8 @@ export default function App() {
         />
       )}
 
-      {/* Official One Agent BD Website AI Chatbot (Trained on SaaS, Voice + Picture + Bilingual) */}
-      {!(currentView === 'dashboard' && activeTab === 'inbox') && <SaasWebsiteChatbot />}
+      {/* Official One Agent BD Website AI Chatbot (Shown on Public Landing Page Only) */}
+      {currentView === 'landing' && <SaasWebsiteChatbot />}
     </div>
   );
 }

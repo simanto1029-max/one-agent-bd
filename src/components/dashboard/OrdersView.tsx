@@ -502,7 +502,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   className="fixed inset-0 z-30"
                   onClick={() => setShowToolsMenu(false)}
                 />
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl py-2 z-40 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl py-2 z-40 animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                     Courier &amp; AI Automation
                   </div>
@@ -593,30 +593,30 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       </div>
 
       {/* Clean Sub-View Switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200/80 dark:border-neutral-700/60 w-fit">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200/80 dark:border-neutral-700/60 w-full sm:w-fit">
           <button
             onClick={() => setOrderHubTab('all')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-2.5 sm:px-3.5 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               orderHubTab === 'all'
                 ? 'bg-white dark:bg-neutral-900 text-[#7F22FE] shadow-2xs'
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>All Orders ({orders.length})</span>
+            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">All Orders ({orders.length})</span>
           </button>
 
           <button
             onClick={() => setOrderHubTab('delivery-courier')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-2.5 sm:px-3.5 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               orderHubTab === 'delivery-courier'
                 ? 'bg-white dark:bg-neutral-900 text-[#7F22FE] shadow-2xs'
                 : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
-            <span>Courier Dispatch Queue ({orders.filter(o => o.status === 'confirmed' || o.status === 'processing').length})</span>
+            <Truck className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Courier Queue ({orders.filter(o => o.status === 'confirmed' || o.status === 'processing').length})</span>
           </button>
         </div>
 
@@ -653,67 +653,67 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         <>
 
           {/* Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Confirmed</span>
-                <div className="w-8 h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="p-3.5 sm:p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
+              <div className="flex items-center justify-between text-neutral-500 mb-1.5 sm:mb-2">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider">Confirmed</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-black text-neutral-900 dark:text-white">
                 {metrics.confirmedCount + metrics.processingCount + metrics.deliveredCount}
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 sm:mt-1 truncate">
                 {metrics.confirmedCount} newly confirmed
               </div>
             </div>
 
-            <div className="p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
-                <div className="w-8 h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
-                  <CreditCard className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
+              <div className="flex items-center justify-between text-neutral-500 mb-1.5 sm:mb-2">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider">Revenue</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center shrink-0">
+                  <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white">
-                BDT {metrics.totalRevenue.toLocaleString()}
+              <div className="text-lg sm:text-2xl font-black text-neutral-900 dark:text-white truncate">
+                ৳{metrics.totalRevenue.toLocaleString()}
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                Excluding cancelled orders
+              <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 sm:mt-1 truncate">
+                Excl. cancelled
               </div>
             </div>
 
-            <div className="p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Processing / Shipped</span>
-                <div className="w-8 h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
+              <div className="flex items-center justify-between text-neutral-500 mb-1.5 sm:mb-2">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider">In Transit</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-black text-neutral-900 dark:text-white">
                 {metrics.processingCount}
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                Awaiting fulfillment / dispatch
+              <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 sm:mt-1 truncate">
+                Awaiting fulfillment
               </div>
             </div>
 
-            <div className="p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Delivered</span>
-                <div className="w-8 h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
-                  <Truck className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:border-[#7F22FE]/30 transition-all">
+              <div className="flex items-center justify-between text-neutral-500 mb-1.5 sm:mb-2">
+                <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider">Delivered</span>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center shrink-0">
+                  <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-black text-neutral-900 dark:text-white">
                 {metrics.deliveredCount}
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Successfully completed
+              <div className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 sm:mt-1 truncate">
+                Completed orders
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
       {/* Order Source Tabs & Search */}
       <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
@@ -859,8 +859,138 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <>
+            {/* MOBILE ORDER CARDS (Clean Phone View without horizontal table scrolling) */}
+            <div className="md:hidden divide-y divide-neutral-100 dark:divide-neutral-800">
+              {orders.map((order) => (
+                <div key={order.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-black text-violet-600 dark:text-violet-400">
+                          #{order.id.slice(-6).toUpperCase()}
+                        </span>
+                        <span className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+                          {order.customer_name}
+                        </span>
+                      </div>
+                      {order.customer_phone && (
+                        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <a
+                            href={`tel:${order.customer_phone}`}
+                            className="inline-flex items-center gap-1 font-medium text-neutral-700 dark:text-neutral-300"
+                          >
+                            <Phone className="w-3 h-3 text-neutral-400" />
+                            {order.customer_phone}
+                          </a>
+                          <CustomerFraudBadge
+                            phone={order.customer_phone}
+                            customerName={order.customer_name}
+                            allOrders={orders}
+                            isProPlan={isProPlan}
+                            onUpgradeToPro={onUpgradeToPro}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-black text-neutral-900 dark:text-white">
+                        ৳{order.total_amount?.toLocaleString() || 0}
+                      </div>
+                      <div className="text-[10px] text-neutral-400">
+                        {new Date(order.created_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short'
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Product & Address Summary */}
+                  <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-700/50 space-y-1">
+                    <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 line-clamp-1">
+                      {order.items} <span className="text-neutral-400 font-normal">(Qty: {order.quantity || 1})</span>
+                    </div>
+                    {order.customer_address && order.customer_address !== 'Address provided in chat' && (
+                      <div className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1 line-clamp-1">
+                        <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
+                        <span className="truncate">{order.customer_address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Badges + Status + Quick Actions Row */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
+                        className="text-[11px] font-bold rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 py-1 px-2 text-neutral-800 dark:text-neutral-200 focus:ring-1 focus:ring-violet-500 cursor-pointer"
+                      >
+                        <option value="confirmed">Confirmed</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      {getPaymentBadge(order.payment_method, order.payment_status, order)}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleWhatsAppMessage(order)}
+                        title="WhatsApp Customer"
+                        className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!isProPlan && onUpgradeToPro) {
+                            onUpgradeToPro();
+                            return;
+                          }
+                          setSelectedCourierOrder(order);
+                          setCourierModalTab('quick');
+                          setShowCourierModal(true);
+                        }}
+                        title="Send to Courier"
+                        className="px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        <span>Courier</span>
+                      </button>
+                      <button
+                        onClick={() => setPrintingInvoiceOrder(order)}
+                        title="Print Invoice"
+                        className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setActiveOrderDetails(order)}
+                        title="View Details"
+                        className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOrder(order)}
+                        title="Delete Order"
+                        className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* DESKTOP TABLE VIEW */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
               <thead className="bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold border-b border-neutral-200 dark:border-neutral-800">
                 <tr>
                   <th className="py-3 px-4">Order ID & Date</th>
@@ -1063,6 +1193,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
         </>
