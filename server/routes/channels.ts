@@ -174,14 +174,8 @@ channelsRouter.get('/tiktok/auth-url', (req: Request, res: Response) => {
     JSON.stringify({ userId: user.id, ts: Date.now() })
   ).toString('base64url');
 
-  const scopes = [
-    'user.info.basic',
-    'video.list',
-    'comment.list',
-    'comment.list.manage',
-    'business.message.read',
-    'business.message.write'
-  ].join(',');
+  // TikTok requires only the scopes configured and approved on the app (user.info.basic)
+  const scopes = 'user.info.basic';
 
   const params = new URLSearchParams({
     client_key: clientKey,
@@ -199,10 +193,18 @@ channelsRouter.get('/tiktok/auth-url', (req: Request, res: Response) => {
   });
 });
 
-// GET /api/channels/tiktok/callback - Handles TikTok OAuth Redirect & Popup postMessage
-channelsRouter.get(['/tiktok/callback', '/tiktok/callback/'], async (req: Request, res: Response) => {
-  const code = req.query.code as string;
-  const state = req.query.state as string;
+// ALL /api/channels/tiktok/callback - Handles TikTok OAuth Redirect & Popup postMessage (and webhook pings if accidentally configured)
+channelsRouter.all(['/tiktok/callback', '/tiktok/callback/'], async (req: Request, res: Response) => {
+  const challenge = req.query.challenge || req.query['hub.challenge'] || (req.body && req.body.challenge);
+  if (challenge !== undefined) {
+    if (typeof challenge === 'string') {
+      return res.status(200).type('text/plain').send(String(challenge));
+    }
+    return res.status(200).json({ challenge });
+  }
+
+  const code = (req.query.code || (req.body && req.body.code)) as string;
+  const state = (req.query.state || (req.body && req.body.state)) as string;
   const error = req.query.error_description || req.query.error;
   const baseUrl = metaOAuthService.getEffectiveBaseUrl(req);
 

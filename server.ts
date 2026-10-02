@@ -112,7 +112,13 @@ app.get([
   '/*tiktok-developers-site-verification*'
 ], (_req, res) => {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  return res.send('tiktok-developers-site-verification=pBPju2BQXRrY8gDxy8IYfYrCuIy1fHJC');
+  return res.send('tiktok-developers-site-verification=8a0HOrPYdy1mYX9Da2Zk3lcpkIvO87rO\ntiktok-developers-site-verification=pBPju2BQXRrY8gDxy8IYfYrCuIy1fHJC');
+});
+
+// Download TikTok demo video
+app.get(['/download-demo-video', '/tiktok-demo.mp4'], (_req, res) => {
+  const filePath = path.join(process.cwd(), 'public', 'tiktok-demo.mp4');
+  res.download(filePath, 'oneagentbd-tiktok-demo.mp4');
 });
 
 // Mount API routers
