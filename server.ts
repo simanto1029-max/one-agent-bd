@@ -106,6 +106,15 @@ app.get('/api/schema-sql', (req, res) => {
   }
 });
 
+// TikTok Developers Site Verification endpoint
+app.get([
+  '/tiktok-developers-site-verification*',
+  '/*tiktok-developers-site-verification*'
+], (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  return res.send('tiktok-developers-site-verification=pBPju2BQXRrY8gDxy8IYfYrCuIy1fHJC');
+});
+
 // Mount API routers
 app.use('/api/auth', authRouter);
 app.use('/api/plans', plansRouter);
