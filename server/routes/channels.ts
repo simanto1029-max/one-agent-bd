@@ -159,7 +159,10 @@ channelsRouter.get('/tiktok/auth-url', (req: Request, res: Response) => {
   const settings = db.getSettings();
   const clientKey = (settings.tiktok_client_key || process.env.TIKTOK_CLIENT_KEY || '').trim();
   const baseUrl = metaOAuthService.getEffectiveBaseUrl(req);
-  const redirectUri = `${baseUrl}/api/channels/tiktok/callback`;
+  const effectiveOrigin = baseUrl.includes('oneagentbd.online')
+    ? 'https://www.oneagentbd.online'
+    : baseUrl;
+  const redirectUri = `${effectiveOrigin}/api/channels/tiktok/callback`;
 
   if (!clientKey) {
     return res.json({
