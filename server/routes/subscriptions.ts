@@ -47,17 +47,21 @@ subscriptionsRouter.post('/switch-plan', (req: Request, res: Response) => {
   }
 
   const { planId } = req.body;
-  const targetPlanId = planId === 'plan_pro' || planId === 'plan_pro_yearly' ? 'plan_pro' : 'plan_starter';
+  const isTrialSwitch = planId === 'trial' || planId === 'free_trial';
+  const targetPlanId =
+    planId === 'plan_pro' || planId === 'plan_pro_yearly' ? 'plan_pro' : 'plan_starter';
   const plan = db.getPlanById(targetPlanId);
 
   const currentSub = db.getSubscriptionByUserId(user.id);
   const now = new Date();
-  const futureEnd = new Date(now.getTime() + 30 * 86400000).toISOString();
+  const futureEnd = new Date(
+    now.getTime() + (isTrialSwitch ? 2 : 30) * 86400000
+  ).toISOString();
 
   if (currentSub) {
     db.updateSubscription(currentSub.id, {
       plan_id: targetPlanId,
-      status: 'active',
+      status: isTrialSwitch ? 'trialing' : 'active',
       start_date: now.toISOString(),
       end_date: futureEnd
     });
@@ -66,7 +70,7 @@ subscriptionsRouter.post('/switch-plan', (req: Request, res: Response) => {
       id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       user_id: user.id,
       plan_id: targetPlanId,
-      status: 'active',
+      status: isTrialSwitch ? 'trialing' : 'active',
       start_date: now.toISOString(),
       end_date: futureEnd,
       created_at: now.toISOString(),
@@ -77,11 +81,13 @@ subscriptionsRouter.post('/switch-plan', (req: Request, res: Response) => {
   const status = getUserSubscriptionStatus(user.id);
   return res.json({
     status,
-    message: `Plan successfully switched to ${plan ? plan.name : targetPlanId}!`
+    message: isTrialSwitch
+      ? '2-Day Free Trial activated (All features unlocked)!'
+      : `Plan successfully switched to ${plan ? plan.name : targetPlanId}!`
   });
 });
 
-// POST /api/subscriptions/start-trial - Activate 2-Day Free Trial for selected plan (One-time per account)
+// POST /api/subscriptions/start-trial - Activate 2-Day Free Trial for selected plan (All features unlocked during 2-day trial)
 subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
@@ -99,7 +105,7 @@ subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
     const existingEnd = new Date(currentSub.end_date);
     const isAlreadyExpired = currentSub.status === 'expired' || now > existingEnd;
 
-    if (isAlreadyExpired || currentSub.status === 'active') {
+    if (isAlreadyExpired) {
       const status = getUserSubscriptionStatus(user.id);
       return res.status(400).json({
         error: 'Your 2-day free trial has already ended. Please purchase a subscription plan to continue service.',
@@ -107,9 +113,15 @@ subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
       });
     }
 
-    // Still within initial 2-day trial window: allow switching plan tier without resetting trial end_date
+    const trialEnd =
+      currentSub.status === 'trialing' && existingEnd > now
+        ? currentSub.end_date
+        : new Date(now.getTime() + 2 * 86400000).toISOString();
+
     db.updateSubscription(currentSub.id, {
-      plan_id: targetPlanId
+      plan_id: targetPlanId,
+      status: 'trialing',
+      end_date: trialEnd
     });
   } else {
     const trialEnd = new Date(now.getTime() + 2 * 86400000).toISOString();
@@ -128,7 +140,7 @@ subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
   const status = getUserSubscriptionStatus(user.id);
   return res.json({
     status,
-    message: `2-Day Free Trial active for ${plan ? plan.name : 'your plan'}!`
+    message: `2-Day Free Trial active for ${plan ? plan.name : 'your plan'}! All features are unlocked.`
   });
 });
 

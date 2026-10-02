@@ -94,7 +94,7 @@ export const api = {
     return res;
   },
 
-  async requestPasswordRecovery(data: { email: string; phone: string }) {
+  async requestPasswordRecovery(data: { email: string }) {
     return fetchJson<{
       success: boolean;
       recoveryCode: string;
@@ -106,9 +106,19 @@ export const api = {
     });
   },
 
+  async verifyRecoveryCode(data: { email: string; recoveryCode: string }) {
+    return fetchJson<{
+      success: boolean;
+      email: string;
+      message: string;
+    }>('/api/auth/verify-recovery-code', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async resetPassword(data: {
     email: string;
-    phone?: string;
     recoveryCode: string;
     newPassword: string;
   }) {
@@ -196,7 +206,7 @@ export const api = {
     });
   },
 
-  async switchPlan(planId: 'plan_starter' | 'plan_pro'): Promise<{ status: SubscriptionStatusInfo; message: string }> {
+  async switchPlan(planId: 'plan_starter' | 'plan_pro' | 'trial'): Promise<{ status: SubscriptionStatusInfo; message: string }> {
     return fetchJson('/api/subscriptions/switch-plan', {
       method: 'POST',
       body: JSON.stringify({ planId })

@@ -26,8 +26,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
 
-  // Password Recovery state
-  const [recoveryStep, setRecoveryStep] = useState<'verify' | 'reset'>('verify');
+  // Password Recovery state: 'email' (only email field) -> 'code' (enter mail code & click Recover) -> 'reset' (set new password)
+  const [recoveryStep, setRecoveryStep] = useState<'email' | 'code' | 'reset'>('email');
   const [recoveryCode, setRecoveryCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -42,7 +42,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setMode(defaultMode);
       setError(null);
       setSuccessNotice(null);
-      setRecoveryStep('verify');
+      setRecoveryStep('email');
+      setRecoveryCode('');
+      setGeneratedCode(null);
+      setNewPassword('');
+      setConfirmNewPassword('');
     }
   }, [isOpen, defaultMode]);
 
@@ -63,19 +67,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       if (mode === 'forgot') {
-        if (recoveryStep === 'verify') {
-          const cleanDigits = phone.replace(/\D/g, '');
-          if (cleanDigits.length < 10) {
-            throw new Error('Please enter a valid registered phone number (at least 11 digits) to verify your account.');
+        if (recoveryStep === 'email') {
+          if (!email.trim()) {
+            throw new Error('Please enter your registered email address.');
           }
           const res = await api.requestPasswordRecovery({
-            email: email.trim(),
-            phone: phone.trim()
+            email: email.trim()
           });
           setGeneratedCode(res.recoveryCode);
-          setRecoveryCode(res.recoveryCode);
+          setRecoveryCode('');
+          setRecoveryStep('code');
+          setSuccessNotice(
+            res.message || 'A 6-digit recovery code has been sent to your email. Enter the code below and click Recover.'
+          );
+          return;
+        } else if (recoveryStep === 'code') {
+          if (!recoveryCode.trim()) {
+            throw new Error('Please enter the 6-digit recovery code sent to your email.');
+          }
+          const res = await api.verifyRecoveryCode({
+            email: email.trim(),
+            recoveryCode: recoveryCode.trim()
+          });
           setRecoveryStep('reset');
-          setSuccessNotice(res.message || 'Verification successful! Please enter your new password.');
+          setSuccessNotice(res.message || 'Recovery code verified! Now enter your new password below.');
           return;
         } else {
           if (newPassword.length < 6) {
@@ -86,7 +101,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }
           const res = await api.resetPassword({
             email: email.trim(),
-            phone: phone.trim(),
             recoveryCode: recoveryCode.trim(),
             newPassword
           });
@@ -155,7 +169,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {isAdminMode
               ? 'Authorized platform administrators only. Verify payments and manage plans.'
               : mode === 'forgot'
-              ? 'Verify your registered email and phone number to set a new password.'
+              ? 'Enter your registered email address to receive a recovery code and set a new password.'
               : mode === 'signup'
               ? 'Instant access to WhatsApp, Messenger, Instagram & Website AI Auto-Reply. Phone number required.'
               : 'Sign in to access your omnichannel inbox and manage AI agent settings.'}
@@ -203,7 +217,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="button"
                   onClick={() => {
                     setMode('forgot');
-                    setRecoveryStep('verify');
+                    setRecoveryStep('email');
+                    setRecoveryCode('');
+                    setGeneratedCode(null);
                     setError(null);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-200 font-bold text-[11px] hover:bg-rose-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
@@ -263,7 +279,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }`}
               onClick={() => {
                 setMode('forgot');
-                setRecoveryStep('verify');
+                setRecoveryStep('email');
+                setRecoveryCode('');
+                setGeneratedCode(null);
+                setNewPassword('');
+                setConfirmNewPassword('');
                 setError(null);
                 setSuccessNotice(null);
               }}
@@ -312,25 +332,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-              Email Address *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                Email Address *
+              </label>
+              {mode === 'forgot' && recoveryStep !== 'email' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecoveryStep('email');
+                    setRecoveryCode('');
+                    setGeneratedCode(null);
+                    setError(null);
+                    setSuccessNotice(null);
+                  }}
+                  className="text-[11px] font-bold text-[#7F22FE] hover:underline cursor-pointer"
+                >
+                  Change Email
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
               <input
                 id="auth-email-input"
                 type="email"
                 required
+                readOnly={mode === 'forgot' && recoveryStep !== 'email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={isAdminMode ? 'admin@oneagentbd.com' : 'you@business.com'}
-                className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
+                className={`w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE] ${
+                  mode === 'forgot' && recoveryStep !== 'email' ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
               />
             </div>
           </div>
 
-          {/* Phone Number field: required on Signup AND on Password Recovery */}
-          {(mode === 'signup' || mode === 'forgot') && !isAdminMode && (
+          {/* Phone Number field: required ONLY on Signup (not shown on Forgot Password) */}
+          {mode === 'signup' && !isAdminMode && (
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Phone Number *
@@ -362,7 +402,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="button"
                     onClick={() => {
                       setMode('forgot');
-                      setRecoveryStep('verify');
+                      setRecoveryStep('email');
+                      setRecoveryCode('');
+                      setGeneratedCode(null);
                       setError(null);
                       setSuccessNotice(null);
                     }}
@@ -387,13 +429,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Password Recovery Step 2 Fields */}
-          {mode === 'forgot' && recoveryStep === 'reset' && !isAdminMode && (
+          {/* Password Recovery Step 2: Enter Email Recovery Code & Click Recover */}
+          {mode === 'forgot' && recoveryStep === 'code' && !isAdminMode && (
             <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800">
               {generatedCode && (
                 <div className="p-3 rounded-2xl bg-[#7F22FE]/10 border border-[#7F22FE]/25 flex items-center justify-between">
                   <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
-                    Your Verification Code (Recovery OTP):
+                    Mail Recovery Code:
                   </span>
                   <span className="px-2.5 py-1 rounded-lg bg-[#7F22FE] text-white font-mono font-bold text-xs tracking-widest">
                     {generatedCode}
@@ -403,18 +445,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Recovery Code (6-Digit OTP) *
+                  Email Recovery Code (6-Digit Code) *
                 </label>
                 <input
+                  id="auth-recovery-code-input"
                   type="text"
                   required
                   value={recoveryCode}
                   onChange={(e) => setRecoveryCode(e.target.value)}
-                  placeholder="6-digit code"
+                  placeholder="Enter 6-digit code from your email"
                   className="w-full px-3 py-2.5 text-sm font-mono rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE]"
                 />
               </div>
+            </div>
+          )}
 
+          {/* Password Recovery Step 3: Set New Password (Shown ONLY after clicking Recover with valid mail code) */}
+          {mode === 'forgot' && recoveryStep === 'reset' && !isAdminMode && (
+            <div className="space-y-3 pt-1 border-t border-neutral-100 dark:border-neutral-800">
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   New Password *
@@ -455,7 +503,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="p-3 rounded-2xl bg-[#7F22FE]/10 border border-[#7F22FE]/20 text-xs text-neutral-800 dark:text-neutral-200 flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-[#7F22FE]" />
               <span>
-                Your <strong>2-Day Free Trial</strong> starts immediately. Live countdown timer will activate on your dashboard.
+                Your <strong>2-Day Free Trial</strong> starts immediately with <strong>all features unlocked</strong>.
               </span>
             </div>
           )}
@@ -473,10 +521,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Sign In as Admin <ArrowRight className="w-4 h-4" />
               </>
             ) : mode === 'forgot' ? (
-              recoveryStep === 'verify' ? (
+              recoveryStep === 'email' ? (
+                <>
+                  <Mail className="w-4 h-4" />
+                  <span>Send Recovery Code</span>
+                </>
+              ) : recoveryStep === 'code' ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
-                  <span>Verify Account & Get Recovery Code</span>
+                  <span>Recover</span>
                 </>
               ) : (
                 <>

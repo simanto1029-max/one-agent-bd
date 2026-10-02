@@ -32,8 +32,11 @@ function checkChannelLimitForPlan(
   const sub = db.getSubscriptionByUserId(userId);
   const planId = String(sub?.plan_id || 'plan_starter').toLowerCase();
   const plan = db.getPlanById(planId);
-  const isPro = planId.includes('pro') || (plan?.price && plan.price >= 1950);
-  const maxAllowedChannels = plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+  const isTrialActive =
+    sub?.status === 'trialing' && new Date(sub.end_date).getTime() > Date.now();
+  const isPro =
+    isTrialActive || planId.includes('pro') || Boolean(plan?.price && plan.price >= 1950);
+  const maxAllowedChannels = isPro ? 10 : plan?.feature_config?.max_channels || 3;
 
   const activeMetaChannels = db
     .getChannels(userId)

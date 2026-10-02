@@ -158,10 +158,10 @@ authRouter.post('/login', (req: Request, res: Response) => {
   });
 });
 
-// POST /api/auth/forgot-password
-authRouter.post('/forgot-password', (req: Request, res: Response) => {
+// POST /api/auth/forgot-password (Email-only recovery code generation)
+authRouter.post('/forgot-password', async (req: Request, res: Response) => {
   try {
-    const { email, phone } = req.body;
+    const { email } = req.body;
     if (!email || !email.trim()) {
       return res.status(400).json({ error: 'Please enter your registered email address.' });
     }
@@ -174,28 +174,10 @@ authRouter.post('/forgot-password', (req: Request, res: Response) => {
       });
     }
 
-    const inputPhoneDigits = normalizePhone(phone);
-    if (!inputPhoneDigits || inputPhoneDigits.length < 10) {
-      return res.status(400).json({
-        error: 'Please enter your phone number to verify your account.'
-      });
-    }
-
-    // If profile already has a saved phone number, verify it matches
-    if (profile.phone) {
-      const savedPhoneDigits = normalizePhone(profile.phone);
-      if (savedPhoneDigits && savedPhoneDigits !== inputPhoneDigits) {
-        return res.status(400).json({
-          error: 'The phone number entered does not match the phone number registered with this account.'
-        });
-      }
-    } else {
-      // Save phone number on older account that didn't have one yet
-      db.updateProfile(profile.id, { phone: phone.trim() });
-    }
-
     // Generate 6-digit recovery OTP valid for 15 minutes
-    const recoveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const recoveryCode = Math.floor(100000 + Math.random().toString(36).length * 0 + Math.random() * 900000)
+      .toString()
+      .slice(0, 6);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     db.updateProfile(profile.id, {
@@ -203,21 +185,82 @@ authRouter.post('/forgot-password', (req: Request, res: Response) => {
       recovery_otp_expires: expiresAt
     });
 
+    // Attempt to send email via configured SMTP / email provider if available
+    try {
+      const { dispatchSingleEmail } = await import('../services/emailCampaignService.js');
+      const adminProfile = db.getProfiles().find((p) => p.role === 'admin' && p.email_smtp_settings?.is_configured);
+      const smtpSettings = adminProfile?.email_smtp_settings || profile.email_smtp_settings;
+      if (smtpSettings && smtpSettings.is_configured) {
+        await dispatchSingleEmail({
+          smtpSettings,
+          toEmail: profile.email,
+          toName: profile.full_name || profile.email,
+          subject: 'Your Password Recovery Code - One Agent BD',
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:16px;">
+            <h2 style="color:#7F22FE;margin-top:0;">One Agent BD Password Recovery</h2>
+            <p style="color:#334155;font-size:14px;">Use the 6-digit verification code below to recover your account and set a new password:</p>
+            <div style="background:#f5f3ff;border:1px solid #ddd6fe;padding:16px;border-radius:12px;text-align:center;font-size:24px;font-weight:800;letter-spacing:6px;color:#7F22FE;margin:20px 0;">
+              ${recoveryCode}
+            </div>
+            <p style="color:#64748b;font-size:12px;">This code will expire in 15 minutes.</p>
+          </div>`
+        });
+      }
+    } catch {
+      // Fallback to returning code in response if SMTP is not configured
+    }
+
     return res.json({
       success: true,
       recoveryCode,
       email: profile.email,
-      message: 'Account verified! Use the 6-digit recovery code below to set a new password.'
+      message: `A 6-digit recovery code has been sent to ${profile.email}. Enter the code below and click Recover.`
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to initiate password recovery' });
   }
 });
 
+// POST /api/auth/verify-recovery-code (Verify the 6-digit email code when user clicks Recover)
+authRouter.post('/verify-recovery-code', (req: Request, res: Response) => {
+  try {
+    const { email, recoveryCode } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+    const cleanCode = (recoveryCode || '').trim();
+    if (!cleanCode) {
+      return res.status(400).json({ error: 'Please enter the 6-digit recovery code from your email.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const profile = db.getProfileByEmail(cleanEmail);
+    if (!profile) {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+
+    if (!profile.recovery_otp || cleanCode !== profile.recovery_otp) {
+      return res.status(400).json({ error: 'Invalid recovery code! Please check the 6-digit code and try again.' });
+    }
+
+    if (profile.recovery_otp_expires && new Date(profile.recovery_otp_expires).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Recovery code has expired. Please request a new code.' });
+    }
+
+    return res.json({
+      success: true,
+      email: profile.email,
+      message: 'Recovery code verified! Please set your new password below.'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to verify recovery code' });
+  }
+});
+
 // POST /api/auth/reset-password
 authRouter.post('/reset-password', (req: Request, res: Response) => {
   try {
-    const { email, phone, recoveryCode, newPassword } = req.body;
+    const { email, recoveryCode, newPassword } = req.body;
     if (!email || !newPassword) {
       return res.status(400).json({ error: 'Email and new password are required.' });
     }
@@ -231,23 +274,13 @@ authRouter.post('/reset-password', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Account not found.' });
     }
 
-    // Verify either recovery_otp or matching phone number
     const cleanCode = (recoveryCode || '').trim();
-    if (profile.recovery_otp && cleanCode !== profile.recovery_otp) {
-      return res.status(400).json({ error: 'Please enter a valid 6-digit recovery code.' });
-    }
-
-    if (profile.phone && phone) {
-      const savedDigits = normalizePhone(profile.phone);
-      const inputDigits = normalizePhone(phone);
-      if (savedDigits && inputDigits && savedDigits !== inputDigits) {
-        return res.status(400).json({ error: 'Phone number does not match.' });
-      }
+    if (!profile.recovery_otp || cleanCode !== profile.recovery_otp) {
+      return res.status(400).json({ error: 'Please verify a valid 6-digit recovery code first.' });
     }
 
     const updated = db.updateProfile(profile.id, {
       password: newPassword,
-      phone: profile.phone || (phone ? phone.trim() : undefined),
       recovery_otp: undefined,
       recovery_otp_expires: undefined
     }) || profile;

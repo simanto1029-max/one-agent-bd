@@ -90,18 +90,33 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   const canAccessDashboard = !isGated;
 
   const planId = sub.plan_id || 'plan_starter';
-  const isProPlan =
+  const isTrialActive = !isExpired && sub.status === 'trialing';
+  const isPaidProPlan =
     planId.includes('pro') ||
     (plan.name || '').toLowerCase().includes('pro') ||
     Number(plan.price) >= 1950;
-  const featureConfig = (plan as any).feature_config || {
-    website_stores: isProPlan,
-    call_requests: isProPlan,
-    vip_broadcast: isProPlan,
-    courier_dispatch: isProPlan,
-    csv_export: isProPlan,
-    max_channels: isProPlan ? 10 : 3
-  };
+
+  // During the 2-Day Free Trial (status === 'trialing' and not expired), unlock ALL features so the user can test everything.
+  // When on an active Starter Plan (status === 'active' and plan_starter), isProPlan is false so Pro features are locked & blurred.
+  const isProPlan = isAdmin || isTrialActive || isPaidProPlan;
+
+  const featureConfig = isProPlan
+    ? {
+        website_stores: true,
+        call_requests: true,
+        vip_broadcast: true,
+        courier_dispatch: true,
+        csv_export: true,
+        max_channels: 10
+      }
+    : (plan as any).feature_config || {
+        website_stores: false,
+        call_requests: false,
+        vip_broadcast: false,
+        courier_dispatch: true,
+        csv_export: false,
+        max_channels: 3
+      };
   const canAccessStores = !isExpired && isProPlan;
 
   return {
