@@ -1247,13 +1247,6 @@ export const api = {
     });
   },
 
-  async switchPlan(planId: string): Promise<{ status: SubscriptionStatusInfo; message: string }> {
-    return fetchJson('/api/subscriptions/switch-plan', {
-      method: 'POST',
-      body: JSON.stringify({ planId })
-    });
-  },
-
   // Call Requests (Human Handover Queue)
   async getCallRequests(): Promise<{
     requests: CallRequest[];

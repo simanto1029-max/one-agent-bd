@@ -60,22 +60,28 @@ subscriptionsRouter.post('/switch-plan', (req: Request, res: Response) => {
 
   if (currentSub) {
     db.updateSubscription(currentSub.id, {
-      plan_id: targetPlanId,
+      plan_id: isTrialSwitch ? 'plan_pro' : targetPlanId,
       status: isTrialSwitch ? 'trialing' : 'active',
       start_date: now.toISOString(),
-      end_date: futureEnd
-    });
+      end_date: futureEnd,
+      ...(isTrialSwitch
+        ? { demo_plan_override: undefined }
+        : { demo_plan_override: targetPlanId })
+    } as any);
   } else {
     db.createSubscription({
       id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       user_id: user.id,
-      plan_id: targetPlanId,
+      plan_id: isTrialSwitch ? 'plan_pro' : targetPlanId,
       status: isTrialSwitch ? 'trialing' : 'active',
       start_date: now.toISOString(),
       end_date: futureEnd,
       created_at: now.toISOString(),
-      updated_at: now.toISOString()
-    });
+      updated_at: now.toISOString(),
+      ...(isTrialSwitch
+        ? { demo_plan_override: undefined }
+        : { demo_plan_override: targetPlanId })
+    } as any);
   }
 
   const status = getUserSubscriptionStatus(user.id);

@@ -46,6 +46,26 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   // Check if expired
   const profile = db.getProfileById(userId);
   const isAdmin = profile?.role === 'admin';
+
+  // If a non-admin account was marked 'active' without any approved payment and without explicit demo_plan_override,
+  // restore it to 'trialing' (2-Day Free Trial) so test trial accounts get full 2-day trial access automatically.
+  if (!isAdmin && sub.status === 'active' && !(sub as any).demo_plan_override) {
+    const userPayments = db.getPaymentsByUserId(userId);
+    const hasApprovedPayment = userPayments.some((p) => p.status === 'approved');
+    if (!hasApprovedPayment) {
+      const baseStart = profile?.created_at ? new Date(profile.created_at) : now;
+      const twoDayEnd = new Date(
+        Math.max(baseStart.getTime() + 2 * 86400000, now.getTime() + 2 * 86400000)
+      ).toISOString();
+      sub =
+        db.updateSubscription(sub.id, {
+          status: 'trialing',
+          plan_id: 'plan_pro',
+          end_date: twoDayEnd
+        }) || sub;
+    }
+  }
+
   let endDate = new Date(sub.end_date);
   let isPastEnd = now.getTime() >= endDate.getTime();
 

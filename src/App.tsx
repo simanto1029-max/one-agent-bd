@@ -990,7 +990,7 @@ export default function App() {
 
               {activeTab === 'orders' && (
                 <OrdersView
-                  isProPlan={true}
+                  isProPlan={isProPlan}
                   onUpgradeToPro={handleNavigateToProUpgrade}
                   onGoToInbox={() => {
                     setActiveTab('inbox');
@@ -1094,7 +1094,7 @@ export default function App() {
                 <UnifiedInbox
                   channels={channels}
                   initialConvKey={inboxTargetConvKey}
-                  isProPlan={true}
+                  isProPlan={isProPlan}
                   onUpgradeToPro={handleNavigateToProUpgrade}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);
@@ -1125,7 +1125,10 @@ export default function App() {
               )}
 
               {activeTab === 'contacts' && (
-                <ContactsView />
+                <ContactsView
+                  isProPlan={isProPlan}
+                  onUpgradeToPro={handleNavigateToProUpgrade}
+                />
               )}
 
               {activeTab === 'email-campaigns' && (
