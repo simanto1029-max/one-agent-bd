@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db, Channel } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
+import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
 import { getPublicTunnelUrl } from '../services/tunnelService.js';
 import { metaOAuthService } from '../services/metaOAuthService.js';
 import { metaChannelService } from '../services/metaChannelService.js';
@@ -8,16 +9,21 @@ import { runAutoFollowUpEngine, handleInboundCommentWebhook } from '../services/
 
 export const channelsRouter = Router();
 
-// Helper to check active subscription
-function checkSubscriptionActive(userId: string): boolean {
+// Helper to check active subscription or active free trial
+export function checkSubscriptionActive(userId: string): { allowed: boolean; error?: string } {
   const user = db.getProfileById(userId);
-  if (user?.role === 'admin') return true; // Admins have full access
-  const sub = db.getSubscriptionByUserId(userId);
-  if (!sub) return false;
-  if (sub.status === 'active' || sub.status === 'trialing') {
-    return new Date(sub.end_date).getTime() > Date.now();
+  if (user?.role === 'admin') return { allowed: true }; // Admins have full access
+
+  const subStatus = getUserSubscriptionStatus(userId);
+  if (subStatus.isExpired || subStatus.isGated || !subStatus.canAccessDashboard) {
+    return {
+      allowed: false,
+      error:
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan (Starter: 1,250 BDT or Pro: 1,950 BDT) via bKash/Nagad to unpause and connect channels.'
+    };
   }
-  return false;
+
+  return { allowed: true };
 }
 
 // Helper to enforce Starter Plan (up to 3 social channels) vs Pro Plan (up to 10 social channels) limit
@@ -29,14 +35,10 @@ function checkChannelLimitForPlan(
   const user = db.getProfileById(userId);
   if (user?.role === 'admin') return { allowed: true };
 
-  const sub = db.getSubscriptionByUserId(userId);
-  const planId = String(sub?.plan_id || 'plan_starter').toLowerCase();
-  const plan = db.getPlanById(planId);
-  const isTrialActive =
-    sub?.status === 'trialing' && new Date(sub.end_date).getTime() > Date.now();
-  const isPro =
-    isTrialActive || planId.includes('pro') || Boolean(plan?.price && plan.price >= 1950);
-  const maxAllowedChannels = isPro ? 10 : plan?.feature_config?.max_channels || 3;
+  const subStatus = getUserSubscriptionStatus(userId);
+  const isTrialActive = !subStatus.isExpired && subStatus.subscription?.status === 'trialing';
+  const isPro = subStatus.isProPlan || isTrialActive;
+  const maxAllowedChannels = isPro ? 10 : subStatus.featureConfig?.max_channels || 3;
 
   const activeMetaChannels = db
     .getChannels(userId)
@@ -103,9 +105,12 @@ channelsRouter.get('/meta/auth-url', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -218,9 +223,12 @@ channelsRouter.post('/meta/exchange-token', async (req: Request, res: Response) 
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -276,9 +284,12 @@ channelsRouter.post('/meta/sdk-capture', async (req: Request, res: Response) => 
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -417,9 +428,12 @@ channelsRouter.post('/meta/select-page', async (req: Request, res: Response) => 
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -453,9 +467,12 @@ channelsRouter.post('/meta/select-instagram', async (req: Request, res: Response
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -489,9 +506,12 @@ channelsRouter.post('/meta/whatsapp-onboarding', async (req: Request, res: Respo
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -538,9 +558,12 @@ channelsRouter.post('/meta/simulate-oauth', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
     return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect Meta channels.'
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
     });
   }
 
@@ -624,10 +647,9 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: `Invalid platform. Must be one of: ${validPlatforms.join(', ')}` });
   }
 
-  if (!checkSubscriptionActive(user.id)) {
-    return res.status(403).json({
-      error: 'Active subscription required. Please activate or renew your subscription to connect channels.'
-    });
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
+    return res.status(403).json({ error: subCheck.error });
   }
 
   const cleanIdentifier = String(identifier).trim();
@@ -930,10 +952,9 @@ channelsRouter.patch('/:id/toggle', (req: Request, res: Response) => {
   }
 
   if (!channel.is_active) {
-    if (!checkSubscriptionActive(user.id)) {
-      return res.status(403).json({
-        error: 'Active subscription required. Please renew your plan to activate this channel.'
-      });
+    const subCheck = checkSubscriptionActive(user.id);
+    if (!subCheck.allowed) {
+      return res.status(403).json({ error: subCheck.error });
     }
     if (['messenger', 'instagram', 'whatsapp'].includes(channel.platform) && channel.identifier !== 'website_widget') {
       const limitCheck = checkChannelLimitForPlan(user.id, channel.platform as 'messenger' | 'instagram' | 'whatsapp');

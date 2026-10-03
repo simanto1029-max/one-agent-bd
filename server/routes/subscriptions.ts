@@ -101,8 +101,8 @@ subscriptionsRouter.post('/start-trial', (req: Request, res: Response) => {
   }
 
   const { planId } = req.body;
-  const targetPlanId = planId && String(planId).includes('pro') ? 'plan_pro' : 'plan_starter';
-  const plan = db.getPlanById(targetPlanId) || db.getPlans()[0];
+  const targetPlanId = 'plan_pro'; // Full Pro features unlocked during trial
+  const plan = db.getPlanById('plan_pro') || db.getPlans()[0];
 
   const currentSub = db.getSubscriptionByUserId(user.id);
   const now = new Date();

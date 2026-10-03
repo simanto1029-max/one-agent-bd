@@ -124,12 +124,12 @@
     {
       "id": "sub_1790321094043_ykopw",
       "user_id": "usr_1790321094039_p5g7h",
-      "plan_id": "plan_standard",
-      "status": "expired",
-      "start_date": "2026-09-25T07:24:54.043Z",
-      "end_date": "2026-09-27T07:24:54.043Z",
+      "plan_id": "plan_pro",
+      "status": "trialing",
+      "start_date": "2026-10-03T09:06:55.992Z",
+      "end_date": "2026-10-05T09:06:55.992Z",
       "created_at": "2026-09-25T07:24:54.043Z",
-      "updated_at": "2026-09-27T14:01:21.614Z"
+      "updated_at": "2026-10-03T09:06:55.993Z"
     },
     {
       "id": "sub_1790668618472_sd24i",
@@ -3291,8 +3291,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-02T16:02:54.017Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 4:02:54 PM)"
+    "cron_last_run": "2026-10-03T09:14:09.153Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:14:09 AM)"
   },
   "orders": [
     {
@@ -3601,7 +3601,7 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1790956974017,
+  "_lastUpdatedAt": 1791018849153,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

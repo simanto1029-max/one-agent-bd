@@ -34,7 +34,7 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
     sub = db.createSubscription({
       id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       user_id: userId,
-      plan_id: defaultPlan ? defaultPlan.id : 'plan_starter',
+      plan_id: 'plan_pro',
       status: 'trialing',
       start_date: startDate,
       end_date: endDate,
@@ -47,22 +47,40 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   const profile = db.getProfileById(userId);
   const isAdmin = profile?.role === 'admin';
 
-  // If a non-admin account was marked 'active' without any approved payment and without explicit demo_plan_override,
-  // restore it to 'trialing' (2-Day Free Trial) so test trial accounts get full 2-day trial access automatically.
-  if (!isAdmin && sub.status === 'active' && !(sub as any).demo_plan_override) {
+  // If a non-admin account has no approved payment and was either marked 'active' or expired in earlier prototype runs,
+  // grant/restore a fresh 2-Day Free Trial (48 hours) with plan_pro so users testing the platform can test everything A to Z.
+  if (!isAdmin && !(sub as any).demo_plan_override) {
     const userPayments = db.getPaymentsByUserId(userId);
     const hasApprovedPayment = userPayments.some((p) => p.status === 'approved');
     if (!hasApprovedPayment) {
-      const baseStart = profile?.created_at ? new Date(profile.created_at) : now;
-      const twoDayEnd = new Date(
-        Math.max(baseStart.getTime() + 2 * 86400000, now.getTime() + 2 * 86400000)
-      ).toISOString();
-      sub =
-        db.updateSubscription(sub.id, {
-          status: 'trialing',
-          plan_id: 'plan_pro',
-          end_date: twoDayEnd
-        }) || sub;
+      const trialEndDate = new Date(sub.end_date);
+      const isPastOrExpired = sub.status === 'expired' || trialEndDate.getTime() <= now.getTime();
+      if (sub.status === 'active' || isPastOrExpired) {
+        const twoDayEnd = new Date(now.getTime() + 2 * 86400000).toISOString();
+        sub =
+          db.updateSubscription(sub.id, {
+            status: 'trialing',
+            plan_id: 'plan_pro',
+            start_date: now.toISOString(),
+            end_date: twoDayEnd,
+            updated_at: now.toISOString()
+          }) || sub;
+
+        // Ensure user's channels are unpaused so they can test immediately
+        const userChannels = db.getChannels(userId);
+        for (const ch of userChannels) {
+          if (ch.status === 'connected' || ch.access_token) {
+            db.updateChannel(ch.id, { is_active: true, status: 'connected' });
+          }
+        }
+      } else if (sub.status === 'trialing' && sub.plan_id !== 'plan_pro') {
+        // Upgrade trial to plan_pro so all Pro features and up to 10 channels are available during trial
+        sub =
+          db.updateSubscription(sub.id, {
+            plan_id: 'plan_pro',
+            updated_at: now.toISOString()
+          }) || sub;
+      }
     }
   }
 
@@ -83,6 +101,14 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
     sub = db.updateSubscription(sub.id, {
       status: 'expired'
     }) || sub;
+
+    // Pause all channels immediately when trial or subscription ends without payment
+    const userChannels = db.getChannels(userId);
+    for (const ch of userChannels) {
+      if (ch.is_active) {
+        db.updateChannel(ch.id, { is_active: false });
+      }
+    }
   }
 
   const plan = db.getPlanById(sub.plan_id) || {
@@ -184,12 +210,15 @@ export function activateSubscription(userId: string, planId: string, durationDay
         ['messenger', 'instagram', 'whatsapp'].includes(c.platform) &&
         c.identifier !== 'website_widget'
     );
-  if (activeMetaChannels.length > maxAllowedChannels) {
-    for (let i = maxAllowedChannels; i < activeMetaChannels.length; i++) {
-      db.updateChannel(activeMetaChannels[i].id, {
-        is_active: false,
-        status: 'not_connected'
-      });
+  // Re-activate user's channels up to the plan limit, unpausing them after payment
+  const userChannels = db.getChannels(userId);
+  let activeCount = 0;
+  for (const ch of userChannels) {
+    if (activeCount < maxAllowedChannels && (ch.status === 'connected' || ch.access_token)) {
+      db.updateChannel(ch.id, { is_active: true, status: 'connected' });
+      activeCount++;
+    } else if (activeCount >= maxAllowedChannels) {
+      db.updateChannel(ch.id, { is_active: false });
     }
   }
 
@@ -221,9 +250,20 @@ export function runSubscriptionExpiryCheck(): { expiredCount: number; checkedCou
   let expiredCount = 0;
 
   for (const sub of allSubs) {
+    const profile = db.getProfileById(sub.user_id);
+    if (profile?.role === 'admin') continue; // Admins never expire
+
     if ((sub.status === 'trialing' || sub.status === 'active') && new Date(sub.end_date) < now) {
       db.updateSubscription(sub.id, { status: 'expired' });
       expiredCount++;
+
+      // Pause all channels for this user immediately when trial or subscription ends
+      const userChannels = db.getChannels(sub.user_id);
+      for (const ch of userChannels) {
+        if (ch.is_active) {
+          db.updateChannel(ch.id, { is_active: false });
+        }
+      }
     }
   }
 

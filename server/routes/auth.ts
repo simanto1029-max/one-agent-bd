@@ -99,7 +99,7 @@ MANDATORY LANGUAGE & REPLY RULES:
     db.createSubscription({
       id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       user_id: newUserId,
-      plan_id: defaultPlan ? defaultPlan.id : 'plan_starter',
+      plan_id: 'plan_pro',
       status: 'trialing',
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),

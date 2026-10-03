@@ -132,10 +132,11 @@ export class MetaChannelService {
       const user = db.getProfileById(userId);
       const isAdmin = user?.role === 'admin';
       const sub = db.getSubscriptionByUserId(userId);
-      const planId = String(sub?.plan_id || 'plan_starter').toLowerCase();
+      const isTrial = sub?.status === 'trialing';
+      const planId = String(sub?.plan_id || (isTrial ? 'plan_pro' : 'plan_starter')).toLowerCase();
       const plan = db.getPlanById(planId);
-      const isPro = isAdmin || planId.includes('pro') || Boolean(plan?.price && plan.price >= 1950);
-      const maxAllowedChannels = isAdmin ? 999 : plan?.feature_config?.max_channels || (isPro ? 10 : 3);
+      const isPro = isAdmin || isTrial || planId.includes('pro') || Boolean(plan?.price && plan.price >= 1950);
+      const maxAllowedChannels = isAdmin ? 999 : (isPro ? 10 : plan?.feature_config?.max_channels || 3);
 
       const getActiveCount = () =>
         db
