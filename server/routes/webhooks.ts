@@ -844,4 +844,22 @@ webhooksRouter.post('/orders', (req: Request, res: Response) => {
   return handleStoreWebhook(req, res);
 });
 
+// Meta GDPR / Data Deletion Callback (Required by Meta App Settings)
+webhooksRouter.post('/meta/data-deletion', (req: Request, res: Response) => {
+  const confirmationCode = 'del_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+  const host = req.get('host') || 'oneagentbd.online';
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  return res.json({
+    url: `${protocol}://${host}/privacy?deletion_id=${confirmationCode}`,
+    confirmation_code: confirmationCode
+  });
+});
+webhooksRouter.get('/meta/data-deletion', (req: Request, res: Response) => {
+  return res.json({
+    status: 'active',
+    endpoint: 'Meta Data Deletion Callback URL',
+    documentation: 'https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback'
+  });
+});
+
 

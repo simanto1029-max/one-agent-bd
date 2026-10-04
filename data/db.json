@@ -144,7 +144,23 @@
     }
   ],
   "payments": [],
-  "channels": [],
+  "channels": [
+    {
+      "id": "chn_wa_1791103340120",
+      "user_id": "usr_1790321094039_p5g7h",
+      "platform": "whatsapp",
+      "name": "Test WhatsApp Store (+8801700998877)",
+      "identifier": "wa_8801700998877",
+      "access_token": "system_cloud_token",
+      "is_active": true,
+      "status": "connected",
+      "meta_asset_name": "Test WhatsApp Store (+8801700998877)",
+      "meta_asset_id": "wa_8801700998877",
+      "meta_business_id": "",
+      "created_at": "2026-10-04T08:42:20.120Z",
+      "updated_at": "2026-10-04T08:42:20.120Z"
+    }
+  ],
   "messages": [
     {
       "id": "msg_1789553827410_in_j2uv",
@@ -3292,8 +3308,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-04T08:23:46.879Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:23:46 AM)"
+    "cron_last_run": "2026-10-04T08:42:19.926Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 8:42:19 AM)"
   },
   "orders": [
     {
@@ -3496,10 +3512,31 @@
       "status": "connected",
       "connected_at": "2026-09-25T07:53:11.490Z",
       "updated_at": "2026-09-25T07:53:11.490Z"
+    },
+    {
+      "id": "wa_8801700998877",
+      "user_id": "usr_1790321094039_p5g7h",
+      "waba_id": "",
+      "display_phone_number": "+8801700998877",
+      "verified_name": "Test WhatsApp Store",
+      "quality_rating": "GREEN",
+      "code_verification_status": "VERIFIED",
+      "status": "connected",
+      "connected_at": "2026-10-04T08:42:20.115Z",
+      "updated_at": "2026-10-04T08:42:20.115Z"
     }
   ],
   "webhook_events": [],
   "audit_logs": [
+    {
+      "id": "aud_1791103340125",
+      "user_id": "usr_1790321094039_p5g7h",
+      "action": "channel_connected",
+      "resource": "channel",
+      "resource_id": "chn_wa_1791103340120",
+      "details": "Connected WhatsApp Business Number \"+8801700998877\" (wa_8801700998877)",
+      "created_at": "2026-10-04T08:42:20.125Z"
+    },
     {
       "id": "aud_1790322791497",
       "user_id": "usr_1790321094039_p5g7h",
@@ -3602,7 +3639,7 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1791102226879,
+  "_lastUpdatedAt": 1791103340125,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

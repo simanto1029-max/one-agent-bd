@@ -68,10 +68,12 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [step, setStep] = useState<'auth' | 'select'>('auth');
   const [metaAppId, setMetaAppId] = useState<string>('');
   const [waConnectTab, setWaConnectTab] = useState<'auto' | 'manual'>('auto');
+  const [manualWaPhone, setManualWaPhone] = useState<string>('');
   const [manualWaName, setManualWaName] = useState<string>('');
   const [manualWabaId, setManualWabaId] = useState<string>('');
   const [manualWaPhoneId, setManualWaPhoneId] = useState<string>('');
   const [manualWaToken, setManualWaToken] = useState<string>('');
+  const [showAdvancedWaConfig, setShowAdvancedWaConfig] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -230,8 +232,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   const handleManualWhatsAppConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualWaPhoneId.trim() || !manualWaToken.trim()) {
-      setError('Please enter your WhatsApp Phone Number ID and Access Token.');
+    const cleanPhone = manualWaPhone.trim();
+    const cleanPhoneId = manualWaPhoneId.trim();
+
+    if (!cleanPhone && !cleanPhoneId) {
+      setError('Please enter your WhatsApp Phone Number (e.g. +88017XXXXXXXX).');
       return;
     }
     try {
@@ -239,10 +244,10 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       setError(null);
       const res = await api.autoConnectWhatsApp({
         wabaId: manualWabaId.trim() || undefined,
-        phoneNumberId: manualWaPhoneId.trim(),
-        displayPhoneNumber: manualWaName.trim() || manualWaPhoneId.trim(),
-        verifiedName: manualWaName.trim() || `WhatsApp (${manualWaPhoneId.trim()})`,
-        accessToken: manualWaToken.trim()
+        phoneNumberId: cleanPhoneId || cleanPhone,
+        displayPhoneNumber: cleanPhone || cleanPhoneId,
+        verifiedName: manualWaName.trim() || (cleanPhone ? `WhatsApp (${cleanPhone})` : 'WhatsApp Business'),
+        accessToken: manualWaToken.trim() || undefined
       });
       onSuccess(res.channel);
       onClose();
@@ -479,63 +484,107 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                   }`}
                 >
-                  2. Connect via Number / API
+                  2. Direct Phone Number Connect
                 </button>
               </div>
             )}
 
             {platform === 'whatsapp' && waConnectTab === 'manual' ? (
-              <form onSubmit={handleManualWhatsAppConnect} className="space-y-3 text-left">
+              <form onSubmit={handleManualWhatsAppConnect} className="space-y-3.5 text-left">
+                {/* Zero Data Loss Notice Card */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/70 text-left space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Zero Data Loss Guarantee &amp; Safe Connection</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
+                    • <strong>কোনো ডাটা হারাবে না:</strong> আপনার ব্যবসার জন্য একটি আলাদা/নতুন সিম নম্বর ব্যবহার করলে ব্যক্তিগত কোনো অ্যাকাউন্ট ডিলিট করতে হবে না।<br />
+                    • <strong>বর্তমান নম্বর সুরক্ষিত রাখতে:</strong> বর্তমান ফোনে WhatsApp Settings &gt; Chats &gt; <strong>Chat Backup</strong> থেকে গুগল ড্রাইভ বা আইক্লাউডে ব্যাকআপ নিয়ে রাখুন।
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1">
+                    WhatsApp Business Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={manualWaPhone}
+                    onChange={(e) => setManualWaPhone(e.target.value)}
+                    placeholder="e.g. +88017XXXXXXXX or 017XXXXXXXX"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block mt-0.5">
+                    Enter the WhatsApp number customers message you on.
+                  </span>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Business Name / Phone Number
+                    Business / Store Display Name (Optional)
                   </label>
                   <input
                     type="text"
                     value={manualWaName}
                     onChange={(e) => setManualWaName(e.target.value)}
-                    placeholder="e.g. My Shop (+88017XXXXXXXX)"
+                    placeholder="e.g. My Shop / Official Helpline"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm text-neutral-900 dark:text-white"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Business Account ID (WABA ID)
-                  </label>
-                  <input
-                    type="text"
-                    value={manualWabaId}
-                    onChange={(e) => setManualWabaId(e.target.value)}
-                    placeholder="e.g. 1098160382932544"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
-                  />
+
+                {/* Optional Developer Advanced Meta Credentials */}
+                <div className="pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedWaConfig(!showAdvancedWaConfig)}
+                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{showAdvancedWaConfig ? '▼ Hide Custom Meta Developer IDs' : '▶ Custom Meta Developer IDs (Optional for custom WABA owners)'}</span>
+                  </button>
+
+                  {showAdvancedWaConfig && (
+                    <div className="mt-2.5 p-3 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5 animate-in fade-in duration-150">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
+                          Custom WABA ID (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={manualWabaId}
+                          onChange={(e) => setManualWabaId(e.target.value)}
+                          placeholder="e.g. 1098160382932544"
+                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
+                          Custom Phone Number ID (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={manualWaPhoneId}
+                          onChange={(e) => setManualWaPhoneId(e.target.value)}
+                          placeholder="e.g. 1248549471684856"
+                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
+                          Custom Access Token (Optional)
+                        </label>
+                        <input
+                          type="password"
+                          value={manualWaToken}
+                          onChange={(e) => setManualWaToken(e.target.value)}
+                          placeholder="Uses system Meta Master Token if left empty"
+                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Phone Number ID *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={manualWaPhoneId}
-                    onChange={(e) => setManualWaPhoneId(e.target.value)}
-                    placeholder="e.g. 1248549471684856"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    WhatsApp Access Token *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={manualWaToken}
-                    onChange={(e) => setManualWaToken(e.target.value)}
-                    placeholder="Enter System User / Permanent Access Token"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white"
-                  />
-                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -544,7 +593,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Connecting...</span>
+                      <span>Connecting WhatsApp...</span>
                     </>
                   ) : (
                     <>
