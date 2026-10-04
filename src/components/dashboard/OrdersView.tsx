@@ -94,6 +94,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
 
+  // Bulk Selection and 1-Click Dispatch to Courier State
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [bulkCourierProcessing, setBulkCourierProcessing] = useState(false);
+  const [showBulkCourierModal, setShowBulkCourierModal] = useState(false);
+  const [bulkCourierPartner, setBulkCourierPartner] = useState<string>('steadfast');
+
   // Manual Order Form
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
@@ -209,6 +215,83 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       }, 5000);
     } catch (err) {
       console.error('Courier send error:', err);
+    }
+  };
+
+  const handleToggleSelectOrder = (id: string) => {
+    const next = new Set(selectedOrderIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedOrderIds(next);
+  };
+
+  const handleSelectAllOrders = () => {
+    if (selectedOrderIds.size === orders.length) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(orders.map(o => o.id)));
+    }
+  };
+
+  const handle1ClickSendAllPendingToCourier = () => {
+    const pendingOrders = orders.filter(o => o.status === 'confirmed');
+    const targetOrders = pendingOrders.length > 0 ? pendingOrders : orders.filter(o => o.status !== 'cancelled' && o.status !== 'delivered');
+    if (targetOrders.length === 0) {
+      setCourierToast({
+        title: 'কোনো পেন্ডিং অর্ডার নেই',
+        message: 'কুরিয়ারে পাঠানোর মতো নতুন কোনো কনফার্মড অর্ডার পাওয়া যায়নি।'
+      });
+      setTimeout(() => setCourierToast(null), 3500);
+      return;
+    }
+    setSelectedOrderIds(new Set(targetOrders.map(o => o.id)));
+    setShowBulkCourierModal(true);
+  };
+
+  const handleBulkCourierDispatch = async (courierId: string = bulkCourierPartner) => {
+    const idsToDispatch: string[] = Array.from(selectedOrderIds);
+    if (idsToDispatch.length === 0) return;
+
+    setBulkCourierProcessing(true);
+    try {
+      const { getCourierCredentials } = await import('../../utils/courierUtils');
+      const creds = getCourierCredentials(courierId);
+      const res = await api.bulkDispatchOrdersToCourier(idsToDispatch, courierId, {
+        merchantId: creds.merchantId,
+        apiKey: creds.apiKey,
+        apiSecret: creds.apiSecret,
+        pickupAddress: creds.pickupAddress,
+        pickupPhone: creds.notes
+      });
+
+      const selectedOrders = orders.filter(o => selectedOrderIds.has(o.id));
+      const fullText = (res.orders || selectedOrders).map((o, idx) => {
+        return `--- [PARCEL #${idx + 1} | Tracking: ${o.tracking_number || 'Pending'}] ---\n${formatOrderForCourier(o)}\n`;
+      }).join('\n');
+
+      try {
+        await navigator.clipboard.writeText(fullText);
+      } catch (clipErr) {
+        console.warn('Clipboard write warning:', clipErr);
+      }
+
+      setCourierToast({
+        title: `🚚 ১-ক্লিকে ${idsToDispatch.length}টি পার্সেল ${courierId.toUpperCase()}-এ পাঠানো সম্পন্ন!`,
+        message: `${res.message || 'Tracking codes assigned.'} সমস্ত পার্সেলের ডেলিভারি স্লিপ স্বয়ংক্রিয়ভাবে ক্লিপবোর্ডে কপি হয়েছে।`
+      });
+
+      setShowBulkCourierModal(false);
+      setSelectedOrderIds(new Set());
+      loadOrders();
+      setTimeout(() => setCourierToast(null), 5000);
+    } catch (err: any) {
+      setCourierToast({
+        title: 'কুরিয়ারে পাঠাতে সমস্যা হয়েছে',
+        message: err.message || 'Failed to dispatch orders to courier.'
+      });
+      setTimeout(() => setCourierToast(null), 4000);
+    } finally {
+      setBulkCourierProcessing(false);
     }
   };
 
@@ -476,6 +559,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
         {/* Clean Header Actions: Primary Button + Single Tools Dropdown */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => handle1ClickSendAllPendingToCourier()}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-600/25 flex items-center gap-1.5 cursor-pointer"
+            title="১-ক্লিকে সব কাস্টমার অর্ডার কুরিয়ারে পাঠান"
+          >
+            <Truck className="w-4 h-4" />
+            <span>১-ক্লিকে সব কুরিয়ারে পাঠান{orders.filter(o => o.status === 'confirmed').length > 0 ? ` (${orders.filter(o => o.status === 'confirmed').length})` : ''}</span>
+          </button>
+
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold transition-all shadow-sm shadow-[#7F22FE]/25 flex items-center gap-1.5 cursor-pointer"
@@ -830,6 +922,36 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         </div>
       </div>
 
+      {/* Sticky Bulk Action Bar for Selected Orders */}
+      {selectedOrderIds.size > 0 && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white shadow-lg flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">
+              {selectedOrderIds.size}
+            </span>
+            <span className="text-xs font-bold">
+              {selectedOrderIds.size}টি কাস্টমার অর্ডার সিলেক্ট করা হয়েছে
+            </span>
+            <button
+              onClick={() => setSelectedOrderIds(new Set())}
+              className="text-xs text-white/80 hover:text-white underline cursor-pointer ml-1"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBulkCourierModal(true)}
+              disabled={bulkCourierProcessing}
+              className="px-4 py-2 rounded-xl bg-white text-purple-900 hover:bg-purple-50 text-xs font-black shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Truck className="w-4 h-4 text-purple-600" />
+              <span>১-ক্লিকে কুরিয়ারে পাঠান ({selectedOrderIds.size})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Orders Table */}
       <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs overflow-hidden">
         {loading ? (
@@ -947,10 +1069,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          if (!isProPlan && onUpgradeToPro) {
-                            onUpgradeToPro();
-                            return;
-                          }
                           setSelectedCourierOrder(order);
                           setCourierModalTab('quick');
                           setShowCourierModal(true);
@@ -993,6 +1111,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               <table className="w-full text-left text-xs">
               <thead className="bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-semibold border-b border-neutral-200 dark:border-neutral-800">
                 <tr>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={orders.length > 0 && selectedOrderIds.size === orders.length}
+                      onChange={handleSelectAllOrders}
+                      className="rounded text-[#7F22FE] focus:ring-[#7F22FE] cursor-pointer"
+                      title="Select All Orders"
+                    />
+                  </th>
                   <th className="py-3 px-4">Order ID & Date</th>
                   <th className="py-3 px-4">Customer</th>
                   <th className="py-3 px-4">Channel</th>
@@ -1008,8 +1135,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 {orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors"
+                    className={`hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors ${
+                      selectedOrderIds.has(order.id) ? 'bg-[#7F22FE]/5 dark:bg-[#7F22FE]/15' : ''
+                    }`}
                   >
+                    <td className="py-3.5 px-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrderIds.has(order.id)}
+                        onChange={() => handleToggleSelectOrder(order.id)}
+                        className="rounded text-[#7F22FE] focus:ring-[#7F22FE] cursor-pointer"
+                      />
+                    </td>
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-violet-600 dark:text-violet-400">
                         #{order.id.slice(-6).toUpperCase()}
@@ -1132,28 +1269,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         {/* 1-Click Send to Courier */}
                         <button
                           onClick={() => {
-                            if (!isProPlan && onUpgradeToPro) {
-                              onUpgradeToPro();
-                              return;
-                            }
                             setSelectedCourierOrder(order);
                             setCourierModalTab('quick');
                             setShowCourierModal(true);
                           }}
-                          title={
-                            isProPlan
-                              ? '1-Click Dispatch to Courier (Steadfast/Pathao/RedX)'
-                              : 'Pro Business Plan Feature — Click to Upgrade'
-                          }
-                          className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex items-center gap-1 font-semibold"
+                          title="1-Click Dispatch to Courier (Steadfast/Pathao/RedX)"
+                          className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer flex items-center gap-1 font-semibold"
                         >
                           <Truck className="w-3.5 h-3.5" />
                           <span className="text-[10px] hidden md:inline">Courier</span>
-                          {!isProPlan && (
-                            <span className="px-1 py-0.2 rounded bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white text-[8px] font-black uppercase">
-                              PRO
-                            </span>
-                          )}
                         </button>
 
                         <button
@@ -1786,6 +1910,90 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         onClose={() => setShowAISettingsModal(false)}
         onSaved={() => loadOrders()}
       />
+
+      {/* Bulk Courier Dispatch Modal */}
+      {showBulkCourierModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-neutral-900 dark:text-white">
+                    ১-ক্লিকে সব কাস্টমার অর্ডার কুরিয়ারে পাঠান
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    সিলেক্টেড <strong>{selectedOrderIds.size}টি পার্সেল</strong> একসাথে বুকিং হবে
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBulkCourierModal(false)}
+                className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed bg-neutral-50 dark:bg-neutral-800/50 p-3 rounded-2xl border border-neutral-200/60 dark:border-neutral-700/60">
+              💡 আপনি সিলেক্টেড সকল অর্ডারের ট্র্যাকিং কোড স্বয়ংক্রিয়ভাবে জেনারেট করে <strong>In Transit (Dispatched)</strong> স্ট্যাটাসে আপডেট করতে পারবেন। যদি লাইভ API কানেক্টেড থাকে সরাসরি বুক হবে, অন্যথায় ১-ক্লিক স্মার্ট মোডে ট্র্যাকিং তৈরি হবে এবং কুরিয়ারে পেস্ট করার জন্য সব তথ্য কপি হয়ে যাবে।
+            </p>
+
+            <div>
+              <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2">
+                কুরিয়ার পার্টনার নির্বাচন করুন:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {COURIER_PROVIDERS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setBulkCourierPartner(c.id)}
+                    className={`p-3 rounded-2xl border text-left cursor-pointer transition-all flex items-center justify-between ${
+                      bulkCourierPartner === c.id
+                        ? 'border-[#7F22FE] bg-[#7F22FE]/5 ring-2 ring-[#7F22FE]/20 shadow-xs'
+                        : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 bg-white dark:bg-neutral-800/40'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-neutral-900 dark:text-white">{c.name}</div>
+                      <div className="text-[10px] text-neutral-400">{c.tagline.slice(0, 30)}...</div>
+                    </div>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${c.badgeBg}`}>
+                      {c.logoCode}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setShowBulkCourierModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
+              >
+                বাতিল করুন
+              </button>
+              <button
+                type="button"
+                disabled={bulkCourierProcessing}
+                onClick={() => handleBulkCourierDispatch(bulkCourierPartner)}
+                className="px-5 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold transition-all shadow-md shadow-[#7F22FE]/25 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Truck className="w-4 h-4" />
+                <span>
+                  {bulkCourierProcessing
+                    ? 'কুরিয়ারে পাঠানো হচ্ছে...'
+                    : `১-ক্লিকে ${selectedOrderIds.size}টি পার্সেল পাঠান`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delivery Apps & Courier Integration Modal */}
       <CourierModal

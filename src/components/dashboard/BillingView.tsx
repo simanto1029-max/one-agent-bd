@@ -56,6 +56,27 @@ export const BillingView: React.FC<BillingViewProps> = ({
     message: string;
   } | null>(null);
 
+  // Starter to Pro Upgrade Quote State
+  const [upgradeQuote, setUpgradeQuote] = useState<{
+    canUpgrade: boolean;
+    currentPlanId: string;
+    currentPlanName: string;
+    targetPlanId: string;
+    targetPlanName: string;
+    daysRemaining: number;
+    currentPlanPrice: number;
+    targetPlanPrice: number;
+    flatDifference: number;
+    proratedDifference: number;
+    unusedStarterCredit: number;
+    renewWithCreditPrice: number;
+    upgradeEndDate: string;
+  } | null>(null);
+  const [upgradeMode, setUpgradeMode] = useState<boolean>(false);
+  const [upgradeCustomAmount, setUpgradeCustomAmount] = useState<number | null>(null);
+  const [upgradeCustomDurationDays, setUpgradeCustomDurationDays] = useState<number | undefined>(undefined);
+  const [upgradeCustomLabel, setUpgradeCustomLabel] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     loadBillingData();
 
@@ -123,6 +144,13 @@ export const BillingView: React.FC<BillingViewProps> = ({
       } else {
         setSelectedPlan(merged[0]);
       }
+
+      // Fetch upgrade quote if on Starter plan
+      if (subStatus && (!subStatus.isProPlan || subStatus.planId === 'plan_starter') && !subStatus.isExpired) {
+        api.getUpgradeQuote('plan_pro')
+          .then((quote) => setUpgradeQuote(quote))
+          .catch((err) => console.warn('Could not fetch upgrade quote:', err));
+      }
     } catch (err) {
       console.error('Failed to load billing history:', err);
       setPlans(OFFICIAL_PLANS);
@@ -147,6 +175,20 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const handleOpenGatewayForPlan = (plan: Plan, method?: PaymentMethodKey | null) => {
     setSelectedPlan(plan);
     setPreselectedMethod(method || null);
+    setUpgradeMode(false);
+    setUpgradeCustomAmount(null);
+    setUpgradeCustomDurationDays(undefined);
+    setUpgradeCustomLabel(undefined);
+    setIsGatewayModalOpen(true);
+  };
+
+  const handleUpgradeWithDifference = (amount: number, label: string, durationDays: number = 0) => {
+    const proPlan = plans.find((p) => p.id === 'plan_pro' || p.price >= 1950) || plans[1] || plans[0];
+    setSelectedPlan(proPlan);
+    setUpgradeMode(true);
+    setUpgradeCustomAmount(amount);
+    setUpgradeCustomDurationDays(durationDays);
+    setUpgradeCustomLabel(label);
     setIsGatewayModalOpen(true);
   };
 
@@ -264,6 +306,67 @@ export const BillingView: React.FC<BillingViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Starter to Pro Upgrade Card (Baki Fee / Difference Upgrade) */}
+      {(!subStatus?.isProPlan || subStatus?.planId === 'plan_starter' || subStatus?.planName?.toLowerCase().includes('starter')) && !isExpired && isActive && (
+        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-xl shadow-purple-600/20 relative overflow-hidden border border-purple-400/30 animate-in fade-in duration-300">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs text-xs font-black tracking-wide border border-white/25">
+                <Crown className="w-3.5 h-3.5 text-amber-300" />
+                <span>বাকি ফি (Price Difference) দিয়ে সরাসরি Pro Plan-এ Upgrade</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-snug">
+                Starter থেকে Pro-তে Upgrade করুন — মাত্র ৳{upgradeQuote ? upgradeQuote.flatDifference : 700} টাকা বাকি ফি দিয়ে!
+              </h3>
+              <p className="text-xs sm:text-sm text-purple-100 leading-relaxed">
+                আপনি যেকোনো সময় Starter প্ল্যান থেকে Pro প্ল্যানে আপগ্রেড করতে পারবেন। পুরো প্ল্যানের টাকা দিতে হবে না — শুধুমাত্র দুই প্ল্যানের পার্থক্যের <strong>বাকি ফি (৳{upgradeQuote ? upgradeQuote.flatDifference : 700})</strong> প্রদান করলেই সাথে সাথে ১০টি চ্যানেল, কুরিয়ার বাল্ক অটোমেশন ও সমস্ত Pro সুবিধা আপনার বর্তমান মেয়াদের জন্য আনলক হয়ে যাবে।
+              </p>
+              {upgradeQuote && upgradeQuote.daysRemaining > 0 && (
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-purple-200 font-medium">
+                  <span>📅 বর্তমান মেয়াদ বাকি: <strong>{upgradeQuote.daysRemaining} দিন</strong></span>
+                  <span>•</span>
+                  <span>🚀 Pro আনলক: <strong>১০টি চ্যানেল + ফুল অটোমেশন</strong></span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  handleUpgradeWithDifference(
+                    upgradeQuote ? upgradeQuote.flatDifference : 700,
+                    `Pro Upgrade (বাকি ফি: ৳${upgradeQuote ? upgradeQuote.flatDifference : 700})`,
+                    0 // 0 means upgrade current active billing cycle
+                  )
+                }
+                className="px-5 py-3 rounded-xl bg-white text-purple-900 hover:bg-purple-50 text-xs sm:text-sm font-black transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Zap className="w-4 h-4 text-purple-600" />
+                <span>বাকি ফি দিয়ে Upgrade করুন (৳{upgradeQuote ? upgradeQuote.flatDifference : 700})</span>
+                <ArrowRight className="w-4 h-4 text-purple-600" />
+              </button>
+
+              {upgradeQuote && upgradeQuote.proratedDifference < upgradeQuote.flatDifference && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleUpgradeWithDifference(
+                      upgradeQuote.proratedDifference,
+                      `Pro Upgrade (Prorated: ৳${upgradeQuote.proratedDifference})`,
+                      0
+                    )
+                  }
+                  className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all border border-white/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>অবশিষ্ট {upgradeQuote.daysRemaining} দিনের জন্য ৳{upgradeQuote.proratedDifference} দিয়ে Upgrade</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Pricing Section */}
       <div className="p-4 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-6 sm:space-y-8">
@@ -650,11 +753,15 @@ export const BillingView: React.FC<BillingViewProps> = ({
         onClose={() => {
           setIsGatewayModalOpen(false);
           setPreselectedMethod(null);
+          setUpgradeMode(false);
+          setUpgradeCustomAmount(null);
+          setUpgradeCustomDurationDays(undefined);
+          setUpgradeCustomLabel(undefined);
         }}
         plan={selectedPlan}
-        customAmount={selectedCustomAmount}
-        durationDays={activeDuration.days}
-        durationLabel={activeDuration.label}
+        customAmount={upgradeMode && upgradeCustomAmount ? upgradeCustomAmount : selectedCustomAmount}
+        durationDays={upgradeMode && upgradeCustomDurationDays !== undefined ? upgradeCustomDurationDays : activeDuration.days}
+        durationLabel={upgradeMode && upgradeCustomLabel ? upgradeCustomLabel : activeDuration.label}
         initialMethod={preselectedMethod}
         onSuccess={() => {
           loadBillingData();

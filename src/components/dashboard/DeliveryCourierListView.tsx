@@ -261,7 +261,25 @@ export const DeliveryCourierListView: React.FC<DeliveryCourierListViewProps> = (
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => {
+                const confirmed = activeOrdersList.filter(o => o.status === 'confirmed');
+                const target = confirmed.length > 0 ? confirmed : activeOrdersList.filter(o => o.status !== 'cancelled' && o.status !== 'delivered');
+                if (target.length === 0) {
+                  setToastMessage({ title: 'কুরিয়ারে পাঠানোর মতো কোনো পেন্ডিং অর্ডার পাওয়া যায়নি।', type: 'error' });
+                  return;
+                }
+                setSelectedOrderIds(new Set(target.map(o => o.id)));
+                setShowBulkSendModal(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-white text-purple-900 hover:bg-purple-50 text-xs font-black transition-all shadow-md flex items-center gap-2 cursor-pointer"
+              title="সব পেন্ডিং কাস্টমার অর্ডার একসাথে কুরিয়ারে বুক করুন"
+            >
+              <Truck className="w-4 h-4 text-[#7F22FE]" />
+              <span>১-ক্লিকে সব পেন্ডিং কুরিয়ারে পাঠান{pendingDispatchCount > 0 ? ` (${pendingDispatchCount})` : ''}</span>
+            </button>
+
             <button
               onClick={() => loadData()}
               className="p-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all border border-white/20 flex items-center gap-2 cursor-pointer shadow-sm"

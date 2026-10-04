@@ -47,41 +47,13 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
   const profile = db.getProfileById(userId);
   const isAdmin = profile?.role === 'admin';
 
-  // If a non-admin account has no approved payment and was either marked 'active' or expired in earlier prototype runs,
-  // grant/restore a fresh 2-Day Free Trial (48 hours) with plan_pro so users testing the platform can test everything A to Z.
-  if (!isAdmin && !(sub as any).demo_plan_override) {
-    const userPayments = db.getPaymentsByUserId(userId);
-    const hasApprovedPayment = userPayments.some((p) => p.status === 'approved');
-    if (!hasApprovedPayment) {
-      const trialEndDate = new Date(sub.end_date);
-      const isPastOrExpired = sub.status === 'expired' || trialEndDate.getTime() <= now.getTime();
-      if (sub.status === 'active' || isPastOrExpired) {
-        const twoDayEnd = new Date(now.getTime() + 2 * 86400000).toISOString();
-        sub =
-          db.updateSubscription(sub.id, {
-            status: 'trialing',
-            plan_id: 'plan_pro',
-            start_date: now.toISOString(),
-            end_date: twoDayEnd,
-            updated_at: now.toISOString()
-          }) || sub;
-
-        // Ensure user's channels are unpaused so they can test immediately
-        const userChannels = db.getChannels(userId);
-        for (const ch of userChannels) {
-          if (ch.status === 'connected' || ch.access_token) {
-            db.updateChannel(ch.id, { is_active: true, status: 'connected' });
-          }
-        }
-      } else if (sub.status === 'trialing' && sub.plan_id !== 'plan_pro') {
-        // Upgrade trial to plan_pro so all Pro features and up to 10 channels are available during trial
-        sub =
-          db.updateSubscription(sub.id, {
-            plan_id: 'plan_pro',
-            updated_at: now.toISOString()
-          }) || sub;
-      }
-    }
+  // During free trial, ensure user is assigned plan_pro with full pro features unlocked
+  if (sub.status === 'trialing' && sub.plan_id !== 'plan_pro') {
+    sub =
+      db.updateSubscription(sub.id, {
+        plan_id: 'plan_pro',
+        updated_at: now.toISOString()
+      }) || sub;
   }
 
   let endDate = new Date(sub.end_date);
@@ -186,9 +158,7 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
 
 export function activateSubscription(userId: string, planId: string, durationDays: number): Subscription {
   const plan = db.getPlanById(planId);
-  const days = durationDays || (plan ? plan.duration_days : 30);
   const now = new Date();
-
   const currentSub = db.getSubscriptionByUserId(userId);
   let baseDate = now;
 
@@ -197,7 +167,14 @@ export function activateSubscription(userId: string, planId: string, durationDay
     baseDate = new Date(currentSub.end_date);
   }
 
-  const newEndDate = new Date(baseDate.getTime() + days * 86400000).toISOString();
+  // If durationDays === 0, it means the user paid the difference/prorated fee to upgrade their CURRENT active cycle to Pro
+  let newEndDate: string;
+  if (durationDays === 0 && currentSub && currentSub.status === 'active' && new Date(currentSub.end_date) > now) {
+    newEndDate = currentSub.end_date;
+  } else {
+    const days = durationDays || (plan ? plan.duration_days : 30);
+    newEndDate = new Date(baseDate.getTime() + days * 86400000).toISOString();
+  }
 
   // Enforce channel limit for plan: Starter (1,250 TK) allows up to 3 active Meta channels; Pro (1,950 TK) allows up to 10
   const isPro = String(planId).toLowerCase().includes('pro') || (plan?.price && plan.price >= 1950);

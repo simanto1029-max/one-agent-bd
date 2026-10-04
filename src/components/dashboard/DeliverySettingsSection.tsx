@@ -16,8 +16,10 @@ import {
   CheckCircle2,
   HelpCircle,
   RefreshCw,
-  Send
+  Send,
+  AlertTriangle
 } from 'lucide-react';
+import { api } from '../../api';
 import {
   COURIER_PROVIDERS,
   CourierProvider,
@@ -54,41 +56,128 @@ export const DeliverySettingsSection: React.FC<DeliverySettingsSectionProps> = (
   // Delivery Charges & Times
   const [feeSettings, setFeeSettings] = useState<DeliveryFeeSettings>(() => getDeliveryFeeSettings());
 
-  // Statuses
+  // Statuses & Live Connection Testing
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedTestParcel, setCopiedTestParcel] = useState(false);
   const [aiSyncSuccess, setAiSyncSuccess] = useState(false);
+  const [backendSettings, setBackendSettings] = useState<Record<string, any>>({});
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<{
+    success: boolean;
+    verified: boolean;
+    message: string;
+    balance?: number;
+    error?: string;
+  } | null>(null);
+
+  // Load saved credentials from backend profile on mount
+  useEffect(() => {
+    api.getCourierSettings()
+      .then((res) => {
+        if (res?.courier_settings) {
+          setBackendSettings(res.courier_settings);
+          const savedDefault = res.defaultCourierId || res.courier_settings._default;
+          if (savedDefault) {
+            setSelectedCourierId(savedDefault);
+            setDefaultCourierId(savedDefault);
+          }
+          const savedForCurrent = res.courier_settings[savedDefault || selectedCourierId];
+          if (savedForCurrent) {
+            if (savedForCurrent.merchantId) setMerchantId(savedForCurrent.merchantId);
+            if (savedForCurrent.apiKey) setApiKey(savedForCurrent.apiKey);
+            if (savedForCurrent.apiSecret) setApiSecret(savedForCurrent.apiSecret);
+            if (savedForCurrent.pickupAddress) setPickupAddress(savedForCurrent.pickupAddress);
+            if (savedForCurrent.pickupPhone || savedForCurrent.notes) {
+              setPickupPhone(savedForCurrent.pickupPhone || savedForCurrent.notes);
+            }
+          }
+        }
+      })
+      .catch((err) => console.warn('Could not load backend courier settings:', err));
+  }, []);
 
   useEffect(() => {
-    const creds = getCourierCredentials(selectedCourierId);
-    setMerchantId(creds.merchantId || '');
-    setApiKey(creds.apiKey || '');
-    setApiSecret(creds.apiSecret || '');
-    setPickupAddress(creds.pickupAddress || '');
-    setPickupPhone(creds.notes || '');
+    const backendCred = backendSettings[selectedCourierId];
+    const localCred = getCourierCredentials(selectedCourierId);
+    setMerchantId(backendCred?.merchantId || localCred.merchantId || '');
+    setApiKey(backendCred?.apiKey || localCred.apiKey || '');
+    setApiSecret(backendCred?.apiSecret || localCred.apiSecret || '');
+    setPickupAddress(backendCred?.pickupAddress || localCred.pickupAddress || '');
+    setPickupPhone(backendCred?.pickupPhone || backendCred?.notes || localCred.notes || '');
+    setConnectionResult(null);
   }, [selectedCourierId]);
 
   const activeCourier = COURIER_PROVIDERS.find((c) => c.id === selectedCourierId) || COURIER_PROVIDERS[0];
   const portalUrl = selectedCourierId === 'custom' ? (customUrl || 'https://steadfast.com.bd') : activeCourier.portalUrl;
 
-  const handleSaveAll = (e?: React.FormEvent) => {
+  const handleSaveAll = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setDefaultCourierId(selectedCourierId);
     setCustomCourierUrl(customUrl);
 
-    saveCourierCredentials(selectedCourierId, {
+    const credObj = {
       merchantId,
       apiKey,
       apiSecret,
       pickupAddress,
       notes: pickupPhone,
+      pickupPhone,
       customUrl
-    });
+    };
 
+    saveCourierCredentials(selectedCourierId, credObj);
     saveDeliveryFeeSettings(feeSettings);
+
+    // Save directly to backend database for seamless Live API parcel dispatch
+    try {
+      await api.saveCourierSettings(
+        { [selectedCourierId]: credObj },
+        selectedCourierId
+      );
+      setBackendSettings((prev) => ({
+        ...prev,
+        [selectedCourierId]: credObj,
+        _default: selectedCourierId
+      }));
+    } catch (saveErr) {
+      console.warn('Backend save courier settings warning:', saveErr);
+    }
 
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleTestCourierConnection = async () => {
+    if (!apiKey) {
+      setConnectionResult({
+        success: false,
+        verified: false,
+        message: '',
+        error: 'অনুগ্রহ করে API Key প্রবেশ করান।'
+      });
+      return;
+    }
+
+    setTestingConnection(true);
+    setConnectionResult(null);
+    try {
+      const res = await api.testCourierConnection(
+        selectedCourierId,
+        apiKey,
+        apiSecret,
+        merchantId
+      );
+      setConnectionResult(res);
+    } catch (err: any) {
+      setConnectionResult({
+        success: false,
+        verified: false,
+        message: '',
+        error: err.message || 'কানেকশন টেস্ট ব্যর্থ হয়েছে।'
+      });
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   const handleSyncWithAI = () => {
@@ -347,6 +436,47 @@ export const DeliverySettingsSection: React.FC<DeliverySettingsSectionProps> = (
               className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
             />
           </div>
+        </div>
+
+        {/* Live Courier Connection Test & Feedback */}
+        <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              disabled={testingConnection}
+              onClick={handleTestCourierConnection}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${testingConnection ? 'animate-spin' : ''}`} />
+              <span>{testingConnection ? 'কানেকশন টেস্ট হচ্ছে...' : `${activeCourier.name} লাইভ টেস্ট`}</span>
+            </button>
+            <span className="text-[11px] text-neutral-400">এপিআই সক্রিয় আছে কিনা পরীক্ষা করুন</span>
+          </div>
+
+          {connectionResult && (
+            <div
+              className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                connectionResult.verified
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+              }`}
+            >
+              {connectionResult.verified ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    {connectionResult.message || 'কুরিয়ার কানেকশন সফল! লাইভ পার্সেল বুকিং সক্রিয়।'}
+                    {connectionResult.balance !== undefined ? ` (ব্যালেন্স: ৳${connectionResult.balance})` : ''}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{connectionResult.error || 'কানেকশন ব্যর্থ হয়েছে। API Key ও Secret যাচাই করুন।'}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </form>
 

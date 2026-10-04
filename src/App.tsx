@@ -21,7 +21,8 @@ import {
   BarChart3,
   ChevronDown,
   Crown,
-  Lock
+  Lock,
+  Zap
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
@@ -603,51 +604,63 @@ export default function App() {
                         : '● Trial'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                  {/* Quick Trial vs Starter vs Pro Mode Switcher (Visible only to Platform Administrators) */}
+                  {currentUser?.role === 'admin' ? (
+                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('trial');
+                          await refreshUserData();
+                        }}
+                        className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          isTrialActive
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        2D Trial
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('plan_starter');
+                          await refreshUserData();
+                        }}
+                        className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          !isTrialActive && !isProPlan
+                            ? 'bg-[#7C3AED] text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        Starter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('plan_pro');
+                          await refreshUserData();
+                        }}
+                        className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
+                          !isTrialActive && isProPlan
+                            ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <Crown className="w-2.5 h-2.5 shrink-0" />
+                        <span>Pro</span>
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={async () => {
-                        await api.switchPlan('trial');
-                        await refreshUserData();
-                      }}
-                      className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
-                        isTrialActive
-                          ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
+                      onClick={handleNavigateToProUpgrade}
+                      className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#7F22FE] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      2D Trial
+                      <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+                      <span>{subStatus?.isExpired ? 'Renew / Activate Plan' : 'Manage / Upgrade Plan'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await api.switchPlan('plan_starter');
-                        await refreshUserData();
-                      }}
-                      className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
-                        !isTrialActive && !isProPlan
-                          ? 'bg-[#7C3AED] text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
-                    >
-                      Starter
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await api.switchPlan('plan_pro');
-                        await refreshUserData();
-                      }}
-                      className={`py-1.5 px-1.5 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
-                        !isTrialActive && isProPlan
-                          ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
-                    >
-                      <Crown className="w-2.5 h-2.5 shrink-0" />
-                      <span>Pro</span>
-                    </button>
-                  </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 grid grid-cols-2 gap-2">
@@ -854,52 +867,63 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* Quick Trial vs Starter vs Pro Mode Switcher */}
-                  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                  {/* Quick Trial vs Starter vs Pro Mode Switcher (Visible only to Platform Administrators) */}
+                  {currentUser?.role === 'admin' ? (
+                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white dark:bg-[#100A26] border border-slate-200/70 dark:border-purple-500/20">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('trial');
+                          await refreshUserData();
+                        }}
+                        className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          isTrialActive
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        2D Trial
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('plan_starter');
+                          await refreshUserData();
+                        }}
+                        className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                          !isTrialActive && !isProPlan
+                            ? 'bg-[#7C3AED] text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        Starter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.switchPlan('plan_pro');
+                          await refreshUserData();
+                        }}
+                        className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
+                          !isTrialActive && isProPlan
+                            ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <Crown className="w-2.5 h-2.5 shrink-0" />
+                        <span>Pro</span>
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={async () => {
-                        await api.switchPlan('trial');
-                        await refreshUserData();
-                      }}
-                      className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
-                        isTrialActive
-                          ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
+                      onClick={handleNavigateToProUpgrade}
+                      className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#7F22FE] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      2D Trial
+                      <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+                      <span>{subStatus?.isExpired ? 'Renew / Activate Plan' : 'Manage / Upgrade Plan'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await api.switchPlan('plan_starter');
-                        await refreshUserData();
-                      }}
-                      className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
-                        !isTrialActive && !isProPlan
-                          ? 'bg-[#7C3AED] text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
-                    >
-                      Starter
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await api.switchPlan('plan_pro');
-                        await refreshUserData();
-                      }}
-                      className={`py-1 px-1.5 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-0.5 cursor-pointer ${
-                        !isTrialActive && isProPlan
-                          ? 'bg-gradient-to-r from-[#7F22FE] to-[#DB2777] text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-                      }`}
-                    >
-                      <Crown className="w-2.5 h-2.5 shrink-0" />
-                      <span>Pro</span>
-                    </button>
-                  </div>
+                  )}
 
                   {subStatus?.subscription?.end_date && !subStatus.isExpired && (
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">

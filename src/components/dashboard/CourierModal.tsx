@@ -16,6 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { Order } from '../../types';
+import { api } from '../../api';
 import {
   COURIER_PROVIDERS,
   CourierProvider,
@@ -147,13 +148,19 @@ export const CourierModal: React.FC<CourierModalProps> = ({
   const handleSaveSettings = () => {
     setDefaultCourierId(selectedCourierId);
     setCustomCourierUrl(customUrl);
-    saveCourierCredentials(selectedCourierId, {
+    const creds = {
       merchantId,
       apiKey,
       apiSecret,
       pickupAddress,
       customUrl
-    });
+    };
+    saveCourierCredentials(selectedCourierId, creds);
+
+    // Save to backend database for seamless Live API parcel booking
+    api.saveCourierSettings({ [selectedCourierId]: creds }, selectedCourierId)
+      .catch(e => console.warn('Backend courier save warning:', e));
+
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);

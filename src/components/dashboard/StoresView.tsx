@@ -170,22 +170,10 @@ export const StoresView: React.FC<StoresViewProps> = ({
     setTimeout(() => setCopiedStoreId(null), 2500);
   };
 
-  const handleQuickUpgrade = async () => {
-    try {
-      setSubmitting(true);
-      await api.switchPlan('plan_pro');
-      setIsProPlan(true);
-      setShowUpgradeModal(false);
-      setActionSuccess('🎉 Congratulations! You have successfully upgraded to Pro Business! Store integrations are now unlocked.');
-      setTimeout(() => setActionSuccess(null), 5000);
-      await loadStores();
-      if (onUpgradeToPro) {
-        onUpgradeToPro();
-      }
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to upgrade plan');
-    } finally {
-      setSubmitting(false);
+  const handleQuickUpgrade = () => {
+    setShowUpgradeModal(false);
+    if (onUpgradeToPro) {
+      onUpgradeToPro();
     }
   };
 

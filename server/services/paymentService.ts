@@ -83,12 +83,14 @@ export function approvePayment(paymentId: string, adminUserId?: string): { payme
 
   // Instantly activate or extend user subscription
   const plan = db.getPlanById(payment.plan_id);
-  const durationDays = payment.duration_days || (plan ? plan.duration_days : 30);
+  const durationDays = payment.duration_days !== undefined ? payment.duration_days : (plan ? plan.duration_days : 30);
   activateSubscription(payment.user_id, payment.plan_id, durationDays);
 
   return {
     payment: updatedPayment!,
-    message: `Payment approved! Subscription activated for ${durationDays} days.`
+    message: durationDays === 0
+      ? 'Payment approved! Plan upgraded to Pro for your active billing cycle.'
+      : `Payment approved! Subscription activated for ${durationDays} days.`
   };
 }
 

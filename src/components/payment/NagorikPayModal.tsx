@@ -227,7 +227,7 @@ export const OneAgentPayGatewayModal: React.FC<OneAgentPayGatewayModalProps> = (
 
   const baseAmount = customAmount || activePlan?.price || 1250;
   const effectiveAmount = appliedCoupon ? appliedCoupon.finalAmount : baseAmount;
-  const effectiveDurationDays = durationDays || activePlan?.duration_days || 30;
+  const effectiveDurationDays = durationDays !== undefined ? durationDays : (activePlan?.duration_days || 30);
 
   useEffect(() => {
     if (isOpen && activePlan) {

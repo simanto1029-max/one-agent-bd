@@ -213,6 +213,24 @@ export const api = {
     });
   },
 
+  async getUpgradeQuote(targetPlanId: string = 'plan_pro'): Promise<{
+    canUpgrade: boolean;
+    currentPlanId: string;
+    currentPlanName: string;
+    targetPlanId: string;
+    targetPlanName: string;
+    daysRemaining: number;
+    currentPlanPrice: number;
+    targetPlanPrice: number;
+    flatDifference: number;
+    proratedDifference: number;
+    unusedStarterCredit: number;
+    renewWithCreditPrice: number;
+    upgradeEndDate: string;
+  }> {
+    return fetchJson(`/api/subscriptions/upgrade-quote?targetPlanId=${encodeURIComponent(targetPlanId)}`);
+  },
+
   // Payments & Coupons
   async applyCoupon(
     code: string,
@@ -1171,6 +1189,46 @@ export const api = {
     return fetchJson('/api/orders/bulk-dispatch-courier', {
       method: 'POST',
       body: JSON.stringify({ orderIds, courierId, credentials })
+    });
+  },
+
+  async getCourierSettings(): Promise<{
+    success: boolean;
+    courier_settings: Record<string, any>;
+    defaultCourierId: string;
+  }> {
+    return fetchJson('/api/orders/courier/settings');
+  },
+
+  async saveCourierSettings(
+    courier_settings: Record<string, any>,
+    defaultCourierId?: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    courier_settings: Record<string, any>;
+  }> {
+    return fetchJson('/api/orders/courier/settings', {
+      method: 'POST',
+      body: JSON.stringify({ courier_settings, defaultCourierId })
+    });
+  },
+
+  async testCourierConnection(
+    courierId: string,
+    apiKey: string,
+    apiSecret?: string,
+    merchantId?: string
+  ): Promise<{
+    success: boolean;
+    verified: boolean;
+    message: string;
+    balance?: number;
+    error?: string;
+  }> {
+    return fetchJson('/api/orders/courier/test-connection', {
+      method: 'POST',
+      body: JSON.stringify({ courierId, apiKey, apiSecret, merchantId })
     });
   },
 

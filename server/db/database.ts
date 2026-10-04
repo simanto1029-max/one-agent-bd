@@ -150,6 +150,7 @@ export interface Profile {
   automation_settings?: AutomationSettings;
   appointment_settings?: AppointmentBookingSettings;
   email_smtp_settings?: EmailSmtpSettings;
+  courier_settings?: Record<string, any>;
   meta_user_access_token?: string;
   meta_tokens_updated_at?: string;
   meta_granted_scopes?: string[];
