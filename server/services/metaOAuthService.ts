@@ -93,25 +93,24 @@ export class MetaOAuthService {
 
   public getEffectiveBaseUrl(req: Request): string {
     const rawHost = ((req.headers['x-forwarded-host'] as string) || req.headers.host || '').split(',')[0].trim();
-    const rawProto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'https').split(',')[0].trim();
-    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('.vercel.app')) {
-      return `${rawProto}://${rawHost}`;
+    const isLocalhost = rawHost.includes('localhost') || rawHost.includes('127.0.0.1');
+    const forwardedProto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0].trim();
+    // Non-localhost domains must ALWAYS use https for Meta OAuth compliance
+    const effectiveProto = isLocalhost ? (forwardedProto || req.protocol || 'http') : 'https';
+
+    if (rawHost && !rawHost.includes('.vercel.app')) {
+      return `${effectiveProto}://${rawHost}`;
     }
     if (process.env.APP_URL) {
       return process.env.APP_URL.replace(/\/+$/, '');
     }
     if (rawHost) {
-      return `${rawProto}://${rawHost}`;
+      return `${effectiveProto}://${rawHost}`;
     }
-    return 'https://www.oneagentbd.online';
+    return 'https://oneagentbd.online';
   }
 
   public getRedirectUri(req: Request): string {
-    const rawHost = ((req.headers['x-forwarded-host'] as string) || req.headers.host || '').split(',')[0].trim();
-    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('.vercel.app')) {
-      const rawProto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'https').split(',')[0].trim();
-      return `${rawProto}://${rawHost}/api/channels/meta/callback`;
-    }
     if (process.env.META_REDIRECT_URI) {
       return process.env.META_REDIRECT_URI;
     }

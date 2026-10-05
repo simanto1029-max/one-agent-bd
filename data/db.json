@@ -126,11 +126,11 @@
       "id": "sub_1790321094043_ykopw",
       "user_id": "usr_1790321094039_p5g7h",
       "plan_id": "plan_pro",
-      "status": "trialing",
+      "status": "expired",
       "start_date": "2026-10-03T08:21:11.990Z",
       "end_date": "2026-10-05T08:21:11.990Z",
       "created_at": "2026-09-25T07:24:54.043Z",
-      "updated_at": "2026-10-04T08:21:11.990Z"
+      "updated_at": "2026-10-05T13:10:26.263Z"
     },
     {
       "id": "sub_1790668618472_sd24i",
@@ -152,13 +152,13 @@
       "name": "Test WhatsApp Store (+8801700998877)",
       "identifier": "wa_8801700998877",
       "access_token": "system_cloud_token",
-      "is_active": true,
+      "is_active": false,
       "status": "connected",
       "meta_asset_name": "Test WhatsApp Store (+8801700998877)",
       "meta_asset_id": "wa_8801700998877",
       "meta_business_id": "",
       "created_at": "2026-10-04T08:42:20.120Z",
-      "updated_at": "2026-10-04T08:42:20.120Z"
+      "updated_at": "2026-10-05T13:10:26.273Z"
     }
   ],
   "messages": [
@@ -3308,8 +3308,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-04T08:42:19.926Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:42:19 AM)"
+    "cron_last_run": "2026-10-05T15:27:52.119Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 3:27:52 PM)"
   },
   "orders": [
     {
@@ -3639,7 +3639,7 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1791103340125,
+  "_lastUpdatedAt": 1791214072119,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

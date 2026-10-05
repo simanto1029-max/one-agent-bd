@@ -31,6 +31,9 @@ process.env.DISABLE_HMR = 'true';
 const PORT = 3000;
 export const app = express();
 
+// Trust forward proxy headers (for accurate https protocol behind Cloudflare, Nginx, or reverse proxies)
+app.set('trust proxy', true);
+
 // Parse JSON and urlencoded request bodies with rawBody capture for Meta webhook signature verification
 app.use(
   express.json({
