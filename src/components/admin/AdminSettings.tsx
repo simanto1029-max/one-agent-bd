@@ -272,6 +272,17 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
+  const getEffectiveOrigin = () => {
+    if (typeof window !== 'undefined') {
+      if (window.location.hostname === 'oneagentbd.online') {
+        return 'https://www.oneagentbd.online';
+      }
+      return window.location.origin;
+    }
+    return 'https://www.oneagentbd.online';
+  };
+  const effectiveOrigin = getEffectiveOrigin();
+
   return (
     <div className="space-y-8 animate-in fade-in duration-200 max-w-4xl">
       <div>
@@ -743,12 +754,12 @@ export const AdminSettings: React.FC = () => {
                 Webhook Callback URL (for Messenger, Instagram & WhatsApp):
               </span>
               <code className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 select-all break-all">
-                {(typeof window !== 'undefined' ? window.location.origin : '')}/api/webhooks/meta
+                {effectiveOrigin}/api/webhooks/meta
               </code>
             </div>
             <button
               type="button"
-              onClick={() => copyText(`${window.location.origin}/api/webhooks/meta`, 'webhook')}
+              onClick={() => copyText(`${effectiveOrigin}/api/webhooks/meta`, 'webhook')}
               className="self-start sm:self-center px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
             >
               {copiedKey === 'webhook' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -763,12 +774,12 @@ export const AdminSettings: React.FC = () => {
                 Facebook Login OAuth Valid Redirect URI:
               </span>
               <code className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 select-all break-all">
-                {(typeof window !== 'undefined' ? window.location.origin : '')}/api/channels/meta/callback
+                {effectiveOrigin}/api/channels/meta/callback
               </code>
             </div>
             <button
               type="button"
-              onClick={() => copyText(`${window.location.origin}/api/channels/meta/callback`, 'redirect')}
+              onClick={() => copyText(`${effectiveOrigin}/api/channels/meta/callback`, 'redirect')}
               className="self-start sm:self-center px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
             >
               {copiedKey === 'redirect' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}

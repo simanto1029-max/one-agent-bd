@@ -160,7 +160,17 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     return () => window.removeEventListener('message', handlePopupMessage);
   }, [isAdmin]);
 
-  const effectiveOrigin = publicTunnelUrl || window.location.origin;
+  const getEffectiveOrigin = () => {
+    if (publicTunnelUrl) return publicTunnelUrl;
+    if (typeof window !== 'undefined') {
+      if (window.location.hostname === 'oneagentbd.online') {
+        return 'https://www.oneagentbd.online';
+      }
+      return window.location.origin;
+    }
+    return 'https://www.oneagentbd.online';
+  };
+  const effectiveOrigin = getEffectiveOrigin();
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
