@@ -78,6 +78,13 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     privateInboxReply: string;
   } | null>(null);
 
+  // Optimistic local channels state so connected pages immediately display on screen
+  const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
+
+  useEffect(() => {
+    setLocalChannels(channels);
+  }, [channels]);
+
   // Admin-only Meta App Setup state
   const [publicTunnelUrl, setPublicTunnelUrl] = useState<string | null>(null);
   const [metaConfig, setMetaConfig] = useState<{
@@ -337,9 +344,12 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     }
   };
 
-  const facebookChannels = channels.filter((c) => c.platform === 'messenger');
-  const instagramChannels = channels.filter((c) => c.platform === 'instagram');
-  const whatsappChannels = channels.filter((c) => c.platform === 'whatsapp');
+  const allChannels = localChannels.length > 0 ? localChannels : channels;
+  const facebookChannels = allChannels.filter(
+    (c) => c.platform === 'messenger' || (c.platform as any) === 'facebook'
+  );
+  const instagramChannels = allChannels.filter((c) => c.platform === 'instagram');
+  const whatsappChannels = allChannels.filter((c) => c.platform === 'whatsapp');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-6xl mx-auto">
@@ -1369,6 +1379,19 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           setSuccessMessage(
             `"${connectedChannel.name}" connected successfully and AI Auto-Reply is now active!`
           );
+          setLocalChannels((prev) => {
+            const exists = prev.some(
+              (c) => c.id === connectedChannel.id || c.identifier === connectedChannel.identifier
+            );
+            if (exists) {
+              return prev.map((c) =>
+                c.id === connectedChannel.id || c.identifier === connectedChannel.identifier
+                  ? { ...c, ...connectedChannel, is_active: true, status: 'connected' }
+                  : c
+              );
+            }
+            return [{ ...connectedChannel, is_active: true, status: 'connected' }, ...prev];
+          });
           onRefresh();
         }}
       />
