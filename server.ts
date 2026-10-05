@@ -56,10 +56,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Mount Webhooks Router first (Ultra-fast <10ms response for Meta webhook verification & event intake)
+app.use('/api/webhooks', webhooksRouter);
+
 let lastExpiryCheckAt = 0;
 
 // Serverless & Cloud Database Synchronization Middleware
 app.use('/api', async (req, res, next) => {
+  // Never block webhooks on database sync
+  if (req.path.startsWith('/webhooks')) {
+    return next();
+  }
   try {
     await db.syncFromSupabase();
     if (Date.now() - lastExpiryCheckAt >= 60 * 1000) {
@@ -118,7 +125,6 @@ app.use('/api/channels', channelsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/inbox', inboxRouter);
 app.use('/api/contacts', contactsRouter);
-app.use('/api/webhooks', webhooksRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/ai-chat', aiChatRouter);
 app.use('/api/orders', ordersRouter);

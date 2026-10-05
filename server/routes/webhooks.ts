@@ -47,7 +47,7 @@ function validateMetaSignature(req: Request): { valid: boolean; reason?: string 
 // 0. UNIFIED META WEBHOOK (/api/webhooks/meta) - Handles WhatsApp, Messenger & Instagram
 // ----------------------------------------------------------------------------
 
-webhooksRouter.get(['/meta', '/'], (req: Request, res: Response) => {
+webhooksRouter.get(['/meta', '/', '/messenger'], (req: Request, res: Response) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
