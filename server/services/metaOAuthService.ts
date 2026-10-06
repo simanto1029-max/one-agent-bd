@@ -169,19 +169,19 @@ export class MetaOAuthService {
     }
 
     const configId = this.getConfigId();
-    const extrasParam =
-      platform === 'whatsapp' && onboarding && configId
-        ? `&config_id=${encodeURIComponent(configId)}&auth_type=rerequest&extras=${encodeURIComponent(
-            JSON.stringify({
-              feature: 'whatsapp_embedded_signup',
-              version: 2,
-              featureType: 'whatsapp_business_app_onboarding',
-              sessionInfoVersion: 2
-            })
-          )}`
-        : onboarding
-        ? '&auth_type=rerequest'
-        : '';
+    let extrasParam = '';
+    if (platform === 'whatsapp') {
+      const extrasObj: any = {
+        feature: 'whatsapp_embedded_signup',
+        version: 2,
+        featureType: 'whatsapp_business_app_onboarding',
+        sessionInfoVersion: 2
+      };
+      const configParam = configId ? `&config_id=${encodeURIComponent(configId)}` : '';
+      extrasParam = `${configParam}&auth_type=rerequest&extras=${encodeURIComponent(JSON.stringify(extrasObj))}`;
+    } else if (onboarding) {
+      extrasParam = '&auth_type=rerequest';
+    }
 
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
       appId
