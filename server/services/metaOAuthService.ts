@@ -903,6 +903,24 @@ export class MetaOAuthService {
         };
       }
 
+      if (channel.platform === 'messenger') {
+        // Automatically ensure Facebook Page is subscribed to this App's Webhooks via Graph API
+        try {
+          const subRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              channel.identifier
+            )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
+              channel.access_token
+            )}`,
+            { method: 'POST' }
+          );
+          const subData = (await subRes.json().catch(() => ({}))) as any;
+          console.log('[MetaOAuth] testChannelConnection auto-subscribed page:', subData);
+        } catch (_subErr) {
+          console.warn('[MetaOAuth] Error re-subscribing page during test:', _subErr);
+        }
+      }
+
       if (channel.platform === 'whatsapp') {
         // Ensure WABA webhook subscription and Cloud API registration are active
         if (channel.meta_business_id) {

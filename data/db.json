@@ -3308,8 +3308,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-05T16:53:09.940Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 4:53:09 PM)"
+    "cron_last_run": "2026-10-06T03:59:21.729Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 3:59:21 AM)"
   },
   "orders": [
     {
@@ -3639,7 +3639,7 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1791219189940,
+  "_lastUpdatedAt": 1791259161729,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []
