@@ -70,18 +70,171 @@ import { ProFeatureBlurWrapper } from './components/dashboard/ProFeatureBlurWrap
 // Admin
 import { AdminLayout } from './components/admin/AdminLayout';
 
+export type TabId =
+  | 'overview'
+  | 'inbox'
+  | 'products'
+  | 'orders'
+  | 'delivery-courier'
+  | 'appointments'
+  | 'email-campaigns'
+  | 'business-erp'
+  | 'stores'
+  | 'website-widget'
+  | 'call-requests'
+  | 'channels'
+  | 'settings'
+  | 'contacts'
+  | 'billing';
+
+const VALID_TABS: Record<string, TabId> = {
+  overview: 'overview',
+  dashboard: 'overview',
+  inbox: 'inbox',
+  products: 'products',
+  orders: 'orders',
+  'delivery-courier': 'delivery-courier',
+  courier: 'delivery-courier',
+  appointments: 'appointments',
+  'email-campaigns': 'email-campaigns',
+  'business-erp': 'business-erp',
+  erp: 'business-erp',
+  stores: 'stores',
+  'website-widget': 'website-widget',
+  widget: 'website-widget',
+  'call-requests': 'call-requests',
+  channels: 'channels',
+  settings: 'settings',
+  contacts: 'contacts',
+  billing: 'billing'
+};
+
+const TAB_TO_GROUP: Record<TabId, string> = {
+  overview: 'dashboard',
+  inbox: 'inbox-hub',
+  contacts: 'inbox-hub',
+  'call-requests': 'inbox-hub',
+  'email-campaigns': 'inbox-hub',
+  orders: 'orders-hub',
+  'delivery-courier': 'orders-hub',
+  appointments: 'orders-hub',
+  products: 'catalog-hub',
+  'business-erp': 'catalog-hub',
+  stores: 'catalog-hub',
+  channels: 'ai-channels-hub',
+  settings: 'ai-channels-hub',
+  'website-widget': 'ai-channels-hub',
+  billing: 'billing-hub'
+};
+
+function parseInitialRoute(): {
+  view: 'landing' | 'dashboard' | 'admin';
+  tab: TabId;
+  openGroup: string;
+} {
+  if (typeof window === 'undefined') {
+    return { view: 'landing', tab: 'overview', openGroup: 'dashboard' };
+  }
+
+  const rawPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+  const params = new URLSearchParams(window.location.search);
+  const queryTab = params.get('tab')?.toLowerCase() || params.get('section')?.toLowerCase();
+  const queryView = params.get('view')?.toLowerCase();
+
+  if (rawPath === 'admin' || queryView === 'admin') {
+    return { view: 'admin', tab: 'overview', openGroup: 'dashboard' };
+  }
+
+  // Check path first
+  if (rawPath && VALID_TABS[rawPath]) {
+    const tab = VALID_TABS[rawPath];
+    return { view: 'dashboard', tab, openGroup: TAB_TO_GROUP[tab] || 'dashboard' };
+  }
+
+  // Check query param
+  if (queryTab && VALID_TABS[queryTab]) {
+    const tab = VALID_TABS[queryTab];
+    return { view: 'dashboard', tab, openGroup: TAB_TO_GROUP[tab] || 'dashboard' };
+  }
+
+  if (rawPath === 'dashboard') {
+    return { view: 'dashboard', tab: 'overview', openGroup: 'dashboard' };
+  }
+
+  // Check if token exists and last visited view was dashboard
+  const savedLastTab = localStorage.getItem('oneagentbd_active_tab') as TabId | null;
+  const lastView = localStorage.getItem('oneagentbd_last_view');
+  const hasToken = Boolean(localStorage.getItem('oneagentbd_token'));
+
+  if (rawPath === '' && !queryTab && hasToken && lastView === 'dashboard' && savedLastTab && VALID_TABS[savedLastTab]) {
+    const tab = VALID_TABS[savedLastTab];
+    return { view: 'dashboard', tab, openGroup: TAB_TO_GROUP[tab] || 'dashboard' };
+  }
+
+  return { view: 'landing', tab: 'overview', openGroup: 'dashboard' };
+}
+
 export default function App() {
+  const initialRoute = parseInitialRoute();
+
   // Theme state: White (Light) is strictly the default theme; user can switch between White and Black anytime
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem('oneagentbd_theme_v2');
     return saved === 'dark';
   });
 
-  // App Navigation
-  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'admin'>('landing');
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'business-erp' | 'stores' | 'website-widget' | 'call-requests' | 'inbox' | 'channels' | 'settings' | 'contacts' | 'billing'>('overview');
-  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  // App Navigation with URL Synchronization
+  const [currentView, setCurrentViewRaw] = useState<'landing' | 'dashboard' | 'admin'>(initialRoute.view);
+  const [activeTab, setActiveTabRaw] = useState<TabId>(initialRoute.tab);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(initialRoute.openGroup);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Sync URL in browser address bar (HTML5 History API)
+  const updateUrl = (view: 'landing' | 'dashboard' | 'admin', tab: TabId, replace = false) => {
+    if (typeof window === 'undefined') return;
+    let targetPath = '/';
+    if (view === 'admin') {
+      targetPath = '/admin';
+    } else if (view === 'dashboard') {
+      targetPath = tab === 'overview' ? '/dashboard' : `/${tab}`;
+    }
+    localStorage.setItem('oneagentbd_last_view', view);
+    if (view === 'dashboard') {
+      localStorage.setItem('oneagentbd_active_tab', tab);
+    }
+    const currentPath = window.location.pathname;
+    if (currentPath !== targetPath) {
+      if (replace) {
+        window.history.replaceState({ view, tab }, '', targetPath);
+      } else {
+        window.history.pushState({ view, tab }, '', targetPath);
+      }
+    }
+  };
+
+  const setActiveTab = (tab: TabId, replace = false) => {
+    setActiveTabRaw(tab);
+    if (TAB_TO_GROUP[tab]) {
+      setOpenGroupId(TAB_TO_GROUP[tab]);
+    }
+    const effectiveView = currentView === 'landing' ? 'dashboard' : currentView;
+    if (currentView === 'landing') {
+      setCurrentViewRaw('dashboard');
+    }
+    updateUrl(effectiveView, tab, replace);
+  };
+
+  const setCurrentView = (view: 'landing' | 'dashboard' | 'admin', targetTab?: TabId, replace = false) => {
+    setCurrentViewRaw(view);
+    const tabToUse = targetTab || activeTab || 'overview';
+    if (view === 'dashboard' && targetTab) {
+      setActiveTabRaw(targetTab);
+      if (TAB_TO_GROUP[targetTab]) {
+        setOpenGroupId(TAB_TO_GROUP[targetTab]);
+      }
+    }
+    updateUrl(view, tabToUse, replace);
+  };
 
   // User & Subscription state
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -111,7 +264,22 @@ export default function App() {
   }, [isDark]);
 
   useEffect(() => {
+    // If started on a dashboard or admin route, ensure URL bar matches
+    if (initialRoute.view !== 'landing') {
+      updateUrl(initialRoute.view, initialRoute.tab, true);
+    }
+
     bootstrapSession();
+
+    // Browser back/forward button support
+    const handlePopState = () => {
+      const route = parseInitialRoute();
+      setCurrentViewRaw(route.view);
+      setActiveTabRaw(route.tab);
+      setOpenGroupId(route.openGroup);
+    };
+    window.addEventListener('popstate', handlePopState);
+
     // Clean any stray '#' or '/#' from browser URL bar
     const cleanUrlHash = () => {
       if (typeof window !== 'undefined' && window.location.href.includes('#')) {
@@ -125,7 +293,11 @@ export default function App() {
     };
     cleanUrlHash();
     window.addEventListener('hashchange', cleanUrlHash);
-    return () => window.removeEventListener('hashchange', cleanUrlHash);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', cleanUrlHash);
+    };
   }, []);
 
   const bootstrapSession = async () => {
@@ -134,6 +306,23 @@ export default function App() {
       setCurrentUser(user);
       if (user) {
         await refreshUserData();
+        const route = parseInitialRoute();
+        if (route.view === 'dashboard') {
+          setCurrentViewRaw('dashboard');
+          setActiveTabRaw(route.tab);
+          setOpenGroupId(route.openGroup);
+          updateUrl('dashboard', route.tab, true);
+        } else if (route.view === 'admin' && user.role === 'admin') {
+          setCurrentViewRaw('admin');
+          updateUrl('admin', 'overview', true);
+        }
+      } else {
+        const route = parseInitialRoute();
+        if (route.view === 'dashboard' || route.view === 'admin') {
+          setCurrentViewRaw('landing');
+          updateUrl('landing', 'overview', true);
+          handleOpenAuth('login');
+        }
       }
     } catch (err) {
       console.warn('Initial session check:', err);
@@ -237,6 +426,8 @@ export default function App() {
 
   const handleLogout = () => {
     api.logout();
+    localStorage.removeItem('oneagentbd_last_view');
+    localStorage.removeItem('oneagentbd_active_tab');
     setCurrentUser(null);
     setSubStatus(null);
     setChannels([]);
@@ -245,8 +436,6 @@ export default function App() {
   };
 
   // 6 Primary Navigation Sections (ChatMakky Style) + Sub-Tabs mapping
-  type TabId = 'overview' | 'inbox' | 'products' | 'orders' | 'delivery-courier' | 'appointments' | 'email-campaigns' | 'business-erp' | 'stores' | 'website-widget' | 'call-requests' | 'channels' | 'settings' | 'contacts' | 'billing';
-
   const primarySections: {
     groupId: string;
     label: string;
