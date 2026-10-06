@@ -89,9 +89,9 @@ channelsRouter.post('/meta/config', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { appId, appSecret } = req.body;
+  const { appId, appSecret, configId } = req.body;
   if (typeof appId === 'string' && typeof appSecret === 'string') {
-    metaOAuthService.setCustomConfig(appId, appSecret);
+    metaOAuthService.setCustomConfig(appId, appSecret, typeof configId === 'string' ? configId : undefined);
   }
 
   const config = metaOAuthService.getConfig(req);
@@ -552,6 +552,62 @@ channelsRouter.post('/meta/whatsapp-onboarding', async (req: Request, res: Respo
 
   const { access_token, app_secret, ...sanitized } = result.channel as any;
   return res.json({ success: true, channel: sanitized });
+});
+
+// POST /api/channels/meta/whatsapp-embedded-signup - 1-Click Meta WhatsApp Embedded Signup handler
+channelsRouter.post('/meta/whatsapp-embedded-signup', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
+    return res.status(403).json({
+      error:
+        subCheck.error ||
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
+    });
+  }
+
+  const limitCheck = checkChannelLimitForPlan(user.id, 'whatsapp');
+  if (!limitCheck.allowed) {
+    return res.status(403).json({ error: limitCheck.error });
+  }
+
+  const { code, wabaId, phoneNumberId, accessToken } = req.body;
+
+  const result = await metaOAuthService.handleWhatsAppEmbeddedSignupCode(user.id, {
+    code: typeof code === 'string' ? code.trim() : undefined,
+    wabaId: typeof wabaId === 'string' ? wabaId.trim() : undefined,
+    phoneNumberId: typeof phoneNumberId === 'string' ? phoneNumberId.trim() : undefined,
+    accessToken: typeof accessToken === 'string' ? accessToken.trim() : undefined
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error || 'Failed to complete WhatsApp Embedded Signup.' });
+  }
+
+  if (result.channel) {
+    const { access_token, app_secret, ...sanitized } = result.channel as any;
+    return res.json({ success: true, channel: sanitized });
+  }
+
+  if (result.whatsappNumbers) {
+    const sanitizedWaNumbers = result.whatsappNumbers.map((w) => ({
+      id: w.id,
+      waba_id: w.waba_id,
+      waba_name: w.waba_name,
+      display_phone_number: w.display_phone_number,
+      verified_name: w.verified_name,
+      quality_rating: w.quality_rating,
+      has_token: Boolean(w.access_token),
+      token_preview: w.token_preview
+    }));
+    return res.json({ success: true, whatsappNumbers: sanitizedWaNumbers });
+  }
+
+  return res.json({ success: true });
 });
 
 // ----------------------------------------------------------------------------

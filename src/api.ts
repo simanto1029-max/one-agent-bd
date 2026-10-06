@@ -488,6 +488,7 @@ export const api = {
     configured: boolean;
     appId?: string;
     redirectUri?: string;
+    configId?: string;
     webhookUrlWhatsApp?: string;
     webhookUrlMessenger?: string;
     webhookUrlInstagram?: string;
@@ -495,9 +496,9 @@ export const api = {
     return fetchJson('/api/channels/meta/config');
   },
 
-  async updateMetaConfig(data: { appId: string; appSecret: string }): Promise<{
+  async updateMetaConfig(data: { appId: string; appSecret: string; configId?: string }): Promise<{
     success: boolean;
-    config: { configured: boolean; appId?: string; redirectUri?: string };
+    config: { configured: boolean; appId?: string; configId?: string; redirectUri?: string };
   }> {
     return fetchJson('/api/channels/meta/config', {
       method: 'POST',
@@ -715,6 +716,31 @@ export const api = {
     wabaId?: string;
   }): Promise<{ success: boolean; channel: Channel }> {
     return fetchJson('/api/channels/meta/whatsapp-onboarding', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async whatsappEmbeddedSignup(data: {
+    code?: string;
+    wabaId?: string;
+    phoneNumberId?: string;
+    accessToken?: string;
+  }): Promise<{
+    success: boolean;
+    channel?: Channel;
+    whatsappNumbers?: Array<{
+      id: string;
+      waba_id: string;
+      waba_name: string;
+      display_phone_number: string;
+      verified_name?: string;
+      quality_rating?: string;
+      has_token?: boolean;
+      token_preview?: string;
+    }>;
+  }> {
+    return fetchJson('/api/channels/meta/whatsapp-embedded-signup', {
       method: 'POST',
       body: JSON.stringify(data)
     });

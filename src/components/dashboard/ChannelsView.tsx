@@ -91,10 +91,12 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [metaConfig, setMetaConfig] = useState<{
     configured: boolean;
     appId?: string;
+    configId?: string;
     redirectUri?: string;
   } | null>(null);
   const [metaAppIdInput, setMetaAppIdInput] = useState('');
   const [metaAppSecretInput, setMetaAppSecretInput] = useState('');
+  const [metaConfigIdInput, setMetaConfigIdInput] = useState('');
   const [savingMetaConfig, setSavingMetaConfig] = useState(false);
 
   useEffect(() => {
@@ -112,6 +114,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       .then((cfg) => {
         setMetaConfig(cfg);
         if (cfg.appId) setMetaAppIdInput(cfg.appId);
+        if (cfg.configId) setMetaConfigIdInput(cfg.configId);
       })
       .catch(() => {});
 
@@ -344,10 +347,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       setSuccessMessage(null);
       const res = await api.updateMetaConfig({
         appId: metaAppIdInput.trim(),
-        appSecret: metaAppSecretInput.trim()
+        appSecret: metaAppSecretInput.trim(),
+        configId: metaConfigIdInput.trim() || undefined
       });
       setMetaConfig(res.config);
-      setSuccessMessage('Meta App ID & Secret saved! Users can now connect with 1-Click.');
+      setSuccessMessage('Meta App ID, Secret & Embedded Signup Config saved! 1-Click login active.');
     } catch (err: any) {
       setError(err.message || 'Failed to save Meta configuration.');
     } finally {
@@ -889,12 +893,12 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {whatsappChannels.length > 0 ? (
                   <>
                     <Plus className="w-4 h-4" />
-                    <span>Connect Another Number (Scan QR)</span>
+                    <span>Connect Another Number</span>
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-4 h-4" />
-                    <span>Scan QR Code to Connect WhatsApp</span>
+                    <Smartphone className="w-4 h-4" />
+                    <span>Connect WhatsApp</span>
                   </>
                 )}
               </button>
@@ -1326,7 +1330,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             <form onSubmit={handleSaveMetaConfig} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Meta App ID
+                  Meta App ID *
                 </label>
                 <input
                   type="text"
@@ -1340,7 +1344,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Meta App Secret
+                  Meta App Secret *
                 </label>
                 <input
                   type="password"
@@ -1350,6 +1354,22 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                   placeholder="e.g. 4a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d"
                   className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
                 />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  WhatsApp Embedded Signup Configuration ID (Optional / Auto-Fallback)
+                </label>
+                <input
+                  type="text"
+                  value={metaConfigIdInput}
+                  onChange={(e) => setMetaConfigIdInput(e.target.value)}
+                  placeholder="e.g. 1294819284710294 (Found in Facebook Login for Business > Configurations)"
+                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+                />
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 block">
+                  If left empty, system automatically uses direct official Meta WhatsApp Embedded Signup permissions.
+                </span>
               </div>
 
               <div className="sm:col-span-2 flex justify-end pt-1">

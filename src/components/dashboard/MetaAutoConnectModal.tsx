@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Facebook,
@@ -9,10 +9,8 @@ import {
   RefreshCw,
   Check,
   Sparkles,
-  QrCode,
   ShieldCheck,
-  ArrowRight,
-  Camera
+  ArrowRight
 } from 'lucide-react';
 import { api } from '../../api';
 import { Channel } from '../../types';
@@ -71,62 +69,29 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [alsoConnectLinkedIg, setAlsoConnectLinkedIg] = useState<boolean>(true);
   const [step, setStep] = useState<'auth' | 'select'>('auth');
   const [metaAppId, setMetaAppId] = useState<string>('');
-  const [waConnectTab, setWaConnectTab] = useState<'qr' | 'auto' | 'manual'>('qr');
-  const [qrCountdown, setQrCountdown] = useState<number>(60);
-  const [qrSessionId, setQrSessionId] = useState<string>('');
-  const [qrPhone, setQrPhone] = useState<string>('');
-  const [isPairingQr, setIsPairingQr] = useState<boolean>(false);
-  const [manualWaPhone, setManualWaPhone] = useState<string>('');
-  const [manualWaName, setManualWaName] = useState<string>('');
-  const [manualWabaId, setManualWabaId] = useState<string>('');
-  const [manualWaPhoneId, setManualWaPhoneId] = useState<string>('');
-  const [manualWaToken, setManualWaToken] = useState<string>('');
-  const [showAdvancedWaConfig, setShowAdvancedWaConfig] = useState<boolean>(false);
+  const [metaConfigId, setMetaConfigId] = useState<string>('');
 
-  const refreshQrSession = () => {
-    api.getWhatsAppQR()
-      .then((res) => {
-        setQrSessionId(res.sessionId);
-        setQrCountdown(res.expiresInSeconds || 60);
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    if (isOpen && platform === 'whatsapp' && waConnectTab === 'qr') {
-      refreshQrSession();
-    }
-  }, [isOpen, platform, waConnectTab]);
-
-  useEffect(() => {
-    if (!isOpen || platform !== 'whatsapp' || waConnectTab !== 'qr') return;
-    const interval = setInterval(() => {
-      setQrCountdown((prev) => {
-        if (prev <= 1) {
-          refreshQrSession();
-          return 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isOpen, platform, waConnectTab]);
+  const capturedWaDataRef = useRef<{ phone_number_id?: string; waba_id?: string }>({});
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    capturedWaDataRef.current = {};
 
     api
       .getMetaConfig()
-      .then((cfg) => {
+      .then((cfg: any) => {
         if (cfg.appId) {
           setMetaAppId(cfg.appId);
           initFacebookJsSdk(cfg.appId);
         }
+        if (cfg.configId) {
+          setMetaConfigId(cfg.configId);
+        }
       })
       .catch(() => {});
 
-    // Check if user already authorized and has pages ready to select
+    // Check if user already authorized and has pending assets to select
     api
       .getMetaPendingAssets()
       .then((assets) => {
@@ -155,11 +120,32 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       });
   }, [isOpen, platform]);
 
-  // Listen for postMessage from OAuth popup window
+  // Listen for official Meta sessionInfoListener & OAuth popup postMessage
   useEffect(() => {
     if (!isOpen) return;
 
-    const handlePopupMessage = (event: MessageEvent) => {
+    const handleWindowMessage = (event: MessageEvent) => {
+      // 1. Official Meta WhatsApp Embedded Signup sessionInfoListener
+      if (
+        event.origin === 'https://www.facebook.com' ||
+        event.origin === 'https://web.facebook.com'
+      ) {
+        try {
+          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (data?.type === 'WA_EMBEDDED_SIGNUP') {
+            if (data.event === 'FINISH') {
+              const phoneId = data.data?.phone_number_id;
+              const wabaId = data.data?.waba_id;
+              capturedWaDataRef.current = {
+                phone_number_id: phoneId,
+                waba_id: wabaId
+              };
+            }
+          }
+        } catch (_e) {}
+      }
+
+      // 2. OAuth Popup callback handler
       const data = event.data;
       if (!data || typeof data !== 'object') return;
 
@@ -178,11 +164,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               setSelectedAssetId(assets.pages[0].id);
               setStep('select');
             } else {
-              setError('No Facebook Page or Business Account found in your account. Please select a page and try again.');
+              setError('Meta account connected. Please select your account to finish.');
             }
           })
           .catch((err: any) => {
-            setError(err.message || 'Failed to load pages list.');
+            setError(err.message || 'Failed to load assets list.');
           })
           .finally(() => {
             setLoading(false);
@@ -193,8 +179,8 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       }
     };
 
-    window.addEventListener('message', handlePopupMessage);
-    return () => window.removeEventListener('message', handlePopupMessage);
+    window.addEventListener('message', handleWindowMessage);
+    return () => window.removeEventListener('message', handleWindowMessage);
   }, [isOpen, platform]);
 
   const initFacebookJsSdk = (appId: string) => {
@@ -234,21 +220,87 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Launch Meta Official WhatsApp Onboarding via Server-Side OAuth Dialog (Never fails with "JSSDK option is not toggled")
+  // Official Meta WhatsApp Embedded Signup (1-Click flow)
   const handleWhatsAppEmbeddedSignup = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Strategy A: If Facebook JavaScript SDK is loaded, use FB.login with Embedded Signup config
+      if (window.FB && metaAppId) {
+        const loginOptions: any = {
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: {
+            feature: 'whatsapp_embedded_signup',
+            version: 2,
+            sessionInfoVersion: 2
+          }
+        };
+
+        if (metaConfigId) {
+          loginOptions.config_id = metaConfigId;
+        } else {
+          loginOptions.scope =
+            'whatsapp_business_management,whatsapp_business_messaging,business_management';
+        }
+
+        window.FB.login(
+          (response: any) => {
+            if (response?.authResponse?.code || response?.authResponse?.accessToken) {
+              const code = response.authResponse?.code;
+              const accessToken = response.authResponse?.accessToken;
+              const wabaId = capturedWaDataRef.current.waba_id;
+              const phoneNumberId = capturedWaDataRef.current.phone_number_id;
+
+              api
+                .whatsappEmbeddedSignup({
+                  code,
+                  accessToken,
+                  wabaId,
+                  phoneNumberId
+                })
+                .then((res) => {
+                  if (res.channel) {
+                    onSuccess(res.channel);
+                    onClose();
+                  } else if (res.whatsappNumbers && res.whatsappNumbers.length > 0) {
+                    setWhatsappNumbers(res.whatsappNumbers);
+                    setSelectedAssetId(res.whatsappNumbers[0].id);
+                    setStep('select');
+                  } else {
+                    setError('WhatsApp number verified. Please select your number to confirm.');
+                  }
+                })
+                .catch((err: any) => {
+                  setError(err.message || 'Failed to complete WhatsApp Embedded Signup.');
+                })
+                .finally(() => {
+                  setLoading(false);
+                });
+            } else {
+              setLoading(false);
+              if (response?.status !== 'connected') {
+                // If cancelled or closed
+              }
+            }
+          },
+          loginOptions
+        );
+        return;
+      }
+
+      // Strategy B: Fallback to Server-Side Meta OAuth Dialog Popup
       const res = await api.getMetaAuthUrl('whatsapp', true);
       if (res.authUrl) {
-        const width = 620;
-        const height = 720;
+        const width = 640;
+        const height = 750;
         const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
         const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
 
         const popup = window.open(
           res.authUrl,
-          'oneagentbd_meta_wa_onboarding',
+          'oneagentbd_meta_wa_embedded_signup',
           `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
         );
 
@@ -259,70 +311,26 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         }
         return;
       }
+
       setLoading(false);
-      handleSingleClickMetaLogin();
+      setError('Meta App ID is not configured on the server yet. Please configure Meta App ID in Admin settings.');
     } catch (err: any) {
       setLoading(false);
-      setError(err.message || 'Failed to open WhatsApp onboarding popup.');
+      setError(err.message || 'Failed to open WhatsApp Embedded Signup.');
     }
   };
 
-  const handleManualWhatsAppConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPhone = manualWaPhone.trim();
-    const cleanPhoneId = manualWaPhoneId.trim();
-
-    if (!cleanPhone && !cleanPhoneId) {
-      setError('Please enter your WhatsApp Phone Number (e.g. +88017XXXXXXXX).');
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await api.autoConnectWhatsApp({
-        wabaId: manualWabaId.trim() || undefined,
-        phoneNumberId: cleanPhoneId || cleanPhone,
-        displayPhoneNumber: cleanPhone || cleanPhoneId,
-        verifiedName: manualWaName.trim() || (cleanPhone ? `WhatsApp (${cleanPhone})` : 'WhatsApp Business'),
-        accessToken: manualWaToken.trim() || undefined
-      });
-      onSuccess(res.channel);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect WhatsApp number.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCompleteQrScan = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    try {
-      setIsPairingQr(true);
-      setError(null);
-      const res = await api.pairWhatsAppQR({
-        phoneNumber: qrPhone || '+8801700000000',
-        displayTitle: qrPhone ? `WhatsApp (${qrPhone})` : 'WhatsApp Business (Linked Device)',
-        sessionId: qrSessionId
-      });
-      if (res.channel) {
-        onSuccess(res.channel);
-        onClose();
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to link WhatsApp device.');
-    } finally {
-      setIsPairingQr(false);
-    }
-  };
-
-  // Single Automatic Login Handler (tries OAuth Popup / FB SDK seamlessly)
+  // Facebook Messenger & Instagram 1-Click Login Handler
   const handleSingleClickMetaLogin = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // 1. Try official OAuth dialog popup first (most reliable across browsers & iframes)
+      if (platform === 'whatsapp') {
+        return handleWhatsAppEmbeddedSignup();
+      }
+
+      // 1. Try official OAuth dialog popup
       const res = await api.getMetaAuthUrl(platform);
       if (res.authUrl) {
         const width = 600;
@@ -344,13 +352,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         return;
       }
 
-      // 2. If FB JS SDK is available with metaAppId, use FB.login
+      // 2. FB JS SDK fallback
       if (window.FB && metaAppId) {
         let scopes = 'pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,pages_show_list';
         if (platform === 'instagram') {
           scopes = 'pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,pages_show_list,instagram_basic,instagram_manage_messages';
-        } else if (platform === 'whatsapp') {
-          scopes = 'pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,whatsapp_business_management,whatsapp_business_messaging,pages_show_list';
         }
 
         window.FB.login(
@@ -361,10 +367,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 .then((outcome) => {
                   setPages(outcome.pages || []);
                   setWhatsappNumbers(outcome.whatsappNumbers || []);
-                  if (platform === 'whatsapp' && outcome.whatsappNumbers && outcome.whatsappNumbers.length > 0) {
-                    setSelectedAssetId(outcome.whatsappNumbers[0].id);
-                    setStep('select');
-                  } else if (outcome.pages && outcome.pages.length > 0) {
+                  if (outcome.pages && outcome.pages.length > 0) {
                     setSelectedAssetId(outcome.pages[0].id);
                     setStep('select');
                   } else {
@@ -395,7 +398,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
     }
   };
 
-  // Confirm selected Page / Instagram / WhatsApp Number (everything else happens automatically)
+  // Confirm selected Asset (Page or WhatsApp Number)
   const handleConfirmSelection = async () => {
     if (!selectedAssetId) return;
     try {
@@ -454,7 +457,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       case 'messenger':
         return {
           title: 'Connect Facebook Page',
-          subtitle: 'Log in to your Facebook account and select the Page where you want to activate AI Auto-Reply. Everything else is configured automatically.',
+          subtitle: 'Log in with Facebook and select the Page where you want to activate AI Auto-Reply.',
           btnLabel: 'Continue with Facebook',
           btnClass: 'bg-[#1877F2] hover:bg-[#166fe5] shadow-[#1877F2]/25',
           icon: Facebook,
@@ -464,7 +467,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       case 'instagram':
         return {
           title: 'Connect Instagram Account',
-          subtitle: 'Log in to your account and select the Instagram Business profile where you want to activate AI Auto-Reply.',
+          subtitle: 'Log in with Facebook and select the Instagram Business profile to activate AI Auto-Reply.',
           btnLabel: 'Continue with Instagram (via Meta)',
           btnClass: 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 shadow-pink-500/20',
           icon: Instagram,
@@ -473,9 +476,9 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         };
       case 'whatsapp':
         return {
-          title: 'Connect WhatsApp (Linked Devices)',
-          subtitle: 'Scan the QR code with your phone. Zero data loss — all existing chats, groups, and customer contacts stay 100% safe.',
-          btnLabel: 'Continue with WhatsApp Business',
+          title: 'Connect WhatsApp Business',
+          subtitle: 'Official Meta WhatsApp Embedded Signup. Connect your existing number in 1-Click with Zero Data Loss.',
+          btnLabel: 'Connect WhatsApp (Meta Embedded Signup)',
           btnClass: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25',
           icon: Smartphone,
           color: 'text-emerald-600',
@@ -517,54 +520,39 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           </div>
         )}
 
-        {/* STEP 1: Single Button Login or Direct Number Connect */}
+        {/* STEP 1: 1-Click Embedded Signup */}
         {step === 'auth' && (
           <div className="space-y-4">
-            {platform === 'whatsapp' && (
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
-                <button
-                  type="button"
-                  onClick={() => setWaConnectTab('auto')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    waConnectTab === 'auto'
-                      ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
-                      : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>1. Embedded Signup</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWaConnectTab('manual')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    waConnectTab === 'manual'
-                      ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
-                      : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-                  }`}
-                >
-                  <span>2. Manual API Credentials</span>
-                </button>
-              </div>
-            )}
-
-            {platform === 'whatsapp' && waConnectTab === 'auto' ? (
+            {platform === 'whatsapp' ? (
               <div className="space-y-4 text-center animate-in fade-in duration-150">
-                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-left space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Official Meta WhatsApp Embedded Signup</span>
+                {/* Official Meta Tech Provider & Zero Data Loss Guarantee */}
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-left space-y-2.5">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>100% Zero Data Loss Guarantee</span>
                   </div>
-                  <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                    নিচের বাটনে ক্লিক করলে মেটার অফিসিয়াল ফেসবুক অনবোর্ডিং পপআপ ওপেন হবে। সেখান থেকে আপনার ব্যবসা ও WhatsApp নম্বরটি নির্বাচন করে OTP দিয়ে ভেরিফাই করলেই আপনার একাউন্টটি স্বয়ংক্রিয়ভাবে AI Agent হিসেবে সক্রিয় হয়ে যাবে।
-                  </p>
+                  <ul className="text-xs text-neutral-600 dark:text-neutral-300 space-y-1.5 leading-relaxed">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                      <span>আপনার ফোনের বর্তমান WhatsApp চ্যাট বা কাস্টমার ডেটা হারাবে না।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                      <span>অফিসিয়াল Meta Embedded Signup পপআপে ১-ক্লিকে নম্বর নির্বাচন ও OTP ভেরিফাই হবে।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                      <span>AI Agent সঙ্গে সঙ্গে সক্রিয় হয়ে ২৪/৭ মেসেজ ও ভয়েস রিপ্লাই শুরু করবে।</span>
+                    </li>
+                  </ul>
                 </div>
 
+                {/* Primary Embedded Signup Button */}
                 <button
                   type="button"
                   disabled={loading}
                   onClick={handleWhatsAppEmbeddedSignup}
-                  className="w-full py-4 px-5 rounded-2xl bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold text-sm shadow-lg shadow-[#1877F2]/25 transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+                  className="w-full py-4 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
                 >
                   {loading ? (
                     <>
@@ -573,125 +561,16 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <Facebook className="w-5 h-5 fill-current" />
-                      <span>Continue with Facebook (WhatsApp Onboarding)</span>
+                      <Smartphone className="w-5 h-5" />
+                      <span>Connect WhatsApp (Meta Embedded Signup)</span>
                     </>
                   )}
                 </button>
+
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Powered by Official Meta WhatsApp Business Cloud API
+                </p>
               </div>
-            ) : platform === 'whatsapp' && waConnectTab === 'manual' ? (
-              <form onSubmit={handleManualWhatsAppConnect} className="space-y-3.5 text-left">
-                {/* Zero Data Loss Notice Card */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/70 text-left space-y-1.5 shadow-2xs">
-                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Meta Cloud API Configuration</span>
-                  </div>
-                  <p className="text-[11px] text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
-                    Official Meta WABA integration for enterprise numbers via Cloud API.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1">
-                    WhatsApp Business Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={manualWaPhone}
-                    onChange={(e) => setManualWaPhone(e.target.value)}
-                    placeholder="e.g. +88017XXXXXXXX or 017XXXXXXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block mt-0.5">
-                    Enter the WhatsApp number customers message you on.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Business / Store Display Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={manualWaName}
-                    onChange={(e) => setManualWaName(e.target.value)}
-                    placeholder="e.g. My Shop / Official Helpline"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm text-neutral-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Optional Developer Advanced Meta Credentials */}
-                <div className="pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedWaConfig(!showAdvancedWaConfig)}
-                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>{showAdvancedWaConfig ? '▼ Hide Custom Meta Developer IDs' : '▶ Custom Meta Developer IDs (Optional for custom WABA owners)'}</span>
-                  </button>
-
-                  {showAdvancedWaConfig && (
-                    <div className="mt-2.5 p-3 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5 animate-in fade-in duration-150">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
-                          Custom WABA ID (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={manualWabaId}
-                          onChange={(e) => setManualWabaId(e.target.value)}
-                          placeholder="e.g. 1098160382932544"
-                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
-                          Custom Phone Number ID (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={manualWaPhoneId}
-                          onChange={(e) => setManualWaPhoneId(e.target.value)}
-                          placeholder="e.g. 1248549471684856"
-                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
-                          Custom Access Token (Optional)
-                        </label>
-                        <input
-                          type="password"
-                          value={manualWaToken}
-                          onChange={(e) => setManualWaToken(e.target.value)}
-                          placeholder="Uses system Meta Master Token if left empty"
-                          className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Connecting WhatsApp...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Connect WhatsApp Number Now</span>
-                    </>
-                  )}
-                </button>
-              </form>
             ) : (
               <>
                 <button
@@ -713,39 +592,10 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                   )}
                 </button>
 
-                {platform === 'whatsapp' && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5 text-left">
-                    <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                      <strong>How to add a new WhatsApp number via OTP/QR:</strong><br />
-                      1) Open <strong>1. WhatsApp Manager ↗</strong> below and click <strong>+ Add phone number</strong> to verify your number via OTP.<br />
-                      2) Then click <strong>2. Re-Select Number</strong> and choose <strong>&ldquo;Edit settings&rdquo;</strong> in the Meta popup to check your new number:
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href="https://business.facebook.com/wa/manage/phone-numbers/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
-                      >
-                        <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                        <span>1. WhatsApp Manager (+ Add Number) ↗</span>
-                      </a>
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={handleWhatsAppEmbeddedSignup}
-                        className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
-                      >
-                        2. Re-Select Number
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
-                    <span>100% Automatic Connection — Simply select your account &amp; page</span>
+                    <span>100% Automatic Connection — Instant Page &amp; Channel Setup</span>
                   </p>
                 </div>
               </>
@@ -753,20 +603,20 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           </div>
         )}
 
-        {/* STEP 2: Just Select Account / Page */}
+        {/* STEP 2: Selection (if multiple assets found) */}
         {step === 'select' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                Select your Page / Account:
+                {platform === 'whatsapp' ? 'Select WhatsApp Business Number:' : 'Select your Page / Account:'}
               </div>
               <button
                 type="button"
-                onClick={handleSingleClickMetaLogin}
+                onClick={platform === 'whatsapp' ? handleWhatsAppEmbeddedSignup : handleSingleClickMetaLogin}
                 className="text-[11px] font-bold text-[#7F22FE] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>Switch Account / Refresh</span>
+                <span>Switch / Reconnect</span>
               </button>
             </div>
 
@@ -889,38 +739,15 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               </div>
             )}
 
-            {platform === 'whatsapp' && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
-                <p className="text-[11px] text-emerald-900 dark:text-emerald-200 leading-relaxed font-medium">
-                  Don&apos;t see your number in the list? First add your number in <strong>Meta WhatsApp Manager ↗</strong>, then click <strong>Re-Select Number</strong> and choose <em>&ldquo;Edit previous settings&rdquo;</em> in the popup:
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href="https://business.facebook.com/wa/manage/phone-numbers/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                    <span>1. Meta WhatsApp Manager (+ Add Number) ↗</span>
-                  </a>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleWhatsAppEmbeddedSignup}
-                    className="py-2 px-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 transition-all cursor-pointer"
-                  >
-                    2. Re-Select Number
-                  </button>
-                </div>
-              </div>
-            )}
-
             <button
               type="button"
               disabled={loading || !selectedAssetId}
               onClick={handleConfirmSelection}
-              className="w-full py-3.5 px-5 rounded-2xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-[#7F22FE]/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+                platform === 'whatsapp'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                  : 'bg-[#7F22FE] hover:bg-[#6c1ce0] shadow-[#7F22FE]/25'
+              }`}
             >
               {loading ? (
                 <>
@@ -929,8 +756,8 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Connect &amp; Activate AI</span>
+                  <span>Activate AI Agent on Selected {platform === 'whatsapp' ? 'Number' : 'Page'}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>

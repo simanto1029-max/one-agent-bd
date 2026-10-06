@@ -5,6 +5,7 @@ import { db, Channel, FacebookPage, InstagramAccount, WhatsAppBusinessAccount, W
 export interface MetaConfig {
   configured: boolean;
   appId: string;
+  configId?: string;
   redirectUri: string;
   webhookVerifyTokenConfigured: boolean;
   webhookUrlWhatsApp: string;
@@ -56,12 +57,13 @@ export class MetaOAuthService {
   private customAppId: string = '';
   private customAppSecret: string = '';
 
-  public setCustomConfig(appId: string, appSecret: string) {
+  public setCustomConfig(appId: string, appSecret: string, configId?: string) {
     this.customAppId = appId.trim();
     this.customAppSecret = appSecret.trim();
     db.updateSettings({
       meta_app_id: this.customAppId,
-      meta_app_secret: this.customAppSecret
+      meta_app_secret: this.customAppSecret,
+      ...(configId !== undefined ? { meta_config_id: configId.trim() } : {})
     });
   }
 
@@ -127,6 +129,7 @@ export class MetaOAuthService {
     return {
       configured: Boolean(appId && appSecret),
       appId,
+      configId: this.getConfigId(),
       redirectUri,
       webhookVerifyTokenConfigured: Boolean(this.getVerifyToken()),
       webhookUrlWhatsApp: `${baseUrl}/api/webhooks/whatsapp`,
@@ -844,6 +847,188 @@ export class MetaOAuthService {
     } catch (err: any) {
       return { success: false, error: err?.message || 'Failed to complete WhatsApp onboarding.' };
     }
+  }
+
+  /**
+   * Complete WhatsApp Embedded Signup via Authorization Code and/or WABA data (from Meta sessionInfoListener / postMessage or FB.login callback)
+   */
+  public async handleWhatsAppEmbeddedSignupCode(
+    userId: string,
+    params: {
+      code?: string;
+      wabaId?: string;
+      phoneNumberId?: string;
+      accessToken?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    channel?: Channel;
+    whatsappNumbers?: AuthorizedWhatsAppItem[];
+    error?: string;
+  }> {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+
+    let effectiveToken = (params.accessToken && String(params.accessToken).trim()) || '';
+
+    // 1. If authorization code is provided, exchange it for access token
+    if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
+      try {
+        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+          appId
+        )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
+
+        const tokenRes = await fetch(tokenUrl);
+        const tokenJson = (await tokenRes.json()) as any;
+
+        if (tokenRes.ok && tokenJson.access_token) {
+          effectiveToken = tokenJson.access_token;
+
+          // Attempt exchange for long-lived token
+          try {
+            const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
+              appId
+            )}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(effectiveToken)}`;
+            const llRes = await fetch(longLivedUrl);
+            const llJson = (await llRes.json()) as any;
+            if (llRes.ok && llJson.access_token) {
+              effectiveToken = llJson.access_token;
+            }
+          } catch (_llErr) {}
+        } else if (tokenJson?.error?.message) {
+          console.warn('[MetaOAuth] WhatsApp Embedded Signup code exchange warning:', tokenJson.error.message);
+        }
+      } catch (err: any) {
+        console.error('[MetaOAuth] Code exchange network error:', err);
+      }
+    }
+
+    if (!effectiveToken) {
+      effectiveToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || process.env.META_APP_SECRET || '';
+    }
+
+    let targetWabaId = params.wabaId ? String(params.wabaId).trim() : '';
+    let targetPhoneId = params.phoneNumberId ? String(params.phoneNumberId).trim() : '';
+    let displayPhone = '';
+    let verifiedName = '';
+
+    // 2. If wabaId is provided from postMessage event, query WABA details & subscribe to webhooks
+    if (targetWabaId && effectiveToken) {
+      try {
+        // Subscribe our app to WABA webhooks immediately so incoming messages route to our webhook
+        const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetWabaId)}/subscribed_apps`;
+        await fetch(subUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${effectiveToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Fetch phone numbers under this WABA
+        const wabaInfoUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          targetWabaId
+        )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const wabaRes = await fetch(wabaInfoUrl);
+        const wabaJson = (await wabaRes.json()) as any;
+        if (wabaRes.ok && wabaJson) {
+          verifiedName = wabaJson.name || '';
+          const phoneList = wabaJson.phone_numbers?.data || [];
+          if (!targetPhoneId && phoneList.length > 0) {
+            targetPhoneId = phoneList[0].id;
+            displayPhone = phoneList[0].display_phone_number || phoneList[0].id;
+            verifiedName = phoneList[0].verified_name || verifiedName;
+          } else if (targetPhoneId) {
+            const matched = phoneList.find((p: any) => p.id === targetPhoneId);
+            if (matched) {
+              displayPhone = matched.display_phone_number || targetPhoneId;
+              verifiedName = matched.verified_name || verifiedName;
+            }
+          }
+        }
+      } catch (wabaErr) {
+        console.warn('[MetaOAuth] Error querying WABA details:', wabaErr);
+      }
+    }
+
+    // 3. If phone_number_id is provided, query phone details and register with WhatsApp Cloud API
+    if (targetPhoneId && effectiveToken) {
+      try {
+        if (!displayPhone) {
+          const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            targetPhoneId
+          )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
+            effectiveToken
+          )}`;
+          const phRes = await fetch(phUrl);
+          const phJson = (await phRes.json()) as any;
+          if (phRes.ok && phJson) {
+            displayPhone = phJson.display_phone_number || targetPhoneId;
+            verifiedName = phJson.verified_name || verifiedName;
+          }
+        }
+
+        // Register phone number with WhatsApp Cloud API
+        const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetPhoneId)}/register`;
+        await fetch(regUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${effectiveToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            pin: '123456'
+          })
+        });
+      } catch (phErr) {
+        console.warn('[MetaOAuth] Error querying or registering phone:', phErr);
+      }
+    }
+
+    // 4. If we have phone_number_id, connect channel immediately!
+    if (targetPhoneId) {
+      const connResult = await this.connectWhatsAppOnboarding(userId, {
+        wabaId: targetWabaId,
+        phoneNumberId: targetPhoneId,
+        displayPhoneNumber: displayPhone || targetPhoneId,
+        verifiedName: verifiedName || `WhatsApp (${displayPhone || targetPhoneId})`,
+        accessToken: effectiveToken
+      });
+
+      if (connResult.success && connResult.channel) {
+        return {
+          success: true,
+          channel: connResult.channel
+        };
+      }
+    }
+
+    // 5. Discover all available WhatsApp assets from token if not explicitly provided
+    if (effectiveToken) {
+      const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
+      if (whatsappNumbers && whatsappNumbers.length > 0) {
+        const autoWa = whatsappNumbers[0];
+        const autoConn = await this.connectWhatsAppOnboarding(userId, {
+          wabaId: autoWa.waba_id,
+          phoneNumberId: autoWa.id,
+          displayPhoneNumber: autoWa.display_phone_number,
+          verifiedName: autoWa.verified_name || autoWa.waba_name,
+          accessToken: effectiveToken
+        });
+        if (autoConn.success && autoConn.channel) {
+          return { success: true, channel: autoConn.channel };
+        }
+        return { success: true, whatsappNumbers };
+      }
+    }
+
+    return {
+      success: false,
+      error: 'WhatsApp Embedded Signup could not be completed. Please ensure you finished the setup in the Meta window.'
+    };
   }
 
   /**
