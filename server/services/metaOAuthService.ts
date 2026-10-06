@@ -377,30 +377,129 @@ export class MetaOAuthService {
 
     // Step 3: Attempt to discover WhatsApp Business Accounts (WABA) and Phone Number IDs
     try {
-      const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}&access_token=${encodeURIComponent(
-        effectiveUserToken
-      )}`;
-      const bizRes = await fetch(bizUrl);
-      const bizJson = (await bizRes.json()) as any;
+      const appId = this.getAppId();
+      const appSecret = this.getAppSecret();
+      const wabaIdsToFetch = new Set<string>();
 
-      if (bizRes.ok && Array.isArray(bizJson.data)) {
-        for (const biz of bizJson.data) {
-          const wabas = biz.owned_whatsapp_business_accounts?.data || [];
-          for (const waba of wabas) {
-            const phones = waba.phone_numbers?.data || [];
-            for (const ph of phones) {
-              whatsappNumbers.push({
-                id: String(ph.id),
-                waba_id: String(waba.id),
-                waba_name: String(waba.name || biz.name || 'WhatsApp Business'),
-                display_phone_number: String(ph.display_phone_number || ph.id),
-                verified_name: ph.verified_name || waba.name,
-                quality_rating: ph.quality_rating || 'GREEN',
-                access_token: effectiveUserToken,
-                token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
-              });
+      // 3A. Inspect debug_token for granular_scopes (where Meta puts shared WABA IDs from Facebook Login for Business)
+      if (appId && appSecret) {
+        try {
+          const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(
+            effectiveUserToken
+          )}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`;
+          const debugRes = await fetch(debugUrl);
+          const debugJson = (await debugRes.json()) as any;
+          if (debugRes.ok && debugJson?.data?.granular_scopes) {
+            for (const gs of debugJson.data.granular_scopes) {
+              if (
+                gs.scope === 'whatsapp_business_management' ||
+                gs.scope === 'whatsapp_business_messaging'
+              ) {
+                if (Array.isArray(gs.target_ids)) {
+                  for (const tid of gs.target_ids) {
+                    if (tid) wabaIdsToFetch.add(String(tid));
+                  }
+                }
+              }
             }
           }
+        } catch (_debugErr) {}
+      }
+
+      // 3B. Direct me/whatsapp_business_accounts endpoint
+      try {
+        const directWabaUrl = `https://graph.facebook.com/v21.0/me/whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const directRes = await fetch(directWabaUrl);
+        const directJson = (await directRes.json()) as any;
+        if (directRes.ok && Array.isArray(directJson.data)) {
+          for (const w of directJson.data) {
+            if (w.id) {
+              wabaIdsToFetch.add(String(w.id));
+              const phones = w.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(w.id),
+                  waba_name: String(w.name || 'WhatsApp Business'),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || w.name,
+                  quality_rating: ph.quality_rating || 'GREEN',
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          }
+        }
+      } catch (_directErr) {}
+
+      // 3C. me/businesses with both owned and client WABAs
+      try {
+        const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}},client_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const bizRes = await fetch(bizUrl);
+        const bizJson = (await bizRes.json()) as any;
+
+        if (bizRes.ok && Array.isArray(bizJson.data)) {
+          for (const biz of bizJson.data) {
+            const wabas = [
+              ...(biz.owned_whatsapp_business_accounts?.data || []),
+              ...(biz.client_whatsapp_business_accounts?.data || [])
+            ];
+            for (const waba of wabas) {
+              if (waba.id) {
+                wabaIdsToFetch.add(String(waba.id));
+                const phones = waba.phone_numbers?.data || [];
+                for (const ph of phones) {
+                  if (!whatsappNumbers.some((item) => item.id === String(ph.id))) {
+                    whatsappNumbers.push({
+                      id: String(ph.id),
+                      waba_id: String(waba.id),
+                      waba_name: String(waba.name || biz.name || 'WhatsApp Business'),
+                      display_phone_number: String(ph.display_phone_number || ph.id),
+                      verified_name: ph.verified_name || waba.name,
+                      quality_rating: ph.quality_rating || 'GREEN',
+                      access_token: effectiveUserToken,
+                      token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_bizErr) {}
+
+      // 3D. Fetch numbers for any WABA IDs found in granular scopes that aren't yet populated
+      for (const wabaId of wabaIdsToFetch) {
+        if (!whatsappNumbers.some((item) => item.waba_id === wabaId)) {
+          try {
+            const wUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              wabaId
+            )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+              effectiveUserToken
+            )}`;
+            const wRes = await fetch(wUrl);
+            const wJson = (await wRes.json()) as any;
+            if (wRes.ok && wJson) {
+              const phones = wJson.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(wabaId),
+                  waba_name: String(wJson.name || 'WhatsApp Business'),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || wJson.name,
+                  quality_rating: ph.quality_rating || 'GREEN',
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          } catch (_wFetchErr) {}
         }
       }
     } catch (_waErr) {
@@ -868,12 +967,21 @@ export class MetaOAuthService {
     // 1. If authorization code is provided, exchange it for access token
     if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
       try {
-        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+        // Try with redirect_uri='' (required for codes obtained via FB.login)
+        let tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
           appId
-        )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
+        )}&client_secret=${encodeURIComponent(appSecret)}&redirect_uri=&code=${encodeURIComponent(params.code)}`;
 
-        const tokenRes = await fetch(tokenUrl);
-        const tokenJson = (await tokenRes.json()) as any;
+        let tokenRes = await fetch(tokenUrl);
+        let tokenJson = (await tokenRes.json()) as any;
+
+        if (!tokenRes.ok || !tokenJson.access_token) {
+          tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+            appId
+          )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
+          tokenRes = await fetch(tokenUrl);
+          tokenJson = (await tokenRes.json()) as any;
+        }
 
         if (tokenRes.ok && tokenJson.access_token) {
           effectiveToken = tokenJson.access_token;
@@ -1021,7 +1129,10 @@ export class MetaOAuthService {
 
     return {
       success: false,
-      error: 'WhatsApp Embedded Signup could not be completed. Please ensure you finished the setup in the Meta window.'
+      error:
+        targetWabaId
+          ? 'Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup.'
+          : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure you have added the WhatsApp product and switched public_profile to Advanced Access.'
     };
   }
 

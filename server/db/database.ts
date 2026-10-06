@@ -726,6 +726,18 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 - Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), features, or details, always reply in a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.`,
       created_at: '2025-01-01T00:00:00.000Z',
       updated_at: '2025-01-01T00:00:00.000Z'
+    },
+    {
+      id: 'usr_reviewer_003',
+      email: 'reviewer@oneagentbd.online',
+      full_name: 'Meta App Reviewer',
+      role: 'user',
+      password: 'ReviewerPass2026!',
+      is_suspended: false,
+      llm_provider: 'gemini',
+      system_prompt: 'You are the official Customer Service AI Assistant for One Agent BD.',
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z'
     }
   ],
   plans: [
@@ -811,6 +823,16 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       start_date: new Date(Date.now() - 30 * 86400000).toISOString(),
       end_date: new Date(Date.now() + 365 * 86400000).toISOString(),
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'sub_reviewer_001',
+      user_id: 'usr_reviewer_003',
+      plan_id: 'plan_pro',
+      status: 'active',
+      start_date: new Date().toISOString(),
+      end_date: new Date(Date.now() + 365 * 86400000).toISOString(),
+      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
   ],
