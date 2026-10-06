@@ -174,14 +174,8 @@ export class MetaOAuthService {
     const configId = this.getConfigId();
     let extrasParam = '';
     if (platform === 'whatsapp') {
-      const extrasObj: any = {
-        feature: 'whatsapp_embedded_signup',
-        version: 2,
-        featureType: 'whatsapp_business_app_onboarding',
-        sessionInfoVersion: 2
-      };
       const configParam = configId ? `&config_id=${encodeURIComponent(configId)}` : '';
-      extrasParam = `${configParam}&auth_type=rerequest&extras=${encodeURIComponent(JSON.stringify(extrasObj))}`;
+      extrasParam = `${configParam}&auth_type=rerequest`;
     } else if (onboarding) {
       extrasParam = '&auth_type=rerequest';
     }

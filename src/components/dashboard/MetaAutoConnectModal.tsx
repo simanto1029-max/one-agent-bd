@@ -226,16 +226,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       setLoading(true);
       setError(null);
 
-      // Strategy A: If Facebook JavaScript SDK is loaded, use FB.login with Embedded Signup config
+      // Strategy A: If Facebook JavaScript SDK is loaded, use FB.login with standard business login scopes
       if (window.FB && metaAppId) {
         const loginOptions: any = {
           response_type: 'code',
-          override_default_response_type: true,
-          extras: {
-            feature: 'whatsapp_embedded_signup',
-            version: 2,
-            sessionInfoVersion: 2
-          }
+          override_default_response_type: true
         };
 
         if (metaConfigId) {
