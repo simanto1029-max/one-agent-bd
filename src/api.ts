@@ -720,6 +720,27 @@ export const api = {
     });
   },
 
+  async getWhatsAppQR(): Promise<{
+    success: boolean;
+    sessionId: string;
+    qrRaw: string;
+    expiresInSeconds: number;
+    timestamp: number;
+  }> {
+    return fetchJson('/api/channels/whatsapp/qr');
+  },
+
+  async pairWhatsAppQR(data: {
+    phoneNumber: string;
+    displayTitle?: string;
+    sessionId?: string;
+  }): Promise<{ success: boolean; channel: Channel }> {
+    return fetchJson('/api/channels/whatsapp/pair-scan', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async simulateMetaOAuth(platform: 'messenger' | 'instagram' | 'whatsapp', options?: any): Promise<{ success: boolean; channel?: Channel; pages?: any[] }> {
     return fetchJson('/api/channels/meta/simulate-oauth', {
       method: 'POST',

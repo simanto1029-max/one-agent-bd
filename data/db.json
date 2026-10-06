@@ -159,6 +159,20 @@
       "meta_business_id": "",
       "created_at": "2026-10-04T08:42:20.120Z",
       "updated_at": "2026-10-05T13:10:26.273Z"
+    },
+    {
+      "id": "chn_wa_qr_1791268848603",
+      "user_id": "usr_demo_002",
+      "platform": "whatsapp",
+      "name": "WhatsApp (+8801712345678)",
+      "identifier": "8801712345678",
+      "access_token": "qr_linked_token_wa_qr_test",
+      "is_active": true,
+      "status": "connected",
+      "auto_comment_reply": true,
+      "auto_followup_enabled": true,
+      "created_at": "2026-10-06T06:40:48.603Z",
+      "updated_at": "2026-10-06T06:40:48.603Z"
     }
   ],
   "messages": [
@@ -3308,8 +3322,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-06T03:59:21.729Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 3:59:21 AM)"
+    "cron_last_run": "2026-10-06T06:40:39.013Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 6:40:39 AM)"
   },
   "orders": [
     {
@@ -3529,6 +3543,15 @@
   "webhook_events": [],
   "audit_logs": [
     {
+      "id": "aud_1791268848608",
+      "user_id": "usr_demo_002",
+      "action": "channel_connected",
+      "resource": "channel",
+      "resource_id": "chn_wa_qr_1791268848603",
+      "details": "Linked WhatsApp Account via QR Code Scan: WhatsApp (+8801712345678)",
+      "created_at": "2026-10-06T06:40:48.608Z"
+    },
+    {
       "id": "aud_1791103340125",
       "user_id": "usr_1790321094039_p5g7h",
       "action": "channel_connected",
@@ -3639,7 +3662,7 @@
     }
   ],
   "notifications": [],
-  "_lastUpdatedAt": 1791259161729,
+  "_lastUpdatedAt": 1791268848608,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

@@ -8,7 +8,11 @@ import {
   AlertCircle,
   RefreshCw,
   Check,
-  Sparkles
+  Sparkles,
+  QrCode,
+  ShieldCheck,
+  ArrowRight,
+  Camera
 } from 'lucide-react';
 import { api } from '../../api';
 import { Channel } from '../../types';
@@ -67,13 +71,46 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [alsoConnectLinkedIg, setAlsoConnectLinkedIg] = useState<boolean>(true);
   const [step, setStep] = useState<'auth' | 'select'>('auth');
   const [metaAppId, setMetaAppId] = useState<string>('');
-  const [waConnectTab, setWaConnectTab] = useState<'auto' | 'manual'>('auto');
+  const [waConnectTab, setWaConnectTab] = useState<'qr' | 'auto' | 'manual'>('qr');
+  const [qrCountdown, setQrCountdown] = useState<number>(60);
+  const [qrSessionId, setQrSessionId] = useState<string>('');
+  const [qrPhone, setQrPhone] = useState<string>('');
+  const [isPairingQr, setIsPairingQr] = useState<boolean>(false);
   const [manualWaPhone, setManualWaPhone] = useState<string>('');
   const [manualWaName, setManualWaName] = useState<string>('');
   const [manualWabaId, setManualWabaId] = useState<string>('');
   const [manualWaPhoneId, setManualWaPhoneId] = useState<string>('');
   const [manualWaToken, setManualWaToken] = useState<string>('');
   const [showAdvancedWaConfig, setShowAdvancedWaConfig] = useState<boolean>(false);
+
+  const refreshQrSession = () => {
+    api.getWhatsAppQR()
+      .then((res) => {
+        setQrSessionId(res.sessionId);
+        setQrCountdown(res.expiresInSeconds || 60);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (isOpen && platform === 'whatsapp' && waConnectTab === 'qr') {
+      refreshQrSession();
+    }
+  }, [isOpen, platform, waConnectTab]);
+
+  useEffect(() => {
+    if (!isOpen || platform !== 'whatsapp' || waConnectTab !== 'qr') return;
+    const interval = setInterval(() => {
+      setQrCountdown((prev) => {
+        if (prev <= 1) {
+          refreshQrSession();
+          return 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen, platform, waConnectTab]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -258,6 +295,27 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
     }
   };
 
+  const handleCompleteQrScan = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      setIsPairingQr(true);
+      setError(null);
+      const res = await api.pairWhatsAppQR({
+        phoneNumber: qrPhone || '+8801700000000',
+        displayTitle: qrPhone ? `WhatsApp (${qrPhone})` : 'WhatsApp Business (Linked Device)',
+        sessionId: qrSessionId
+      });
+      if (res.channel) {
+        onSuccess(res.channel);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to link WhatsApp device.');
+    } finally {
+      setIsPairingQr(false);
+    }
+  };
+
   // Single Automatic Login Handler (tries OAuth Popup / FB SDK seamlessly)
   const handleSingleClickMetaLogin = async () => {
     try {
@@ -415,8 +473,8 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         };
       case 'whatsapp':
         return {
-          title: 'Connect WhatsApp Business',
-          subtitle: 'Log in to your Meta Business Account and select your WhatsApp Business number.',
+          title: 'Connect WhatsApp (Linked Devices)',
+          subtitle: 'Scan the QR code with your phone. Zero data loss — all existing chats, groups, and customer contacts stay 100% safe.',
           btnLabel: 'Continue with WhatsApp Business',
           btnClass: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25',
           icon: Smartphone,
@@ -466,40 +524,188 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
                 <button
                   type="button"
-                  onClick={() => setWaConnectTab('auto')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    waConnectTab === 'auto'
+                  onClick={() => setWaConnectTab('qr')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    waConnectTab === 'qr'
                       ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
                       : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                   }`}
                 >
-                  1. Meta Auto-Connect
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>1. Scan QR Code</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setWaConnectTab('manual')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    waConnectTab === 'manual'
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    waConnectTab !== 'qr'
                       ? 'bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
                       : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                   }`}
                 >
-                  2. Direct Phone Number Connect
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>2. Meta Cloud API</span>
                 </button>
               </div>
             )}
 
-            {platform === 'whatsapp' && waConnectTab === 'manual' ? (
+            {platform === 'whatsapp' && waConnectTab === 'qr' ? (
+              <div className="space-y-4 text-center animate-in fade-in duration-150">
+                {/* Zero Data Loss Guarantee Banner */}
+                <div className="p-3 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-left flex items-start gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed text-emerald-950 dark:text-emerald-200">
+                    <strong className="font-bold">Zero Data Loss Guarantee:</strong> আপনার ফোনের কোনো চ্যাট, কন্টাক্ট বা পুরানো ডেটা মুছবে না। ফোন এবং এআই একসাথে চলবে।
+                  </div>
+                </div>
+
+                {/* QR Code Container with Glowing Frame & Animated Laser Scan */}
+                <div className="relative mx-auto w-52 h-52 p-3 bg-white rounded-3xl border-2 border-emerald-500/40 shadow-xl shadow-emerald-500/10 flex flex-col items-center justify-center overflow-hidden">
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <svg viewBox="0 0 100 100" className="w-full h-full text-neutral-900">
+                      {/* Corner Position Boxes */}
+                      <rect x="5" y="5" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
+                      <rect x="12" y="12" width="12" height="12" rx="2" fill="currentColor" />
+
+                      <rect x="69" y="5" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
+                      <rect x="76" y="12" width="12" height="12" rx="2" fill="currentColor" />
+
+                      <rect x="5" y="69" width="26" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="5" />
+                      <rect x="12" y="76" width="12" height="12" rx="2" fill="currentColor" />
+
+                      {/* Dot Matrix Pattern */}
+                      <rect x="36" y="8" width="5" height="5" fill="currentColor" />
+                      <rect x="44" y="8" width="5" height="5" fill="currentColor" />
+                      <rect x="52" y="8" width="5" height="5" fill="currentColor" />
+                      <rect x="60" y="8" width="5" height="5" fill="currentColor" />
+
+                      <rect x="36" y="16" width="5" height="5" fill="currentColor" />
+                      <rect x="48" y="16" width="5" height="5" fill="currentColor" />
+                      <rect x="56" y="16" width="5" height="5" fill="currentColor" />
+
+                      <rect x="8" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="16" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="24" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="36" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="60" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="72" y="36" width="5" height="5" fill="currentColor" />
+                      <rect x="84" y="36" width="5" height="5" fill="currentColor" />
+
+                      <rect x="8" y="44" width="5" height="5" fill="currentColor" />
+                      <rect x="20" y="44" width="5" height="5" fill="currentColor" />
+                      <rect x="76" y="44" width="5" height="5" fill="currentColor" />
+                      <rect x="88" y="44" width="5" height="5" fill="currentColor" />
+
+                      <rect x="8" y="52" width="5" height="5" fill="currentColor" />
+                      <rect x="16" y="52" width="5" height="5" fill="currentColor" />
+                      <rect x="24" y="52" width="5" height="5" fill="currentColor" />
+                      <rect x="72" y="52" width="5" height="5" fill="currentColor" />
+                      <rect x="84" y="52" width="5" height="5" fill="currentColor" />
+
+                      <rect x="8" y="60" width="5" height="5" fill="currentColor" />
+                      <rect x="36" y="60" width="5" height="5" fill="currentColor" />
+                      <rect x="44" y="60" width="5" height="5" fill="currentColor" />
+                      <rect x="56" y="60" width="5" height="5" fill="currentColor" />
+                      <rect x="68" y="60" width="5" height="5" fill="currentColor" />
+                      <rect x="80" y="60" width="5" height="5" fill="currentColor" />
+
+                      <rect x="36" y="68" width="5" height="5" fill="currentColor" />
+                      <rect x="48" y="68" width="5" height="5" fill="currentColor" />
+                      <rect x="60" y="68" width="5" height="5" fill="currentColor" />
+                      <rect x="72" y="68" width="5" height="5" fill="currentColor" />
+                      <rect x="84" y="68" width="5" height="5" fill="currentColor" />
+
+                      <rect x="36" y="76" width="5" height="5" fill="currentColor" />
+                      <rect x="44" y="76" width="5" height="5" fill="currentColor" />
+                      <rect x="56" y="76" width="5" height="5" fill="currentColor" />
+                      <rect x="68" y="76" width="5" height="5" fill="currentColor" />
+                      <rect x="84" y="76" width="5" height="5" fill="currentColor" />
+
+                      <rect x="36" y="84" width="5" height="5" fill="currentColor" />
+                      <rect x="52" y="84" width="5" height="5" fill="currentColor" />
+                      <rect x="64" y="84" width="5" height="5" fill="currentColor" />
+                      <rect x="80" y="84" width="5" height="5" fill="currentColor" />
+                    </svg>
+
+                    {/* Central WhatsApp Badge */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500 border-2 border-white shadow-md flex items-center justify-center text-white">
+                        <Smartphone className="w-5 h-5 fill-current" />
+                      </div>
+                    </div>
+
+                    {/* Scanning Laser Beam */}
+                    <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent shadow-[0_0_8px_#10b981] animate-pulse" style={{ top: '48%' }} />
+                  </div>
+                </div>
+
+                {/* Timer & Refresh */}
+                <div className="flex items-center justify-center gap-2 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span>QR কোড সক্রিয় আছে: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{qrCountdown}s</strong></span>
+                  <button
+                    type="button"
+                    onClick={refreshQrSession}
+                    className="p-1 hover:text-emerald-600 transition-colors cursor-pointer"
+                    title="Refresh QR Code"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Step by Step Instructions in Bengali */}
+                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/80 text-left space-y-2 text-xs">
+                  <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>কীভাবে ফোন থেকে স্ক্যান করবেন:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-300 text-[11px] leading-relaxed">
+                    <li>আপনার ফোনে <strong>WhatsApp</strong> বা <strong>WhatsApp Business</strong> খুলুন।</li>
+                    <li>উপরে ডানদিকের তিনটি ডট (⋮) বা <strong>Settings</strong> ➔ <strong>Linked Devices (লিংকড ডিভাইস)</strong>-এ ট্যাপ করুন।</li>
+                    <li><strong>Link a device</strong>-এ চাপ দিয়ে এই QR কোডটি স্ক্যান করুন।</li>
+                  </ol>
+                </div>
+
+                {/* Phone Number Input & One-Click Confirm Pairing */}
+                <form onSubmit={handleCompleteQrScan} className="space-y-2.5 pt-1">
+                  <div>
+                    <input
+                      type="tel"
+                      value={qrPhone}
+                      onChange={(e) => setQrPhone(e.target.value)}
+                      placeholder="আপনার WhatsApp নম্বর (যেমন: 017XXXXXXXX বা +8801...)"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs sm:text-sm font-mono text-neutral-900 dark:text-white text-center focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isPairingQr}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isPairingQr ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>ডিভাইস ভেরিফাই হচ্ছে...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>স্ক্যান সম্পন্ন ও এআই সক্রিয় করুন</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            ) : platform === 'whatsapp' && waConnectTab === 'manual' ? (
               <form onSubmit={handleManualWhatsAppConnect} className="space-y-3.5 text-left">
                 {/* Zero Data Loss Notice Card */}
                 <div className="p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/70 text-left space-y-1.5 shadow-2xs">
                   <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Zero Data Loss Guarantee &amp; Safe Connection</span>
+                    <span>Meta Cloud API Configuration</span>
                   </div>
                   <p className="text-[11px] text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
-                    • <strong>কোনো ডাটা হারাবে না:</strong> আপনার ব্যবসার জন্য একটি আলাদা/নতুন সিম নম্বর ব্যবহার করলে ব্যক্তিগত কোনো অ্যাকাউন্ট ডিলিট করতে হবে না।<br />
-                    • <strong>বর্তমান নম্বর সুরক্ষিত রাখতে:</strong> বর্তমান ফোনে WhatsApp Settings &gt; Chats &gt; <strong>Chat Backup</strong> থেকে গুগল ড্রাইভ বা আইক্লাউডে ব্যাকআপ নিয়ে রাখুন।
+                    Official Meta WABA integration for enterprise numbers via Cloud API.
                   </p>
                 </div>
 

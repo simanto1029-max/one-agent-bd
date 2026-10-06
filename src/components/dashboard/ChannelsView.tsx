@@ -16,7 +16,8 @@ import {
   Settings,
   Save,
   ShieldCheck,
-  Plus
+  Plus,
+  QrCode
 } from 'lucide-react';
 import { api } from '../../api';
 import { Channel, UserProfile } from '../../types';
@@ -888,12 +889,12 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {whatsappChannels.length > 0 ? (
                   <>
                     <Plus className="w-4 h-4" />
-                    <span>Connect Another Number</span>
+                    <span>Connect Another Number (Scan QR)</span>
                   </>
                 ) : (
                   <>
-                    <Smartphone className="w-4 h-4" />
-                    <span>Connect WhatsApp</span>
+                    <QrCode className="w-4 h-4" />
+                    <span>Scan QR Code to Connect WhatsApp</span>
                   </>
                 )}
               </button>
