@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { handleInboundWebhook, handleInboundCommentWebhook } from '../services/metaService.js';
+import { handleInboundWebhook, handleInboundCommentWebhook, fetchMetaCustomerProfile } from '../services/metaService.js';
 import { db } from '../db/database.js';
 
 export const webhooksRouter = Router();
@@ -159,34 +159,58 @@ webhooksRouter.post(['/meta', '/'], async (req: Request, res: Response) => {
               rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
             tasks.push(
-              handleInboundWebhook({
-                platform: targetPlatform,
-                identifier: assetId,
-                customerId: senderId,
-                customerName: `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`,
-                messageText,
-                messageId,
-                audioUrl,
-                audioMimeType,
-                imageUrl,
-                imageMimeType,
-                rawPayload: event
-              }).catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
+              (async () => {
+                const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
+                const profile = await fetchMetaCustomerProfile(
+                  targetPlatform,
+                  senderId,
+                  targetChannel?.access_token
+                );
+
+                const resolvedName = profile.name || `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`;
+
+                return handleInboundWebhook({
+                  platform: targetPlatform,
+                  identifier: assetId,
+                  customerId: senderId,
+                  customerName: resolvedName,
+                  customerAvatar: profile.avatar,
+                  messageText,
+                  messageId,
+                  audioUrl,
+                  audioMimeType,
+                  imageUrl,
+                  imageMimeType,
+                  rawPayload: event
+                });
+              })().catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
             );
           } else if (event.postback) {
             const senderId = event.sender?.id;
             const postbackText = event.postback?.title || event.postback?.payload || '';
             if (senderId && postbackText) {
               tasks.push(
-                handleInboundWebhook({
-                  platform: targetPlatform,
-                  identifier: assetId,
-                  customerId: senderId,
-                  customerName: `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`,
-                  messageText: postbackText,
-                  messageId: event.postback?.mid || `pb_${Date.now()}`,
-                  rawPayload: event
-                }).catch((err) => console.error(`[Unified ${targetPlatform} Postback Error]:`, err))
+                (async () => {
+                  const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
+                  const profile = await fetchMetaCustomerProfile(
+                    targetPlatform,
+                    senderId,
+                    targetChannel?.access_token
+                  );
+
+                  const resolvedName = profile.name || `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`;
+
+                  return handleInboundWebhook({
+                    platform: targetPlatform,
+                    identifier: assetId,
+                    customerId: senderId,
+                    customerName: resolvedName,
+                    customerAvatar: profile.avatar,
+                    messageText: postbackText,
+                    messageId: event.postback?.mid || `pb_${Date.now()}`,
+                    rawPayload: event
+                  });
+                })().catch((err) => console.error(`[Unified ${targetPlatform} Postback Error]:`, err))
               );
             }
           }
@@ -425,19 +449,31 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
             const messageText = rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
             tasks.push(
-              handleInboundWebhook({
-                platform: 'messenger',
-                identifier: pageId,
-                customerId: senderId,
-                customerName: `Messenger User (${senderId.slice(-4)})`,
-                messageText,
-                messageId,
-                audioUrl,
-                audioMimeType,
-                imageUrl,
-                imageMimeType,
-                rawPayload: event
-              }).catch((err) => {
+              (async () => {
+                const targetChannel = db.getChannelByIdentifier('messenger', pageId);
+                const profile = await fetchMetaCustomerProfile(
+                  'messenger',
+                  senderId,
+                  targetChannel?.access_token
+                );
+
+                const resolvedName = profile.name || `Messenger User (${senderId.slice(-4)})`;
+
+                return handleInboundWebhook({
+                  platform: 'messenger',
+                  identifier: pageId,
+                  customerId: senderId,
+                  customerName: resolvedName,
+                  customerAvatar: profile.avatar,
+                  messageText,
+                  messageId,
+                  audioUrl,
+                  audioMimeType,
+                  imageUrl,
+                  imageMimeType,
+                  rawPayload: event
+                });
+              })().catch((err) => {
                 console.error('[Messenger Webhook Processing Error]:', err);
               })
             );
@@ -446,15 +482,27 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
             const postbackText = event.postback?.title || event.postback?.payload || '';
             if (senderId && postbackText) {
               tasks.push(
-                handleInboundWebhook({
-                  platform: 'messenger',
-                  identifier: pageId,
-                  customerId: senderId,
-                  customerName: `Messenger User (${senderId.slice(-4)})`,
-                  messageText: postbackText,
-                  messageId: event.postback?.mid || `pb_${Date.now()}`,
-                  rawPayload: event
-                }).catch((err) => {
+                (async () => {
+                  const targetChannel = db.getChannelByIdentifier('messenger', pageId);
+                  const profile = await fetchMetaCustomerProfile(
+                    'messenger',
+                    senderId,
+                    targetChannel?.access_token
+                  );
+
+                  const resolvedName = profile.name || `Messenger User (${senderId.slice(-4)})`;
+
+                  return handleInboundWebhook({
+                    platform: 'messenger',
+                    identifier: pageId,
+                    customerId: senderId,
+                    customerName: resolvedName,
+                    customerAvatar: profile.avatar,
+                    messageText: postbackText,
+                    messageId: event.postback?.mid || `pb_${Date.now()}`,
+                    rawPayload: event
+                  });
+                })().catch((err) => {
                   console.error('[Messenger Postback Processing Error]:', err);
                 })
               );

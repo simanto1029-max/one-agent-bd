@@ -51,6 +51,165 @@ interface UnifiedInboxProps {
 
 type CategoryTab = 'all' | 'orders' | 'delivered' | 'new_customer';
 
+// Official Authentic Brand Vector Logos
+export const WhatsAppLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 48 48" fill="none">
+    <circle cx="24" cy="24" r="22" fill="#25D366" />
+    <path
+      d="M33.4 14.6C30.9 12.1 27.6 10.7 24.1 10.7C16.9 10.7 11 16.6 11 23.8C11 26.1 11.6 28.3 12.8 30.3L10.7 37.3L17.8 35.4C19.7 36.4 21.9 37 24.1 37C31.3 37 37.2 31.1 37.2 23.9C37.2 20.4 35.8 17.1 33.4 14.6ZM24.1 34.8C22.2 34.8 20.3 34.2 18.6 33.2L18.2 33L14 34.1L15.1 30.1L14.8 29.6C13.7 27.9 13.1 25.9 13.1 23.8C13.1 17.8 18 12.9 24.1 12.9C27 12.9 29.7 14 31.7 16C33.7 18 34.8 20.7 34.8 23.8C34.8 29.9 29.9 34.8 24.1 34.8ZM30 26.6C29.7 26.4 28 25.6 27.7 25.5C27.4 25.4 27.2 25.3 26.9 25.7C26.7 26 26.1 26.7 25.9 26.9C25.7 27.2 25.5 27.2 25.1 27C24.8 26.9 23.8 26.5 22.5 25.4C21.5 24.5 20.9 23.4 20.7 23C20.5 22.6 20.7 22.5 20.9 22.3C21 22.1 21.3 21.8 21.5 21.6C21.7 21.3 21.7 21.2 21.9 20.9C22 20.6 21.9 20.4 21.8 20.2C21.7 20.1 21.1 18.5 20.8 17.8C20.5 17.2 20.3 17.2 20.1 17.2C19.9 17.2 19.6 17.2 19.3 17.2C19 17.2 18.6 17.3 18.3 17.7C18 18.1 17 19.1 17 21.1C17 23.2 18.4 25.1 18.6 25.4C18.8 25.7 21.4 29.9 25.3 31.8C26.2 32.2 27 32.5 27.5 32.7C28.4 33 29.3 33 29.9 32.9C30.7 32.8 32.1 31.9 32.4 31C32.8 30.1 32.8 29.4 32.7 29.2C32.5 29.1 32.3 29 32 28.8L30 26.6Z"
+      fill="white"
+    />
+  </svg>
+);
+
+export const MessengerLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 48 48" fill="none">
+    <defs>
+      <linearGradient id="inboxMsngrGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#0078FF" />
+        <stop offset="50%" stopColor="#A033FF" />
+        <stop offset="100%" stopColor="#FF5280" />
+      </linearGradient>
+    </defs>
+    <path
+      d="M24 4C12.95 4 4 12.4 4 22.8C4 28.7 6.8 33.9 11.2 37.2V44L17.7 40.4C19.7 41 21.8 41.3 24 41.3C35.05 41.3 44 32.9 44 22.5C44 12.4 35.05 4 24 4Z"
+      fill="url(#inboxMsngrGrad)"
+    />
+    <path
+      d="M13.5 27.5L21.5 19L25.8 23.5L34.5 19L26.5 27.5L22.2 23L13.5 27.5Z"
+      fill="white"
+    />
+  </svg>
+);
+
+export const FacebookLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 48 48" fill="none">
+    <circle cx="24" cy="24" r="22" fill="#1877F2" />
+    <path
+      d="M27.5 24.5L28.2 19.8H23.8V16.8C23.8 15.5 24.4 14.3 26.4 14.3H28.4V10.4C27.3 10.2 26.2 10.1 25.1 10.1C21.8 10.1 19.6 12.1 19.6 15.8V19.8H15.6V24.5H19.6V35.7H23.8V24.5H27.5Z"
+      fill="white"
+    />
+  </svg>
+);
+
+export const InstagramLogo: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 48 48" fill="none">
+    <defs>
+      <radialGradient id="inboxIgLogoGrad" cx="0.2" cy="1" r="1">
+        <stop offset="0%" stopColor="#FFDD55" />
+        <stop offset="30%" stopColor="#FF543E" />
+        <stop offset="60%" stopColor="#C837AB" />
+        <stop offset="100%" stopColor="#4158D0" />
+      </radialGradient>
+    </defs>
+    <rect width="44" height="44" x="2" y="2" rx="13" fill="url(#inboxIgLogoGrad)" />
+    <rect x="11.5" y="11.5" width="25" height="25" rx="7.5" stroke="white" strokeWidth="2.8" fill="none" />
+    <circle cx="24" cy="24" r="5.8" stroke="white" strokeWidth="2.8" fill="none" />
+    <circle cx="31.2" cy="16.8" r="1.6" fill="white" />
+  </svg>
+);
+
+// High-fidelity customer avatar with profile image fallback & authentic platform badge
+interface CustomerAvatarProps {
+  customerName: string;
+  customerAvatar?: string;
+  platform: 'whatsapp' | 'messenger' | 'instagram' | string;
+  size?: 'sm' | 'md' | 'lg';
+  showBadge?: boolean;
+  isSelected?: boolean;
+}
+
+const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
+  customerName,
+  customerAvatar,
+  platform,
+  size = 'md',
+  showBadge = true,
+  isSelected = false
+}) => {
+  const [imgError, setImgError] = useState(false);
+
+  const getGradientByName = (name: string) => {
+    const charCode = (name || 'A').charCodeAt(0) || 65;
+    const gradients = [
+      'from-purple-600 to-indigo-600 text-white',
+      'from-blue-600 to-cyan-600 text-white',
+      'from-emerald-600 to-teal-600 text-white',
+      'from-rose-600 to-pink-600 text-white',
+      'from-amber-600 to-orange-600 text-white',
+      'from-violet-600 to-fuchsia-600 text-white'
+    ];
+    return gradients[charCode % gradients.length];
+  };
+
+  const sizeClasses = {
+    sm: 'w-7 h-7 text-[10px] rounded-lg',
+    md: 'w-10 h-10 text-xs rounded-xl',
+    lg: 'w-9 sm:w-10 h-9 sm:h-10 text-xs sm:text-sm rounded-xl'
+  }[size];
+
+  const badgeSize = {
+    sm: 'w-3.5 h-3.5 -bottom-1 -right-1',
+    md: 'w-4 h-4 -bottom-1 -right-1',
+    lg: 'w-4.5 h-4.5 -bottom-0.5 -right-0.5'
+  }[size];
+
+  const badgeIconSize = {
+    sm: 'w-3 h-3',
+    md: 'w-3.5 h-3.5',
+    lg: 'w-4 h-4'
+  }[size];
+
+  const renderBadgeLogo = () => {
+    if (platform === 'whatsapp') return <WhatsAppLogo className={badgeIconSize} />;
+    if (platform === 'messenger') return <MessengerLogo className={badgeIconSize} />;
+    if (platform === 'instagram') return <InstagramLogo className={badgeIconSize} />;
+    return <FacebookLogo className={badgeIconSize} />;
+  };
+
+  // If customerAvatar exists or dicebear fallback for named customer
+  const displayAvatar =
+    customerAvatar ||
+    (customerName && !customerName.startsWith('Messenger User') && !customerName.startsWith('Instagram User')
+      ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customerName)}&backgroundColor=7c3aed,2563eb,059669,d97706,e11d48`
+      : undefined);
+
+  return (
+    <div className="relative shrink-0 select-none">
+      <div
+        className={`${sizeClasses} overflow-hidden flex items-center justify-center font-extrabold shadow-2xs border border-black/5 dark:border-white/10 ${
+          isSelected ? 'ring-2 ring-[#7F22FE] shadow-sm' : ''
+        }`}
+      >
+        {displayAvatar && !imgError ? (
+          <img
+            src={displayAvatar}
+            alt={customerName}
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div
+            className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${getGradientByName(
+              customerName || 'Customer'
+            )}`}
+          >
+            {(customerName || 'C').charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {showBadge && (
+        <span
+          className={`absolute ${badgeSize} rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-1.5 ring-white dark:ring-neutral-900 flex items-center justify-center overflow-hidden`}
+        >
+          {renderBadgeLogo()}
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   channels,
   onNavigate,
@@ -557,10 +716,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     { label: '🚚 Courier Status', text: 'Your order has been booked with Steadfast Courier! You will receive an SMS tracking link shortly.' }
   ];
 
-  const getPlatformIcon = (platform: 'whatsapp' | 'messenger' | 'instagram' | string, className = 'w-3 h-3') => {
-    if (platform === 'whatsapp') return <Smartphone className={className} />;
-    if (platform === 'messenger') return <Facebook className={className} />;
-    return <Instagram className={className} />;
+  const getPlatformIcon = (platform: 'whatsapp' | 'messenger' | 'instagram' | string, className = 'w-3.5 h-3.5') => {
+    if (platform === 'whatsapp') return <WhatsAppLogo className={className} />;
+    if (platform === 'messenger') return <MessengerLogo className={className} />;
+    if (platform === 'instagram') return <InstagramLogo className={className} />;
+    return <FacebookLogo className={className} />;
   };
 
   const getPlatformBadgeStyle = (platform: 'whatsapp' | 'messenger' | 'instagram' | string) => {
@@ -711,36 +871,36 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </button>
             <button
               onClick={() => setFilterPlatform('whatsapp')}
-              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
                 filterPlatform === 'whatsapp'
                   ? 'bg-emerald-600 text-white'
                   : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              WhatsApp
+              <WhatsAppLogo className="w-3.5 h-3.5 shrink-0" />
+              <span>WhatsApp</span>
             </button>
             <button
               onClick={() => setFilterPlatform('messenger')}
-              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
                 filterPlatform === 'messenger'
                   ? 'bg-blue-600 text-white'
                   : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-              Messenger
+              <MessengerLogo className="w-3.5 h-3.5 shrink-0" />
+              <span>Messenger</span>
             </button>
             <button
               onClick={() => setFilterPlatform('instagram')}
-              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+              className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
                 filterPlatform === 'instagram'
                   ? 'bg-pink-600 text-white'
                   : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
-              Instagram
+              <InstagramLogo className="w-3.5 h-3.5 shrink-0" />
+              <span>Instagram</span>
             </button>
           </div>
         </div>
@@ -782,25 +942,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       : 'hover:bg-white/70 dark:hover:bg-neutral-800/40'
                   }`}
                 >
-                  {/* Avatar with Platform Corner Badge */}
-                  <div className="relative shrink-0 mt-0.5">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-extrabold ${
-                        isSelected
-                          ? 'bg-[#7F22FE] text-white shadow-sm shadow-[#7F22FE]/25'
-                          : 'bg-neutral-200/80 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
-                      }`}
-                    >
-                      {c.customerName.charAt(0).toUpperCase()}
-                    </div>
-                    <span
-                      className={` -bottom-1 -right-1 absolute w-4.5 h-4.5 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900 ${getPlatformBadgeStyle(
-                        c.platform
-                      )}`}
-                    >
-                      {getPlatformIcon(c.platform, 'w-2.5 h-2.5')}
-                    </span>
-                  </div>
+                  {/* Avatar with Profile Picture & Authentic Platform Corner Badge */}
+                  <CustomerAvatar
+                    customerName={c.customerName}
+                    customerAvatar={c.customerAvatar}
+                    platform={c.platform}
+                    size="md"
+                    isSelected={isSelected}
+                  />
 
                   {/* Conversation Info */}
                   <div className="flex-1 min-w-0">
@@ -857,7 +1006,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         </span>
                       )}
                       <span className="text-neutral-300 dark:text-neutral-700">·</span>
-                      <span className="text-neutral-400 capitalize">{c.platform}</span>
+                      <span className="text-neutral-500 dark:text-neutral-400 capitalize inline-flex items-center gap-1 font-medium">
+                        {getPlatformIcon(c.platform, 'w-3 h-3 shrink-0')}
+                        <span>{c.platform === 'whatsapp' ? 'WhatsApp' : c.platform === 'messenger' ? 'Messenger' : 'Instagram'}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -888,16 +1040,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   >
                     ← Chats
                   </button>
-                  <div className="relative shrink-0">
-                    <div
-                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-xs sm:text-sm font-black text-white shadow-xs ${getPlatformBadgeStyle(
-                        selectedConv.platform
-                      )}`}
-                    >
-                      {selectedConv.customerName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
-                  </div>
+                  <CustomerAvatar
+                    customerName={selectedConv.customerName}
+                    customerAvatar={selectedConv.customerAvatar}
+                    platform={selectedConv.platform}
+                    size="lg"
+                  />
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -905,8 +1053,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         {selectedConv.customerName}
                       </h3>
                       <span className="text-neutral-300 dark:text-neutral-700 shrink-0">·</span>
-                      <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 capitalize shrink-0">
-                        {selectedConv.platform}
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 capitalize shrink-0">
+                        {getPlatformIcon(selectedConv.platform, 'w-3.5 h-3.5 shrink-0')}
+                        <span>{selectedConv.platform === 'whatsapp' ? 'WhatsApp' : selectedConv.platform === 'messenger' ? 'Messenger' : 'Instagram'}</span>
                       </span>
                       {selectedConv.orderCategory === 'orders' && (
                         <span className="hidden sm:inline-flex text-[11px] font-bold text-[#7F22FE] dark:text-purple-400 items-center gap-1 shrink-0">
@@ -1340,12 +1489,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   >
                     {/* Customer Avatar for Inbound */}
                     {!isOutbound && (
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 mb-4 ${getPlatformBadgeStyle(
-                          selectedConv.platform
-                        )}`}
-                      >
-                        {selectedConv.customerName.charAt(0).toUpperCase()}
+                      <div className="mb-4 shrink-0">
+                        <CustomerAvatar
+                          customerName={selectedConv.customerName}
+                          customerAvatar={selectedConv.customerAvatar}
+                          platform={selectedConv.platform}
+                          size="sm"
+                          showBadge={false}
+                        />
                       </div>
                     )}
 

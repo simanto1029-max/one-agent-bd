@@ -184,6 +184,7 @@ export interface Message {
   platform: 'whatsapp' | 'messenger' | 'instagram';
   customer_id: string;
   customer_name?: string;
+  customer_avatar?: string;
   direction: 'inbound' | 'outbound';
   message_text: string;
   is_ai_reply: boolean;
@@ -207,6 +208,7 @@ export interface Message {
 export interface Conversation {
   customerId: string;
   customerName: string;
+  customerAvatar?: string;
   platform: 'whatsapp' | 'messenger' | 'instagram';
   channelId?: string;
   lastMessage: Message;
