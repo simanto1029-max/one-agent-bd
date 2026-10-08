@@ -1372,7 +1372,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
               thinkingConfig: { thinkingBudget: 0 }
             }
           }),
-          3500
+          8500
         );
 
         const reply = response.text?.trim();
@@ -1695,18 +1695,35 @@ function buildSmartBanglaFallbackFromPrompt(
       return `জ্বী! আমাদের ওয়েবসাইটে (https://www.oneagentbd.online) নতুন অ্যাকাউন্ট খুললেই কোনো অগ্রিম পেমেন্ট ছাড়া ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল পাবেন।\n\nআপনি কি আজই ট্রায়ালটি চালু করে আপনার পেজে টেস্ট করে দেখতে চান?`;
     }
 
-    // 2I. Setup / Connect / How it works inquiry
+    // 2-Trust: Trust, Credibility, Scam concern, Authenticity inquiry
     if (
+      q.includes('trust') ||
+      q.includes('biswas') ||
+      q.includes('bissas') ||
+      q.includes('bhorsha') ||
+      q.includes('বিশ্বাস') ||
+      q.includes('ট্রাস্ট') ||
+      q.includes('ভরসা') ||
+      q.includes('প্রতারণা') ||
+      q.includes('নিরাপদ') ||
+      q.includes('authenticity')
+    ) {
+      return `আমরা মেটার (Meta) অফিশিয়াল API ব্যবহার করে সম্পূর্ণ সুরক্ষিতভাবে সার্ভিস প্রদান করি, তাই পেজ ব্যান বা সিকিউরিটির কোনো ঝুঁকি নেই। 😊\n\nএছাড়া আমাদের বিশ্বাসযোগ্যতা সরাসরি যাচাই করতে আপনি কোনো অগ্রিম পেমেন্ট ছাড়াই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল ব্যবহার করে দেখতে পারেন। পেজে বট সন্তোষজনকভাবে কাজ করলেই কেবল সাবস্ক্রিপশন নিতে পারবেন!\n\nআপনি কি ২ দিনের ফ্রি ট্রায়ালটি এখনই চালু করে টেস্ট করতে চান?`;
+    }
+
+    // 2I. Setup / Connect / How it works inquiry (requires explicit setup context)
+    const isExplicitSetupQuery =
       q.includes('connect') ||
       q.includes('setup') ||
       q.includes('how it works') ||
       q.includes('how does it work') ||
-      q.includes('kivabe') ||
-      q.includes('কিভাবে') ||
       q.includes('কানেক্ট') ||
       q.includes('সেটআপ') ||
-      q.includes('কাজ করে')
-    ) {
+      q.includes('কাজ করে') ||
+      ((q.includes('kivabe') || q.includes('কিভাবে')) &&
+        (q.includes('shuru') || q.includes('চালু') || q.includes('এড') || q.includes('add') || q.includes('page') || q.includes('পেজ')));
+
+    if (isExplicitSetupQuery) {
       return `মাত্র ২ মিনিটেই সেটআপ করা যায়! https://www.oneagentbd.online ওয়েবসাইটে লগইন করে "Connect with Facebook"-এ ১ ক্লিক করে পেজ কানেক্ট ও বিজনেস ডিটেইলস সেভ করলেই অটো রিপ্লাই শুরু হবে।\n\nসেটআপ করতে আপনার কি কোনো সাহায্য প্রয়োজন?`;
     }
 
@@ -2087,6 +2104,10 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
 - ফ্রি ট্রায়াল: যেকোনো নতুন ইউজার ওয়েবসাইটে (https://www.oneagentbd.online) অ্যাকাউন্ট খুলেই ২ দিনের (৪৮ ঘণ্টা) সম্পূর্ণ ফ্রি ট্রায়াল নিয়ে সব ফিচার টেস্ট করতে পারবেন (কোনো অগ্রিম পেমেন্ট লাগবে না)।
 - কুপন কোড ও ডিসকাউন্ট (Coupon & Discount Policy): কাস্টমার কুপন কোড বা ডিসকাউন্ট চাইলে জানাবেন যে চেকআউটের সময় প্রোমো কোড বক্সে কুপন কোড ব্যবহার করে ডিসকাউন্ট নেওয়া যায়। বর্তমানে সচল কুপন কোডসমূহ: ${couponSummary}। এছাড়া ওয়েবসাইটের লাইভ চ্যাটবট থেকে বিজনেস রিভিউ/মাসিক সেলস জানিয়ে ১৫% ইনস্ট্যান্ট কুপন কোড জেনারেট করা যায় কিংবা বড় প্যাকেজে স্পেশাল ছাড়ের জন্য সাপোর্টে (+8801601705804) কথা বলা যাবে।
 - নিরাপত্তা ও মেসেজ লিমিট: মেটার ১০০% অফিসিয়াল Graph ও Cloud API ব্যবহার করা হয়, তাই পেজ বা আইডি ব্যান হওয়ার ০% ঝুঁকিও নেই। উভয় প্ল্যানেই আনলিমিটেড মেসেজ রিপ্লাই (প্রতি মেসেজে আলাদা কোনো চার্জ নেই)।
+- ট্রাস্ট ও বিশ্বাসযোগ্যতা (Trust & Credibility Policy): কাস্টমার ট্রাস্ট বা বিশ্বাস নিয়ে প্রশ্ন করলে (যেমন: "apnader trust korbo kivabe?", "কীভাবে বিশ্বাস করব?", "রিয়েল কিনা?") খুব আন্তরিকভাবে আশ্বস্ত করবেন যে:
+  ১) আমরা মেটার (Meta) ১০০% অফিশিয়াল API ব্যবহার করি, পেজ ব্যান বা সিকিউরিটির কোনো ভয় নেই।
+  ২) বিশ্বাসযোগ্যতা নিজে যাচাইয়ের জন্য কোনো অগ্রিম টাকা ছাড়াই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল সুবিধা রয়েছে। আপনি নিজের পেজে চালিয়ে সন্তুষ্ট হলে তবেই সাবস্ক্রিপশন নিতে পারবেন।
+  ৩) সারা দেশে শত শত পেজ সফলভাবে আমাদের সেবা ব্যবহার করছে এবং যেকোনো দরকারে হেল্পলাইন (+8801601705804) সরাসরি চালু রয়েছে।
 - পেমেন্ট ও সাপোর্ট: বিকাশ, নগদ, রকেট ও উপায় (pay.oneagentbd.online)-এর মাধ্যমে পেমেন্ট করে TrxID দিলেই প্ল্যান সাথে সাথে অটোমেটিক অ্যাক্টিভ হয়। সাপোর্ট ও হেল্পলাইন (সকাল ৯টা – রাত ১১টা): +8801601705804 (WhatsApp/Call), ইমেইল: support.oneagentbd@gmail.com, ওয়েবসাইট: https://www.oneagentbd.online।`
     : '';
 
@@ -2501,10 +2522,10 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
     };
   }
 
-  // Cap total LLM call time to 3.8s so a customer on Messenger/WhatsApp/Instagram never waits 5-10 seconds
+  // Cap total LLM call time to 9.5s so real AI reasoning has full time to respond thoughtfully
   const geminiReply = await withTimeout(
     callGemini(fullPrompt, effectiveApiKey, systemInstruction),
-    3800
+    9500
   ).catch(() => null);
   const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
 
