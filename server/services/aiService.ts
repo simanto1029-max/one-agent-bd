@@ -2019,39 +2019,26 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   const profile = (params as any).profile || db.getProfileById(params.userId);
   const businessName = params.channelName || profile?.full_name || 'One Agent BD';
 
+  const hasCustomMerchantPrompt = Boolean(
+    (params.overrideSystemPrompt && params.overrideSystemPrompt.trim().length > 10) ||
+    (profile?.system_prompt &&
+      profile.system_prompt.trim().length > 10 &&
+      !profile.system_prompt.includes('Starter AI Plan 1,250') &&
+      !profile.system_prompt.includes('You are an executive AI assistant for One Agent BD'))
+  );
+
   const isAdminOrOfficialSaaS =
-    profile?.role === 'admin' ||
-    params.userId === 'usr_admin_1' ||
-    params.userId === 'usr_admin_001' ||
-    params.userId === 'saas_official' ||
-    businessName.toLowerCase().includes('one agent');
+    businessName.toLowerCase().includes('one agent') && !hasCustomMerchantPrompt;
 
   // Resolve the best custom system_prompt (ONLY use global SaaS default_system_prompt for Admin / Official One Agent BD channels!)
   const defaultSavedPrompt = isAdminOrOfficialSaaS
     ? ((db.getSettings() as any)?.default_system_prompt || '').trim()
     : '';
-  const adminCustomPrompt = isAdminOrOfficialSaaS
-    ? db
-        .getProfiles()
-        .find(
-          (p) =>
-            p.role === 'admin' &&
-            p.system_prompt &&
-            !p.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
-            !p.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
-        )?.system_prompt || ''
-    : '';
 
   const rawSystemPrompt =
     (params.overrideSystemPrompt && params.overrideSystemPrompt.trim()) ||
-    (profile?.system_prompt &&
-      !profile.system_prompt.includes('You are an executive AI assistant for One Agent BD') &&
-      !profile.system_prompt.includes('Subscription Plan: All-in-One Plan 1,450 BDT/month')
-      ? profile.system_prompt.trim()
-      : '') ||
-    defaultSavedPrompt ||
-    adminCustomPrompt ||
     (profile?.system_prompt && profile.system_prompt.trim()) ||
+    defaultSavedPrompt ||
     `আপনি "${businessName}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট। কাস্টমারের প্রশ্নের অর্থ বুঝে আন্তরিক ও স্বাভাবিক বাংলায় উত্তর দিন।`;
 
   // Sanitize any legacy "English only" or "no lists / 1-3 sentences" instructions inside saved prompts so Bangla serial lists always work
