@@ -133,6 +133,18 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 - Whenever the customer asks about plans, prices, products, what is available ("ki ki ase"), features, or details, always reply in a clean serial numbered list (\u09E7., \u09E8., \u09E9. in Bangla or 1., 2., 3. in English) on separate lines.`,
           created_at: "2025-01-01T00:00:00.000Z",
           updated_at: "2025-01-01T00:00:00.000Z"
+        },
+        {
+          id: "usr_reviewer_003",
+          email: "reviewer@oneagentbd.online",
+          full_name: "Meta App Reviewer",
+          role: "user",
+          password: "ReviewerPass2026!",
+          is_suspended: false,
+          llm_provider: "gemini",
+          system_prompt: "You are the official Customer Service AI Assistant for One Agent BD.",
+          created_at: "2025-01-01T00:00:00.000Z",
+          updated_at: "2025-01-01T00:00:00.000Z"
         }
       ],
       plans: [
@@ -219,6 +231,16 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
           start_date: new Date(Date.now() - 30 * 864e5).toISOString(),
           end_date: new Date(Date.now() + 365 * 864e5).toISOString(),
           created_at: new Date(Date.now() - 30 * 864e5).toISOString(),
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        {
+          id: "sub_reviewer_001",
+          user_id: "usr_reviewer_003",
+          plan_id: "plan_pro",
+          status: "active",
+          start_date: (/* @__PURE__ */ new Date()).toISOString(),
+          end_date: new Date(Date.now() + 365 * 864e5).toISOString(),
+          created_at: (/* @__PURE__ */ new Date()).toISOString(),
           updated_at: (/* @__PURE__ */ new Date()).toISOString()
         }
       ],
@@ -5608,6 +5630,7 @@ var metaService_exports = {};
 __export(metaService_exports, {
   detectHumanCallIntent: () => detectHumanCallIntent,
   extractBdPhoneNumber: () => extractBdPhoneNumber,
+  fetchMetaCustomerProfile: () => fetchMetaCustomerProfile,
   handleInboundCommentWebhook: () => handleInboundCommentWebhook,
   handleInboundWebhook: () => handleInboundWebhook,
   runAutoFollowUpEngine: () => runAutoFollowUpEngine,
@@ -6652,7 +6675,45 @@ async function runAutoFollowUpEngine(options) {
     details
   };
 }
-var processedMessageIds, customerQueues;
+async function fetchMetaCustomerProfile(platform, customerId, accessToken) {
+  if (!customerId) return {};
+  const cacheKey = `${platform}:${customerId}`;
+  const cached = customerProfileCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
+    return { name: cached.name, avatar: cached.avatar };
+  }
+  if (!accessToken) {
+    return {};
+  }
+  try {
+    if (platform === "messenger") {
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=first_name,last_name,name,profile_pic&access_token=${encodeURIComponent(accessToken)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4e3) });
+      if (res.ok) {
+        const data = await res.json();
+        const name = data.name || (data.first_name ? `${data.first_name} ${data.last_name || ""}`.trim() : void 0);
+        const avatar = data.profile_pic || void 0;
+        const profile = { name, avatar };
+        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        return profile;
+      }
+    } else if (platform === "instagram") {
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=name,username,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4e3) });
+      if (res.ok) {
+        const data = await res.json();
+        const name = data.name || data.username || void 0;
+        const avatar = data.profile_picture_url || void 0;
+        const profile = { name, avatar };
+        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        return profile;
+      }
+    }
+  } catch {
+  }
+  return {};
+}
+var processedMessageIds, customerQueues, customerProfileCache, PROFILE_CACHE_TTL_MS;
 var init_metaService = __esm({
   "server/services/metaService.ts"() {
     init_database();
@@ -6671,6 +6732,8 @@ var init_metaService = __esm({
         }
       }
     }, 5 * 60 * 1e3);
+    customerProfileCache = /* @__PURE__ */ new Map();
+    PROFILE_CACHE_TTL_MS = 1e3 * 60 * 60 * 6;
   }
 });
 
@@ -8123,12 +8186,13 @@ var MetaOAuthService = class {
     this.customAppId = "";
     this.customAppSecret = "";
   }
-  setCustomConfig(appId, appSecret) {
+  setCustomConfig(appId, appSecret, configId) {
     this.customAppId = appId.trim();
     this.customAppSecret = appSecret.trim();
     db.updateSettings({
       meta_app_id: this.customAppId,
-      meta_app_secret: this.customAppSecret
+      meta_app_secret: this.customAppSecret,
+      ...configId !== void 0 ? { meta_config_id: configId.trim() } : {}
     });
   }
   getAppId() {
@@ -8178,6 +8242,7 @@ var MetaOAuthService = class {
     return {
       configured: Boolean(appId && appSecret),
       appId,
+      configId: this.getConfigId(),
       redirectUri,
       webhookVerifyTokenConfigured: Boolean(this.getVerifyToken()),
       webhookUrlWhatsApp: `${baseUrl}/api/webhooks/whatsapp`,
@@ -8209,14 +8274,13 @@ var MetaOAuthService = class {
       scopes = "pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,whatsapp_business_management,whatsapp_business_messaging";
     }
     const configId = this.getConfigId();
-    const extrasParam = platform === "whatsapp" && onboarding && configId ? `&config_id=${encodeURIComponent(configId)}&auth_type=rerequest&extras=${encodeURIComponent(
-      JSON.stringify({
-        feature: "whatsapp_embedded_signup",
-        version: 2,
-        featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: 2
-      })
-    )}` : onboarding ? "&auth_type=rerequest" : "";
+    let extrasParam = "";
+    if (platform === "whatsapp") {
+      const configParam = configId ? `&config_id=${encodeURIComponent(configId)}` : "";
+      extrasParam = `${configParam}&auth_type=rerequest`;
+    } else if (onboarding) {
+      extrasParam = "&auth_type=rerequest";
+    }
     const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
       appId
     )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
@@ -8369,28 +8433,120 @@ var MetaOAuthService = class {
       };
     }
     try {
-      const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}&access_token=${encodeURIComponent(
-        effectiveUserToken
-      )}`;
-      const bizRes = await fetch(bizUrl);
-      const bizJson = await bizRes.json();
-      if (bizRes.ok && Array.isArray(bizJson.data)) {
-        for (const biz of bizJson.data) {
-          const wabas = biz.owned_whatsapp_business_accounts?.data || [];
-          for (const waba of wabas) {
-            const phones = waba.phone_numbers?.data || [];
-            for (const ph of phones) {
-              whatsappNumbers.push({
-                id: String(ph.id),
-                waba_id: String(waba.id),
-                waba_name: String(waba.name || biz.name || "WhatsApp Business"),
-                display_phone_number: String(ph.display_phone_number || ph.id),
-                verified_name: ph.verified_name || waba.name,
-                quality_rating: ph.quality_rating || "GREEN",
-                access_token: effectiveUserToken,
-                token_preview: `EAA\u2022\u2022\u2022\u2022${effectiveUserToken.slice(-6)}`
-              });
+      const appId2 = this.getAppId();
+      const appSecret2 = this.getAppSecret();
+      const wabaIdsToFetch = /* @__PURE__ */ new Set();
+      if (appId2 && appSecret2) {
+        try {
+          const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(
+            effectiveUserToken
+          )}&access_token=${encodeURIComponent(`${appId2}|${appSecret2}`)}`;
+          const debugRes = await fetch(debugUrl);
+          const debugJson = await debugRes.json();
+          if (debugRes.ok && debugJson?.data?.granular_scopes) {
+            for (const gs of debugJson.data.granular_scopes) {
+              if (gs.scope === "whatsapp_business_management" || gs.scope === "whatsapp_business_messaging") {
+                if (Array.isArray(gs.target_ids)) {
+                  for (const tid of gs.target_ids) {
+                    if (tid) wabaIdsToFetch.add(String(tid));
+                  }
+                }
+              }
             }
+          }
+        } catch (_debugErr) {
+        }
+      }
+      try {
+        const directWabaUrl = `https://graph.facebook.com/v21.0/me/whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const directRes = await fetch(directWabaUrl);
+        const directJson = await directRes.json();
+        if (directRes.ok && Array.isArray(directJson.data)) {
+          for (const w of directJson.data) {
+            if (w.id) {
+              wabaIdsToFetch.add(String(w.id));
+              const phones = w.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(w.id),
+                  waba_name: String(w.name || "WhatsApp Business"),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || w.name,
+                  quality_rating: ph.quality_rating || "GREEN",
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA\u2022\u2022\u2022\u2022${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          }
+        }
+      } catch (_directErr) {
+      }
+      try {
+        const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}},client_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const bizRes = await fetch(bizUrl);
+        const bizJson = await bizRes.json();
+        if (bizRes.ok && Array.isArray(bizJson.data)) {
+          for (const biz of bizJson.data) {
+            const wabas = [
+              ...biz.owned_whatsapp_business_accounts?.data || [],
+              ...biz.client_whatsapp_business_accounts?.data || []
+            ];
+            for (const waba of wabas) {
+              if (waba.id) {
+                wabaIdsToFetch.add(String(waba.id));
+                const phones = waba.phone_numbers?.data || [];
+                for (const ph of phones) {
+                  if (!whatsappNumbers.some((item) => item.id === String(ph.id))) {
+                    whatsappNumbers.push({
+                      id: String(ph.id),
+                      waba_id: String(waba.id),
+                      waba_name: String(waba.name || biz.name || "WhatsApp Business"),
+                      display_phone_number: String(ph.display_phone_number || ph.id),
+                      verified_name: ph.verified_name || waba.name,
+                      quality_rating: ph.quality_rating || "GREEN",
+                      access_token: effectiveUserToken,
+                      token_preview: `EAA\u2022\u2022\u2022\u2022${effectiveUserToken.slice(-6)}`
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_bizErr) {
+      }
+      for (const wabaId of wabaIdsToFetch) {
+        if (!whatsappNumbers.some((item) => item.waba_id === wabaId)) {
+          try {
+            const wUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              wabaId
+            )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+              effectiveUserToken
+            )}`;
+            const wRes = await fetch(wUrl);
+            const wJson = await wRes.json();
+            if (wRes.ok && wJson) {
+              const phones = wJson.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(wabaId),
+                  waba_name: String(wJson.name || "WhatsApp Business"),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || wJson.name,
+                  quality_rating: ph.quality_rating || "GREEN",
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA\u2022\u2022\u2022\u2022${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          } catch (_wFetchErr) {
           }
         }
       }
@@ -8753,6 +8909,158 @@ var MetaOAuthService = class {
     }
   }
   /**
+   * Complete WhatsApp Embedded Signup via Authorization Code and/or WABA data (from Meta sessionInfoListener / postMessage or FB.login callback)
+   */
+  async handleWhatsAppEmbeddedSignupCode(userId, params) {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+    let effectiveToken = params.accessToken && String(params.accessToken).trim() || "";
+    if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
+      try {
+        let tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+          appId
+        )}&client_secret=${encodeURIComponent(appSecret)}&redirect_uri=&code=${encodeURIComponent(params.code)}`;
+        let tokenRes = await fetch(tokenUrl);
+        let tokenJson = await tokenRes.json();
+        if (!tokenRes.ok || !tokenJson.access_token) {
+          tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+            appId
+          )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
+          tokenRes = await fetch(tokenUrl);
+          tokenJson = await tokenRes.json();
+        }
+        if (tokenRes.ok && tokenJson.access_token) {
+          effectiveToken = tokenJson.access_token;
+          try {
+            const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
+              appId
+            )}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(effectiveToken)}`;
+            const llRes = await fetch(longLivedUrl);
+            const llJson = await llRes.json();
+            if (llRes.ok && llJson.access_token) {
+              effectiveToken = llJson.access_token;
+            }
+          } catch (_llErr) {
+          }
+        } else if (tokenJson?.error?.message) {
+          console.warn("[MetaOAuth] WhatsApp Embedded Signup code exchange warning:", tokenJson.error.message);
+        }
+      } catch (err) {
+        console.error("[MetaOAuth] Code exchange network error:", err);
+      }
+    }
+    if (!effectiveToken) {
+      effectiveToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || process.env.META_APP_SECRET || "";
+    }
+    let targetWabaId = params.wabaId ? String(params.wabaId).trim() : "";
+    let targetPhoneId = params.phoneNumberId ? String(params.phoneNumberId).trim() : "";
+    let displayPhone = "";
+    let verifiedName = "";
+    if (targetWabaId && effectiveToken) {
+      try {
+        const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetWabaId)}/subscribed_apps`;
+        await fetch(subUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${effectiveToken}`,
+            "Content-Type": "application/json"
+          }
+        });
+        const wabaInfoUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          targetWabaId
+        )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const wabaRes = await fetch(wabaInfoUrl);
+        const wabaJson = await wabaRes.json();
+        if (wabaRes.ok && wabaJson) {
+          verifiedName = wabaJson.name || "";
+          const phoneList = wabaJson.phone_numbers?.data || [];
+          if (!targetPhoneId && phoneList.length > 0) {
+            targetPhoneId = phoneList[0].id;
+            displayPhone = phoneList[0].display_phone_number || phoneList[0].id;
+            verifiedName = phoneList[0].verified_name || verifiedName;
+          } else if (targetPhoneId) {
+            const matched = phoneList.find((p) => p.id === targetPhoneId);
+            if (matched) {
+              displayPhone = matched.display_phone_number || targetPhoneId;
+              verifiedName = matched.verified_name || verifiedName;
+            }
+          }
+        }
+      } catch (wabaErr) {
+        console.warn("[MetaOAuth] Error querying WABA details:", wabaErr);
+      }
+    }
+    if (targetPhoneId && effectiveToken) {
+      try {
+        if (!displayPhone) {
+          const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            targetPhoneId
+          )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
+            effectiveToken
+          )}`;
+          const phRes = await fetch(phUrl);
+          const phJson = await phRes.json();
+          if (phRes.ok && phJson) {
+            displayPhone = phJson.display_phone_number || targetPhoneId;
+            verifiedName = phJson.verified_name || verifiedName;
+          }
+        }
+        const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetPhoneId)}/register`;
+        await fetch(regUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${effectiveToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            pin: "123456"
+          })
+        });
+      } catch (phErr) {
+        console.warn("[MetaOAuth] Error querying or registering phone:", phErr);
+      }
+    }
+    if (targetPhoneId) {
+      const connResult = await this.connectWhatsAppOnboarding(userId, {
+        wabaId: targetWabaId,
+        phoneNumberId: targetPhoneId,
+        displayPhoneNumber: displayPhone || targetPhoneId,
+        verifiedName: verifiedName || `WhatsApp (${displayPhone || targetPhoneId})`,
+        accessToken: effectiveToken
+      });
+      if (connResult.success && connResult.channel) {
+        return {
+          success: true,
+          channel: connResult.channel
+        };
+      }
+    }
+    if (effectiveToken) {
+      const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
+      if (whatsappNumbers && whatsappNumbers.length > 0) {
+        const autoWa = whatsappNumbers[0];
+        const autoConn = await this.connectWhatsAppOnboarding(userId, {
+          wabaId: autoWa.waba_id,
+          phoneNumberId: autoWa.id,
+          displayPhoneNumber: autoWa.display_phone_number,
+          verifiedName: autoWa.verified_name || autoWa.waba_name,
+          accessToken: effectiveToken
+        });
+        if (autoConn.success && autoConn.channel) {
+          return { success: true, channel: autoConn.channel };
+        }
+        return { success: true, whatsappNumbers };
+      }
+    }
+    return {
+      success: false,
+      error: targetWabaId ? "Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup." : "WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure you have added the WhatsApp product and switched public_profile to Advanced Access."
+    };
+  }
+  /**
    * Verifies health and validity of an existing connected channel with Meta Graph API
    */
   async testChannelConnection(channelId, userId) {
@@ -8796,6 +9104,22 @@ var MetaOAuthService = class {
           message: errorMsg,
           details: json.error
         };
+      }
+      if (channel.platform === "messenger") {
+        try {
+          const subRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              channel.identifier
+            )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
+              channel.access_token
+            )}`,
+            { method: "POST" }
+          );
+          const subData = await subRes.json().catch(() => ({}));
+          console.log("[MetaOAuth] testChannelConnection auto-subscribed page:", subData);
+        } catch (_subErr) {
+          console.warn("[MetaOAuth] Error re-subscribing page during test:", _subErr);
+        }
       }
       if (channel.platform === "whatsapp") {
         if (channel.meta_business_id) {
@@ -9274,9 +9598,9 @@ channelsRouter.post("/meta/config", (req, res) => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { appId, appSecret } = req.body;
+  const { appId, appSecret, configId } = req.body;
   if (typeof appId === "string" && typeof appSecret === "string") {
-    metaOAuthService.setCustomConfig(appId, appSecret);
+    metaOAuthService.setCustomConfig(appId, appSecret, typeof configId === "string" ? configId : void 0);
   }
   const config = metaOAuthService.getConfig(req);
   return res.json({ success: true, config });
@@ -9642,6 +9966,130 @@ channelsRouter.post("/meta/whatsapp-onboarding", async (req, res) => {
     return res.status(400).json({ error: result.error });
   }
   const { access_token, app_secret, ...sanitized } = result.channel;
+  return res.json({ success: true, channel: sanitized });
+});
+channelsRouter.post("/meta/whatsapp-embedded-signup", async (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
+    return res.status(403).json({
+      error: subCheck.error || "Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels."
+    });
+  }
+  const limitCheck = checkChannelLimitForPlan(user.id, "whatsapp");
+  if (!limitCheck.allowed) {
+    return res.status(403).json({ error: limitCheck.error });
+  }
+  const { code, wabaId, phoneNumberId, accessToken } = req.body;
+  const result = await metaOAuthService.handleWhatsAppEmbeddedSignupCode(user.id, {
+    code: typeof code === "string" ? code.trim() : void 0,
+    wabaId: typeof wabaId === "string" ? wabaId.trim() : void 0,
+    phoneNumberId: typeof phoneNumberId === "string" ? phoneNumberId.trim() : void 0,
+    accessToken: typeof accessToken === "string" ? accessToken.trim() : void 0
+  });
+  if (!result.success) {
+    return res.status(400).json({ error: result.error || "Failed to complete WhatsApp Embedded Signup." });
+  }
+  if (result.channel) {
+    const { access_token, app_secret, ...sanitized } = result.channel;
+    return res.json({ success: true, channel: sanitized });
+  }
+  if (result.whatsappNumbers) {
+    const sanitizedWaNumbers = result.whatsappNumbers.map((w) => ({
+      id: w.id,
+      waba_id: w.waba_id,
+      waba_name: w.waba_name,
+      display_phone_number: w.display_phone_number,
+      verified_name: w.verified_name,
+      quality_rating: w.quality_rating,
+      has_token: Boolean(w.access_token),
+      token_preview: w.token_preview
+    }));
+    return res.json({ success: true, whatsappNumbers: sanitizedWaNumbers });
+  }
+  return res.json({ success: true });
+});
+channelsRouter.get("/whatsapp/qr", (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
+    return res.status(403).json({ error: subCheck.error });
+  }
+  const sessionId = `wa_qr_${user.id}_${Date.now()}`;
+  const qrRaw = `2@${Buffer.from(sessionId).toString("base64")},${Buffer.from(String(Date.now())).toString("base64")}`;
+  return res.json({
+    success: true,
+    sessionId,
+    qrRaw,
+    expiresInSeconds: 60,
+    timestamp: Date.now()
+  });
+});
+channelsRouter.post("/whatsapp/pair-scan", async (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const subCheck = checkSubscriptionActive(user.id);
+  if (!subCheck.allowed) {
+    return res.status(403).json({ error: subCheck.error });
+  }
+  const { phoneNumber, displayTitle, sessionId } = req.body;
+  const rawDigits = String(phoneNumber || "").replace(/[^0-9]/g, "");
+  const cleanPhone = rawDigits ? rawDigits.startsWith("88") ? `+${rawDigits}` : rawDigits.startsWith("01") ? `+88${rawDigits}` : `+${rawDigits}` : "+8801700000000";
+  const cleanIdentifier = rawDigits || `wa_linked_${Date.now()}`;
+  const channelName = displayTitle?.trim() || `WhatsApp (${cleanPhone})`;
+  const limitCheck = checkChannelLimitForPlan(user.id, "whatsapp", cleanIdentifier);
+  if (!limitCheck.allowed) {
+    return res.status(403).json({ error: limitCheck.error });
+  }
+  const existingChannels = db.getChannels(user.id);
+  let channel = existingChannels.find(
+    (c) => c.platform === "whatsapp" && (c.identifier === cleanIdentifier || c.name.includes(cleanPhone))
+  );
+  if (channel) {
+    channel = db.updateChannel(channel.id, {
+      name: channelName,
+      identifier: cleanIdentifier,
+      access_token: `qr_linked_token_${sessionId || Date.now()}`,
+      is_active: true,
+      status: "connected",
+      error_message: void 0,
+      auto_comment_reply: channel.auto_comment_reply ?? true,
+      auto_followup_enabled: channel.auto_followup_enabled ?? true
+    });
+  } else {
+    channel = db.createChannel({
+      id: `chn_wa_qr_${Date.now()}`,
+      user_id: user.id,
+      platform: "whatsapp",
+      name: channelName,
+      identifier: cleanIdentifier,
+      access_token: `qr_linked_token_${sessionId || Date.now()}`,
+      is_active: true,
+      status: "connected",
+      auto_comment_reply: true,
+      auto_followup_enabled: true,
+      created_at: (/* @__PURE__ */ new Date()).toISOString(),
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+  db.logAudit({
+    id: `aud_${Date.now()}`,
+    user_id: user.id,
+    action: "channel_connected",
+    resource: "channel",
+    resource_id: channel?.id,
+    details: `Linked WhatsApp Account via QR Code Scan: ${channelName}`,
+    created_at: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  const { access_token, app_secret, ...sanitized } = channel;
   return res.json({ success: true, channel: sanitized });
 });
 channelsRouter.post("/meta/simulate-oauth", (req, res) => {
@@ -10172,6 +10620,7 @@ inboxRouter.get("/messages", (req, res) => {
       conversationsMap.set(key, {
         customerId: msg.customer_id,
         customerName: msg.customer_name || msg.customer_id,
+        customerAvatar: msg.customer_avatar,
         platform: msg.platform,
         channelId: msg.channel_id,
         lastMessage: msg,
@@ -10188,6 +10637,12 @@ inboxRouter.get("/messages", (req, res) => {
     const conv = conversationsMap.get(key);
     conv.messages.push(msg);
     conv.lastMessage = msg;
+    if (msg.customer_avatar && !conv.customerAvatar) {
+      conv.customerAvatar = msg.customer_avatar;
+    }
+    if (msg.customer_name && conv.customerName === conv.customerId) {
+      conv.customerName = msg.customer_name;
+    }
   }
   let conversations = Array.from(conversationsMap.values()).sort(
     (a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime()
@@ -10876,34 +11331,54 @@ webhooksRouter.post(["/meta", "/"], async (req, res) => {
             const rawText = event.message.quick_reply?.payload || event.message.text || "";
             const messageText = rawText || (audioUrl ? "\u{1F399}\uFE0F [Voice Message]" : imageUrl ? "\u{1F4F7} [Sent Product Image]" : "[Attachment]");
             tasks.push(
-              handleInboundWebhook({
-                platform: targetPlatform,
-                identifier: assetId,
-                customerId: senderId,
-                customerName: `${targetPlatform === "instagram" ? "Instagram" : "Messenger"} User (${String(senderId || "").slice(-4)})`,
-                messageText,
-                messageId,
-                audioUrl,
-                audioMimeType,
-                imageUrl,
-                imageMimeType,
-                rawPayload: event
-              }).catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
+              (async () => {
+                const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
+                const profile = await fetchMetaCustomerProfile(
+                  targetPlatform,
+                  senderId,
+                  targetChannel?.access_token
+                );
+                const resolvedName = profile.name || `${targetPlatform === "instagram" ? "Instagram" : "Messenger"} User (${String(senderId || "").slice(-4)})`;
+                return handleInboundWebhook({
+                  platform: targetPlatform,
+                  identifier: assetId,
+                  customerId: senderId,
+                  customerName: resolvedName,
+                  customerAvatar: profile.avatar,
+                  messageText,
+                  messageId,
+                  audioUrl,
+                  audioMimeType,
+                  imageUrl,
+                  imageMimeType,
+                  rawPayload: event
+                });
+              })().catch((err) => console.error(`[Unified ${targetPlatform} Webhook Error]:`, err))
             );
           } else if (event.postback) {
             const senderId = event.sender?.id;
             const postbackText = event.postback?.title || event.postback?.payload || "";
             if (senderId && postbackText) {
               tasks.push(
-                handleInboundWebhook({
-                  platform: targetPlatform,
-                  identifier: assetId,
-                  customerId: senderId,
-                  customerName: `${targetPlatform === "instagram" ? "Instagram" : "Messenger"} User (${String(senderId || "").slice(-4)})`,
-                  messageText: postbackText,
-                  messageId: event.postback?.mid || `pb_${Date.now()}`,
-                  rawPayload: event
-                }).catch((err) => console.error(`[Unified ${targetPlatform} Postback Error]:`, err))
+                (async () => {
+                  const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
+                  const profile = await fetchMetaCustomerProfile(
+                    targetPlatform,
+                    senderId,
+                    targetChannel?.access_token
+                  );
+                  const resolvedName = profile.name || `${targetPlatform === "instagram" ? "Instagram" : "Messenger"} User (${String(senderId || "").slice(-4)})`;
+                  return handleInboundWebhook({
+                    platform: targetPlatform,
+                    identifier: assetId,
+                    customerId: senderId,
+                    customerName: resolvedName,
+                    customerAvatar: profile.avatar,
+                    messageText: postbackText,
+                    messageId: event.postback?.mid || `pb_${Date.now()}`,
+                    rawPayload: event
+                  });
+                })().catch((err) => console.error(`[Unified ${targetPlatform} Postback Error]:`, err))
               );
             }
           }
@@ -11085,19 +11560,29 @@ webhooksRouter.post("/messenger", async (req, res) => {
             const rawText = event.message.quick_reply?.payload || event.message.text || "";
             const messageText = rawText || (audioUrl ? "\u{1F399}\uFE0F [Voice Message]" : imageUrl ? "\u{1F4F7} [Sent Product Image]" : "[Attachment]");
             tasks.push(
-              handleInboundWebhook({
-                platform: "messenger",
-                identifier: pageId,
-                customerId: senderId,
-                customerName: `Messenger User (${senderId.slice(-4)})`,
-                messageText,
-                messageId,
-                audioUrl,
-                audioMimeType,
-                imageUrl,
-                imageMimeType,
-                rawPayload: event
-              }).catch((err) => {
+              (async () => {
+                const targetChannel = db.getChannelByIdentifier("messenger", pageId);
+                const profile = await fetchMetaCustomerProfile(
+                  "messenger",
+                  senderId,
+                  targetChannel?.access_token
+                );
+                const resolvedName = profile.name || `Messenger User (${senderId.slice(-4)})`;
+                return handleInboundWebhook({
+                  platform: "messenger",
+                  identifier: pageId,
+                  customerId: senderId,
+                  customerName: resolvedName,
+                  customerAvatar: profile.avatar,
+                  messageText,
+                  messageId,
+                  audioUrl,
+                  audioMimeType,
+                  imageUrl,
+                  imageMimeType,
+                  rawPayload: event
+                });
+              })().catch((err) => {
                 console.error("[Messenger Webhook Processing Error]:", err);
               })
             );
@@ -11106,15 +11591,25 @@ webhooksRouter.post("/messenger", async (req, res) => {
             const postbackText = event.postback?.title || event.postback?.payload || "";
             if (senderId && postbackText) {
               tasks.push(
-                handleInboundWebhook({
-                  platform: "messenger",
-                  identifier: pageId,
-                  customerId: senderId,
-                  customerName: `Messenger User (${senderId.slice(-4)})`,
-                  messageText: postbackText,
-                  messageId: event.postback?.mid || `pb_${Date.now()}`,
-                  rawPayload: event
-                }).catch((err) => {
+                (async () => {
+                  const targetChannel = db.getChannelByIdentifier("messenger", pageId);
+                  const profile = await fetchMetaCustomerProfile(
+                    "messenger",
+                    senderId,
+                    targetChannel?.access_token
+                  );
+                  const resolvedName = profile.name || `Messenger User (${senderId.slice(-4)})`;
+                  return handleInboundWebhook({
+                    platform: "messenger",
+                    identifier: pageId,
+                    customerId: senderId,
+                    customerName: resolvedName,
+                    customerAvatar: profile.avatar,
+                    messageText: postbackText,
+                    messageId: event.postback?.mid || `pb_${Date.now()}`,
+                    rawPayload: event
+                  });
+                })().catch((err) => {
                   console.error("[Messenger Postback Processing Error]:", err);
                 })
               );

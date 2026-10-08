@@ -45,6 +45,7 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
   const conversationsMap = new Map<string, {
     customerId: string;
     customerName: string;
+    customerAvatar?: string;
     platform: 'whatsapp' | 'messenger' | 'instagram';
     channelId?: string;
     lastMessage: Message;
@@ -95,6 +96,7 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
       conversationsMap.set(key, {
         customerId: msg.customer_id,
         customerName: msg.customer_name || msg.customer_id,
+        customerAvatar: msg.customer_avatar,
         platform: msg.platform,
         channelId: msg.channel_id,
         lastMessage: msg,
@@ -111,6 +113,12 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     const conv = conversationsMap.get(key)!;
     conv.messages.push(msg);
     conv.lastMessage = msg;
+    if (msg.customer_avatar && !conv.customerAvatar) {
+      conv.customerAvatar = msg.customer_avatar;
+    }
+    if (msg.customer_name && conv.customerName === conv.customerId) {
+      conv.customerName = msg.customer_name;
+    }
   }
 
   let conversations = Array.from(conversationsMap.values()).sort(

@@ -75,6 +75,7 @@ export interface InboundWebhookEvent {
   identifier: string; // phone_number_id, page_id, or ig_account_id
   customerId: string; // sender phone, PSID, or IGSID
   customerName?: string;
+  customerAvatar?: string;
   messageText: string;
   messageId?: string; // mid or wamid for deduplication
   audioUrl?: string;
@@ -1404,5 +1405,63 @@ export async function runAutoFollowUpEngine(options?: {
     followUpsSent: details.length,
     details
   };
+}
+
+/**
+ * In-memory cache for customer profiles fetched from Meta Graph API
+ */
+const customerProfileCache = new Map<string, { name?: string; avatar?: string; timestamp: number }>();
+const PROFILE_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
+
+/**
+ * Fetch customer name and profile picture from Meta Graph API for Messenger or Instagram.
+ * Never throws — returns empty object on failure so caller can fallback gracefully.
+ */
+export async function fetchMetaCustomerProfile(
+  platform: 'whatsapp' | 'messenger' | 'instagram' | string,
+  customerId: string,
+  accessToken?: string
+): Promise<{ name?: string; avatar?: string }> {
+  if (!customerId) return {};
+
+  const cacheKey = `${platform}:${customerId}`;
+  const cached = customerProfileCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
+    return { name: cached.name, avatar: cached.avatar };
+  }
+
+  if (!accessToken) {
+    return {};
+  }
+
+  try {
+    if (platform === 'messenger') {
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=first_name,last_name,name,profile_pic&access_token=${encodeURIComponent(accessToken)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        const name = data.name || (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : undefined);
+        const avatar = data.profile_pic || undefined;
+        const profile = { name, avatar };
+        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        return profile;
+      }
+    } else if (platform === 'instagram') {
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=name,username,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        const name = data.name || data.username || undefined;
+        const avatar = data.profile_picture_url || undefined;
+        const profile = { name, avatar };
+        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        return profile;
+      }
+    }
+  } catch {
+    // Non-fatal, suppress log spam
+  }
+
+  return {};
 }
 
