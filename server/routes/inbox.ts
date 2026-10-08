@@ -57,6 +57,8 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     latestOrderStatus?: string;
     isAiPaused: boolean;
     isBlocked: boolean;
+    requiresHumanAttention: boolean;
+    attentionReason?: string;
   }>();
 
   for (const msg of messages) {
@@ -107,12 +109,20 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
         latestOrderId,
         latestOrderStatus,
         isAiPaused,
-        isBlocked
+        isBlocked,
+        requiresHumanAttention: Boolean(msg.requires_human_attention),
+        attentionReason: msg.attention_reason
       });
     }
     const conv = conversationsMap.get(key)!;
     conv.messages.push(msg);
     conv.lastMessage = msg;
+    if (msg.requires_human_attention) {
+      conv.requiresHumanAttention = true;
+      if (msg.attention_reason) {
+        conv.attentionReason = msg.attention_reason;
+      }
+    }
     if (msg.customer_avatar && !conv.customerAvatar) {
       conv.customerAvatar = msg.customer_avatar;
     }

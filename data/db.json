@@ -172,7 +172,9 @@
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-10-06T06:40:48.603Z",
-      "updated_at": "2026-10-06T06:40:48.603Z"
+      "updated_at": "2026-10-08T16:52:15.640Z",
+      "last_webhook_at": "2026-10-08T16:52:15.640Z",
+      "last_message_at": "2026-10-08T16:52:15.640Z"
     }
   ],
   "messages": [
@@ -3312,6 +3314,160 @@
       "is_ai_reply": true,
       "status": "sent",
       "created_at": "2026-09-27T14:47:22.915Z"
+    },
+    {
+      "id": "msg_1791478253827_in_wxsd",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_1",
+      "customer_name": "Rahim Test",
+      "direction": "inbound",
+      "message_text": "আপনাদের ডিরেক্টর সাহেবের সাথে কি দেখা করা সম্ভব?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-08T16:50:53.827Z"
+    },
+    {
+      "id": "msg_1791478256199_out_fjrb",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_1",
+      "customer_name": "Rahim Test",
+      "direction": "outbound",
+      "message_text": "জি অবশ্যই সম্ভব!\n\nআপনি চাইলে আমাদের অফিসে এসে সরাসরি কথা বলতে পারেন অথবা অনলাইনে একটি মিটিং বুক করতে পারেন।\n\n১. সরাসরি সাক্ষাৎ — আমাদের ঢাকা মেইন ব্রাঞ্চ অফিসে এসে দেখা করতে পারেন।\n\n২. অনলাইন কনসালটেশন — গুগল মিট (Google Meet) এর মাধ্যমে ভিডিও কলেও কথা বলা সম্ভব।\n\n৩. অ্যাপয়েন্টমেন্ট স্লট — আজ বৃহস্পতিবার সকাল ১০টা থেকে রাত ৮টা পর্যন্ত আমাদের স্লট খালি আছে।\n\nসাক্ষাতের জন্য আপনার নাম, ফোন নম্বর এবং কোন সময়ে আসতে চাচ্ছেন তা কি জানাবেন?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "status": "sent",
+      "created_at": "2026-10-08T16:50:56.199Z"
+    },
+    {
+      "id": "msg_1791478261767_in_3117",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_2",
+      "customer_name": "Karim Test",
+      "direction": "inbound",
+      "message_text": "আপনাদের এখানে কি ড্রোন রিপেয়ারিং পার্টস পাওয়া যাবে?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-08T16:51:01.767Z"
+    },
+    {
+      "id": "msg_1791478263594_out_q3qt",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_2",
+      "customer_name": "Karim Test",
+      "direction": "outbound",
+      "message_text": "দুঃখিত ভাইয়া, আমাদের এখানে ড্রোন রিপেয়ারিং পার্টস পাওয়া যায় না।\n\nআমরা মূলত ফেসবুক ও হোয়াটসঅ্যাপের জন্য অটো-রিপ্লাই AI সার্ভিস এবং ই-কমার্স অটোমেশন সফটওয়্যার প্রদান করি।\n\nআপনার কি কোনো অনলাইন বিজনেস বা ফেসবুক পেজ আছে যেটির মেসেজ অটোমেট করতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "status": "sent",
+      "created_at": "2026-10-08T16:51:03.594Z"
+    },
+    {
+      "id": "msg_1791478270034_in_upub",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_3",
+      "customer_name": "Salam Test",
+      "direction": "inbound",
+      "message_text": "আমার পার্সেল ভেঙে গেছে, আমাকে মালিকের নাম্বার দিন বা রিফান্ড দিন",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-08T16:51:10.034Z"
+    },
+    {
+      "id": "msg_1791478272169_out_zdcc",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_3",
+      "customer_name": "Salam Test",
+      "direction": "outbound",
+      "message_text": "আপনার সমস্যার জন্য আমরা আন্তরিকভাবে দুঃখিত।\n\nআপনার পার্সেলটি যদি ক্ষতিগ্রস্ত হয়ে থাকে, তবে আমরা অবশ্যই তা সমাধান করে দেব।\n\n১. আমাদের হেল্পলাইন নাম্বার হলো ০১৮১১-৯৯৮৮৭৭ (সকাল ৯টা – রাত ১১টা), এখানে কল করে আপনি সরাসরি অভিযোগ জানাতে পারেন।\n\n২. রিফান্ড বা নতুন পার্সেল পাঠানোর জন্য আপনার অর্ডারের সময় ব্যবহৃত ১১ ডিজিটের মোবাইল নাম্বারটি আমাদের দিন।\n\n৩. আমাদের সাপোর্ট টিম আপনার সাথে যোগাযোগ করে দ্রুত ব্যবস্থা গ্রহণ করবে।\n\nআপনার অর্ডার করার সময় ব্যবহৃত মোবাইল নাম্বারটি কি দেওয়া যাবে?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "status": "sent",
+      "created_at": "2026-10-08T16:51:12.169Z"
+    },
+    {
+      "id": "msg_1791478305835_in_zuif",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_4",
+      "customer_name": "Salam Test 4",
+      "direction": "inbound",
+      "message_text": "আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-08T16:51:45.835Z"
+    },
+    {
+      "id": "msg_1791478308208_out_jmk0",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_4",
+      "customer_name": "Salam Test 4",
+      "direction": "outbound",
+      "message_text": "আপনার পার্সেলটি ক্ষতিগ্রস্ত হওয়ার জন্য আমরা আন্তরিকভাবে দুঃখিত।\n\nআপনার সমস্যাটি দ্রুত সমাধানের জন্য আমরা এখনই ব্যবস্থা নিচ্ছি।\n\n১. রিফান্ড বা এক্সচেঞ্জ প্রসেস শুরু করতে আপনার অর্ডারের সময় ব্যবহৃত ১১ ডিজিটের মোবাইল নাম্বারটি দয়া করে এখানে দিন।\n\n২. ক্ষতিগ্রস্ত পার্সেল বা প্রোডাক্টের একটি ছবি অথবা ছোট ভিডিও আমাদের ইনবক্সে পাঠান।\n\n৩. আমাদের সাপোর্ট টিম আপনার তথ্য যাচাই করে ২৪ ঘণ্টার মধ্যে রিফান্ড বা নতুন প্রোডাক্ট পাঠানোর ব্যবস্থা করবে।\n\nআপনার অর্ডার করার সময় ব্যবহৃত মোবাইল নাম্বারটি কি দেওয়া যাবে?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "status": "sent",
+      "created_at": "2026-10-08T16:51:48.208Z"
+    },
+    {
+      "id": "msg_1791478335630_in_54x0",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_fresh_1",
+      "customer_name": "Testing Handover",
+      "direction": "inbound",
+      "message_text": "আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-08T16:52:15.630Z",
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\""
+    },
+    {
+      "id": "msg_1791478337706_out_xano",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_fresh_1",
+      "customer_name": "Testing Handover",
+      "direction": "outbound",
+      "message_text": "আপনার পার্সেলটি ক্ষতিগ্রস্ত হওয়ার জন্য আমরা আন্তরিকভাবে দুঃখিত।\n\nআপনার এই বিষয়টি নিখুঁতভাবে সমাধান করার জন্য আমি আমাদের সাপোর্ট টিমকে এখনই জানিয়ে দিয়েছি।\n\nখুব শীঘ্রই আমাদের একজন প্রতিনিধি আপনার সাথে সরাসরি যোগাযোগ করে রিফান্ড বা রিপ্লেসমেন্টের ব্যবস্থা করবেন।\n\n😊\n\nআপনার অর্ডার করার সময় ব্যবহৃত ১১ ডিজিটের মোবাইল নাম্বারটি কি দেওয়া যাবে?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\"",
+      "status": "sent",
+      "created_at": "2026-10-08T16:52:17.707Z"
     }
   ],
   "settings": {
@@ -3322,8 +3478,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-08T16:16:32.486Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 4:16:32 PM)"
+    "cron_last_run": "2026-10-08T17:03:09.714Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 5:03:09 PM)"
   },
   "orders": [
     {
@@ -3540,7 +3696,53 @@
       "updated_at": "2026-10-04T08:42:20.115Z"
     }
   ],
-  "webhook_events": [],
+  "webhook_events": [
+    {
+      "id": "wh_1791478335644",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801712345678",
+      "sender_id": "test_cust_fresh_1",
+      "status": "processed",
+      "created_at": "2026-10-08T16:52:15.644Z"
+    },
+    {
+      "id": "wh_1791478305844",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801712345678",
+      "sender_id": "test_cust_unscripted_4",
+      "status": "processed",
+      "created_at": "2026-10-08T16:51:45.844Z"
+    },
+    {
+      "id": "wh_1791478270043",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801712345678",
+      "sender_id": "test_cust_unscripted_3",
+      "status": "processed",
+      "created_at": "2026-10-08T16:51:10.043Z"
+    },
+    {
+      "id": "wh_1791478261781",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801712345678",
+      "sender_id": "test_cust_unscripted_2",
+      "status": "processed",
+      "created_at": "2026-10-08T16:51:01.781Z"
+    },
+    {
+      "id": "wh_1791478253835",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801712345678",
+      "sender_id": "test_cust_unscripted_1",
+      "status": "processed",
+      "created_at": "2026-10-08T16:50:53.835Z"
+    }
+  ],
   "audit_logs": [
     {
       "id": "aud_1791268848608",
@@ -3661,8 +3863,19 @@
       "created_at": "2026-09-26T14:01:21.489Z"
     }
   ],
-  "notifications": [],
-  "_lastUpdatedAt": 1791476192486,
+  "notifications": [
+    {
+      "id": "notif_1791478337209_jjm6",
+      "title": "কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (Testing Handover)",
+      "message": "কাস্টমারের প্রশ্ন: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।",
+      "type": "warning",
+      "action_label": "ইনবক্স দেখুন",
+      "action_tab": "inbox",
+      "is_active": true,
+      "created_at": "2026-10-08T16:52:17.209Z"
+    }
+  ],
+  "_lastUpdatedAt": 1791478989714,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

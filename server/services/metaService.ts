@@ -327,6 +327,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   let aiReplyText = '';
   let attachedImageUrl: string | undefined = undefined;
   let interactiveOptions: InteractiveMessageConfig | undefined = undefined;
+  let generatedAiResult: any = null;
 
   try {
     const aiResult = await generateAIReply({
@@ -345,9 +346,29 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
       overrideSystemPrompt: event.overrideSystemPrompt
     });
 
+    generatedAiResult = aiResult;
     aiReplyText = aiResult.replyText;
     attachedImageUrl = aiResult.attachedImageUrl;
     interactiveOptions = aiResult.interactiveOptions;
+
+    // If customer question required human attention / unscripted hold, mark inbound and notify admin
+    if (aiResult.requiresHumanAttention) {
+      inbound.requires_human_attention = true;
+      inbound.attention_reason = aiResult.attentionReason;
+      db.updateMessage(inbound);
+
+      db.createNotification({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: `কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (${inbound.customer_name || event.customerId})`,
+        message: `কাস্টমারের প্রশ্ন: "${(event.messageText || '').slice(0, 100)}" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।`,
+        type: 'warning',
+        action_label: 'ইনবক্স দেখুন',
+        action_tab: 'inbox',
+        is_active: true,
+        created_at: new Date().toISOString()
+      });
+      console.log(`[Human Attention Flagged] Customer ${inbound.customer_name} requires team review for unscripted question.`);
+    }
 
     // If voice was transcribed, update inbound message with the actual words spoken
     if (aiResult.transcript) {
@@ -487,6 +508,8 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     has_image: Boolean(attachedImageUrl),
     image_url: attachedImageUrl,
     interactive_options: interactiveOptions,
+    requires_human_attention: generatedAiResult?.requiresHumanAttention,
+    attention_reason: generatedAiResult?.attentionReason,
     status: 'sent',
     created_at: new Date().toISOString()
   });

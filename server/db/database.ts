@@ -388,6 +388,8 @@ export interface Message {
   video_base64?: string;
   video_mime_type?: string;
   interactive_options?: InteractiveMessageConfig;
+  requires_human_attention?: boolean;
+  attention_reason?: string;
   created_at: string;
 }
 

@@ -218,23 +218,9 @@ export function getShortGreetingOrSmallTalkReply(
 ): string | null {
   if (!incomingMessage) return null;
   const raw = incomingMessage.trim();
-  if (raw.length > 55) return null;
+  if (raw.length > 100) return null;
 
   const lower = raw.toLowerCase();
-
-  // If the message contains any real business/product/price/order question words, it's NOT just a greeting
-  const questionKeywords = [
-    'price', 'plan', 'cost', 'fee', 'subscription', 'trial', 'free', 'order', 'buy', 'delivery',
-    'charge', 'courier', 'bkash', 'nagad', 'payment', 'coupon', 'discount', 'website', 'whatsapp',
-    'messenger', 'page', 'ban', 'limit', 'voice', 'photo', 'image', 'product', 'service', 'feature',
-    'details', 'koto', 'dam', 'daam', 'kivabe', 'ki ki', 'ki ase', 'ki ache', 'taka', 'tk', 'bdt',
-    'দাম', 'কত', 'প্ল্যান', 'প্যাকেজ', 'ট্রায়াল', 'ফ্রি', 'অর্ডার', 'কিনব', 'নিতে', 'ডেলিভারি', 'চার্জ',
-    'কুরিয়ার', 'বিকাশ', 'নগদ', 'পেমেন্ট', 'কুপন', 'ডিসকাউন্ট', 'ছাড়', 'ওয়েবসাইট', 'ব্যান', 'লিমিট',
-    'ভয়েস', 'ছবি', 'প্রোডাক্ট', 'সার্ভিস', 'ফিচার', 'বিস্তারিত', 'কী কী', 'কি কি', 'কীভাবে', 'কিভাবে', 'টাকা'
-  ];
-  if (questionKeywords.some((kw) => lower.includes(kw))) {
-    return null;
-  }
 
   // Strip punctuation, emojis, and polite address words to inspect the core greeting
   const stripped = lower
@@ -246,7 +232,50 @@ export function getShortGreetingOrSmallTalkReply(
 
   if (!stripped) return null;
 
-  // 1. Salam / Assalamu Alaikum variations
+  // 1. How are you / Kemon achen variations (priority check for polite small talk & courtesy)
+  const howAreYouPatterns = [
+    'কেমন আছেন',
+    'কেমন আছো',
+    'কি খবর',
+    'কী খবর',
+    'kemon achen',
+    'kemon asen',
+    'kmn achen',
+    'kmn asen',
+    'ki khobor',
+    'how are you',
+    'how r u'
+  ];
+  const hasHowAreYou = howAreYouPatterns.some((p) => stripped === p || stripped.includes(p));
+
+  // High-intent purchase/pricing words that override simple greeting if explicitly asked
+  const highIntentPurchaseKeywords = [
+    'price', 'plan', 'cost', 'fee', 'subscription', 'order', 'buy', 'delivery charge',
+    'koto', 'dam', 'daam', 'taka', 'tk', 'bdt',
+    'দাম', 'কত', 'প্ল্যান', 'প্যাকেজ', 'অর্ডার', 'কিনব', 'ডেলিভারি চার্জ', 'টাকা'
+  ];
+  const hasPurchaseIntent = highIntentPurchaseKeywords.some((kw) => lower.includes(kw));
+
+  if (hasHowAreYou && !hasPurchaseIntent) {
+    return lang === 'en' && stripped.includes('how')
+      ? `Alhamdulillah, we are doing great! Hope you are doing well too. 😊 Welcome to ${businessName}.\n\nHow can I help you today?`
+      : `আলহামদুলিল্লাহ, আমরা সবাই ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊 আমাদের ${businessName}-এ আপনাকে স্বাগতম।\n\nবলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি?`;
+  }
+
+  // If the message contains real commercial question words, let LLM handle it with full context
+  const questionKeywords = [
+    'price', 'plan', 'cost', 'fee', 'subscription', 'trial', 'free', 'order', 'buy', 'delivery',
+    'charge', 'courier', 'bkash', 'nagad', 'payment', 'coupon', 'discount', 'ban', 'limit',
+    'details', 'koto', 'dam', 'daam', 'kivabe', 'ki ki', 'ki ase', 'ki ache', 'taka', 'tk', 'bdt',
+    'দাম', 'কত', 'প্ল্যান', 'প্যাকেজ', 'ট্রায়াল', 'ফ্রি', 'অর্ডার', 'কিনব', 'নিতে', 'ডেলিভারি', 'চার্জ',
+    'কুরিয়ার', 'বিকাশ', 'নগদ', 'পেমেন্ট', 'কুপন', 'ডিসকাউন্ট', 'ছাড়', 'ব্যান', 'লিমিট',
+    'বিস্তারিত', 'কী কী', 'কি কি', 'কীভাবে', 'কিভাবে', 'টাকা'
+  ];
+  if (questionKeywords.some((kw) => lower.includes(kw))) {
+    return null;
+  }
+
+  // 2. Salam / Assalamu Alaikum variations
   const salamPatterns = [
     'আসসালামু আলাইকুম',
     'আসসালামুয়ালাইকুম',
@@ -266,26 +295,6 @@ export function getShortGreetingOrSmallTalkReply(
     return lang === 'en' && !/[\u0980-\u09FF]/.test(raw) && !lower.includes('vai')
       ? `Wa Alaikum Assalam! Welcome to ${businessName}. 😊\n\nHow can I help you today?`
       : `ওয়ালাইকুম আসসালাম! ${businessName}-এ আপনাকে স্বাগতম। 😊\n\nবলুন, আপনাকে কীভাবে সাহায্য করতে পারি?`;
-  }
-
-  // 2. How are you / Kemon achen variations
-  const howAreYouPatterns = [
-    'কেমন আছেন',
-    'কেমন আছো',
-    'কি খবর',
-    'কী খবর',
-    'kemon achen',
-    'kemon asen',
-    'kmn achen',
-    'kmn asen',
-    'ki khobor',
-    'how are you',
-    'how r u'
-  ];
-  if (howAreYouPatterns.some((p) => stripped === p || stripped.includes(p))) {
-    return lang === 'en' && stripped.includes('how')
-      ? `Alhamdulillah, we are doing great! Hope you are doing well too. 😊\n\nHow can I help you today?`
-      : `আলহামদুলিল্লাহ, ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊\n\nবলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি?`;
   }
 
   // 3. Hello / Hi / Hey / Keu achen variations
@@ -340,13 +349,17 @@ export function ensureConversationalFollowUp(
     return formatted;
   }
 
-  // Do not append a follow-up if the reply is already asking for order details (name, address, phone)
+  // Do not append a follow-up if the reply is already asking for order details (name, address, phone) or forwarded to support team
   if (
     formatted.includes('নাম, ঠিকানা') ||
     formatted.includes('নাম, সম্পূর্ণ ঠিকানা') ||
     formatted.includes('মোবাইল নাম্বারটি দিন') ||
     formatted.includes('মোবাইল নাম্বার দিন') ||
-    formatted.includes('স্পষ্ট বোঝা যায়নি')
+    formatted.includes('স্পষ্ট বোঝা যায়নি') ||
+    formatted.includes('সাপোর্ট টিম') ||
+    formatted.includes('প্রতিনিধি আপনার সাথে') ||
+    formatted.includes('যোগাযোগ করবেন') ||
+    formatted.includes('ফলো-আপ')
   ) {
     return formatted;
   }
@@ -443,6 +456,8 @@ export interface GenerateReplyResult {
   attachedProductName?: string;
   attachedProductPrice?: number;
   interactiveOptions?: InteractiveMessageConfig;
+  requiresHumanAttention?: boolean;
+  attentionReason?: string;
 }
 
 export function extractCatalogItemsForInteractiveMenu(
@@ -800,14 +815,14 @@ export function buildInteractiveConversationEnvelope(params: {
   };
 }
 
-// Supported Gemini models in priority order (gemini-2.5-flash & gemini-3-flash-preview with thinkingBudget: 0 deliver sub-second replies)
+// Supported Gemini models in priority order
 export const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-3-flash-preview',
-  'gemini-2.5-flash-lite',
   'gemini-3.8-flash',
-  'gemini-3.1-flash-lite-preview',
-  'gemini-flash-latest'
+  'gemini-3-flash-preview',
+  'gemini-flash-latest',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.1-flash-lite-preview'
 ];
 
 // Fast in-memory cache of the last working model & cooldown tracker for failing models so we never waste 5-10s retrying dead models
@@ -1289,7 +1304,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
               ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
               { role: 'user', content: fullPrompt }
             ],
-            temperature: 0.4
+            temperature: 0.2
           })
         }),
         12000
@@ -1324,7 +1339,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
               ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
               { role: 'user', content: fullPrompt }
             ],
-            temperature: 0.4
+            temperature: 0.2
           })
         }),
         12000
@@ -1352,7 +1367,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
             contents: fullPrompt,
             config: {
               ...(systemInstruction ? { systemInstruction } : {}),
-              temperature: 0.35,
+              temperature: 0.2,
               maxOutputTokens: 420,
               thinkingConfig: { thinkingBudget: 0 }
             }
@@ -1389,7 +1404,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
                 : {}),
               contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
               generationConfig: {
-                temperature: 0.35,
+                temperature: 0.2,
                 maxOutputTokens: 420,
                 thinkingConfig: { thinkingBudget: 0 }
               }
@@ -1426,7 +1441,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
             ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
             { role: 'user', content: fullPrompt }
           ],
-          temperature: 0.35
+          temperature: 0.2
         })
       }),
       3200
@@ -1445,6 +1460,68 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
   return null;
 }
 
+export function detectRequiresHumanAttention(replyText: string, incomingMessage: string): boolean {
+  const replyLower = (replyText || '').toLowerCase();
+  const incomingLower = (incomingMessage || '').toLowerCase();
+
+  // 1. NEVER flag greetings, courtesy, or small talk as requiring human attention
+  const greetingOrCourtesyPatterns = [
+    'কেমন আছেন', 'কেমন আছো', 'কি খবর', 'কী খবর', 'kemon achen', 'kemon asen', 'kmn achen', 'kmn asen',
+    'সালাম', 'আসসালামু', 'salam', 'assalamu', 'হ্যালো', 'হাই', 'hello', 'hi', 'hey', 'ধন্যবাদ', 'thanks'
+  ];
+  if (greetingOrCourtesyPatterns.some((g) => incomingLower.includes(g)) && !incomingLower.includes('complaint') && !incomingLower.includes('refund')) {
+    return false;
+  }
+
+  // 2. Only flag when customer explicitly asks for phone call / human agent or has an escalated complaint
+  const explicitCustomerHumanTriggers = [
+    'kotha bolte chai',
+    'kotha bolte cai',
+    'call me',
+    'call din',
+    'call den',
+    'call koren',
+    'call diben',
+    'phone a kotha',
+    'phone number din',
+    'owner',
+    'malik',
+    'কথা বলতে চাই',
+    'ফোনে কথা',
+    'কল দিন',
+    'কল করেন',
+    'মালিকের সাথে',
+    'মালিক',
+    'সরাসরি মানুষ',
+    'মানুষের সাথে কথা',
+    'লাইভ এজেন্ট',
+    'কাস্টমার কেয়ার',
+    'অভিযোগ',
+    'complaint',
+    'refund',
+    'রিফান্ড',
+    'টাকা ফেরত',
+    'ভেঙে গেছে',
+    'নষ্ট প্রোডাক্ট',
+    'নষ্ট মাল',
+    'ড্যামেজ',
+    'damage'
+  ];
+
+  if (explicitCustomerHumanTriggers.some((t) => incomingLower.includes(t))) {
+    return true;
+  }
+
+  // 3. If the reply explicitly promised a live representative callback for a specific requested issue
+  const liveCallbackPromised =
+    replyText.includes('প্রতিনিধি আপনার সাথে সরাসরি যোগাযোগ করবেন') ||
+    replyText.includes('প্রতিনিধি খুব শীঘ্রই আপনার সাথে যোগাযোগ করবেন') ||
+    replyText.includes('সরাসরি ফোন কল') ||
+    replyLower.includes('live agent assigned');
+
+  return Boolean(liveCallbackPromised);
+}
+
 // Universal Bilingual (English + Banglish + বাংলা) Knowledge-Base Engine for One Agent BD & Any Subscribed Merchant
 function buildSmartBanglaFallbackFromPrompt(
   incomingMessage: string,
@@ -1453,9 +1530,15 @@ function buildSmartBanglaFallbackFromPrompt(
   products: Product[],
   matchedProduct?: Product
 ): string {
+  // 1. Natural courtesy / greetings check first (e.g. কেমন আছেন?, সালাম, হ্যালো)
+  const greetingOrSmallTalk = getShortGreetingOrSmallTalkReply(incomingMessage, businessName, 'bn');
+  if (greetingOrSmallTalk) {
+    return greetingOrSmallTalk;
+  }
+
   const q = (incomingMessage || '').toLowerCase().trim();
 
-  // 1. Specific matched product from merchant catalog
+  // 2. Specific matched product from merchant catalog
   if (matchedProduct) {
     return `আসসালামু আলাইকুম! আমাদের "${matchedProduct.name}" এখন স্টকে আছে।\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n📋 বিবরণ: ${matchedProduct.description}\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
   }
@@ -1799,20 +1882,11 @@ function buildSmartBanglaFallbackFromPrompt(
     }
   }
 
-  if (
-    q.includes('delivery') ||
-    q.includes('shipping') ||
-    q.includes('charge') ||
-    q.includes('courier') ||
-    q.includes('ডেলিভারি') ||
-    q.includes('চার্জ') ||
-    q.includes('কুরিয়ার') ||
-    q.includes('পাঠানো') ||
-    q.includes('dhaka') ||
-    q.includes('ঢাকা') ||
-    q.includes('koto din') ||
-    q.includes('কত দিন')
-  ) {
+  const isDeliveryQuery =
+    (q.includes('delivery') || q.includes('ডেলিভারি') || q.includes('shipping') || q.includes('কুরিয়ার') || q.includes('courier')) &&
+    (q.includes('charge') || q.includes('চার্জ') || q.includes('cost') || q.includes('খরচ') || q.includes('koto') || q.includes('কত') || q.includes('fee') || q.includes('সময়') || q.includes('somoy') || q.includes('kobe') || q.includes('কবে') || q.includes('নিয়ম') || q.includes('dhaka') || q.includes('ঢাকা'));
+
+  if (isDeliveryQuery) {
     const kbDelivery = findMerchantLines(['ডেলিভারি', 'delivery', 'ঢাকার ভেতরে', 'ঢাকার বাইরে', 'কুরিয়ার', 'courier']);
     if (kbDelivery) {
       const serializedDelivery = kbDelivery
@@ -1824,17 +1898,11 @@ function buildSmartBanglaFallbackFromPrompt(
     return `আমাদের ডেলিভারি চার্জ ও নিয়ম নিচে দেওয়া হলো:\n\n১. ঢাকার ভেতরে: ৳৬০ টাকা (২৪–৪৮ ঘণ্টা)\n২. ঢাকার বাইরে সারাদেশে: ৳১২০ টাকা (২–৩ দিন)\n৩. পেমেন্ট সুবিধা: সারাদেশে ক্যাশ অন ডেলিভারি (COD) রয়েছে\n\nঅর্ডার করতে আপনার নাম, ঠিকানা ও ফোন নাম্বার দিন।`;
   }
 
-  if (
-    q.includes('bkash') ||
-    q.includes('nagad') ||
-    q.includes('payment') ||
-    q.includes('pay') ||
-    q.includes('বিকাশ') ||
-    q.includes('নগদ') ||
-    q.includes('পেমেন্ট') ||
-    q.includes('টাকা পাঠাবো') ||
-    q.includes('cod')
-  ) {
+  const isPaymentQuery =
+    (q.includes('bkash') || q.includes('nagad') || q.includes('payment') || q.includes('pay') || q.includes('বিকাশ') || q.includes('নগদ') || q.includes('পেমেন্ট') || q.includes('টাকা পাঠাবো') || q.includes('cod')) &&
+    (q.includes('number') || q.includes('নাম্বার') || q.includes('kivabe') || q.includes('কিভাবে') || q.includes('পদ্ধতি') || q.includes('সুবিধা') || q.includes('অ্যাডভান্স') || q.includes('advance') || q.includes('পাঠাব') || q.includes('pathabo') || q.includes('করব'));
+
+  if (isPaymentQuery) {
     const kbPay = findMerchantLines(['বিকাশ', 'নগদ', 'পেমেন্ট', 'bkash', 'nagad', 'payment', 'ক্যাশ অন ডেলিভারি']);
     if (kbPay) {
       const serializedPay = kbPay
@@ -1846,19 +1914,25 @@ function buildSmartBanglaFallbackFromPrompt(
     return `আমাদের পেমেন্ট পদ্ধতি নিচে দেওয়া হলো:\n\n১. ক্যাশ অন ডেলিভারি (প্রোডাক্ট হাতে পেয়ে পেমেন্ট)\n২. বিকাশ (bKash) পেমেন্ট\n৩. নগদ (Nagad) পেমেন্ট\n\nঅর্ডার কনফার্ম করতে আপনার নাম, ঠিকানা ও মোবাইল নাম্বার দিন।`;
   }
 
-  if (
+  const isOrderQuery =
     q.includes('order') ||
     q.includes('buy') ||
     q.includes('confirm') ||
     q.includes('অর্ডার') ||
     q.includes('কিনব') ||
+    q.includes('কিনতে চাই') ||
     q.includes('নিতে চাই') ||
-    q.includes('নিবো')
-  ) {
+    q.includes('নিবো');
+
+  if (isOrderQuery) {
     return `অর্ডার কনফার্ম করতে অনুগ্রহ করে নিচের তথ্যগুলো লিখে পাঠান:\n\n১. আপনার নাম\n২. সম্পূর্ণ ডেলিভারি ঠিকানা\n৩. সচল মোবাইল নাম্বার (১১ ডিজিট)\n৪. প্রোডাক্টের নাম ও পরিমাণ`;
   }
 
-  if (products.length > 0) {
+  const isProductsListQuery =
+    (q.includes('product') || q.includes('প্রোডাক্ট') || q.includes('item') || q.includes('তালিকা') || q.includes('list') || q.includes('ki ki ache') || q.includes('কি কি আছে') || q.includes('কি কি প্রোডাক্ট') || q.includes('সব প্রোডাক্ট')) &&
+    products.length > 0;
+
+  if (isProductsListQuery) {
     const topList = products
       .slice(0, 5)
       .map((p, idx) => `${toBengaliNumber(idx + 1)}. ${p.name} — ৳${p.price} (${p.description.slice(0, 60)})`)
@@ -1866,16 +1940,62 @@ function buildSmartBanglaFallbackFromPrompt(
     return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\nআমাদের প্রোডাক্ট ও মূল্য তালিকা:\n\n${topList}\n\nআপনি কোন প্রোডাক্টটি নিতে চান বা বিস্তারিত জানতে চান?`;
   }
 
-  const kbOverview = findMerchantLines(['৳', 'টাকা', 'price', 'দাম', 'সার্ভিস', 'প্যাকেজ']);
-  if (kbOverview) {
-    return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\n${kbOverview}\n\nআপনি কোনটি নিতে চাচ্ছেন বা বিস্তারিত জানতে চান?`;
+  const isPriceOverviewQuery =
+    (q.includes('price') || q.includes('dam') || q.includes('দাম') || q.includes('মূল্য') || q.includes('cost') || q.includes('koto') || q.includes('কত')) &&
+    (q.includes('সার্ভিস') || q.includes('প্ল্যান') || q.includes('প্যাকেজ') || q.includes('সব') || q.length < 20);
+
+  if (isPriceOverviewQuery) {
+    const kbOverview = findMerchantLines(['৳', 'টাকা', 'price', 'দাম', 'সার্ভিস', 'প্যাকেজ']);
+    if (kbOverview) {
+      return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\n${kbOverview}\n\nআপনি কোনটি নিতে চাচ্ছেন বা বিস্তারিত জানতে চান?`;
+    }
   }
 
-  if (isOneAgentSaaS) {
+  if (isOneAgentSaaS && (q.includes('saas') || q.includes('one agent') || q.includes('প্ল্যাটফর্ম') || q.includes('বট') || q.includes('bot') || q.length <= 15)) {
     return `আসসালামু আলাইকুম! ${businessName}-এ স্বাগতম। আমরা Facebook, Instagram, WhatsApp ও Website-এ ২৪/৭ স্মার্ট AI অটো-রিপ্লাই ও অর্ডার অটোমেশন সার্ভিস দিয়ে থাকি।\n\nআমাদের প্ল্যান শুরু ৳১,২৫০/মাস থেকে এবং সাথে ২ দিনের ফ্রি ট্রায়াল সুবিধা রয়েছে।\n\nআপনি কি আপনার ফেসবুক পেজ বা ওয়েবসাইটের জন্য অটোমেশন সম্পর্কে জানতে চাচ্ছেন?`;
   }
 
-  return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম।\n\nআমাদের সার্ভিস, প্রোডাক্টের দাম বা অর্ডার করার নিয়ম সম্পর্কে যেকোনো প্রশ্ন করুন, আমি সাথে সাথে উত্তর দিচ্ছি!`;
+  // 3. Customer explicitly asking for phone call or human agent
+  if (
+    q.includes('call') ||
+    q.includes('কল') ||
+    q.includes('kotha bolte') ||
+    q.includes('কথা বলতে') ||
+    q.includes('phone') ||
+    q.includes('ফোন')
+  ) {
+    return `অবশ্যই! আমাদের প্রতিনিধি আপনার সাথে কথা বলবেন। 📞\n\nঅনুগ্রহ করে আপনার সচল মোবাইল বা WhatsApp নাম্বারটি লিখে দিন, দ্রুত যোগাযোগ করা হবে।`;
+  }
+
+  // 4. Inquiries about physical shop/office location or address
+  if (
+    q.includes('kothay') ||
+    q.includes('thikana') ||
+    q.includes('address') ||
+    q.includes('office') ||
+    q.includes('shop') ||
+    q.includes('কোথায়') ||
+    q.includes('ঠিকানা') ||
+    q.includes('দোকান') ||
+    q.includes('শো-রুম')
+  ) {
+    const kbAddress = findMerchantLines(['ঠিকানা', 'অফিস', 'লোকেশন', 'address', 'office', 'ঢাকা', 'ধানমন্ডি', 'উত্তরা', 'মিরপুর', 'গুলশান', 'চট্টগ্রাম']);
+    if (kbAddress) {
+      return `আমাদের ঠিকানা ও লোকেশন সংক্রান্ত তথ্য:\n\n${kbAddress}\n\nআপনি কি সরাসরি ভিজিট করতে চান নাকি হোম ডেলিভারিতে নিতে চান?`;
+    }
+    return `আমাদের ${businessName} মূলত অনলাইনভিত্তিক সেবা প্রদান করে এবং সারাদেশে হোম ডেলিভারি পৌঁছে দিয়ে থাকে। 🚚\n\nআপনি ঘরে বসেই সহজে অর্ডার করতে পারবেন। আপনার পছন্দের প্রোডাক্ট বা কোনো তথ্য জানতে চাইলে বলুন!`;
+  }
+
+  // 5. Intelligent Fallback for Unscripted / General Questions (Never blindly push to support team!)
+  if (products.length > 0) {
+    const previewProducts = products
+      .slice(0, 3)
+      .map((p, idx) => `${toBengaliNumber(idx + 1)}. ${p.name} — ৳${p.price}`)
+      .join('\n');
+    return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। 😊\n\nআমরা সেরা কোয়ালিটির প্রোডাক্ট ও আন্তরিক কাস্টমার সার্ভিস নিশ্চিত করি। আমাদের জনপ্রিয় কিছু প্রোডাক্ট:\n\n${previewProducts}\n\nআপনি কি কোনো নির্দিষ্ট প্রোডাক্টের বিস্তারিত জানতে চান নাকি অর্ডার কনফার্ম করতে চাচ্ছেন?`;
+  }
+
+  return `আসসালামু আলাইকুম! ${businessName}-এ আপনাকে স্বাগতম। 😊\n\nবলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি? আপনার পছন্দের প্রোডাক্ট, সার্ভিস বা যেকোনো প্রশ্ন আমাকে জানাতে পারেন!`;
 }
 
 export async function generateAIReply(params: GenerateReplyParams): Promise<GenerateReplyResult> {
@@ -2188,7 +2308,13 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
      আপনি কোন প্রোডাক্টটি অর্ডার করতে চাচ্ছেন?"
 
 ৩. পরিষ্কার ফরম্যাট (Clean Formatting):
-   - সর্বদা সহজ ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।`;
+   - সর্বদা সহজ ও স্বাভাবিক বাংলা ভাষায় (বাংলা স্ক্রিপ্টে) উত্তর দেবেন। কখনোই ** বা # চিহ্ন ব্যবহার করবেন না।
+
+৪. বিজনেস ইন্টেলিজেন্স ও অজানা প্রশ্নের স্মার্ট সমাধান (SMART BUSINESS INTELLIGENCE & COURTEOUS SALES AGENT):
+   - কাস্টমার যদি কুশল জিজ্ঞেস করে (যেমন: "কেমন আছেন?", "কী খবর?"): অত্যন্ত স্বাভাবিক, আন্তরিক ও স্মার্টভাবে উত্তর দিন—"আলহামদুলিল্লাহ, আমরা সবাই ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊 আমাদের ${businessName}-এ আপনাকে স্বাগতম। বলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি?" কোনো অবস্থাতেই কুশল বা সাধারণ চ্যাটের জন্য সাপোর্ট টিমে পাঠাবেন না বা রেফার করবেন না!
+   - একজন পেজ ওনার বা ইউজারের পক্ষে সব খুঁটিনাটি সাধারণ প্রশ্নের উত্তর আগে থেকে কিউএ (Q&A)-তে লিখে রাখা সম্ভব নয়। কাস্টমার যেকোনো সাধারণ বা আনস্ক্রিপ্টেড প্রশ্ন করলে (যেমন: প্রোডাক্ট কেমন, ডেলিভারি এরিয়া, কীভাবে অর্ডার করব, কেন আপনাদের সার্ভিস ভালো, অনলাইন শপ কোথায় ইত্যাদি): উপরে দেওয়া বিজনেসের নাম, বিবরণ, প্রোডাক্ট ক্যাটালগ ও ডেলিভারি পলিসি মিলিয়ে নিজের বুদ্ধিমত্তা দিয়ে সবচেয়ে প্রাসঙ্গিক, ইতিবাচক ও আকর্ষণীয় উত্তর তৈরি করুন।
+   - কখনোই মনগড়া কোনো ভুল দাম বা বিপরীত পলিসি বলবেন না, তবে বিজনেসের প্রাসঙ্গিক তথ্য সমন্বয় করে কাস্টমারকে চমৎকার ও আত্মবিশ্বাসী উত্তর দিন এবং প্রয়োজনে অর্ডার বা কাঙ্ক্ষিত প্রোডাক্ট বেছে নিতে উৎসাহিত করুন।
+   - শুধুমাত্র কাস্টমার যদি সরাসরি মানুষের সাথে কথা বলতে চান ("ফোনে কথা বলতে চাই", "কল দিন") অথবা বড় কোনো কমপ্লেইন/টাকা ফেরতের বিষয় থাকে—তখনই কেবল সাপোর্ট টিম বা প্রতিনিধির কথা বলবেন। অন্য সব সাধারণ চ্যাট ও প্রশ্নে এআই নিজেই পূর্ণাঙ্গ ও চমৎকার উত্তর দেবে!`;
 
   const orderSettings = db.getOrderSettings(params.userId);
   let orderGuidance =
@@ -2299,11 +2425,20 @@ If the customer is asking about their order, parcel, delivery date, or tracking 
   }
 
   const systemInstruction = `You are a warm, intelligent Customer Support & Sales Executive for "${businessName}".
-CRITICAL FORMATTING RULES FOR MOBILE CHAT:
+CRITICAL FORMATTING & ACCURACY RULES FOR MOBILE CHAT:
 1. SHORT QUESTION = SHORT REPLY: If the customer just says a greeting ("আসসালামু আলাইকুম", "হ্যালো", "Hi") or asks a simple single question, reply in 1-2 short, natural lines + 1 short follow-up question. Do NOT dump a long list of features when the customer did not ask for details!
 2. DETAILED / LIST QUESTION = SERIAL NUMBERED LIST WITH EMPTY LINES: Whenever the customer asks about plans, prices, products, features, what is available ("ki ki ase"), or details — format the items/plans/details as a clean numbered serial list (১., ২., ৩. in Bangla, or 1., 2., 3. in English), and put 1 empty line (\\n\\n) after 1., 1 empty line (\\n\\n) after 2., and 1 empty line (\\n\\n) after 3.
-3. Always end your reply with 1 short, natural follow-up question in Bangla based on what the customer asked.
-4. Never output markdown asterisks (**).`;
+3. SMART BUSINESS REASONING & NATURAL COURTESY:
+   - Act as an intelligent, warm, and natural representative of "${businessName}".
+   - Merchandising users will not write training data for every courtesy or common question. If the customer asks courtesy questions (e.g. "কেমন আছেন?", "কী খবর?"), greets, or starts general conversation, always respond warmly and politely in Bangla:
+     "আলহামদুলিল্লাহ, আমরা ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊 আমাদের ${businessName}-এ আপনাকে স্বাগতম। আজ আপনাকে কীভাবে সাহায্য করতে পারি?"
+     NEVER pass greetings or small talk to a human or say "support team will contact you"!
+   - If the customer asks an unscripted or general business question (e.g. about delivery coverage, recommendations, product quality, how to order, how the service works, store location, etc.):
+     Carefully check ALL available Business Knowledge Base facts, catalog products, and business context. Reason intelligently and connect the dots to formulate a helpful, polite, and accurate answer representing the business.
+   - NEVER invent false prices, discounts, or contradictory policies. But DO use business intelligence to provide a helpful, warm answer.
+   - NEVER shift to human support unless the customer EXPLICITLY asks to talk to a human/phone call (e.g. "call din", "kotha bolte chai") or has a serious dispute/refund complaint. Handle all general queries yourself directly!
+4. Always end your reply with 1 short, natural follow-up question in Bangla based on what the customer asked.
+5. Never output markdown asterisks (**).`;
 
   const fullPrompt = `System Instructions & Business Knowledge Base (Merchant Details):
 ${combinedSystemPrompt}
@@ -2327,7 +2462,7 @@ ${recentHistory || '(No previous messages)'}
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a clean, mobile-friendly Bangla reply (if it is a greeting or short question, reply briefly in 1-2 lines; if the customer is asking for plans, products, "ki ki ase", or details, use serial numbers ১., ২., ৩. with 1 empty line \\n\\n between each numbered point, and end with 1 short follow-up question):`;
+Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or polite question like "কেমন আছেন?", reply warmly in 1-2 lines in business persona; if the customer asks an unscripted question, synthesize using the business details and product catalog above to give an intelligent, helpful, and courteous answer; if asking for plans, products, or details, use serial numbers ১., ২., ৩. with 1 empty line \\n\\n between numbered points, and end with 1 short follow-up question. Do NOT shift to human support unless the customer explicitly asked for a call or human agent):`;
 
   // Check if customer clicked an interactive button/menu shortcut that can be answered deterministically & instantaneously
   const earlyInteractiveCheck = buildInteractiveConversationEnvelope({
@@ -2380,6 +2515,7 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting or short questi
       isOneAgentSaaS,
       merchantProducts.length > 0
     );
+    const requiresHuman = detectRequiresHumanAttention(cleanReply, params.incomingMessage);
     const interactiveEnvelope = buildInteractiveConversationEnvelope({
       incomingMessage: params.incomingMessage,
       aiReplyText: cleanReply,
@@ -2397,7 +2533,9 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting or short questi
       isVoice: Boolean(voiceTranscript || params.audioBase64),
       attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
       attachedProductName: matchedProduct?.name,
-      attachedProductPrice: matchedProduct?.price
+      attachedProductPrice: matchedProduct?.price,
+      requiresHumanAttention: requiresHuman,
+      attentionReason: requiresHuman ? `Customer query flagged for human support: "${params.incomingMessage.slice(0, 80)}"` : undefined
     };
   }
 
@@ -2417,6 +2555,8 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting or short questi
     merchantProducts.length > 0
   );
 
+  const fallbackRequiresHuman = detectRequiresHumanAttention(fallbackWithFollowUp, params.incomingMessage);
+
   const fallbackEnvelope = buildInteractiveConversationEnvelope({
     incomingMessage: params.incomingMessage,
     aiReplyText: fallbackWithFollowUp,
@@ -2434,7 +2574,9 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting or short questi
     isVoice: Boolean(voiceTranscript || params.audioBase64),
     attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
     attachedProductName: matchedProduct?.name,
-    attachedProductPrice: matchedProduct?.price
+    attachedProductPrice: matchedProduct?.price,
+    requiresHumanAttention: fallbackRequiresHuman,
+    attentionReason: fallbackRequiresHuman ? `Customer query flagged for human support: "${params.incomingMessage.slice(0, 80)}"` : undefined
   };
 }
 
