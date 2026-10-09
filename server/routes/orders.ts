@@ -8,7 +8,7 @@ function getUserId(req: express.Request): string {
   const headerId = req.headers['x-user-id'] as string;
   if (headerId) return headerId;
   const profiles = db.getProfiles();
-  const demo = profiles.find((p) => p.role === 'user') || profiles[0];
+  const demo = profiles.find((p) => p.id === 'usr_demo_002') || profiles.find((p) => p.role === 'user') || profiles[0];
   return demo ? demo.id : 'usr_demo_002';
 }
 
@@ -19,13 +19,19 @@ ordersRouter.get('/', (req, res) => {
     const allUserOrders = db.getOrders(userId);
     let orders = [...allUserOrders];
 
-    const { status, platform, search, customerId, sourceType } = req.query;
+    const { status, platform, search, customerId, sourceType, suspicious } = req.query;
 
     // Filter by Source Type: 'website' vs 'manual_ai' vs 'all'
     if (sourceType === 'website') {
       orders = orders.filter((o) => o.order_source === 'website');
     } else if (sourceType === 'manual_ai') {
       orders = orders.filter((o) => o.order_source === 'manual' || o.order_source === 'ai_detected');
+    }
+
+    if (suspicious === 'true') {
+      orders = orders.filter((o) => o.is_suspicious === true);
+    } else if (suspicious === 'false') {
+      orders = orders.filter((o) => !o.is_suspicious);
     }
 
     if (status && typeof status === 'string' && status !== 'all') {
@@ -67,6 +73,7 @@ ordersRouter.get('/', (req, res) => {
         processingCount: orders.filter(o => o.status === 'processing').length,
         deliveredCount: orders.filter(o => o.status === 'delivered').length,
         cancelledCount: orders.filter(o => o.status === 'cancelled').length,
+        suspiciousCount: allUserOrders.filter(o => o.is_suspicious === true && o.status !== 'cancelled').length,
         websiteOrdersCount: websiteOrders.length,
         manualAiOrdersCount: manualAiOrders.length,
         vipCustomersCount: vipOrders.length,
@@ -858,5 +865,328 @@ ordersRouter.delete('/:id', (req, res) => {
   } catch (err: any) {
     console.error('Error deleting order:', err);
     res.status(500).json({ error: err.message || 'Failed to delete order' });
+  }
+});
+
+// ============================================================================
+// AI AUTO COURIER DISPATCH & FRAUD SCREENING ENGINE
+// ============================================================================
+
+export function evaluateOrderRisk(
+  order: Order,
+  allUserOrders: Order[],
+  rules?: {
+    min_address_length: number;
+    require_valid_phone: boolean;
+    flag_duplicate_phones: boolean;
+    max_cod_amount_auto: number;
+    flag_unspecified_items: boolean;
+  }
+): { isSuspicious: boolean; reason?: string } {
+  const minAddressLen = rules?.min_address_length ?? 12;
+  const requireValidPhone = rules?.require_valid_phone ?? true;
+  const flagDuplicates = rules?.flag_duplicate_phones ?? true;
+  const maxCod = rules?.max_cod_amount_auto ?? 5000;
+  const flagUnspecified = rules?.flag_unspecified_items ?? true;
+
+  // 1. Delivery Address Check (must not be too short or generic test word)
+  const address = (order.customer_address || '').trim();
+  if (!address || address.length < minAddressLen) {
+    return {
+      isSuspicious: true,
+      reason: `অসম্পূর্ণ বা সংক্ষিপ্ত ঠিকানা (${address.length || 0} অক্ষর, ন্যূনতম ${minAddressLen} অক্ষর প্রয়োজন — বাড়ি/রোড/এলাকার বিবরণ নেই)`
+    };
+  }
+
+  const lowerAddr = address.toLowerCase();
+  const fakePatterns = ['test', 'asdf', 'xyz', 'none', 'n/a', 'no address', 'dhaka', 'mirpur', 'chittagong', 'khulna', 'bogura', 'sylhet'];
+  if (fakePatterns.includes(lowerAddr) || /^(test|asdf|xyz|123|abc|na|none)$/i.test(lowerAddr)) {
+    return {
+      isSuspicious: true,
+      reason: 'সন্দেহজনক বা টেস্ট ঠিকানা (যথাযথ বাড়ি/রোড/থানা উল্লেখ নেই)'
+    };
+  }
+
+  // 2. Phone Number Check (11 digits, valid BD mobile prefixes: 013, 014, 015, 016, 017, 018, 019)
+  if (requireValidPhone) {
+    const rawPhone = (order.customer_phone || '').trim();
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    const bd11 = digitsOnly.length >= 11 ? digitsOnly.slice(-11) : digitsOnly;
+
+    const validPrefix = /^(013|014|015|016|017|018|019)\d{8}$/.test(bd11);
+    if (!validPrefix) {
+      return {
+        isSuspicious: true,
+        reason: `অবৈধ বা অসম্পূর্ণ মোবাইল নম্বর (${rawPhone || 'অনুপস্থিত'} — সঠিক ১১ ডিজিট বাংলাদেশি নম্বর নয়)`
+      };
+    }
+
+    // Repeated dummy digits like 01700000000, 01711111111, 01800000000
+    if (/^01[3-9](\d)\1{7}$/.test(bd11)) {
+      return {
+        isSuspicious: true,
+        reason: `নকল বা ডামি মোবাইল নম্বর (${rawPhone} — একই ডিজিট বারবার দেওয়া)`
+      };
+    }
+  }
+
+  // 3. Duplicate Phone Check (multiple orders from the same phone number within 48 hours)
+  if (flagDuplicates && order.customer_phone) {
+    const rawPhone = order.customer_phone.replace(/\D/g, '').slice(-11);
+    if (rawPhone.length === 11) {
+      const orderCreatedAt = new Date(order.created_at || Date.now()).getTime();
+      const duplicates = allUserOrders.filter((o) => {
+        if (o.id === order.id) return false;
+        const otherPhone = (o.customer_phone || '').replace(/\D/g, '').slice(-11);
+        if (otherPhone !== rawPhone) return false;
+        const otherTime = new Date(o.created_at || Date.now()).getTime();
+        return Math.abs(orderCreatedAt - otherTime) < 48 * 3600 * 1000;
+      });
+
+      if (duplicates.length > 0) {
+        return {
+          isSuspicious: true,
+          reason: `একই ফোন নম্বরে ৪৮ ঘণ্টার মধ্যে একাধিক (${duplicates.length + 1}টি) অর্ডার (ডুপ্লিকেট বা ভুয়া অর্ডারের সন্দেহ)`
+        };
+      }
+    }
+  }
+
+  // 4. High COD Amount Risk (Without advance payment)
+  const isPaid = order.payment_status === 'paid';
+  const advance = Number(order.advance_paid_amount || 0);
+  const total = Number(order.total_amount || 0);
+  const remainingCod = total - advance;
+
+  if (!isPaid && remainingCod > maxCod) {
+    return {
+      isSuspicious: true,
+      reason: `উচ্চ মূল্যের COD পার্সেল (৳${remainingCod} — কোনো অগ্রিম ছাড়াই বড় অর্ডার, পার্সেল রিটার্ন এড়াতে কল দিয়ে নিশ্চিত হওয়া প্রয়োজন)`
+    };
+  }
+
+  // 5. Unspecified Items
+  if (flagUnspecified) {
+    const items = (order.items || '').trim();
+    if (!items || items.length < 3 || /^(item|order|product|none)$/i.test(items)) {
+      return {
+        isSuspicious: true,
+        reason: 'পণ্যের বিবরণ বা আইটেম নাম অসম্পূর্ণ'
+      };
+    }
+  }
+
+  return { isSuspicious: false };
+}
+
+export async function executeAutoCourierDispatch(userId: string): Promise<{
+  success: boolean;
+  totalScanned: number;
+  dispatchedCount: number;
+  suspiciousCount: number;
+  dispatchedOrders: Order[];
+  suspiciousOrders: Order[];
+  courier: string;
+  message: string;
+}> {
+  const settings = db.getAutoCourierSettings(userId);
+  const courierId = settings.default_courier || 'steadfast';
+  const allOrders = db.getOrders(userId);
+
+  // Target orders eligible for courier booking:
+  // Confirmed orders (or pending un-dispatched orders) that are not cancelled or delivered
+  const eligibleOrders = allOrders.filter((o) => {
+    if (o.status === 'cancelled' || o.status === 'delivered') return false;
+    if (o.manual_review_status === 'rejected') return false;
+    if (o.dispatched_at && (o.status === 'processing' || o.status === 'shipped')) return false;
+    return o.status === 'confirmed' || (!o.dispatched_at && o.status !== 'processing');
+  });
+
+  const dispatchedOrders: Order[] = [];
+  const suspiciousOrders: Order[] = [];
+
+  for (const order of eligibleOrders) {
+    let risk: { isSuspicious: boolean; reason?: string } = { isSuspicious: false, reason: undefined };
+
+    // If already approved manually by merchant, bypass AI fraud check
+    if (order.manual_review_status !== 'approved' && settings.fraud_check_enabled) {
+      risk = evaluateOrderRisk(order, allOrders, settings.risk_rules);
+    }
+
+    if (risk.isSuspicious) {
+      const updated = db.updateOrder(order.id, {
+        is_suspicious: true,
+        suspicious_reason: risk.reason,
+        suspicious_detected_at: new Date().toISOString(),
+        manual_review_status: 'pending_review',
+        auto_dispatch_skipped: true
+      }) || order;
+      suspiciousOrders.push(updated);
+    } else {
+      // Safe parcel: dispatch to courier!
+      const dispResult = await dispatchOrderWithCourierEngine(order, courierId);
+      const updated = db.updateOrder(order.id, {
+        is_suspicious: false,
+        suspicious_reason: undefined,
+        manual_review_status: 'approved',
+        auto_dispatch_skipped: false
+      }) || dispResult.updatedOrder;
+      dispatchedOrders.push(updated);
+    }
+  }
+
+  const summary = {
+    timestamp: new Date().toISOString(),
+    total_scanned: eligibleOrders.length,
+    dispatched_count: dispatchedOrders.length,
+    suspicious_count: suspiciousOrders.length,
+    courier: courierId,
+    mode: 'auto_scheduled'
+  };
+
+  db.updateAutoCourierSettings(userId, {
+    last_run_at: new Date().toISOString(),
+    last_run_summary: summary
+  });
+
+  return {
+    success: true,
+    totalScanned: eligibleOrders.length,
+    dispatchedCount: dispatchedOrders.length,
+    suspiciousCount: suspiciousOrders.length,
+    dispatchedOrders,
+    suspiciousOrders,
+    courier: courierId,
+    message: `অটো-ডেসপ্যাচ সম্পন্ন! ${eligibleOrders.length}টি অর্ডারের মধ্যে ${dispatchedOrders.length}টি নিরাপদ পার্সেল ${courierId.toUpperCase()} কুরিয়ারে পাঠানো হয়েছে এবং ${suspiciousOrders.length}টি সন্দেহজনক পার্সেল রিভিউ লিস্টে রাখা হয়েছে।`
+  };
+}
+
+let lastScheduledRunMinute = '';
+
+export async function checkAndRunScheduledCourierDispatches(): Promise<void> {
+  try {
+    const now = new Date();
+    // Dhaka time in HH:mm 24h format
+    const dhakaTimeStr = now.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Dhaka',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const currentMinuteKey = `${now.toISOString().slice(0, 10)}_${dhakaTimeStr}`;
+    if (lastScheduledRunMinute === currentMinuteKey) {
+      return;
+    }
+
+    const profiles = db.getProfiles();
+    for (const p of profiles) {
+      const settings = db.getAutoCourierSettings(p.id);
+      if (!settings.enabled) continue;
+      if (!Array.isArray(settings.scheduled_times) || settings.scheduled_times.length === 0) continue;
+
+      if (settings.scheduled_times.includes(dhakaTimeStr)) {
+        console.log(`[Auto Courier Scheduler] ⏰ Triggering scheduled courier auto-dispatch for merchant ${p.id} (${p.full_name || p.email}) at Dhaka time ${dhakaTimeStr}`);
+        lastScheduledRunMinute = currentMinuteKey;
+        await executeAutoCourierDispatch(p.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[Auto Courier Scheduler] Error checking scheduled dispatches:', err);
+  }
+}
+
+// GET /api/orders/courier/auto-dispatch-settings
+ordersRouter.get('/courier/auto-dispatch-settings', (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const settings = db.getAutoCourierSettings(userId);
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch auto courier settings' });
+  }
+});
+
+// POST /api/orders/courier/auto-dispatch-settings
+ordersRouter.post('/courier/auto-dispatch-settings', (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const updates = req.body || {};
+    const updated = db.updateAutoCourierSettings(userId, updates);
+    res.json({
+      success: true,
+      message: 'Auto courier dispatch settings updated successfully.',
+      settings: updated
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update auto courier settings' });
+  }
+});
+
+// POST /api/orders/courier/run-auto-dispatch - Trigger on-demand auto courier screening & dispatch
+ordersRouter.post('/courier/run-auto-dispatch', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const result = await executeAutoCourierDispatch(userId);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error running auto courier dispatch:', err);
+    res.status(500).json({ error: err.message || 'Failed to run auto courier dispatch' });
+  }
+});
+
+// POST /api/orders/:id/approve-suspicious-dispatch - Merchant reviews and approves a flagged suspicious order
+ordersRouter.post('/:id/approve-suspicious-dispatch', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const existing = db.getOrderById(orderId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const { courierId = existing.courier_provider || 'steadfast' } = req.body || {};
+
+    // Clear suspicious flag, mark approved, and dispatch to courier
+    db.updateOrder(orderId, {
+      is_suspicious: false,
+      suspicious_reason: undefined,
+      manual_review_status: 'approved',
+      auto_dispatch_skipped: false
+    });
+
+    const dispResult = await dispatchOrderWithCourierEngine(existing, courierId);
+    res.json({
+      success: true,
+      order: dispResult.updatedOrder,
+      trackingNumber: dispResult.trackingNumber,
+      message: `পার্সেলটি যাচাই করে সফলভাবে ${courierId.toUpperCase()} কুরিয়ারে পাঠানো হয়েছে! ট্র্যাকিং আইডি: ${dispResult.trackingNumber}`
+    });
+  } catch (err: any) {
+    console.error('Error approving suspicious order:', err);
+    res.status(500).json({ error: err.message || 'Failed to approve and dispatch suspicious order' });
+  }
+});
+
+// POST /api/orders/:id/dismiss-suspicious - Merchant removes suspicious tag without immediate dispatch
+ordersRouter.post('/:id/dismiss-suspicious', (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const existing = db.getOrderById(orderId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const updated = db.updateOrder(orderId, {
+      is_suspicious: false,
+      manual_review_status: 'approved'
+    });
+
+    res.json({
+      success: true,
+      order: updated,
+      message: 'সন্দেহজনক ফ্ল্যাগ সরানো হয়েছে। পার্সেলটি নিরাপদ হিসেবে মার্ক করা হয়েছে।'
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to dismiss suspicious tag' });
   }
 });

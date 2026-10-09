@@ -133,6 +133,29 @@ export interface EmailCampaign {
   sent_at?: string;
 }
 
+export interface AutoCourierDispatchSettings {
+  enabled: boolean;
+  scheduled_times: string[]; // 24-hour format: ["10:00", "23:00"]
+  default_courier: string; // 'steadfast' | 'pathao' | 'redx' | 'paperfly' | 'ecourier'
+  fraud_check_enabled: boolean;
+  risk_rules: {
+    min_address_length: number;
+    require_valid_phone: boolean;
+    flag_duplicate_phones: boolean;
+    max_cod_amount_auto: number;
+    flag_unspecified_items: boolean;
+  };
+  last_run_at?: string;
+  last_run_summary?: {
+    timestamp: string;
+    total_scanned: number;
+    dispatched_count: number;
+    suspicious_count: number;
+    courier: string;
+    mode: string;
+  };
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -151,6 +174,7 @@ export interface Profile {
   appointment_settings?: AppointmentBookingSettings;
   email_smtp_settings?: EmailSmtpSettings;
   courier_settings?: Record<string, any>;
+  auto_courier_settings?: AutoCourierDispatchSettings;
   meta_user_access_token?: string;
   meta_tokens_updated_at?: string;
   meta_granted_scopes?: string[];
@@ -527,6 +551,11 @@ export interface Order {
   courier_consignment_id?: string;
   courier_tracking_code?: string;
   courier_status?: string;
+  is_suspicious?: boolean;
+  suspicious_reason?: string;
+  suspicious_detected_at?: string;
+  manual_review_status?: 'pending_review' | 'approved' | 'rejected';
+  auto_dispatch_skipped?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -895,6 +924,20 @@ export const DEFAULT_ORDER_SETTINGS: OrderConfirmationSettings = {
   ],
   auto_reply_confirmation: true,
   confirmation_message_template: 'Thank you {customer_name}! Your order for {items} has been successfully received. Order ID: #{order_id}. Total Bill: BDT {total_amount}. Our delivery team will contact you shortly.'
+};
+
+export const DEFAULT_AUTO_COURIER_SETTINGS: AutoCourierDispatchSettings = {
+  enabled: true,
+  scheduled_times: ['10:00', '23:00'],
+  default_courier: 'steadfast',
+  fraud_check_enabled: true,
+  risk_rules: {
+    min_address_length: 12,
+    require_valid_phone: true,
+    flag_duplicate_phones: true,
+    max_cod_amount_auto: 5000,
+    flag_unspecified_items: true
+  }
 };
 
 export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
@@ -2017,6 +2060,41 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       ...updates
     };
     this.updateProfile(userId, { automation_settings: updated });
+    return updated;
+  }
+
+  // --- Auto Courier Dispatch & Fraud Screening Settings ---
+  getAutoCourierSettings(userId: string): AutoCourierDispatchSettings {
+    const profile = this.getProfileById(userId);
+    if (profile && profile.auto_courier_settings) {
+      return {
+        ...DEFAULT_AUTO_COURIER_SETTINGS,
+        ...profile.auto_courier_settings,
+        risk_rules: {
+          ...DEFAULT_AUTO_COURIER_SETTINGS.risk_rules,
+          ...(profile.auto_courier_settings.risk_rules || {})
+        }
+      };
+    }
+    return { ...DEFAULT_AUTO_COURIER_SETTINGS };
+  }
+
+  updateAutoCourierSettings(
+    userId: string,
+    updates: Partial<AutoCourierDispatchSettings>
+  ): AutoCourierDispatchSettings {
+    const profile = this.getProfileById(userId);
+    if (!profile) return { ...DEFAULT_AUTO_COURIER_SETTINGS };
+    const current = profile.auto_courier_settings || { ...DEFAULT_AUTO_COURIER_SETTINGS };
+    const updated: AutoCourierDispatchSettings = {
+      ...current,
+      ...updates,
+      risk_rules: {
+        ...current.risk_rules,
+        ...(updates.risk_rules || {})
+      }
+    };
+    this.updateProfile(userId, { auto_courier_settings: updated });
     return updated;
   }
 

@@ -12,7 +12,7 @@ import { contactsRouter } from './server/routes/contacts.js';
 import { webhooksRouter } from './server/routes/webhooks.js';
 import { adminRouter } from './server/routes/admin.js';
 import { aiChatRouter } from './server/routes/aiChat.js';
-import { ordersRouter } from './server/routes/orders.js';
+import { ordersRouter, checkAndRunScheduledCourierDispatches } from './server/routes/orders.js';
 import { storesRouter } from './server/routes/stores.js';
 import { callRequestsRouter } from './server/routes/callRequests.js';
 import { widgetRouter } from './server/routes/widget.js';
@@ -155,6 +155,12 @@ async function startServer() {
       }
     } catch (err) {
       console.error('[Cron Expiry Worker] Error:', err);
+    }
+
+    try {
+      checkAndRunScheduledCourierDispatches();
+    } catch (courierErr) {
+      console.error('[Auto Courier Scheduler] Error:', courierErr);
     }
   }, 60 * 1000);
 

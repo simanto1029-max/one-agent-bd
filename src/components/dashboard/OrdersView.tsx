@@ -709,6 +709,11 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           >
             <Truck className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Courier Queue ({orders.filter(o => o.status === 'confirmed' || o.status === 'processing').length})</span>
+            {orders.filter(o => o.is_suspicious).length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black animate-pulse">
+                {orders.filter(o => o.is_suspicious).length} Suspicious
+              </span>
+            )}
           </button>
         </div>
 

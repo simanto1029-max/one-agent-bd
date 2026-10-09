@@ -14,6 +14,7 @@ import {
   Order,
   OrderMetrics,
   OrderConfirmationSettings,
+  AutoCourierDispatchSettings,
   StoreIntegration,
   CallRequest,
   Product
@@ -1276,6 +1277,66 @@ export const api = {
     return fetchJson('/api/orders/courier/test-connection', {
       method: 'POST',
       body: JSON.stringify({ courierId, apiKey, apiSecret, merchantId })
+    });
+  },
+
+  async getAutoCourierSettings(): Promise<AutoCourierDispatchSettings> {
+    const res = await fetchJson<{ success: boolean; settings: AutoCourierDispatchSettings }>('/api/orders/courier/auto-dispatch-settings');
+    return res.settings;
+  },
+
+  async saveAutoCourierSettings(
+    settings: Partial<AutoCourierDispatchSettings>
+  ): Promise<{
+    success: boolean;
+    message: string;
+    settings: AutoCourierDispatchSettings;
+  }> {
+    return fetchJson('/api/orders/courier/auto-dispatch-settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+  },
+
+  async runAutoCourierDispatch(): Promise<{
+    success: boolean;
+    totalScanned: number;
+    dispatchedCount: number;
+    suspiciousCount: number;
+    dispatchedOrders: Order[];
+    suspiciousOrders: Order[];
+    courier: string;
+    message: string;
+  }> {
+    return fetchJson('/api/orders/courier/run-auto-dispatch', {
+      method: 'POST'
+    });
+  },
+
+  async approveSuspiciousOrder(
+    orderId: string,
+    courierId?: string
+  ): Promise<{
+    success: boolean;
+    order: Order;
+    trackingNumber?: string;
+    message: string;
+  }> {
+    return fetchJson(`/api/orders/${orderId}/approve-suspicious-dispatch`, {
+      method: 'POST',
+      body: JSON.stringify({ courierId })
+    });
+  },
+
+  async dismissSuspiciousOrder(
+    orderId: string
+  ): Promise<{
+    success: boolean;
+    order: Order;
+    message: string;
+  }> {
+    return fetchJson(`/api/orders/${orderId}/dismiss-suspicious`, {
+      method: 'POST'
     });
   },
 

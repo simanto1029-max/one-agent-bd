@@ -508,8 +508,36 @@ export interface Order {
   payment_trx_id?: string;
   buying_cost?: number;
   notes?: string;
+  is_suspicious?: boolean;
+  suspicious_reason?: string;
+  suspicious_detected_at?: string;
+  manual_review_status?: 'pending_review' | 'approved' | 'rejected';
+  auto_dispatch_skipped?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AutoCourierDispatchSettings {
+  enabled: boolean;
+  scheduled_times: string[]; // 24-hour format: ["10:00", "23:00"]
+  default_courier: string; // 'steadfast' | 'pathao' | 'redx' | 'paperfly' | 'ecourier'
+  fraud_check_enabled: boolean;
+  risk_rules: {
+    min_address_length: number;
+    require_valid_phone: boolean;
+    flag_duplicate_phones: boolean;
+    max_cod_amount_auto: number;
+    flag_unspecified_items: boolean;
+  };
+  last_run_at?: string;
+  last_run_summary?: {
+    timestamp: string;
+    total_scanned: number;
+    dispatched_count: number;
+    suspicious_count: number;
+    courier: string;
+    mode: string;
+  };
 }
 
 export interface OrderMetrics {
