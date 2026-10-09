@@ -492,7 +492,7 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   }
 
   // 7. Send message to Meta Graph API (with Interactive List / Reply Buttons when available)
-  await sendMetaMessage(channel, event.customerId, aiReplyText, attachedImageUrl, interactiveOptions);
+  await sendMetaMessage(channel, event.customerId, aiReplyText, attachedImageUrl, interactiveOptions, generatedAiResult?.attachedImages);
 
   // 8. Log outbound AI reply message
   const outbound: Message = db.createMessage({
@@ -673,7 +673,8 @@ async function sendMetaMessage(
   recipientId: string,
   text: string,
   imageUrl?: string,
-  interactiveOptions?: InteractiveMessageConfig
+  interactiveOptions?: InteractiveMessageConfig,
+  attachedImages?: string[]
 ): Promise<{ ok: boolean; outsideWindow?: boolean; error?: string }> {
   // If token is demo/simulated, don't make outbound network call
   if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
@@ -830,6 +831,27 @@ async function sendMetaMessage(
             }
           })
         }).catch((err) => console.error(`[${channel.platform} Outbound Image Error]`, err));
+
+        // If extra catalog product images are present, send them too (up to 3 total)
+        if (Array.isArray(attachedImages) && attachedImages.length > 1) {
+          for (const extraImg of attachedImages.slice(1, 3)) {
+            if (extraImg && extraImg !== imageUrl) {
+              await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  recipient: recipientObj,
+                  message: {
+                    attachment: {
+                      type: 'image',
+                      payload: { url: extraImg, is_reusable: true }
+                    }
+                  }
+                })
+              }).catch(() => {});
+            }
+          }
+        }
       }
 
       // 2. Send text message with details (and Messenger/Instagram Quick Replies if interactiveOptions present)

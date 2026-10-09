@@ -355,3 +355,41 @@ productsRouter.post('/sample-seed', (req: Request, res: Response) => {
     message: `${createdList.length} sample products (Pants, Shirts, Watches) loaded successfully!`
   });
 });
+
+// POST /api/products/test-ai-query - Test AI inquiry directly against the merchant's catalog & products
+productsRouter.post('/test-ai-query', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { message, platform = 'messenger' } = req.body;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  try {
+    const { generateAIReply } = await import('../services/aiService.js');
+    const aiResult = await generateAIReply({
+      userId: user.id,
+      incomingMessage: message.trim(),
+      customerId: `test_merchant_${user.id}`,
+      customerName: 'Customer',
+      platform: platform as any,
+      channelName: user.business_name || 'My Store'
+    });
+
+    return res.json({
+      success: true,
+      reply: aiResult.replyText,
+      attachedImageUrl: aiResult.attachedImageUrl,
+      attachedProductName: aiResult.attachedProductName,
+      attachedProductPrice: aiResult.attachedProductPrice,
+      attachedProducts: aiResult.attachedProducts,
+      attachedImages: aiResult.attachedImages
+    });
+  } catch (err: any) {
+    console.error('Error generating product AI test reply:', err);
+    return res.status(500).json({ error: err?.message || 'Failed to generate product AI reply' });
+  }
+});

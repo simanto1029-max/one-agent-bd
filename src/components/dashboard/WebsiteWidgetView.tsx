@@ -202,7 +202,8 @@ export const WebsiteWidgetView: React.FC<WebsiteWidgetViewProps> = ({ currentUse
         {
           sender: 'bot',
           text: res.reply || 'Thank you for your message! Our assistant will get back to you shortly.',
-          time: botTime
+          time: botTime,
+          imageUrl: res.attachedImageUrl || res.imageUrl
         }
       ]);
 
@@ -711,6 +712,13 @@ export const WebsiteWidgetView: React.FC<WebsiteWidgetViewProps> = ({ currentUse
                               <BrandLogo size="xs" className="w-full h-full" />
                             </div>
                             <div className="bg-[#1C1D22] text-white px-3.5 py-2.5 rounded-2xl max-w-[82%] leading-relaxed whitespace-pre-line border border-white/5">
+                              {msg.imageUrl && (
+                                <img
+                                  src={msg.imageUrl}
+                                  alt="Product"
+                                  className="max-w-full max-h-36 rounded-lg object-cover mb-2 border border-white/10 block"
+                                />
+                              )}
                               {msg.text}
                             </div>
                           </div>

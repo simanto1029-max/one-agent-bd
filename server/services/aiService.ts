@@ -80,6 +80,87 @@ function toBengaliNumber(n: number): string {
     .join('');
 }
 
+export function detectProductImageInquiry(text: string): {
+  isAskingForImage: boolean;
+  isAskingForCatalog: boolean;
+  isAskingForDetails: boolean;
+} {
+  const lower = (text || '').toLowerCase().trim();
+  if (!lower) {
+    return { isAskingForImage: false, isAskingForCatalog: false, isAskingForDetails: false };
+  }
+
+  const isAskingForImage =
+    lower.includes('picture') ||
+    lower.includes('photo') ||
+    lower.includes('chobi') ||
+    lower.includes('chbi') ||
+    lower.includes('image') ||
+    lower.includes('pic') ||
+    lower.includes('look like') ||
+    lower.includes('dekhte chai') ||
+    lower.includes('dekhte cai') ||
+    lower.includes('dete chai') ||
+    lower.includes('dete cai') ||
+    lower.includes('dite chai') ||
+    lower.includes('dite cai') ||
+    lower.includes('pic din') ||
+    lower.includes('pic den') ||
+    lower.includes('pic dekhan') ||
+    lower.includes('pic pathan') ||
+    lower.includes('chobi den') ||
+    lower.includes('chobi din') ||
+    lower.includes('chobi dekhan') ||
+    lower.includes('chobi pathan') ||
+    lower.includes('ছবি') ||
+    lower.includes('পিক') ||
+    lower.includes('পিকচার') ||
+    lower.includes('ফটো') ||
+    lower.includes('ইমেজ') ||
+    lower.includes('দেখান') ||
+    lower.includes('পাঠান') ||
+    lower.includes('দেখতে চাই');
+
+  const isAskingForCatalog =
+    lower.includes('ki ki product') ||
+    lower.includes('k i ki product') ||
+    lower.includes('ki ki item') ||
+    lower.includes('ki ki ase') ||
+    lower.includes('ki ki ache') ||
+    lower.includes('k i ki') ||
+    lower.includes('all product') ||
+    lower.includes('shob product') ||
+    lower.includes('sob product') ||
+    lower.includes('catalog') ||
+    lower.includes('catalogue') ||
+    lower.includes('কী কী প্রোডাক্ট') ||
+    lower.includes('কি কি প্রোডাক্ট') ||
+    lower.includes('কী কী আছে') ||
+    lower.includes('কি কি আছে') ||
+    lower.includes('সব প্রোডাক্ট') ||
+    lower.includes('ক্যাটালগ');
+
+  const isAskingForDetails =
+    lower.includes('detail') ||
+    lower.includes('spec') ||
+    lower.includes('feature') ||
+    lower.includes('fabric') ||
+    lower.includes('material') ||
+    lower.includes('size') ||
+    lower.includes('color') ||
+    lower.includes('warranty') ||
+    lower.includes('kemon') ||
+    lower.includes('bistarito') ||
+    lower.includes('price') ||
+    lower.includes('dam') ||
+    lower.includes('cost') ||
+    lower.includes('দাম') ||
+    lower.includes('কত') ||
+    lower.includes('বিস্তারিত');
+
+  return { isAskingForImage, isAskingForCatalog, isAskingForDetails };
+}
+
 export function formatCleanChatMessage(raw: string): string {
   if (!raw) return '';
   let text = raw
@@ -453,8 +534,10 @@ export interface GenerateReplyResult {
   transcript?: string;
   isVoice?: boolean;
   attachedImageUrl?: string;
+  attachedImages?: string[];
   attachedProductName?: string;
   attachedProductPrice?: number;
+  attachedProducts?: Array<{ id: string; name: string; price: number; image_url: string }>;
   interactiveOptions?: InteractiveMessageConfig;
   requiresHumanAttention?: boolean;
   attentionReason?: string;
@@ -1537,9 +1620,24 @@ function buildSmartBanglaFallbackFromPrompt(
   }
 
   const q = (incomingMessage || '').toLowerCase().trim();
+  const isAskingForImage =
+    q.includes('pic') ||
+    q.includes('photo') ||
+    q.includes('picture') ||
+    q.includes('image') ||
+    q.includes('chobi') ||
+    q.includes('ছবি') ||
+    q.includes('পিক') ||
+    q.includes('পিকচার') ||
+    q.includes('ফটো') ||
+    q.includes('dekhan') ||
+    q.includes('pathan');
 
   // 2. Specific matched product from merchant catalog
   if (matchedProduct) {
+    if (isAskingForImage && matchedProduct.image_url) {
+      return `এই যে, আমাদের "${matchedProduct.name}"-এর ছবি এবং বিস্তারিত নিচে পাঠিয়ে দিয়েছি! 📸\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n${matchedProduct.description ? `📋 বিবরণ: ${matchedProduct.description}\n\n` : '\n'}প্রোডাক্টটি আপনার কেমন লেগেছে? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ডেলিভারি ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
+    }
     return `আসসালামু আলাইকুম! আমাদের "${matchedProduct.name}" এখন স্টকে আছে।\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n📋 বিবরণ: ${matchedProduct.description}\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
   }
 
@@ -2005,6 +2103,13 @@ function buildSmartBanglaFallbackFromPrompt(
 
   // 5. Intelligent Fallback for Unscripted / General Questions (Never blindly push to support team!)
   if (products.length > 0) {
+    if (isAskingForImage) {
+      const previewProducts = products
+        .slice(0, 5)
+        .map((p, idx) => `${toBengaliNumber(idx + 1)}. ${p.name} — ৳${p.price}`)
+        .join('\n\n');
+      return `আমাদের এভেইলেবল প্রোডাক্টগুলোর ছবি ও তালিকা নিচে পাঠিয়ে দিয়েছি! 📸\n\n${previewProducts}\n\nএর মধ্যে আপনার কোন প্রোডাক্টটি পছন্দ হয়েছে বা বিস্তারিত জানতে চান?`;
+    }
     const previewProducts = products
       .slice(0, 3)
       .map((p, idx) => `${toBengaliNumber(idx + 1)}. ${p.name} — ৳${p.price}`)
@@ -2106,7 +2211,7 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       ? merchantProducts
           .map(
             (p) =>
-              `- ${p.name}: ${p.price} ${p.currency} (Category: ${p.category}, Status: ${p.stock_status}). Details: ${p.description}`
+              `- ${p.name}: ৳${p.price} ${p.currency} (Category: ${p.category}, Status: ${p.stock_status}, [Photo Available: ${Boolean(p.image_url && p.image_url.trim().length > 5)}]). Details: ${p.description || ''}`
           )
           .join('\n')
       : `(কোনো আলাদা প্রোডাক্ট ক্যাটালগ যোগ করা হয়নি — উপরের Business Knowledge Base / System Instructions অনুযায়ী উত্তর দিন)`;
@@ -2124,15 +2229,51 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     incomingLower.includes('picture') ||
     incomingLower.includes('photo') ||
     incomingLower.includes('chobi') ||
-    incomingLower.includes('dekhan') ||
+    incomingLower.includes('chbi') ||
     incomingLower.includes('image') ||
     incomingLower.includes('pic') ||
-    incomingLower.includes('dekhte chai') ||
     incomingLower.includes('look like') ||
+    incomingLower.includes('dekhte chai') ||
+    incomingLower.includes('dekhte cai') ||
+    incomingLower.includes('dete chai') ||
+    incomingLower.includes('dete cai') ||
+    incomingLower.includes('dite chai') ||
+    incomingLower.includes('dite cai') ||
     incomingLower.includes('pic din') ||
+    incomingLower.includes('pic den') ||
+    incomingLower.includes('pic dekhan') ||
+    incomingLower.includes('pic pathan') ||
+    incomingLower.includes('chobi den') ||
+    incomingLower.includes('chobi din') ||
+    incomingLower.includes('chobi dekhan') ||
+    incomingLower.includes('chobi pathan') ||
     incomingLower.includes('ছবি') ||
     incomingLower.includes('পিক') ||
-    incomingLower.includes('দেখান');
+    incomingLower.includes('পিকচার') ||
+    incomingLower.includes('ফটো') ||
+    incomingLower.includes('ইমেজ') ||
+    incomingLower.includes('দেখান') ||
+    incomingLower.includes('পাঠান') ||
+    incomingLower.includes('দেখতে চাই');
+
+  const isAskingForCatalog =
+    incomingLower.includes('ki ki product') ||
+    incomingLower.includes('k i ki product') ||
+    incomingLower.includes('ki ki item') ||
+    incomingLower.includes('ki ki ase') ||
+    incomingLower.includes('ki ki ache') ||
+    incomingLower.includes('k i ki') ||
+    incomingLower.includes('all product') ||
+    incomingLower.includes('shob product') ||
+    incomingLower.includes('sob product') ||
+    incomingLower.includes('catalog') ||
+    incomingLower.includes('catalogue') ||
+    incomingLower.includes('কী কী প্রোডাক্ট') ||
+    incomingLower.includes('কি কি প্রোডাক্ট') ||
+    incomingLower.includes('কী কী আছে') ||
+    incomingLower.includes('কি কি আছে') ||
+    incomingLower.includes('সব প্রোডাক্ট') ||
+    incomingLower.includes('ক্যাটালগ');
 
   const isAskingForDetails =
     incomingLower.includes('detail') ||
@@ -2155,8 +2296,53 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
 
   // Attempt to match a specific product from merchant's own catalog
   let matchedProduct: Product | undefined = undefined;
-  if (params.incomingMessage && merchantProducts.length > 0) {
-    matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
+  let attachedProductsList: Product[] = [];
+
+  if (merchantProducts.length > 0) {
+    if (params.incomingMessage) {
+      matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
+    }
+
+    // If customer asks for "ay product ar pic dete cai" / "chobi den" without repeating the product name,
+    // search backward through recent history to find which product was discussed!
+    if (
+      !matchedProduct &&
+      (isAskingForImage ||
+        isAskingForDetails ||
+        incomingLower.includes('ay ') ||
+        incomingLower.includes('ei ') ||
+        incomingLower.includes('eta') ||
+        incomingLower.includes('aita') ||
+        incomingLower.includes('এই'))
+    ) {
+      const historyList = (params.history || []).slice(-8);
+      for (let i = historyList.length - 1; i >= 0; i--) {
+        const histText = historyList[i].message_text;
+        if (histText) {
+          const fromHist = db.findProductForQuery(params.userId, histText);
+          if (fromHist) {
+            matchedProduct = fromHist;
+            break;
+          }
+        }
+      }
+    }
+
+    // If customer is asking for catalog / "ki ki products ase" / all products:
+    if (isAskingForCatalog) {
+      attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 6);
+      if (!matchedProduct && attachedProductsList.length > 0) {
+        matchedProduct = attachedProductsList[0];
+      }
+    } else if (isAskingForImage && !matchedProduct) {
+      // Customer asked for photos generally without naming a product — provide available catalog items with photos!
+      attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 6);
+      if (attachedProductsList.length > 0) {
+        matchedProduct = attachedProductsList[0];
+      }
+    } else if (matchedProduct) {
+      attachedProductsList = [matchedProduct];
+    }
   }
 
   const combinedSystemPrompt = `${systemPrompt}${oneAgentExtendedKnowledge ? `\n${oneAgentExtendedKnowledge}` : ''}`;
@@ -2332,8 +2518,16 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   }
 
   let productPhotoDirective = '';
-  if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
-    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE: কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন। সংক্ষেপে জানান যে প্রোডাক্টটির ছবি পাঠানো হয়েছে এবং এর দাম ৳${matchedProduct.price} ${matchedProduct.currency}, এরপর নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা।`;
+  if (isAskingForCatalog && isAskingForImage && attachedProductsList.length > 0) {
+    productPhotoDirective = `PRODUCT PICTURES & CATALOG DIRECTIVE (ক্যাটালগ ও ছবি সংক্রান্ত নির্দেশ):
+কাস্টমার আমাদের কী কী প্রোডাক্ট আছে তার ছবি দেখতে চেয়েছেন ("${params.incomingMessage}")।
+সিস্টেম থেকে চ্যাটে সরাসরি আমাদের প্রোডাক্টসমূহের অফিসিয়াল ছবি (${attachedProductsList.map((p) => `${p.name} - ৳${p.price}`).join(', ')}) সংযুক্ত করে পাঠানো হয়েছে!
+আপনার টেক্সট মেসেজে সংক্ষেপে ১-২ লাইনে নিশ্চিত করুন যে প্রোডাক্টগুলোর ছবি চ্যাটে পাঠিয়ে দেওয়া হয়েছে, সিরিয়াল আকারে নাম ও মূল্য তুলে ধরুন এবং কাস্টমারকে জিজ্ঞেস করুন কোন প্রোডাক্টটি তিনি বিস্তারিত দেখতে বা অর্ডার করতে চান!`;
+  } else if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
+    productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE (প্রোডাক্টের ছবি ও বিবরণ নির্দেশ):
+কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন ("${params.incomingMessage}")।
+সিস্টেম থেকে "${matchedProduct.name}"-এর অফিসিয়াল ছবি চ্যাটে সরাসরি সংযুক্ত ও পাঠানো হয়েছে!
+আপনার টেক্সট উত্তরে পরিষ্কার ও আনন্দের সাথে জানান যে "${matchedProduct.name}"-এর ছবি ও বিস্তারিত পাঠিয়ে দেওয়া হয়েছে, এর মূল্য ৳${matchedProduct.price} ${matchedProduct.currency}${matchedProduct.description ? ` (${matchedProduct.description})` : ''}। এরপর নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা!`;
   }
 
   const isAskingForHumanCall =
@@ -2514,7 +2708,11 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
     callGemini(fullPrompt, effectiveApiKey, systemInstruction),
     9500
   ).catch(() => null);
-  const shouldAttachImage = Boolean(matchedProduct?.image_url && (isAskingForImage || isAskingForDetails));
+  const shouldAttachImage = Boolean(
+    (matchedProduct?.image_url || attachedProductsList.length > 0) &&
+    (isAskingForImage || isAskingForDetails || isAskingForCatalog)
+  );
+  const primaryImageUrl = matchedProduct?.image_url || attachedProductsList[0]?.image_url;
 
   if (geminiReply) {
     const cleanReply = ensureConversationalFollowUp(
@@ -2539,9 +2737,18 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
       interactiveOptions: interactiveEnvelope.interactiveOptions,
       transcript: voiceTranscript,
       isVoice: Boolean(voiceTranscript || params.audioBase64),
-      attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
+      attachedImageUrl: shouldAttachImage ? primaryImageUrl : undefined,
+      attachedImages: shouldAttachImage ? attachedProductsList.map((p) => p.image_url).filter(Boolean) : undefined,
       attachedProductName: matchedProduct?.name,
       attachedProductPrice: matchedProduct?.price,
+      attachedProducts: shouldAttachImage
+        ? attachedProductsList.map((p) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            image_url: p.image_url
+          }))
+        : undefined,
       requiresHumanAttention: requiresHuman,
       attentionReason: requiresHuman ? `Customer query flagged for human support: "${params.incomingMessage.slice(0, 80)}"` : undefined
     };
@@ -2580,9 +2787,18 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
     interactiveOptions: fallbackEnvelope.interactiveOptions,
     transcript: voiceTranscript,
     isVoice: Boolean(voiceTranscript || params.audioBase64),
-    attachedImageUrl: shouldAttachImage ? matchedProduct?.image_url : undefined,
+    attachedImageUrl: shouldAttachImage ? primaryImageUrl : undefined,
+    attachedImages: shouldAttachImage ? attachedProductsList.map((p) => p.image_url).filter(Boolean) : undefined,
     attachedProductName: matchedProduct?.name,
     attachedProductPrice: matchedProduct?.price,
+    attachedProducts: shouldAttachImage
+      ? attachedProductsList.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image_url: p.image_url
+        }))
+      : undefined,
     requiresHumanAttention: fallbackRequiresHuman,
     attentionReason: fallbackRequiresHuman ? `Customer query flagged for human support: "${params.incomingMessage.slice(0, 80)}"` : undefined
   };

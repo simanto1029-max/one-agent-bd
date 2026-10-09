@@ -1083,8 +1083,73 @@ class Database {
     if (!parsed.appointments) parsed.appointments = [];
     if (!parsed.email_subscribers) parsed.email_subscribers = [];
     if (!parsed.email_campaigns) parsed.email_campaigns = [];
-    if (!parsed.products) {
-      parsed.products = [];
+    if (!parsed.products || parsed.products.length === 0) {
+      const nowIso = new Date().toISOString();
+      const defaultSeedItems: Product[] = [
+        {
+          id: 'prod_seed_cargo_01',
+          user_id: 'usr_demo_002',
+          name: 'Cargo Jogger Pant (Olive Green)',
+          price: 1150,
+          currency: 'BDT',
+          category: 'Pants',
+          description: 'Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.',
+          image_url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80',
+          stock_status: 'in_stock',
+          keywords: ['cargo', 'jogger', 'pant', 'olive', 'green', 'কার্গো', 'প্যান্ট', 'কটন'],
+          created_at: nowIso,
+          updated_at: nowIso
+        },
+        {
+          id: 'prod_seed_denim_02',
+          user_id: 'usr_demo_002',
+          name: 'Slim Fit Denim Jeans (Deep Blue)',
+          price: 1250,
+          currency: 'BDT',
+          category: 'Pants',
+          description: 'Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.',
+          image_url: 'https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80',
+          stock_status: 'in_stock',
+          keywords: ['denim', 'jeans', 'pant', 'blue', 'ডেনিম', 'জিন্স', 'প্যান্ট', 'স্লিম'],
+          created_at: nowIso,
+          updated_at: nowIso
+        },
+        {
+          id: 'prod_seed_shirt_03',
+          user_id: 'usr_demo_002',
+          name: 'Casual Oxford Cotton Shirt (Sky Blue)',
+          price: 850,
+          currency: 'BDT',
+          category: 'Shirts',
+          description: '100% combed breathable cotton Oxford shirt with button-down collar and curved hem. Perfect for all seasons. Sizes: M, L, XL, XXL.',
+          image_url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
+          stock_status: 'in_stock',
+          keywords: ['shirt', 'oxford', 'cotton', 'blue', 'শার্ট', 'কটন', 'ফুল হাতা'],
+          created_at: nowIso,
+          updated_at: nowIso
+        },
+        {
+          id: 'prod_seed_watch_04',
+          user_id: 'usr_demo_002',
+          name: 'Smart Calling Watch (Series 9 Metallic Black)',
+          price: 2450,
+          currency: 'BDT',
+          category: 'Watches',
+          description: '1.99 inch HD AMOLED screen with Bluetooth call support, heart rate and blood oxygen monitoring, 100+ sports modes, and 5-day battery backup. IP68 water resistant.',
+          image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
+          stock_status: 'in_stock',
+          keywords: ['watch', 'smartwatch', 'smart', 'calling', 'ঘড়ি', 'ঘড়ি', 'স্মার্টওয়াচ'],
+          created_at: nowIso,
+          updated_at: nowIso
+        }
+      ];
+      // Also copy to usr_admin_001
+      const adminItems = defaultSeedItems.map((p) => ({
+        ...p,
+        id: p.id.replace('prod_seed_', 'prod_admin_'),
+        user_id: 'usr_admin_001'
+      }));
+      parsed.products = [...defaultSeedItems, ...adminItems];
     } else {
       parsed.products = parsed.products.filter(
         (p: Product) => !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
@@ -2247,26 +2312,69 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return undefined;
     }
 
-    // 1. Direct match on keywords
+    // 0. Exact or direct substring match on product name
     for (const prod of prods) {
-      if (prod.keywords?.some((k) => k.trim().length >= 3 && q.includes(k.trim().toLowerCase()))) {
+      const pName = prod.name.toLowerCase().trim();
+      if (q.includes(pName) || (pName.length >= 4 && pName.includes(q))) {
         return prod;
       }
     }
 
-    // 2. Direct match on name words
+    // 1. Direct match on keywords
     for (const prod of prods) {
-      const words = prod.name.toLowerCase().split(/\s+/);
-      if (words.some((w) => w.length > 3 && q.includes(w))) {
+      if (prod.keywords?.some((k) => k.trim().length >= 2 && q.includes(k.trim().toLowerCase()))) {
+        return prod;
+      }
+    }
+
+    // 2. Direct match on individual name words (splitting on whitespace, hyphens, slashes, brackets)
+    for (const prod of prods) {
+      const words = prod.name.toLowerCase().split(/[\s\-_,./()]+/);
+      if (words.some((w) => w.length >= 2 && q.includes(w))) {
         return prod;
       }
     }
 
     // 3. Match on category
     for (const prod of prods) {
-      if (prod.category && prod.category.trim().length >= 3 && q.includes(prod.category.toLowerCase())) {
+      if (prod.category && prod.category.trim().length >= 2 && q.includes(prod.category.toLowerCase())) {
         return prod;
       }
+    }
+
+    // 4. Match on description keywords
+    for (const prod of prods) {
+      const descWords = prod.description.toLowerCase().split(/[\s\-_,./()]+/);
+      if (descWords.some((w) => w.length >= 4 && q.includes(w))) {
+        return prod;
+      }
+    }
+
+    // 5. If customer is asking for "this product's pic" / "ay product ar pic" / "chobi" / "pic"
+    // and there is only 1 or 2 products in the store catalog, return the primary product with image!
+    const isGenericProductInquiry =
+      q.includes('ay product') ||
+      q.includes('ei product') ||
+      q.includes('ai product') ||
+      q.includes('eitar') ||
+      q.includes('aitar') ||
+      q.includes('aita') ||
+      q.includes('eta') ||
+      q.includes('এই প্রোডাক্ট') ||
+      q.includes('এটার') ||
+      q.includes('ছবি') ||
+      q.includes('পিক') ||
+      q.includes('pic') ||
+      q.includes('photo') ||
+      q.includes('picture');
+
+    if (isGenericProductInquiry && prods.length > 0) {
+      // Find the first product with a valid photo
+      const prodWithImg = prods.find((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
+      if (prodWithImg) {
+        return prodWithImg;
+      }
+      return prods[0];
     }
 
     return undefined;

@@ -3493,6 +3493,168 @@
       "attention_reason": "Customer query flagged for human support: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\"",
       "status": "sent",
       "created_at": "2026-10-08T16:52:17.707Z"
+    },
+    {
+      "id": "msg_1791532697285_fw_j2fw",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_1",
+      "customer_name": "Rahim Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Rahim Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-09T07:58:17.285Z"
+    },
+    {
+      "id": "msg_1791532697662_fw_bcj2",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_2",
+      "customer_name": "Karim Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Karim Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-09T07:58:17.662Z"
+    },
+    {
+      "id": "msg_1791532698013_fw_owif",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_3",
+      "customer_name": "Salam Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Salam Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-09T07:58:18.013Z"
+    },
+    {
+      "id": "msg_1791532698285_fw_30x6",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_unscripted_4",
+      "customer_name": "Salam Test 4",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Salam Test 4! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-09T07:58:18.285Z"
+    },
+    {
+      "id": "msg_1791532698561_fw_dmk2",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "test_cust_fresh_1",
+      "customer_name": "Testing Handover",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Testing Handover! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-09T07:58:18.561Z"
+    },
+    {
+      "id": "msg_web_in_1791532895782_szro",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_1",
+      "customer_name": "Website Visitor",
+      "direction": "inbound",
+      "message_text": "ay product ar pic dete cai",
+      "is_ai_reply": false,
+      "status": "received",
+      "created_at": "2026-10-09T08:01:35.782Z"
+    },
+    {
+      "id": "msg_web_out_1791532898478_stgf",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_1",
+      "customer_name": "Website Visitor",
+      "direction": "outbound",
+      "message_text": "জি অবশ্যই, আপনি চ্যাটেই ছবিটি পাঠিয়ে দিতে পারেন অথবা আমাদের হেল্পলাইনে হোয়াটসঅ্যাপ করতে পারেন (01811-998877)।\n\nআপনি কি পণ্যের কোনো নির্দিষ্ট সাইজ বা কালার দেখতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "status": "sent",
+      "created_at": "2026-10-09T08:01:38.478Z"
+    },
+    {
+      "id": "msg_web_in_1791532923480_9dj7",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_1",
+      "customer_name": "Website Visitor",
+      "direction": "inbound",
+      "message_text": "ay product ar pic dete cai",
+      "is_ai_reply": false,
+      "status": "received",
+      "created_at": "2026-10-09T08:02:03.480Z"
+    },
+    {
+      "id": "msg_web_out_1791532935570_0wx6",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_1",
+      "customer_name": "Website Visitor",
+      "direction": "outbound",
+      "message_text": "ইনবক্সে/চ্যাটে কার্গো প্যান্টের ছবিটি পাঠিয়ে দেওয়া হয়েছে, আপনি দেখতে পাচ্ছেন।\n\nCargo Jogger Pant (Olive Green):\n\n১. মূল্য: ১,১৫০ টাকা\n\n২. ফেব্রিক: প্রিমিয়াম স্ট্রেচেবল কটন টুইল, ৬টি পকেট এবং অ্যাডজাস্টেবল ওয়েস্ট ড্রস্ট্রিং\n\n৩. সাইজ: ৩০, ৩২, ৩৪, ৩৬\n\nআপনি কি আপনার জন্য একটি অর্ডার কনফার্ম করতে চাচ্ছেন?\n\nকোন সাইজটি লাগবে জানাবেন কি?",
+      "is_ai_reply": true,
+      "has_image": true,
+      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "status": "sent",
+      "created_at": "2026-10-09T08:02:15.570Z"
+    },
+    {
+      "id": "msg_web_in_1791532947528_vnmh",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_2",
+      "customer_name": "Website Visitor",
+      "direction": "inbound",
+      "message_text": "ki ki products ase picture den",
+      "is_ai_reply": false,
+      "status": "received",
+      "created_at": "2026-10-09T08:02:27.528Z"
+    },
+    {
+      "id": "msg_web_out_1791532954479_lj83",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_website_default",
+      "platform": "whatsapp",
+      "customer_id": "vis_test_2",
+      "customer_name": "Website Visitor",
+      "direction": "outbound",
+      "message_text": "আমাদের স্টকে থাকা প্রোডাক্টগুলোর ছবি চ্যাটে পাঠিয়ে দেওয়া হয়েছে।\n\nপ্রোডাক্টগুলোর তালিকা নিচে দেওয়া হলো:\n\n১. Cargo Jogger Pant (Olive Green) — মূল্য: ৳১,১৫০ টাকা। হেভিওয়েট স্ট্রেচেবল কটন টুইল ফেব্রিক, ৬টি পকেট ও ড্র-স্ট্রিং সমন্বিত। সাইজ: ৩০, ৩২, ৩৪, ৩৬।\n\n২. Slim Fit Denim Jeans (Deep Blue) — মূল্য: ৳১,২৫০ টাকা। প্রিমিয়াম স্ট্রেচ ডেনিম, ডার্ক ব্লু ওয়াশ ও টেকসই স্টিচিং। সাইজ: ৩০, ৩২, ৩৪, ৩৬।\n\n৩. Casual Oxford Cotton Shirt (Sky Blue) — মূল্য: ৳৮৫০ টাকা। ১০০% কম্বড ব্রিদেবল কটন এবং বাটন-ডাউন কলার। সাইজ: M, L, XL, XXL।\n\n৪. Smart Calling Watch (Series 9 Metallic Black) — মূল্য: ৳২,৪৫০ টাকা। ১.৯৯ ইঞ্চি HD AMOLED স্ক্রিন, ব্লুটুথ কলিং, হেলথ ট্র্যাকার ও ৫ দিনের ব্যাটারি ব্যাকআপ।\n\nআপনি কোন প্রোডাক্টটি নিতে আগ্রহী?\n\nআপনার পছন্দের সাইজ বা বিস্তারিত জানালে অর্ডারটি কনফার্ম করে দিতে পারি!\n\nআপনি কি এটি অর্ডার করতে চান, নাকি অন্য কোনো প্রোডাক্ট সম্পর্কে জানতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": true,
+      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "status": "sent",
+      "created_at": "2026-10-09T08:02:34.479Z"
     }
   ],
   "settings": {
@@ -3503,8 +3665,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-09T07:41:53.793Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 7:41:53 AM)"
+    "cron_last_run": "2026-10-09T08:02:58.611Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 8:02:58 AM)"
   },
   "orders": [
     {
@@ -3921,7 +4083,188 @@
       "created_at": "2026-09-25T07:53:11.497Z"
     }
   ],
-  "products": [],
+  "products": [
+    {
+      "id": "prod_seed_cargo_01",
+      "user_id": "usr_demo_002",
+      "name": "Cargo Jogger Pant (Olive Green)",
+      "price": 1150,
+      "currency": "BDT",
+      "category": "Pants",
+      "description": "Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.",
+      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "cargo",
+        "jogger",
+        "pant",
+        "olive",
+        "green",
+        "কার্গো",
+        "প্যান্ট",
+        "কটন"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_seed_denim_02",
+      "user_id": "usr_demo_002",
+      "name": "Slim Fit Denim Jeans (Deep Blue)",
+      "price": 1250,
+      "currency": "BDT",
+      "category": "Pants",
+      "description": "Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.",
+      "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "denim",
+        "jeans",
+        "pant",
+        "blue",
+        "ডেনিম",
+        "জিন্স",
+        "প্যান্ট",
+        "স্লিম"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_seed_shirt_03",
+      "user_id": "usr_demo_002",
+      "name": "Casual Oxford Cotton Shirt (Sky Blue)",
+      "price": 850,
+      "currency": "BDT",
+      "category": "Shirts",
+      "description": "100% combed breathable cotton Oxford shirt with button-down collar and curved hem. Perfect for all seasons. Sizes: M, L, XL, XXL.",
+      "image_url": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "shirt",
+        "oxford",
+        "cotton",
+        "blue",
+        "শার্ট",
+        "কটন",
+        "ফুল হাতা"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_seed_watch_04",
+      "user_id": "usr_demo_002",
+      "name": "Smart Calling Watch (Series 9 Metallic Black)",
+      "price": 2450,
+      "currency": "BDT",
+      "category": "Watches",
+      "description": "1.99 inch HD AMOLED screen with Bluetooth call support, heart rate and blood oxygen monitoring, 100+ sports modes, and 5-day battery backup. IP68 water resistant.",
+      "image_url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "watch",
+        "smartwatch",
+        "smart",
+        "calling",
+        "ঘড়ি",
+        "ঘড়ি",
+        "স্মার্টওয়াচ"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_admin_cargo_01",
+      "user_id": "usr_admin_001",
+      "name": "Cargo Jogger Pant (Olive Green)",
+      "price": 1150,
+      "currency": "BDT",
+      "category": "Pants",
+      "description": "Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.",
+      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "cargo",
+        "jogger",
+        "pant",
+        "olive",
+        "green",
+        "কার্গো",
+        "প্যান্ট",
+        "কটন"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_admin_denim_02",
+      "user_id": "usr_admin_001",
+      "name": "Slim Fit Denim Jeans (Deep Blue)",
+      "price": 1250,
+      "currency": "BDT",
+      "category": "Pants",
+      "description": "Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.",
+      "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "denim",
+        "jeans",
+        "pant",
+        "blue",
+        "ডেনিম",
+        "জিন্স",
+        "প্যান্ট",
+        "স্লিম"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_admin_shirt_03",
+      "user_id": "usr_admin_001",
+      "name": "Casual Oxford Cotton Shirt (Sky Blue)",
+      "price": 850,
+      "currency": "BDT",
+      "category": "Shirts",
+      "description": "100% combed breathable cotton Oxford shirt with button-down collar and curved hem. Perfect for all seasons. Sizes: M, L, XL, XXL.",
+      "image_url": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "shirt",
+        "oxford",
+        "cotton",
+        "blue",
+        "শার্ট",
+        "কটন",
+        "ফুল হাতা"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    },
+    {
+      "id": "prod_admin_watch_04",
+      "user_id": "usr_admin_001",
+      "name": "Smart Calling Watch (Series 9 Metallic Black)",
+      "price": 2450,
+      "currency": "BDT",
+      "category": "Watches",
+      "description": "1.99 inch HD AMOLED screen with Bluetooth call support, heart rate and blood oxygen monitoring, 100+ sports modes, and 5-day battery backup. IP68 water resistant.",
+      "image_url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80",
+      "stock_status": "in_stock",
+      "keywords": [
+        "watch",
+        "smartwatch",
+        "smart",
+        "calling",
+        "ঘড়ি",
+        "ঘড়ি",
+        "স্মার্টওয়াচ"
+      ],
+      "created_at": "2026-10-09T08:01:58.424Z",
+      "updated_at": "2026-10-09T08:01:58.424Z"
+    }
+  ],
   "coupons": [
     {
       "id": "cpn_welcome10",
@@ -4024,7 +4367,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1791531750231,
+  "_lastUpdatedAt": 1791532978611,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

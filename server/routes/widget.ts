@@ -12,6 +12,7 @@ import {
   formatCleanChatMessage,
   ensureConversationalFollowUp,
   getShortGreetingOrSmallTalkReply,
+  detectProductImageInquiry,
   UNCLEAR_VOICE_REPLY,
   isUnclearVoiceText
 } from '../services/aiService.js';
@@ -643,6 +644,60 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
 
     // Fetch product catalog (for Admin or Merchant)
     const merchantProducts = db.getProducts(effectiveOwnerId);
+
+    // Detect if visitor is asking for product images, catalog, or details
+    const { isAskingForImage, isAskingForCatalog, isAskingForDetails } = detectProductImageInquiry(rawText);
+    let matchedProduct: Product | undefined = undefined;
+    let attachedProductsList: Product[] = [];
+
+    if (!isSaasOfficial && merchantProducts.length > 0) {
+      if (rawText) {
+        matchedProduct = db.findProductForQuery(effectiveOwnerId, rawText);
+      }
+      if (
+        !matchedProduct &&
+        (isAskingForImage ||
+          isAskingForDetails ||
+          rawText.toLowerCase().includes('ay ') ||
+          rawText.toLowerCase().includes('ei ') ||
+          rawText.toLowerCase().includes('eta') ||
+          rawText.toLowerCase().includes('aita') ||
+          rawText.toLowerCase().includes('এই'))
+      ) {
+        const historyList = Array.isArray(history) ? history.slice(-6) : [];
+        for (let i = historyList.length - 1; i >= 0; i--) {
+          const histText = historyList[i]?.text || '';
+          if (histText) {
+            const fromHist = db.findProductForQuery(effectiveOwnerId, histText);
+            if (fromHist) {
+              matchedProduct = fromHist;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isAskingForCatalog) {
+        attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 5);
+        if (!matchedProduct && attachedProductsList.length > 0) {
+          matchedProduct = attachedProductsList[0];
+        }
+      } else if (isAskingForImage && !matchedProduct) {
+        attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 5);
+        if (attachedProductsList.length > 0) {
+          matchedProduct = attachedProductsList[0];
+        }
+      } else if (matchedProduct) {
+        attachedProductsList = [matchedProduct];
+      }
+    }
+
+    const shouldAttachImage = Boolean(
+      (matchedProduct?.image_url || attachedProductsList.length > 0) &&
+      (isAskingForImage || isAskingForDetails || isAskingForCatalog)
+    );
+    const attachedImageUrl = shouldAttachImage ? (matchedProduct?.image_url || attachedProductsList[0]?.image_url) : undefined;
+
     const catalogContext =
       merchantProducts.length > 0
         ? `\nPRODUCT / SERVICE CATALOG:\n` +
@@ -655,7 +710,7 @@ widgetRouter.post('/chat', async (req: Request, res: Response) => {
                     : p.stock_status === 'low_stock'
                     ? 'Low Stock'
                     : 'In Stock'
-                }) — ${p.description || ''}`
+                }, [Photo Available: ${Boolean(p.image_url && p.image_url.trim().length > 5)}]) — ${p.description || ''}`
             )
             .join('\n')
         : '';
@@ -788,6 +843,7 @@ IMPORTANT REMINDER & SMART REPLY LENGTH / SERIAL LIST RULES:
 - SHORT QUESTION = SHORT REPLY: If the visitor asks a simple question or greeting, reply briefly in 1-2 lines. Do NOT dump a huge list of features unless they ask for details/plans/features!
 - DETAILED / LIST QUESTION = SERIAL NUMBERED LIST (১. ২. ৩. / 1. 2. 3.) WITH EMPTY LINES: Whenever the visitor asks about plans, prices, what is available ("ki ki ase"), products, features, or details — start with a short 1-line intro, then list the items/plans/details serially as ১., ২., ৩. (in Bangla) or 1., 2., 3. (in English) with 1 empty line (\\n\\n) after 1., 1 empty line (\\n\\n) after 2., and 1 empty line (\\n\\n) after 3.
 - MANDATORY FOLLOW-UP QUESTION: Always end your reply (in a new paragraph after \\n\\n) with 1 smart, relevant follow-up question based on what the visitor asked!
+${shouldAttachImage ? `\n- PRODUCT PHOTO INSTRUCTION: The visitor requested a product photo or catalog photos ("${rawText}"). Our system has automatically sent and displayed the product photo in the chat. In your reply, confirm that the photo(s) have been displayed in the chat, quote the price and key features, and politely ask if they would like to place an order or have any questions!` : ''}
 
 ${recentHistoryText ? `Recent Conversation History:\n${recentHistoryText}\n` : ''}
 ${hasImage ? 'The visitor has attached an image/screenshot. Carefully inspect the image and answer their question or explain what is shown in relation to One Agent BD / the store.\n' : ''}
@@ -955,6 +1011,8 @@ Provide a clean, mobile-friendly response (short 1-2 lines for simple questions,
         direction: 'outbound',
         message_text: aiReplyText,
         is_ai_reply: true,
+        has_image: Boolean(attachedImageUrl),
+        image_url: attachedImageUrl,
         status: 'sent',
         created_at: new Date().toISOString()
       };
@@ -1017,6 +1075,16 @@ Provide a clean, mobile-friendly response (short 1-2 lines for simple questions,
     return res.json({
       success: true,
       reply: aiReplyText,
+      imageUrl: attachedImageUrl,
+      attachedImageUrl: attachedImageUrl,
+      attachedProductName: matchedProduct?.name,
+      attachedProductPrice: matchedProduct?.price,
+      products: attachedProductsList.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        image_url: p.image_url
+      })),
       detectedLanguage: detectedLang,
       conversationId: cleanVisitorId,
       timestamp: new Date().toISOString(),
@@ -1387,7 +1455,7 @@ widgetRouter.get('/embed.js', (req: Request, res: Response) => {
       .then(function(res) { return res.json(); })
       .then(function(data) {
         typingEl.remove();
-        appendMessage(data.reply || 'Thank you! How else can I help you?', false);
+        appendMessage(data.reply || 'Thank you! How else can I help you?', false, data.attachedImageUrl || data.imageUrl);
       })
       .catch(function() {
         typingEl.remove();

@@ -1568,6 +1568,20 @@ export const api = {
     });
   },
 
+  async testProductAiQuery(message: string, productId?: string): Promise<{
+    success: boolean;
+    reply: string;
+    attachedImageUrl?: string;
+    attachedProductName?: string;
+    attachedProductPrice?: number;
+    attachedProducts?: Array<{ id: string; name: string; price: number; image_url: string }>;
+  }> {
+    return fetchJson('/api/products/test-ai-query', {
+      method: 'POST',
+      body: JSON.stringify({ message, productId })
+    });
+  },
+
   async verifyGatewayTransaction(
     transactionReference: string,
     planId?: string,
