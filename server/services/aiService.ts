@@ -106,12 +106,31 @@ export function detectProductImageInquiry(text: string): {
     lower.includes('dite cai') ||
     lower.includes('pic din') ||
     lower.includes('pic den') ||
-    lower.includes('pic dekhan') ||
-    lower.includes('pic pathan') ||
+    lower.includes('pic daw') ||
+    lower.includes('pic dao') ||
+    lower.includes('pic lagbe') ||
+    lower.includes('picture daw') ||
+    lower.includes('picture dao') ||
+    lower.includes('picture den') ||
+    lower.includes('picture din') ||
+    lower.includes('chobi daw') ||
+    lower.includes('chobi dao') ||
     lower.includes('chobi den') ||
     lower.includes('chobi din') ||
+    lower.includes('photo daw') ||
+    lower.includes('photo dao') ||
+    lower.includes('photo den') ||
+    lower.includes('photo din') ||
+    lower.includes('image daw') ||
+    lower.includes('image dao') ||
+    lower.includes('image den') ||
+    lower.includes('image din') ||
+    lower.includes('pic dekhan') ||
+    lower.includes('pic pathan') ||
     lower.includes('chobi dekhan') ||
     lower.includes('chobi pathan') ||
+    lower.includes('photo dekhan') ||
+    lower.includes('photo pathan') ||
     lower.includes('ছবি') ||
     lower.includes('পিক') ||
     lower.includes('পিকচার') ||
@@ -119,26 +138,48 @@ export function detectProductImageInquiry(text: string): {
     lower.includes('ইমেজ') ||
     lower.includes('দেখান') ||
     lower.includes('পাঠান') ||
-    lower.includes('দেখতে চাই');
+    lower.includes('দেখতে চাই') ||
+    lower.includes('ছবি দেন') ||
+    lower.includes('ছবি দাও') ||
+    lower.includes('ছবি দিন') ||
+    lower.includes('পিক দেন') ||
+    lower.includes('পিক দাও') ||
+    lower.includes('পিক দিন') ||
+    lower.includes('ফটো দেন') ||
+    lower.includes('ফটো দাও');
 
   const isAskingForCatalog =
     lower.includes('ki ki product') ||
     lower.includes('k i ki product') ||
     lower.includes('ki ki item') ||
+    lower.includes('k i ki item') ||
+    lower.includes('ki ki dress') ||
+    lower.includes('ki ki collection') ||
     lower.includes('ki ki ase') ||
     lower.includes('ki ki ache') ||
     lower.includes('k i ki') ||
+    lower.includes('products ase') ||
+    lower.includes('product ase') ||
+    lower.includes('products ache') ||
+    lower.includes('product ache') ||
     lower.includes('all product') ||
     lower.includes('shob product') ||
     lower.includes('sob product') ||
+    lower.includes('shob item') ||
+    lower.includes('sob item') ||
+    lower.includes('সব প্রোডাক্ট') ||
+    lower.includes('সব আইটেম') ||
+    lower.includes('সব কালেকশন') ||
+    lower.includes('কালেকশন দেখান') ||
     lower.includes('catalog') ||
     lower.includes('catalogue') ||
     lower.includes('কী কী প্রোডাক্ট') ||
     lower.includes('কি কি প্রোডাক্ট') ||
     lower.includes('কী কী আছে') ||
     lower.includes('কি কি আছে') ||
-    lower.includes('সব প্রোডাক্ট') ||
-    lower.includes('ক্যাটালগ');
+    lower.includes('ক্যাটালগ') ||
+    lower.includes('প্রোডাক্ট লিস্ট') ||
+    lower.includes('পণ্য তালিকা');
 
   const isAskingForDetails =
     lower.includes('detail') ||
@@ -156,6 +197,9 @@ export function detectProductImageInquiry(text: string): {
     lower.includes('cost') ||
     lower.includes('দাম') ||
     lower.includes('কত') ||
+    lower.includes('সাইজ') ||
+    lower.includes('ফেব্রিক') ||
+    lower.includes('কালার') ||
     lower.includes('বিস্তারিত');
 
   return { isAskingForImage, isAskingForCatalog, isAskingForDetails };
@@ -519,6 +563,7 @@ export interface GenerateReplyParams {
   customerId: string;
   platform: 'whatsapp' | 'messenger' | 'instagram';
   channelName?: string;
+  targetProductId?: string;
   history?: Message[];
   audioBase64?: string;
   audioMimeType?: string;
@@ -761,11 +806,13 @@ export function buildInteractiveConversationEnvelope(params: {
   }
 
   // 3. Did the customer click "আরও দেখুন" / "পছন্দ করুন" or ask for the product/price list?
+  const catalogDetect = detectProductImageInquiry(params.incomingMessage);
   const isSeeMoreOrCatalogListIntent =
     qLower === 'আরও দেখুন' ||
     qLower === '↩️ আরও দেখুন' ||
     qLower === 'পছন্দ করুন' ||
     qLower === 'সব প্রোডাক্ট' ||
+    catalogDetect.isAskingForCatalog ||
     ((qLower.includes('দাম কত') ||
       qLower.includes('dam koto') ||
       qLower.includes('price') ||
@@ -784,8 +831,10 @@ export function buildInteractiveConversationEnvelope(params: {
 
     const listMessageText = `আমাদের প্রোডাক্ট ও মূল্য তালিকা নিচে দেওয়া হলো:\n\n${formattedList}\n\nনিচের "পছন্দ করুন" বাটনে ক্লিক করে আপনার পছন্দের প্রোডাক্টটি বেছে নিন:`;
 
+    const finalReply = aiReplyText && aiReplyText.trim().length > 10 ? aiReplyText : listMessageText;
+
     return {
-      replyText: listMessageText,
+      replyText: finalReply,
       interactiveOptions: {
         type: 'list',
         listButtonLabel: 'পছন্দ করুন',
@@ -819,15 +868,21 @@ export function buildInteractiveConversationEnvelope(params: {
       ? `${matchedProduct.price}৳`
       : matchedCatalogItem!.description || '';
 
-    const isDirectSelectionTap =
-      qLower === prodTitle.toLowerCase() || q.length <= prodTitle.length + 6;
-    const finalReply = isDirectSelectionTap
-      ? matchedProduct
-        ? `${matchedProduct.name}-এর দাম ${matchedProduct.price}৳।${
-            matchedProduct.description ? `\n${matchedProduct.description}` : ''
-          }`
-        : `${prodTitle}-এর দাম ${prodPriceText}।`
-      : aiReplyText;
+    const isExactButtonTap =
+      qLower === prodTitle.toLowerCase() ||
+      qLower === `${prodTitle.toLowerCase()} অর্ডার করতে চাই` ||
+      (qLower.startsWith('item_') && qLower.includes(prodTitle.toLowerCase().slice(0, 8)));
+
+    const finalReply =
+      aiReplyText && aiReplyText.trim().length > 10
+        ? aiReplyText
+        : isExactButtonTap
+        ? matchedProduct
+          ? `${matchedProduct.name}-এর দাম ৳${matchedProduct.price}।${
+              matchedProduct.description ? `\n\nবিবরণ: ${matchedProduct.description}` : ''
+            }\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার করতে আপনার নাম, পছন্দের সাইজ, সম্পূর্ণ ডেলিভারি ঠিকানা ও মোবাইল নাম্বার দিন!`
+          : `${prodTitle}-এর দাম ${prodPriceText}।`
+        : aiReplyText;
 
     return {
       replyText: finalReply,
@@ -901,11 +956,9 @@ export function buildInteractiveConversationEnvelope(params: {
 // Supported Gemini models in priority order
 export const CANDIDATE_MODELS = [
   'gemini-3.8-flash',
-  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-3.1-flash-lite-preview'
+  'gemini-2.5-pro'
 ];
 
 // Fast in-memory cache of the last working model & cooldown tracker for failing models so we never waste 5-10s retrying dead models
@@ -1442,7 +1495,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
   const modelsToTry = getPrioritizedModels();
 
   for (const ai of clients.slice(0, 2)) {
-    for (const modelName of modelsToTry.slice(0, 2)) {
+    for (const modelName of modelsToTry) {
       try {
         const response = await withTimeout(
           ai.models.generateContent({
@@ -1474,7 +1527,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
   // 4. Direct REST API fallback to generativelanguage.googleapis.com for AIzaSy keys
   const directKeys = getCandidateGeminiKeys(trimmedKey).filter((k) => k.startsWith('AIza'));
   for (const key of directKeys.slice(0, 1)) {
-    for (const restModel of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
+    for (const restModel of ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest']) {
       try {
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${restModel}:generateContent?key=${encodeURIComponent(key)}`;
         const restRes = await withTimeout(
@@ -1636,16 +1689,27 @@ function buildSmartBanglaFallbackFromPrompt(
   // 2. Specific matched product from merchant catalog
   if (matchedProduct) {
     if (isAskingForImage && matchedProduct.image_url) {
-      return `এই যে, আমাদের "${matchedProduct.name}"-এর ছবি এবং বিস্তারিত নিচে পাঠিয়ে দিয়েছি! 📸\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n${matchedProduct.description ? `📋 বিবরণ: ${matchedProduct.description}\n\n` : '\n'}প্রোডাক্টটি আপনার কেমন লেগেছে? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ডেলিভারি ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
+      return `এই যে, আমাদের "${matchedProduct.name}"-এর ছবি এবং বিস্তারিত নিচে পাঠিয়ে দিয়েছি! 📸\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n${matchedProduct.description ? `📋 বিবরণ: ${matchedProduct.description}\n\n` : '\n'}প্রোডাক্টটি আপনার কেমন লেগেছে? অর্ডার করতে আপনার নাম, পছন্দের সাইজ, সম্পূর্ণ ডেলিভারি ঠিকানা এবং সচল মোবাইল নাম্বারটি লিখে পাঠান।`;
     }
     return `আসসালামু আলাইকুম! আমাদের "${matchedProduct.name}" এখন স্টকে আছে।\n\n💰 মূল্য: ৳${matchedProduct.price} ${matchedProduct.currency}\n📋 বিবরণ: ${matchedProduct.description}\n\nআপনি কি এটি অর্ডার করতে চান? অর্ডার কনফার্ম করতে আপনার নাম, সম্পূর্ণ ঠিকানা এবং মোবাইল নাম্বারটি লিখে পাঠান।`;
   }
 
+  // 2B. If customer asked for catalog / all products or photos from merchant store:
+  const inquiryDetect = detectProductImageInquiry(incomingMessage);
+  if (products.length > 0 && (inquiryDetect.isAskingForCatalog || inquiryDetect.isAskingForImage || q.includes('product') || q.includes('দাম') || q.includes('price') || q.includes('dam'))) {
+    const prodsWithImg = products.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
+    const listToDisplay = prodsWithImg.length > 0 ? prodsWithImg.slice(0, 5) : products.slice(0, 5);
+    const formattedList = listToDisplay
+      .map((p, idx) => `${toBengaliNumber(idx + 1)}. ${p.name} — ৳${p.price} ${p.currency}${p.description ? ` (${p.description.slice(0, 70)})` : ''}`)
+      .join('\n\n');
+
+    return `আমাদের বর্তমান কালেকশনের ছবি ও পণ্যের তালিকা নিচে দেওয়া হলো: 📸\n\n${formattedList}\n\n• ডেলিভারি চার্জ: ঢাকার ভেতরে ৬০ টাকা, ঢাকার বাইরে সারাদেশে ১২০ টাকা।\n\nপ্রোডাক্টের ছবি চ্যাটে পাঠিয়ে দেওয়া হয়েছে। আপনি কোন প্রোডাক্টটি বিস্তারিত দেখতে বা অর্ডার করতে চাচ্ছেন?`;
+  }
+
   const isOneAgentSaaS =
-    systemPrompt.includes('Starter AI Plan') ||
-    systemPrompt.includes('1,250') ||
-    systemPrompt.includes('১,২৫০') ||
-    businessName.toLowerCase().includes('one agent');
+    (systemPrompt.includes('Starter AI Plan') && systemPrompt.includes('Pro Business Plan')) ||
+    businessName.toLowerCase().includes('one agent') ||
+    systemPrompt.includes('oneagentbd.online');
 
   // 2. Specialized, accurate, well-formatted Knowledge Engine for One Agent BD SaaS inquiries
   if (isOneAgentSaaS) {
@@ -2223,83 +2287,23 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
     .map((m) => `${m.direction === 'inbound' ? 'Customer' : 'Assistant'}: ${m.message_text}`)
     .join('\n');
 
-  // Check if customer asked for a product photo or image
+  // Check if customer asked for a product photo, catalog, or details
+  const imageInquiry = detectProductImageInquiry(params.incomingMessage || '');
+  const isAskingForImage = imageInquiry.isAskingForImage;
+  const isAskingForCatalog = imageInquiry.isAskingForCatalog;
+  const isAskingForDetails = imageInquiry.isAskingForDetails;
   const incomingLower = (params.incomingMessage || '').toLowerCase();
-  const isAskingForImage =
-    incomingLower.includes('picture') ||
-    incomingLower.includes('photo') ||
-    incomingLower.includes('chobi') ||
-    incomingLower.includes('chbi') ||
-    incomingLower.includes('image') ||
-    incomingLower.includes('pic') ||
-    incomingLower.includes('look like') ||
-    incomingLower.includes('dekhte chai') ||
-    incomingLower.includes('dekhte cai') ||
-    incomingLower.includes('dete chai') ||
-    incomingLower.includes('dete cai') ||
-    incomingLower.includes('dite chai') ||
-    incomingLower.includes('dite cai') ||
-    incomingLower.includes('pic din') ||
-    incomingLower.includes('pic den') ||
-    incomingLower.includes('pic dekhan') ||
-    incomingLower.includes('pic pathan') ||
-    incomingLower.includes('chobi den') ||
-    incomingLower.includes('chobi din') ||
-    incomingLower.includes('chobi dekhan') ||
-    incomingLower.includes('chobi pathan') ||
-    incomingLower.includes('ছবি') ||
-    incomingLower.includes('পিক') ||
-    incomingLower.includes('পিকচার') ||
-    incomingLower.includes('ফটো') ||
-    incomingLower.includes('ইমেজ') ||
-    incomingLower.includes('দেখান') ||
-    incomingLower.includes('পাঠান') ||
-    incomingLower.includes('দেখতে চাই');
-
-  const isAskingForCatalog =
-    incomingLower.includes('ki ki product') ||
-    incomingLower.includes('k i ki product') ||
-    incomingLower.includes('ki ki item') ||
-    incomingLower.includes('ki ki ase') ||
-    incomingLower.includes('ki ki ache') ||
-    incomingLower.includes('k i ki') ||
-    incomingLower.includes('all product') ||
-    incomingLower.includes('shob product') ||
-    incomingLower.includes('sob product') ||
-    incomingLower.includes('catalog') ||
-    incomingLower.includes('catalogue') ||
-    incomingLower.includes('কী কী প্রোডাক্ট') ||
-    incomingLower.includes('কি কি প্রোডাক্ট') ||
-    incomingLower.includes('কী কী আছে') ||
-    incomingLower.includes('কি কি আছে') ||
-    incomingLower.includes('সব প্রোডাক্ট') ||
-    incomingLower.includes('ক্যাটালগ');
-
-  const isAskingForDetails =
-    incomingLower.includes('detail') ||
-    incomingLower.includes('spec') ||
-    incomingLower.includes('feature') ||
-    incomingLower.includes('fabric') ||
-    incomingLower.includes('material') ||
-    incomingLower.includes('size') ||
-    incomingLower.includes('color') ||
-    incomingLower.includes('warranty') ||
-    incomingLower.includes('kemon') ||
-    incomingLower.includes('bistarito') ||
-    incomingLower.includes('ki ki ache') ||
-    incomingLower.includes('price') ||
-    incomingLower.includes('dam') ||
-    incomingLower.includes('cost') ||
-    incomingLower.includes('দাম') ||
-    incomingLower.includes('কত') ||
-    incomingLower.includes('বিস্তারিত');
 
   // Attempt to match a specific product from merchant's own catalog
   let matchedProduct: Product | undefined = undefined;
   let attachedProductsList: Product[] = [];
 
   if (merchantProducts.length > 0) {
-    if (params.incomingMessage) {
+    if (params.targetProductId) {
+      matchedProduct = merchantProducts.find((p) => p.id === params.targetProductId);
+    }
+
+    if (!matchedProduct && params.incomingMessage) {
       matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
     }
 
@@ -2328,20 +2332,32 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       }
     }
 
-    // If customer is asking for catalog / "ki ki products ase" / all products:
+    // Determine attachedProductsList based on intent:
     if (isAskingForCatalog) {
+      // Customer asked what products are available / catalog / all products:
+      // Attach all products that have images (up to 6)
       attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 6);
-      if (!matchedProduct && attachedProductsList.length > 0) {
-        matchedProduct = attachedProductsList[0];
+      if (attachedProductsList.length === 0) {
+        attachedProductsList = merchantProducts.slice(0, 6);
       }
-    } else if (isAskingForImage && !matchedProduct) {
-      // Customer asked for photos generally without naming a product — provide available catalog items with photos!
-      attachedProductsList = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5)).slice(0, 6);
-      if (attachedProductsList.length > 0) {
-        matchedProduct = attachedProductsList[0];
-      }
+      // CRITICAL: Do NOT lock matchedProduct to a single item when the customer asked for the catalog!
+      matchedProduct = undefined;
     } else if (matchedProduct) {
+      // Customer asked about a specific matched product:
       attachedProductsList = [matchedProduct];
+    } else if (isAskingForImage) {
+      // Customer asked for photos generally without naming a product:
+      const prodsWithImg = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
+      if (merchantProducts.length === 1) {
+        matchedProduct = merchantProducts[0];
+        attachedProductsList = [matchedProduct];
+      } else if (prodsWithImg.length === 1) {
+        matchedProduct = prodsWithImg[0];
+        attachedProductsList = [matchedProduct];
+      } else {
+        attachedProductsList = prodsWithImg.length > 0 ? prodsWithImg.slice(0, 6) : merchantProducts.slice(0, 6);
+        // Keep matchedProduct undefined so the catalog list triggers
+      }
     }
   }
 
@@ -2518,16 +2534,25 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   }
 
   let productPhotoDirective = '';
-  if (isAskingForCatalog && isAskingForImage && attachedProductsList.length > 0) {
+  if ((isAskingForCatalog || (isAskingForImage && !matchedProduct)) && attachedProductsList.length > 0) {
     productPhotoDirective = `PRODUCT PICTURES & CATALOG DIRECTIVE (ক্যাটালগ ও ছবি সংক্রান্ত নির্দেশ):
-কাস্টমার আমাদের কী কী প্রোডাক্ট আছে তার ছবি দেখতে চেয়েছেন ("${params.incomingMessage}")।
+কাস্টমার আমাদের কী কী প্রোডাক্ট আছে জানতে চেয়েছেন বা প্রোডাক্টের ছবি দেখতে চেয়েছেন ("${params.incomingMessage}")।
 সিস্টেম থেকে চ্যাটে সরাসরি আমাদের প্রোডাক্টসমূহের অফিসিয়াল ছবি (${attachedProductsList.map((p) => `${p.name} - ৳${p.price}`).join(', ')}) সংযুক্ত করে পাঠানো হয়েছে!
-আপনার টেক্সট মেসেজে সংক্ষেপে ১-২ লাইনে নিশ্চিত করুন যে প্রোডাক্টগুলোর ছবি চ্যাটে পাঠিয়ে দেওয়া হয়েছে, সিরিয়াল আকারে নাম ও মূল্য তুলে ধরুন এবং কাস্টমারকে জিজ্ঞেস করুন কোন প্রোডাক্টটি তিনি বিস্তারিত দেখতে বা অর্ডার করতে চান!`;
+গুরুত্বপূর্ণ নির্দেশাবলী:
+১. কখনোই বলবেন না যে "আমি ছবি পাঠাতে পারি না" বা "ছবি দেওয়া সম্ভব নয়"। সিস্টেম স্বয়ংক্রিয়ভাবে কাস্টমারের স্ক্রিনে ছবি পাঠিয়ে দিয়েছে।
+২. টেক্সট উত্তরে নিশ্চিত করুন যে প্রোডাক্টসমূহের ছবি ও তালিকা পাঠানো হলো: "আমাদের কালেকশনের ছবি ও বিস্তারিত নিচে দেওয়া হলো: 📸"
+৩. প্রোডাক্টগুলোর নাম ও মূল্য ১., ২., ৩. দিয়ে সিরিয়াল আকারে সাজিয়ে লিখুন (প্রতিটির মাঝে ১ লাইন \\n\\n খালি রেখে)।
+৪. ডেলিভারি চার্জ (ঢাকার ভেতরে ৬০ টাকা, ঢাকার বাইরে ১২০ টাকা) উল্লেখ করুন।
+৫. শেষে ১টি ছোট প্রশ্নে জিজ্ঞেস করুন তিনি কোন প্রোডাক্টটি দেখতে বা অর্ডার করতে চান!`;
   } else if (matchedProduct && (isAskingForImage || isAskingForDetails)) {
     productPhotoDirective = `PRODUCT PICTURE & DETAILS DIRECTIVE (প্রোডাক্টের ছবি ও বিবরণ নির্দেশ):
 কাস্টমার "${matchedProduct.name}"-এর ছবি বা বিস্তারিত জানতে চেয়েছেন ("${params.incomingMessage}")।
 সিস্টেম থেকে "${matchedProduct.name}"-এর অফিসিয়াল ছবি চ্যাটে সরাসরি সংযুক্ত ও পাঠানো হয়েছে!
-আপনার টেক্সট উত্তরে পরিষ্কার ও আনন্দের সাথে জানান যে "${matchedProduct.name}"-এর ছবি ও বিস্তারিত পাঠিয়ে দেওয়া হয়েছে, এর মূল্য ৳${matchedProduct.price} ${matchedProduct.currency}${matchedProduct.description ? ` (${matchedProduct.description})` : ''}। এরপর নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা!`;
+গুরুত্বপূর্ণ নির্দেশাবলী:
+১. কখনোই বলবেন না যে "আমি ছবি পাঠাতে পারি না"।
+২. টেক্সট উত্তরে পরিষ্কার ও আনন্দের সাথে জানান: "এই যে ভাইয়া/আপু, আমাদের '${matchedProduct.name}'-এর ছবি ও বিস্তারিত নিচে পাঠিয়ে দেওয়া হয়েছে! 📸"
+৩. এর মূল্য ৳${matchedProduct.price} ${matchedProduct.currency}${matchedProduct.description ? ` এবং বিবরণ (${matchedProduct.description})` : ''} তুলে ধরুন।
+৪. নতুন প্যারাগ্রাফে জিজ্ঞেস করুন তিনি এটি অর্ডার করতে চান কিনা (অর্ডার করতে নাম, পছন্দের সাইজ, ডেলিভারি ঠিকানা ও মোবাইল নাম্বার চাইবেন)।`;
   }
 
   const isAskingForHumanCall =
@@ -2710,7 +2735,7 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
   ).catch(() => null);
   const shouldAttachImage = Boolean(
     (matchedProduct?.image_url || attachedProductsList.length > 0) &&
-    (isAskingForImage || isAskingForDetails || isAskingForCatalog)
+    (isAskingForImage || isAskingForDetails || isAskingForCatalog || Boolean(params.targetProductId))
   );
   const primaryImageUrl = matchedProduct?.image_url || attachedProductsList[0]?.image_url;
 

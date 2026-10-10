@@ -198,6 +198,8 @@ export interface Message {
   image_url?: string;
   image_base64?: string;
   image_mime_type?: string;
+  attached_images?: string[];
+  attached_products?: any[];
   has_video?: boolean;
   video_base64?: string;
   video_mime_type?: string;

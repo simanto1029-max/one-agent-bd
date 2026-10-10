@@ -505,8 +505,10 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     direction: 'outbound',
     message_text: aiReplyText,
     is_ai_reply: true,
-    has_image: Boolean(attachedImageUrl),
-    image_url: attachedImageUrl,
+    has_image: Boolean(attachedImageUrl || (generatedAiResult?.attachedImages && generatedAiResult.attachedImages.length > 0)),
+    image_url: attachedImageUrl || generatedAiResult?.attachedImages?.[0],
+    attached_images: generatedAiResult?.attachedImages,
+    attached_products: generatedAiResult?.attachedProducts,
     interactive_options: interactiveOptions,
     requires_human_attention: generatedAiResult?.requiresHumanAttention,
     attention_reason: generatedAiResult?.attentionReason,
@@ -576,7 +578,10 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
     received: true,
     inboundMessage: inbound,
     aiReplyMessage: outbound,
-    order: detectedOrder
+    order: detectedOrder,
+    attachedImageUrl: outbound.image_url,
+    attachedImages: outbound.attached_images,
+    attachedProducts: outbound.attached_products
   };
 }
 
@@ -668,6 +673,57 @@ export async function sendMetaTypingAndSeenIndicator(
   }
 }
 
+async function uploadDataUrlToMeta(
+  platform: 'whatsapp' | 'messenger' | 'instagram',
+  channelIdentifier: string,
+  accessToken: string,
+  dataUrl: string
+): Promise<string | null> {
+  try {
+    const matches = dataUrl.match(/^data:([a-zA-Z0-9/+-]+);base64,(.+)$/);
+    if (!matches) return null;
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const blob = new Blob([buffer], { type: mimeType });
+
+    if (platform === 'whatsapp') {
+      const form = new FormData();
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', mimeType);
+      form.append('file', blob, 'product_image.jpg');
+
+      const res = await fetch(`https://graph.facebook.com/v21.0/${channelIdentifier}/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: form
+      });
+      if (res.ok) {
+        const json: any = await res.json();
+        return json.id || null;
+      }
+    } else {
+      const form = new FormData();
+      form.append('message', JSON.stringify({ attachment: { type: 'image', payload: { is_reusable: true } } }));
+      form.append('filedata', blob, 'product_image.jpg');
+
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/me/message_attachments?access_token=${encodeURIComponent(accessToken)}`,
+        {
+          method: 'POST',
+          body: form
+        }
+      );
+      if (res.ok) {
+        const json: any = await res.json();
+        return json.attachment_id || null;
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Meta Image Upload Warning] ${err?.message || err}`);
+  }
+  return null;
+}
+
 async function sendMetaMessage(
   channel: Channel,
   recipientId: string,
@@ -687,24 +743,58 @@ async function sendMetaMessage(
   }
 
   try {
+    // Gather all image URLs to send (primary + up to 2 extra)
+    const imagesToSend: string[] = [];
+    if (imageUrl) imagesToSend.push(imageUrl);
+    if (Array.isArray(attachedImages)) {
+      for (const extraImg of attachedImages) {
+        if (extraImg && !imagesToSend.includes(extraImg) && imagesToSend.length < 3) {
+          imagesToSend.push(extraImg);
+        }
+      }
+    }
+
     if (channel.platform === 'whatsapp') {
       const url = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
 
-      // If there's an image attachment, send the image first
-      if (imageUrl && interactiveOptions) {
-        await fetch(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${channel.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: recipientId,
-            type: 'image',
-            image: { link: imageUrl }
-          })
-        }).catch(() => {});
+      // 1. Send all product image attachments first
+      for (const img of imagesToSend) {
+        try {
+          if (img.startsWith('data:image/')) {
+            const mediaId = await uploadDataUrlToMeta('whatsapp', channel.identifier, channel.access_token, img);
+            if (mediaId) {
+              await fetch(url, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${channel.access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  to: recipientId,
+                  type: 'image',
+                  image: { id: mediaId }
+                })
+              });
+            }
+          } else if (img.startsWith('http://') || img.startsWith('https://')) {
+            await fetch(url, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${channel.access_token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: recipientId,
+                type: 'image',
+                image: { link: img }
+              })
+            });
+          }
+        } catch (imgErr) {
+          console.warn('[WhatsApp Outbound Image Warning]', imgErr);
+        }
       }
 
       let bodyPayload: any;
@@ -816,26 +906,32 @@ async function sendMetaMessage(
         ? { comment_id: recipientId.replace(/^commenter_/, '') }
         : { id: recipientId };
 
-      if (imageUrl && !isCommentLead) {
-        // 1. Send image attachment
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipient: recipientObj,
-            message: {
-              attachment: {
-                type: 'image',
-                payload: { url: imageUrl, is_reusable: true }
+      if (!isCommentLead && imagesToSend.length > 0) {
+        for (const img of imagesToSend) {
+          try {
+            if (img.startsWith('data:image/')) {
+              const attachmentId = await uploadDataUrlToMeta(
+                channel.platform as any,
+                channel.identifier,
+                channel.access_token,
+                img
+              );
+              if (attachmentId) {
+                await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    recipient: recipientObj,
+                    message: {
+                      attachment: {
+                        type: 'image',
+                        payload: { attachment_id: attachmentId }
+                      }
+                    }
+                  })
+                });
               }
-            }
-          })
-        }).catch((err) => console.error(`[${channel.platform} Outbound Image Error]`, err));
-
-        // If extra catalog product images are present, send them too (up to 3 total)
-        if (Array.isArray(attachedImages) && attachedImages.length > 1) {
-          for (const extraImg of attachedImages.slice(1, 3)) {
-            if (extraImg && extraImg !== imageUrl) {
+            } else if (img.startsWith('http://') || img.startsWith('https://')) {
               await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -844,12 +940,14 @@ async function sendMetaMessage(
                   message: {
                     attachment: {
                       type: 'image',
-                      payload: { url: extraImg, is_reusable: true }
+                      payload: { url: img, is_reusable: true }
                     }
                   }
                 })
-              }).catch(() => {});
+              });
             }
+          } catch (err) {
+            console.error(`[${channel.platform} Outbound Image Error]`, err);
           }
         }
       }

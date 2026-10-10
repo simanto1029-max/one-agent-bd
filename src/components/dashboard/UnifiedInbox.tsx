@@ -1624,6 +1624,28 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                                   : 'Sent Photo'
                                 : 'Customer Sent Product Picture'}
                             </span>
+
+                            {/* Additional Attached Product Photos (if multiple products sent) */}
+                            {m.attached_images && m.attached_images.length > 1 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2 max-w-xs">
+                                {m.attached_images.slice(1, 5).map((extraImg, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => setPreviewImageUrl(extraImg)}
+                                    className="relative group rounded-lg overflow-hidden cursor-pointer border border-white/20 dark:border-neutral-700 w-14 h-14 shrink-0 shadow-2xs"
+                                  >
+                                    <img
+                                      src={extraImg}
+                                      alt={`Attachment ${idx + 2}`}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                                      View
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 

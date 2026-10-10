@@ -356,6 +356,33 @@ productsRouter.post('/sample-seed', (req: Request, res: Response) => {
   });
 });
 
+// GET /api/products/:id/image - Public image endpoint for Meta (WhatsApp/Messenger/Instagram) & Web
+productsRouter.get('/:id/image', (req: Request, res: Response) => {
+  const prod = db.getProductById(req.params.id);
+  if (!prod || !prod.image_url) {
+    return res.status(404).send('Product photo not found');
+  }
+
+  const url = prod.image_url.trim();
+  if (url.startsWith('data:image/')) {
+    const matches = url.match(/^data:([a-zA-Z0-9/+-]+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).send('Invalid data URL');
+    }
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(buffer);
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return res.redirect(302, url);
+  }
+
+  return res.status(404).send('Invalid image format');
+});
+
 // POST /api/products/test-ai-query - Test AI inquiry directly against the merchant's catalog & products
 productsRouter.post('/test-ai-query', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
@@ -363,7 +390,7 @@ productsRouter.post('/test-ai-query', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { message, platform = 'messenger' } = req.body;
+  const { message, platform = 'messenger', productId } = req.body;
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Message is required' });
   }
@@ -376,7 +403,8 @@ productsRouter.post('/test-ai-query', async (req: Request, res: Response) => {
       customerId: `test_merchant_${user.id}`,
       customerName: 'Customer',
       platform: platform as any,
-      channelName: user.business_name || 'My Store'
+      channelName: user.business_name || 'My Store',
+      targetProductId: productId || undefined
     });
 
     return res.json({

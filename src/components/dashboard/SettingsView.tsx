@@ -13,7 +13,9 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { api } from '../../api';
 import { AutomationSettings } from '../../types';
@@ -50,6 +52,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [testInput, setTestInput] = useState('');
   const [testOutput, setTestOutput] = useState('');
   const [testing, setTesting] = useState(false);
+  const [testAttachedImages, setTestAttachedImages] = useState<string[]>([]);
+  const [testAttachedProducts, setTestAttachedProducts] = useState<
+    Array<{ id: string; name: string; price: number; image_url?: string }>
+  >([]);
+  const [testInteractiveOptions, setTestInteractiveOptions] = useState<any>(null);
+  const [previewModalImage, setPreviewModalImage] = useState<string | null>(null);
 
   // Smart Sales Booster & Automation Settings
   const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
@@ -233,6 +241,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
     try {
       setTesting(true);
       setTestOutput('');
+      setTestAttachedImages([]);
+      setTestAttachedProducts([]);
+      setTestInteractiveOptions(null);
 
       const activePromptToUse = systemPrompt.trim() || DEFAULT_BUSINESS_DETAILS;
 
@@ -251,13 +262,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
         overrideSystemPrompt: activePromptToUse
       });
 
-      if (res.aiReplyMessage?.message_text) {
-        setTestOutput(res.aiReplyMessage.message_text);
+      const replyMsg = res.aiReplyMessage;
+      if (replyMsg?.message_text) {
+        setTestOutput(replyMsg.message_text);
       } else if (res.reason) {
         setTestOutput(`System Note: ${res.reason}`);
       } else {
         setTestOutput('Message processed successfully.');
       }
+
+      // Collect all attached product image URLs
+      const images: string[] = [];
+      if (replyMsg?.image_url) images.push(replyMsg.image_url);
+      if (res.attachedImageUrl && !images.includes(res.attachedImageUrl)) images.push(res.attachedImageUrl);
+      if (Array.isArray(res.attachedImages)) {
+        for (const img of res.attachedImages) {
+          if (img && !images.includes(img)) images.push(img);
+        }
+      }
+      if (Array.isArray(replyMsg?.attached_images)) {
+        for (const img of replyMsg.attached_images) {
+          if (img && !images.includes(img)) images.push(img);
+        }
+      }
+      setTestAttachedImages(images);
+
+      // Collect attached products
+      const prods = ((res.attachedProducts || replyMsg?.attached_products || []) as Array<{
+        id: string;
+        name: string;
+        price: number;
+        image_url?: string;
+      }>).filter(Boolean);
+      setTestAttachedProducts(prods);
+
+      // Collect interactive quick replies
+      setTestInteractiveOptions(replyMsg?.interactive_options || null);
     } catch (err: any) {
       setTestOutput(`Error: ${err.message}`);
     } finally {
@@ -349,8 +389,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const sampleTestQueries = [
     'কেমন আছেন?',
     'আপনাদের ডেলিভারি চার্জ কত?',
-    'আপনাদের ট্রাস্ট করব কীভাবে?',
-    'কী কী প্রোডাক্ট আছে আপনাদের?',
+    'কী কী প্রোডাক্ট আছে ছবি দিন',
+    'picture daw',
+    'ay product ar pic dete cai',
+    'সাইজ পরিবর্তন করা যাবে?',
     'অর্ডার করতে কী কী লাগবে?'
   ];
 
@@ -567,13 +609,117 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
               </div>
             )}
 
-            {!testing && testOutput && (
-              <div className="p-4 rounded-xl bg-[#7F22FE]/5 border border-[#7F22FE]/20 text-xs sm:text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed shadow-xs">
-                <span className="font-bold text-[#7F22FE] dark:text-purple-400 flex items-center gap-1.5 mb-1.5">
+            {!testing && (testOutput || testAttachedImages.length > 0) && (
+              <div className="p-4 rounded-xl bg-[#7F22FE]/5 border border-[#7F22FE]/20 text-xs sm:text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed shadow-xs space-y-3">
+                <span className="font-bold text-[#7F22FE] dark:text-purple-400 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4" />
                   <span>AI Agent Reply:</span>
                 </span>
-                <p className="whitespace-pre-wrap font-medium">{testOutput}</p>
+
+                {/* Attached Product Photo(s) */}
+                {testAttachedImages.length > 0 && (
+                  <div className="space-y-1.5 pt-1 pb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>📸 AI Sent Product Picture ({testAttachedImages.length}টি ছবি চ্যাটে সংযুক্ত করা হয়েছে):</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2.5">
+                      {testAttachedImages.map((imgUrl, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setPreviewModalImage(imgUrl)}
+                          className="relative group rounded-xl overflow-hidden cursor-pointer border-2 border-emerald-500/30 hover:border-emerald-500 transition-all shadow-xs max-w-[200px]"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Product Attachment ${idx + 1}`}
+                            className="w-40 h-32 sm:w-48 sm:h-36 object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>বড় করে দেখুন</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Attached Products Cards */}
+                {testAttachedProducts.length > 0 && (
+                  <div className="space-y-2 pt-1 pb-1">
+                    <span className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 block uppercase tracking-wider">
+                      সংযুক্ত প্রোডাক্ট ক্যাটালগ:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {testAttachedProducts.map((p, idx) => (
+                        <div
+                          key={p.id || idx}
+                          className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-2xs"
+                        >
+                          {p.image_url ? (
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              className="w-12 h-12 rounded-lg object-cover border border-neutral-200 dark:border-neutral-700 shrink-0 cursor-pointer"
+                              onClick={() => setPreviewModalImage(p.image_url || null)}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-[#7F22FE]/10 flex items-center justify-center text-[#7F22FE] shrink-0 font-bold text-xs">
+                              🛍️
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-xs text-neutral-900 dark:text-white truncate">
+                              {p.name}
+                            </h4>
+                            <p className="text-xs font-semibold text-[#7F22FE] dark:text-purple-400">
+                              ৳{p.price.toLocaleString('bn-BD')} BDT
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                            স্টকে আছে
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {testOutput && (
+                  <p className="whitespace-pre-wrap font-medium">{testOutput}</p>
+                )}
+
+                {/* Interactive Options Preview */}
+                {testInteractiveOptions && (testInteractiveOptions.buttons || testInteractiveOptions.listItems) && (
+                  <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60 space-y-1.5">
+                    <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block">
+                      কাস্টমারের স্ক্রিনে প্রদর্শিত অ্যাকশন বাটন:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {testInteractiveOptions.buttons?.map((btn: any, bIdx: number) => (
+                        <button
+                          key={bIdx}
+                          type="button"
+                          onClick={() => runLiveTestQuery(btn.label)}
+                          className="px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-[#7F22FE]/30 hover:border-[#7F22FE] text-[#7F22FE] dark:text-purple-300 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
+                      {testInteractiveOptions.listItems?.slice(0, 4).map((item: any, lIdx: number) => (
+                        <button
+                          key={lIdx}
+                          type="button"
+                          onClick={() => runLiveTestQuery(item.title)}
+                          className="px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-[#7F22FE] text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {item.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -814,6 +960,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
             )}
           </div>
         </>
+      )}
+
+      {/* Lightbox Preview Modal */}
+      {previewModalImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs"
+          onClick={() => setPreviewModalImage(null)}
+        >
+          <div className="relative max-w-2xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewModalImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-neutral-300 cursor-pointer p-1 rounded-full bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={previewModalImage}
+              alt="Preview"
+              className="max-w-full max-h-[80vh] rounded-xl object-contain shadow-2xl border border-white/20"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -408,6 +408,8 @@ export interface Message {
   image_url?: string;
   image_base64?: string;
   image_mime_type?: string;
+  attached_images?: string[];
+  attached_products?: any[];
   has_video?: boolean;
   video_base64?: string;
   video_mime_type?: string;
@@ -2312,7 +2314,28 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return undefined;
     }
 
-    // 0. Exact or direct substring match on product name
+    // 0. If customer is asking for the catalog / all products / what items exist, NEVER lock to a single product!
+    const isAskingForCatalog =
+      q.includes('ki ki') ||
+      q.includes('k i ki') ||
+      q.includes('all product') ||
+      q.includes('shob product') ||
+      q.includes('sob product') ||
+      q.includes('সব প্রোডাক্ট') ||
+      q.includes('কী কী') ||
+      q.includes('কি কি') ||
+      q.includes('catalog') ||
+      q.includes('catalogue') ||
+      q.includes('ক্যাটালগ') ||
+      q.includes('পণ্য তালিকা') ||
+      q.includes('কালেকশন') ||
+      q.includes('collection');
+
+    if (isAskingForCatalog) {
+      return undefined;
+    }
+
+    // 1. Exact or direct substring match on product name
     for (const prod of prods) {
       const pName = prod.name.toLowerCase().trim();
       if (q.includes(pName) || (pName.length >= 4 && pName.includes(q))) {
@@ -2320,38 +2343,39 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       }
     }
 
-    // 1. Direct match on keywords
+    // 2. Direct match on keywords
     for (const prod of prods) {
-      if (prod.keywords?.some((k) => k.trim().length >= 2 && q.includes(k.trim().toLowerCase()))) {
+      if (prod.keywords?.some((k) => k.trim().length >= 3 && q.includes(k.trim().toLowerCase()))) {
         return prod;
       }
     }
 
-    // 2. Direct match on individual name words (splitting on whitespace, hyphens, slashes, brackets)
+    // 3. Match on significant individual name words (words with length >= 3, matching word boundary)
+    const queryTokens = q.split(/[\s\-_,./()]+/).filter((t) => t.length >= 2);
     for (const prod of prods) {
-      const words = prod.name.toLowerCase().split(/[\s\-_,./()]+/);
-      if (words.some((w) => w.length >= 2 && q.includes(w))) {
+      const words = prod.name.toLowerCase().split(/[\s\-_,./()]+/).filter((w) => w.length >= 3);
+      if (words.some((w) => queryTokens.includes(w) || (w.length >= 4 && q.includes(w)))) {
         return prod;
       }
     }
 
-    // 3. Match on category
+    // 4. Match on category
     for (const prod of prods) {
-      if (prod.category && prod.category.trim().length >= 2 && q.includes(prod.category.toLowerCase())) {
+      if (prod.category && prod.category.trim().length >= 3 && q.includes(prod.category.toLowerCase())) {
         return prod;
       }
     }
 
-    // 4. Match on description keywords
+    // 5. Match on description keywords
     for (const prod of prods) {
-      const descWords = prod.description.toLowerCase().split(/[\s\-_,./()]+/);
-      if (descWords.some((w) => w.length >= 4 && q.includes(w))) {
+      const descWords = prod.description.toLowerCase().split(/[\s\-_,./()]+/).filter((w) => w.length >= 4);
+      if (descWords.some((w) => queryTokens.includes(w))) {
         return prod;
       }
     }
 
-    // 5. If customer is asking for "this product's pic" / "ay product ar pic" / "chobi" / "pic"
-    // and there is only 1 or 2 products in the store catalog, return the primary product with image!
+    // 6. If customer is asking for "this product's pic" / "ay product ar pic" / "chobi" / "pic"
+    // and there is only 1 product in the catalog, return it!
     const isGenericProductInquiry =
       q.includes('ay product') ||
       q.includes('ei product') ||
@@ -2368,12 +2392,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       q.includes('photo') ||
       q.includes('picture');
 
-    if (isGenericProductInquiry && prods.length > 0) {
-      // Find the first product with a valid photo
-      const prodWithImg = prods.find((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
-      if (prodWithImg) {
-        return prodWithImg;
-      }
+    if (isGenericProductInquiry && prods.length === 1) {
       return prods[0];
     }
 
