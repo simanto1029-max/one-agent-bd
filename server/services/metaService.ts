@@ -178,7 +178,28 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
   }
 
   if (!channel) {
+    // 1. Resilient fallback: If any active channel exists for this platform, map it so webhooks are processed
+    const anyActiveForPlatform = db.getChannels().find((c) => c.platform === event.platform && c.is_active);
+    if (anyActiveForPlatform) {
+      console.log(`[Meta Service] Auto-mapped unmapped ${event.platform} identifier ${event.identifier} to active channel "${anyActiveForPlatform.name}" (${anyActiveForPlatform.id})`);
+      channel = anyActiveForPlatform;
+    }
+  }
+
+  if (!channel) {
     console.warn(`No active channel found for ${event.platform} identifier: ${event.identifier}`);
+    try {
+      db.createNotification({
+        id: `notif_wh_missing_${Date.now()}`,
+        title: `ফেসবুক/মেটা থেকে মেসেজ এসেছে (ID: ${event.identifier})`,
+        message: `ফেসবুক থেকে মেসেজ এসেছে, কিন্তু One Agent BD তে এই পেজটি (${event.identifier}) কানেক্ট করা নেই। AI স্বয়ংক্রিয় রিপ্লাই চালু করতে Channels সেকশন থেকে আপনার Facebook Page ID ও Access Token দিয়ে পেজটি কানেক্ট করুন।`,
+        type: 'warning',
+        action_label: 'চ্যানেল কানেক্ট করুন',
+        action_tab: 'channels',
+        is_active: true,
+        created_at: new Date().toISOString()
+      });
+    } catch (_e) {}
     return { received: true, reason: 'No active channel mapped' };
   }
 
@@ -1038,6 +1059,32 @@ async function sendMetaMessage(
         }
 
         console.error(`[${channel.platform} Outbound Error]`, JSON.stringify(err));
+        const isPermissionIssue =
+          errCode === 10 ||
+          errCode === 200 ||
+          errCode === 190 ||
+          errMsg.toLowerCase().includes('capability') ||
+          errMsg.toLowerCase().includes('permission') ||
+          errMsg.toLowerCase().includes('access token');
+
+        if (isPermissionIssue) {
+          db.updateChannel(channel.id, {
+            error_message: errMsg || 'Meta permission or token error'
+          });
+          try {
+            db.createNotification({
+              id: `notif_meta_perm_${Date.now()}`,
+              title: `মেটা মেসেজিং ডেলিভারি সতর্কতা (${channel.name})`,
+              message: `ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: "${errMsg}". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।`,
+              type: 'warning',
+              action_label: 'চ্যানেল সেটিংস দেখুন',
+              action_tab: 'channels',
+              is_active: true,
+              created_at: new Date().toISOString()
+            });
+          } catch (_nErr) {}
+        }
+
         return { ok: false, outsideWindow: false, error: errMsg || 'Meta API error' };
       }
       return { ok: true };

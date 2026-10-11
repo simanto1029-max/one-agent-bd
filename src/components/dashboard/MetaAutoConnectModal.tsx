@@ -84,6 +84,19 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [directWabaId, setDirectWabaId] = useState('');
   const [directAccessToken, setDirectAccessToken] = useState('');
 
+  // Direct Facebook Messenger Connect form state
+  const [fbMode, setFbMode] = useState<'oauth' | 'direct'>('oauth');
+  const [directPageId, setDirectPageId] = useState('');
+  const [directPageName, setDirectPageName] = useState('');
+  const [directPageToken, setDirectPageToken] = useState('');
+  const [directPageSecret, setDirectPageSecret] = useState('');
+
+  // Direct Instagram Connect form state
+  const [igMode, setIgMode] = useState<'oauth' | 'direct'>('oauth');
+  const [directIgId, setDirectIgId] = useState('');
+  const [directIgUsername, setDirectIgUsername] = useState('');
+  const [directIgToken, setDirectIgToken] = useState('');
+
   const capturedWaDataRef = useRef<{ phone_number_id?: string; waba_id?: string }>({});
 
   useEffect(() => {
@@ -357,6 +370,77 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       }
     } catch (err: any) {
       setError(err.message || 'WhatsApp চ্যানেল সংযোগ করতে সমস্যা হয়েছে।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Direct Facebook Messenger Page Connection Handler
+  const handleDirectFacebookSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = directPageId.trim();
+    const cleanToken = directPageToken.trim();
+    if (!cleanId) {
+      setError('Facebook Page ID দেওয়া আবশ্যক।');
+      return;
+    }
+    if (!cleanToken) {
+      setError('Facebook Page Access Token দেওয়া আবশ্যক। Meta Developer Portal > Messenger > API Setup থেকে টোকেন কপি করুন।');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.addChannel({
+        platform: 'messenger',
+        identifier: cleanId,
+        name: directPageName.trim() || 'Facebook Page',
+        access_token: cleanToken,
+        app_secret: directPageSecret.trim() || undefined
+      });
+
+      if (res) {
+        onSuccess(res as Channel);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Facebook Page চ্যানেল সংযোগ করতে সমস্যা হয়েছে।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Direct Instagram Connection Handler
+  const handleDirectInstagramSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = directIgId.trim();
+    const cleanToken = directIgToken.trim();
+    if (!cleanId) {
+      setError('Instagram Account ID বা Page ID দেওয়া আবশ্যক।');
+      return;
+    }
+    if (!cleanToken) {
+      setError('Instagram Access Token দেওয়া আবশ্যক।');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.addChannel({
+        platform: 'instagram',
+        identifier: cleanId,
+        name: directIgUsername.trim() || 'Instagram Account',
+        access_token: cleanToken
+      });
+
+      if (res) {
+        onSuccess(res as Channel);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Instagram চ্যানেল সংযোগ করতে সমস্যা হয়েছে।');
     } finally {
       setLoading(false);
     }
@@ -802,34 +886,287 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                   </form>
                 )}
               </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={handleSingleClickMetaLogin}
-                  className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 ${info.btnClass}`}
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Connecting to Meta...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon className="w-4 h-4" />
-                      <span>{info.btnLabel}</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
-                    <span>100% Automatic Connection — Instant Page &amp; Channel Setup</span>
-                  </p>
+            ) : platform === 'messenger' ? (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* 2-Option Segmented Tab: 1-Click OAuth vs Direct Page ID */}
+                <div className="flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFbMode('oauth');
+                      setError(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      fbMode === 'oauth'
+                        ? 'bg-white dark:bg-neutral-700 text-[#1877F2] dark:text-blue-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Meta 1-Click Login</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFbMode('direct');
+                      setError(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      fbMode === 'direct'
+                        ? 'bg-white dark:bg-neutral-700 text-[#1877F2] dark:text-blue-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
+                    }`}
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>Page ID ও Token দিয়ে কানেক্ট</span>
+                  </button>
                 </div>
-              </>
+
+                {fbMode === 'oauth' ? (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={handleSingleClickMetaLogin}
+                      className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 ${info.btnClass}`}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Connecting to Meta...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon className="w-4 h-4" />
+                          <span>{info.btnLabel}</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
+                        <span>১-ক্লিকে ফেসবুক লগইন করে পেজ সিলেক্ট করুন</span>
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* DIRECT FACEBOOK PAGE ID & TOKEN FORM */
+                  <form onSubmit={handleDirectFacebookSubmit} className="space-y-3.5 text-left animate-in fade-in duration-150">
+                    <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs text-neutral-700 dark:text-neutral-300 space-y-1.5">
+                      <p className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-[#1877F2]" />
+                        <span>ইনস্ট্যান্ট পেজ কানেকশন (পপআপ ছাড়া)</span>
+                      </p>
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                        আপনার Facebook Page ID এবং Meta Developer Portal থেকে প্রাপ্ত Page Access Token এখানে পেস্ট করে সরাসরি কানেক্ট করুন। আমাদের সিস্টেম পেজটিকে স্বয়ংক্রিয়ভাবে Webhooks এ সাবস্ক্রাইব করে দেবে।
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Facebook Page ID (পেজ আইডি) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={directPageId}
+                        onChange={(e) => setDirectPageId(e.target.value)}
+                        placeholder="যেমন: 104857291048592"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      />
+                      <p className="text-[10px] text-neutral-400 mt-1">
+                        পেজ আইডি পাবেন: ফেসবুক পেজে গিয়ে <strong>About &gt; Page Transparency</strong> অথবা Meta Business Suite এ।
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Page Access Token (পেজ এক্সেস টোকেন) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={directPageToken}
+                        onChange={(e) => setDirectPageToken(e.target.value)}
+                        placeholder="EAA..."
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      />
+                      <p className="text-[10px] text-neutral-400 mt-1">
+                        টোকেন পাবেন: <strong>developers.facebook.com &gt; Messenger &gt; API Setup &gt; Generate Token</strong> এ।
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                          পেজের নাম (ঐচ্ছিক)
+                        </label>
+                        <input
+                          type="text"
+                          value={directPageName}
+                          onChange={(e) => setDirectPageName(e.target.value)}
+                          placeholder="যেমন: Trendly Fashion"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                          App Secret (ঐচ্ছিক)
+                        </label>
+                        <input
+                          type="password"
+                          value={directPageSecret}
+                          onChange={(e) => setDirectPageSecret(e.target.value)}
+                          placeholder="খালি রাখলেও চলবে"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || !directPageId.trim() || !directPageToken.trim()}
+                      className="w-full py-3.5 px-4 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold text-xs shadow-md shadow-[#1877F2]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Connecting Facebook Page...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Facebook className="w-4 h-4 fill-current" />
+                          <span>Facebook Page কানেক্ট করুন</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
+            ) : (
+              /* INSTAGRAM SEGMENTED TAB & DIRECT FORM */
+              <div className="space-y-4 animate-in fade-in duration-150">
+                <div className="flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIgMode('oauth');
+                      setError(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      igMode === 'oauth'
+                        ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Meta 1-Click Login</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIgMode('direct');
+                      setError(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      igMode === 'direct'
+                        ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
+                    }`}
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>Instagram ID দিয়ে কানেক্ট</span>
+                  </button>
+                </div>
+
+                {igMode === 'oauth' ? (
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={handleSingleClickMetaLogin}
+                      className={`w-full py-3.5 px-5 rounded-2xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 ${info.btnClass}`}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Connecting to Meta...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon className="w-4 h-4" />
+                          <span>{info.btnLabel}</span>
+                        </>
+                      )}
+                    </button>
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-800 text-center">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
+                        <span>১-ক্লিকে ইনস্টাগ্রাম প্রফেশনাল অ্যাকাউন্ট সিলেক্ট করুন</span>
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleDirectInstagramSubmit} className="space-y-3.5 text-left animate-in fade-in duration-150">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Instagram Business Account ID বা Page ID <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={directIgId}
+                        onChange={(e) => setDirectIgId(e.target.value)}
+                        placeholder="যেমন: 17841400293847529"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Instagram Access Token <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={directIgToken}
+                        onChange={(e) => setDirectIgToken(e.target.value)}
+                        placeholder="EAA..."
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                        Instagram Username (ঐচ্ছিক)
+                      </label>
+                      <input
+                        type="text"
+                        value={directIgUsername}
+                        onChange={(e) => setDirectIgUsername(e.target.value)}
+                        placeholder="@username"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading || !directIgId.trim() || !directIgToken.trim()}
+                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 text-white font-bold text-xs shadow-md shadow-pink-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Connecting Instagram...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Instagram className="w-4 h-4" />
+                          <span>Instagram অ্যাকাউন্ট কানেক্ট করুন</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
           </div>
         )}

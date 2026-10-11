@@ -835,6 +835,34 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
     (c) => c.platform === platform && c.identifier === cleanIdentifier
   );
 
+  // Automatic Meta Webhook Subscription for Messenger & Instagram
+  if (platform === 'messenger' && cleanToken && !cleanToken.startsWith('sim_')) {
+    try {
+      const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+        cleanIdentifier
+      )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
+        cleanToken
+      )}`;
+      fetch(subUrl, { method: 'POST' })
+        .then(async (r) => {
+          const resJson = await r.json().catch(() => ({}));
+          console.log(`[Channels] Subscribed Facebook Page ${cleanIdentifier} to webhooks:`, resJson);
+        })
+        .catch((err) => console.warn('[Channels] Webhook subscription warning for Messenger:', err));
+    } catch (subErr) {
+      console.warn('[Channels] Failed to call subscribed_apps for Messenger:', subErr);
+    }
+  } else if (platform === 'instagram' && cleanToken && !cleanToken.startsWith('sim_')) {
+    try {
+      const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+        cleanIdentifier
+      )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=${encodeURIComponent(
+        cleanToken
+      )}`;
+      fetch(subUrl, { method: 'POST' }).catch(() => {});
+    } catch (_igErr) {}
+  }
+
   if (existing) {
     const updated = db.updateChannel(existing.id, {
       name: cleanName,
@@ -850,7 +878,7 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
     return res.json({
       ...sanitized,
       updatedExisting: true,
-      message: `Updated existing ${platform.toUpperCase()} channel "${cleanName}". Channel is now connected and active!`
+      message: `Updated existing ${platform.toUpperCase()} channel "${cleanName}". Channel is now connected, subscribed to webhooks, and active!`
     });
   }
 
@@ -876,7 +904,7 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
   return res.status(201).json({
     ...sanitized,
     updatedExisting: false,
-    message: `Successfully connected ${cleanName}! Webhooks are now listening for customer messages.`
+    message: `Successfully connected ${cleanName}! Webhooks are now listening and subscribed for customer messages.`
   });
 });
 

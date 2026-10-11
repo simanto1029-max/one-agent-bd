@@ -17,7 +17,11 @@ import {
   Save,
   ShieldCheck,
   Plus,
-  QrCode
+  QrCode,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Info
 } from 'lucide-react';
 import { api } from '../../api';
 import { Channel, UserProfile } from '../../types';
@@ -81,6 +85,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
   // Optimistic local channels state so connected pages immediately display on screen
   const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
+  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
   useEffect(() => {
     setLocalChannels(channels);
@@ -447,7 +452,87 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
       {/* VIEW 1: 3 HORIZONTAL CHANNEL BOXES (FACEBOOK, INSTAGRAM, WHATSAPP) */}
       {viewMode === 'channels' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
+          {/* Troubleshooting Checklist Accordion */}
+          <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowTroubleshoot(!showTroubleshoot)}
+              className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-blue-100/40 dark:hover:bg-blue-950/40 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-600/30">
+                  <HelpCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <span>💡 ফেসবুক পেজে মেসেজ দিলে রিপ্লাই না আসলে করনীয় (Troubleshooting Checklist)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#1877F2] dark:text-blue-300 font-extrabold uppercase">
+                      গাইড
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
+                    আপনার মেটা অ্যাপ Live হওয়ার পরও রিপ্লাই না আসলে এই ৩টি বিষয় চেক করুন
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#1877F2] dark:text-blue-400">
+                <span>{showTroubleshoot ? 'বন্ধ করুন' : 'বিস্তারিত দেখুন'}</span>
+                {showTroubleshoot ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {showTroubleshoot && (
+              <div className="p-4 sm:p-5 pt-0 border-t border-blue-200/60 dark:border-blue-900/40 space-y-3.5 text-xs text-neutral-700 dark:text-neutral-300 animate-in fade-in duration-150">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
+                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">1</span>
+                      <span>পেজ কানেক্ট করেছেন কি?</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      নিচের Facebook কার্ডে <strong>Connect Facebook</strong> এ ক্লিক করে আপনার <strong>Page ID</strong> ও <strong>Page Access Token</strong> দিয়ে পেজটি কানেক্ট করুন। পেজ কানেক্ট না থাকলে মেটা থেকে মেসেজ এলেও সার্ভার রিপ্লাই পাঠাতে পারে না।
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
+                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">2</span>
+                      <span>Webhook Page Subscribe</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      <strong>developers.facebook.com</strong> &gt; Messenger &gt; Webhooks সেকশনে গিয়ে আপনার ফেসবুক পেজটি সিলেক্ট করে <strong>"Subscribe"</strong> বাটনে ক্লিক করেছেন কিনা এবং <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">messages</code> ফিল্ড টিক দেওয়া আছে কিনা নিশ্চিত করুন।
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
+                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">3</span>
+                      <span>Live App Permissions (#10)</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      মেটা অ্যাপ <strong>Live Mode</strong> এ থাকলে এবং <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">pages_messaging</code> এর শুধুমাত্র Standard Access থাকলে, সাধারণ বাইরের কাস্টমারের মেসেজে ফেসবুক ব্লক করে। টেস্টিং করার সময় আপনার আইডিটিকে Meta Developer Portal এর <strong>App Roles &gt; Testers</strong> এ যুক্ত করুন।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-blue-100/60 dark:bg-blue-900/30 flex items-center justify-between gap-3 text-[11px]">
+                  <span className="text-blue-900 dark:text-blue-200">
+                    আমাদের <strong>Webhook Callback URL:</strong> <code className="font-mono font-bold">{`${effectiveOrigin}/api/webhooks/messenger`}</code> | <strong>Verify Token:</strong> <code className="font-mono font-bold">oneagentbd_messenger_secret</code>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(`${effectiveOrigin}/api/webhooks/messenger`, 'cb_quick')}
+                    className="font-bold text-[#1877F2] dark:text-blue-300 hover:underline shrink-0 cursor-pointer"
+                  >
+                    {copiedText === 'cb_quick' ? 'Copied!' : 'Copy URL'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* BOX 1: FACEBOOK */}
           <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
             <div>
@@ -905,6 +990,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {/* DEDICATED SECTION: AUTO COMMENT REPLY & SMART AUTO FOLLOW-UP (ALWAYS VISIBLE) */}
@@ -1236,7 +1322,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-5 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-2">
               <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#1877F2] font-bold text-xs flex items-center justify-center">
                 1
@@ -1303,6 +1389,16 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                   Verify Token: <strong className="text-neutral-800 dark:text-white">oneagentbd_messenger_secret</strong>
                 </div>
               </div>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 font-bold text-xs flex items-center justify-center">
+                4
+              </div>
+              <h4 className="font-bold text-sm text-neutral-900 dark:text-white">Page Webhook Subscribe</h4>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                Messenger &gt; Webhooks এ গিয়ে <strong>Select a Page</strong> থেকে আপনার ফেসবুক পেজটি <strong>Subscribe</strong> করুন এবং <code className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded">messages</code> ফিল্ড টিক দিন।
+              </p>
             </div>
           </div>
 
