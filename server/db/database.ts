@@ -2276,6 +2276,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   createProduct(product: Product): Product {
     if (!this.data.products) this.data.products = [];
+    product.keywords = this.enrichProductKeywords(product);
     this.data.products.unshift(product);
     this.persist();
     return product;
@@ -2285,13 +2286,140 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     if (!this.data.products) return undefined;
     const idx = this.data.products.findIndex((p) => p.id === id);
     if (idx === -1) return undefined;
+    
+    let nextKeywords = updates.keywords;
+    if (updates.name || updates.category || updates.keywords) {
+      const merged = { ...this.data.products[idx], ...updates };
+      nextKeywords = this.enrichProductKeywords(merged);
+    }
+
     this.data.products[idx] = {
       ...this.data.products[idx],
       ...updates,
+      ...(nextKeywords && { keywords: nextKeywords }),
       updated_at: new Date().toISOString()
     };
     this.persist();
     return this.data.products[idx];
+  }
+
+  enrichProductKeywords(product: Partial<Product>): string[] {
+    const existingKw = (product.keywords || []).map((k) => String(k).toLowerCase().trim()).filter(Boolean);
+    const kwSet = new Set<string>(existingKw);
+
+    const textToAnalyze = `${product.name || ''} ${product.category || ''} ${product.description || ''}`.toLowerCase();
+    const words = textToAnalyze.split(/[\s\-_,./()]+/).filter((w) => w.length >= 2);
+    for (const w of words) {
+      kwSet.add(w);
+    }
+
+    const CONCEPT_MAP: Array<{ triggers: string[]; synonyms: string[] }> = [
+      {
+        triggers: ['shirt', 'শার্ট', 'সার্ট', 'oxford'],
+        synonyms: ['shirt', 'shiet', 'shart', 'sirt', 'sart', 'শার্ট', 'সার্ট', 'ফুল হাতা', 'হাফ হাতা']
+      },
+      {
+        triggers: ['pant', 'pants', 'প্যান্ট', 'jeans', 'জিন্স', 'cargo', 'jogger', 'trouser'],
+        synonyms: ['pant', 'pants', 'pent', 'pents', 'প্যান্ট', 'জিন্স', 'jeans', 'cargo', 'কার্গো', 'jogger', 'জগার']
+      },
+      {
+        triggers: ['panjabi', 'পাঞ্জাবি', 'পাঞ্জাবী'],
+        synonyms: ['panjabi', 'punjabi', 'পাঞ্জাবি', 'পাঞ্জাবী']
+      },
+      {
+        triggers: ['saree', 'shari', 'শাড়ি', 'শাড়ি'],
+        synonyms: ['saree', 'shari', 'sari', 'শাড়ি', 'শাড়ি']
+      },
+      {
+        triggers: ['kurti', 'কুর্তি', 'কামিজ', 'kameez', 'three piece', 'থ্রি পিস'],
+        synonyms: ['kurti', 'কুর্তি', 'কামিজ', 'three piece', 'থ্রিপিস', 'থ্রি পিস', 'salwar', 'সালোয়ার']
+      },
+      {
+        triggers: ['borka', 'abaya', 'burqa', 'বোরকা', 'হিজাব', 'hijab'],
+        synonyms: ['borka', 'abaya', 'বোরকা', 'হিজাব', 'hijab']
+      },
+      {
+        triggers: ['tshirt', 't-shirt', 'টি-শার্ট', 'টিশার্ট', 'polo', 'পোলো', 'গেঞ্জি'],
+        synonyms: ['tshirt', 't-shirt', 'টি-শার্ট', 'টিশার্ট', 'polo', 'পোলো', 'গেঞ্জি', 'genji']
+      },
+      {
+        triggers: ['honey', 'মধু', 'modhu'],
+        synonyms: ['honey', 'মধু', 'modhu', 'khati modhu', 'খাঁটি মধু', 'সুন্দরবন']
+      },
+      {
+        triggers: ['ghee', 'ঘি', 'ghi'],
+        synonyms: ['ghee', 'ঘি', 'গাওয়া ঘি', 'gawa ghee', 'khati ghee']
+      },
+      {
+        triggers: ['oil', 'তেল', 'tel', 'mustard', 'সরিষা'],
+        synonyms: ['oil', 'তেল', 'tel', 'mustard oil', 'সরিষার তেল', 'khati tel']
+      },
+      {
+        triggers: ['tea', 'চা', 'cha'],
+        synonyms: ['tea', 'চা', 'পাতা চা', 'গ্রিন টি', 'green tea']
+      },
+      {
+        triggers: ['khejur', 'dates', 'খেজুর'],
+        synonyms: ['khejur', 'dates', 'খেজুর', 'মরিয়ম খেজুর', 'আজওয়া']
+      },
+      {
+        triggers: ['gur', 'গুড়', 'গুড়'],
+        synonyms: ['gur', 'গুড়', 'গুড়', 'খেজুরের গুড়', 'ঝুলা গুড়', 'পাটালি গুড়']
+      },
+      {
+        triggers: ['watch', 'ঘড়ি', 'ঘড়ি', 'smartwatch'],
+        synonyms: ['watch', 'ঘড়ি', 'ঘড়ি', 'smartwatch', 'স্মার্টওয়াচ', 'স্মার্টওয়াচ', 'calling watch']
+      },
+      {
+        triggers: ['airpod', 'airpods', 'earbud', 'earbuds', 'headphone', 'হেডফোন', 'ইয়ারবাড'],
+        synonyms: ['airpods', 'earbuds', 'headphone', 'এয়ারবাডস', 'হেডফোন', 'wireless']
+      },
+      {
+        triggers: ['powerbank', 'পাওয়ার ব্যাংক'],
+        synonyms: ['powerbank', 'পাওয়ার ব্যাংক', 'charger']
+      },
+      {
+        triggers: ['serum', 'সেরাম', 'সিরাম'],
+        synonyms: ['serum', 'seram', 'সেরাম', 'সিরাম', 'face serum']
+      },
+      {
+        triggers: ['lotion', 'লোশন', 'moisturizer'],
+        synonyms: ['lotion', 'loson', 'লোশন', 'body lotion', 'moisturizer']
+      },
+      {
+        triggers: ['sunscreen', 'সানস্ক্রিন', 'sunblock'],
+        synonyms: ['sunscreen', 'সানস্ক্রিন', 'sunblock', 'সানব্লক']
+      },
+      {
+        triggers: ['facewash', 'ফেসওয়াশ', 'ফেসওয়াশ'],
+        synonyms: ['facewash', 'ফেসওয়াশ', 'ফেসওয়াশ', 'face wash']
+      },
+      {
+        triggers: ['lipstick', 'লিপস্টিক'],
+        synonyms: ['lipstick', 'লিপস্টিক', 'lip gloss', 'ম্যাট']
+      },
+      {
+        triggers: ['shoe', 'shoes', 'জুতা', 'জুতো', 'sneaker', 'loafer'],
+        synonyms: ['shoe', 'shoes', 'জুতা', 'জুতো', 'sneaker', 'sneakers', 'স্নিকার্স', 'লোফার']
+      },
+      {
+        triggers: ['bag', 'ব্যাগ', 'wallet', 'মানিব্যাগ', 'backpack'],
+        synonyms: ['bag', 'ব্যাগ', 'wallet', 'মানিব্যাগ', 'লেদার ব্যাগ', 'backpack']
+      }
+    ];
+
+    for (const group of CONCEPT_MAP) {
+      const isTriggered = group.triggers.some((t) =>
+        t.length <= 3 ? words.includes(t) : textToAnalyze.includes(t) || words.includes(t)
+      );
+      if (isTriggered) {
+        for (const syn of group.synonyms) {
+          kwSet.add(syn);
+        }
+      }
+    }
+
+    return Array.from(kwSet).filter(Boolean);
   }
 
   deleteProduct(id: string): boolean {
