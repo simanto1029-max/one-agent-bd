@@ -906,6 +906,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     nagad_number: '+8801800123456',
     support_email: 'support@oneagentbd.online',
     meta_description: 'Automate WhatsApp and Messenger customer inquiries and order confirmations with fine-tuned AI agents, unified inbox, and instant billing.',
+    meta_app_id: '1668233901609132',
     cron_last_run: new Date().toISOString(),
     cron_status: 'Healthy (Running hourly checks)'
   }
@@ -1045,6 +1046,9 @@ class Database {
     }
     if (parsed.settings) {
       parsed.settings.site_name = parsed.settings.site_name || 'One Agent BD';
+      if (!parsed.settings.meta_app_id || parsed.settings.meta_app_id === '28133631089641045') {
+        parsed.settings.meta_app_id = '1668233901609132';
+      }
     } else {
       parsed.settings = initialData.settings;
     }

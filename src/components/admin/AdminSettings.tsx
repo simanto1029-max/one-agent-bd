@@ -109,9 +109,8 @@ export const AdminSettings: React.FC = () => {
         api.getAdminSettings().catch(() => api.getPublicSettings() as Promise<AdminSettingsData>),
         api.getSchemaSql().catch(() => '-- Schema unavailable')
       ]);
-      if (settingsData.meta_app_id && settingsData.meta_app_id.includes('@')) {
-        settingsData.meta_app_id = '';
-        settingsData.meta_app_secret = '';
+      if (settingsData.meta_app_id === '28133631089641045' || (settingsData.meta_app_id && settingsData.meta_app_id.includes('@'))) {
+        settingsData.meta_app_id = '1668233901609132';
       }
       const cachedVideo =
         typeof window !== 'undefined' ? localStorage.getItem('oneagentbd_promo_video_url') : '';
@@ -821,7 +820,7 @@ export const AdminSettings: React.FC = () => {
                 autoComplete="off"
                 value={settings.meta_app_id || ''}
                 onChange={(e) => setSettings({ ...settings, meta_app_id: e.target.value })}
-                placeholder="e.g. 28133631089641045"
+                placeholder="e.g. 1668233901609132"
                 className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
               />
             </div>

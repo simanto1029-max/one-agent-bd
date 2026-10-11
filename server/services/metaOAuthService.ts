@@ -69,7 +69,11 @@ export class MetaOAuthService {
 
   private getAppId(): string {
     const settings = db.getSettings();
-    return this.customAppId || settings?.meta_app_id || process.env.META_APP_ID || process.env.VITE_META_APP_ID || '';
+    const candidate = this.customAppId || settings?.meta_app_id || process.env.META_APP_ID || process.env.VITE_META_APP_ID || '';
+    if (!candidate || candidate.trim() === '28133631089641045') {
+      return '1668233901609132';
+    }
+    return candidate.trim();
   }
 
   private getAppSecret(): string {
