@@ -1100,7 +1100,7 @@ class Database {
           currency: 'BDT',
           category: 'Pants',
           description: 'Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.',
-          image_url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80',
+          image_url: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80',
           stock_status: 'in_stock',
           keywords: ['cargo', 'jogger', 'pant', 'olive', 'green', 'কার্গো', 'প্যান্ট', 'কটন'],
           created_at: nowIso,
@@ -1114,7 +1114,7 @@ class Database {
           currency: 'BDT',
           category: 'Pants',
           description: 'Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.',
-          image_url: 'https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80',
+          image_url: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80',
           stock_status: 'in_stock',
           keywords: ['denim', 'jeans', 'pant', 'blue', 'ডেনিম', 'জিন্স', 'প্যান্ট', 'স্লিম'],
           created_at: nowIso,
@@ -1157,6 +1157,14 @@ class Database {
       }));
       parsed.products = [...defaultSeedItems, ...adminItems];
     } else {
+      // Fix any mismatched seed image URLs in existing database records
+      parsed.products.forEach((p: Product) => {
+        if (p.name.includes('Denim Jeans') && (p.image_url?.includes('photo-1542272604') || p.image_url?.includes('523275335684'))) {
+          p.image_url = 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80';
+        } else if (p.name.includes('Cargo Jogger') && (p.image_url?.includes('photo-1624378439575') || p.image_url?.includes('542272604'))) {
+          p.image_url = 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80';
+        }
+      });
       parsed.products = parsed.products.filter(
         (p: Product) => !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
       );
@@ -2319,66 +2327,323 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     }
 
     // 0. If customer is asking for the catalog / all products / what items exist, NEVER lock to a single product!
+    // But ONLY if they are NOT asking an attribute question like 'ki ki size' or 'ki ki color'!
+    const isAskingAboutAttribute =
+      q.includes('size') ||
+      q.includes('সাইজ') ||
+      q.includes('color') ||
+      q.includes('colour') ||
+      q.includes('কালার') ||
+      q.includes('রং') ||
+      q.includes('dam') ||
+      q.includes('দাম') ||
+      q.includes('price');
+
     const isAskingForCatalog =
-      q.includes('ki ki') ||
-      q.includes('k i ki') ||
-      q.includes('all product') ||
-      q.includes('shob product') ||
-      q.includes('sob product') ||
-      q.includes('সব প্রোডাক্ট') ||
-      q.includes('কী কী') ||
-      q.includes('কি কি') ||
-      q.includes('catalog') ||
-      q.includes('catalogue') ||
-      q.includes('ক্যাটালগ') ||
-      q.includes('পণ্য তালিকা') ||
-      q.includes('কালেকশন') ||
-      q.includes('collection');
+      !isAskingAboutAttribute &&
+      (q.includes('ki ki product') ||
+        q.includes('k i ki product') ||
+        q.includes('ki ki item') ||
+        q.includes('k i ki item') ||
+        q.includes('ki ki collection') ||
+        q.includes('ki ki dress') ||
+        q.includes('all product') ||
+        q.includes('shob product') ||
+        q.includes('sob product') ||
+        q.includes('সব প্রোডাক্ট') ||
+        q.includes('সব আইটেম') ||
+        q.includes('catalog') ||
+        q.includes('catalogue') ||
+        q.includes('ক্যাটালগ') ||
+        q.includes('পণ্য তালিকা') ||
+        q.includes('কালেকশন') ||
+        q.includes('collection') ||
+        q === 'ki ki ase' ||
+        q === 'ki ki ache' ||
+        q === 'কী কী আছে' ||
+        q === 'কি কি আছে');
 
     if (isAskingForCatalog) {
       return undefined;
     }
 
-    // 1. Exact or direct substring match on product name
+    // Helper: Levenshtein distance for fuzzy matching typos (e.g. shiet -> shirt)
+    const getLevenshteinDistance = (a: string, b: string): number => {
+      if (a === b) return 0;
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+      const matrix: number[][] = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    };
+
+    // Dictionary of Banglish & phonetic variants + typos
+    const BANGLISH_SYNONYMS: Record<string, string> = {
+      // Shirt variants & typos
+      shiet: 'shirt',
+      shart: 'shirt',
+      shrt: 'shirt',
+      sirt: 'shirt',
+      sart: 'shirt',
+      sarht: 'shirt',
+      shirte: 'shirt',
+      shirtt: 'shirt',
+      shite: 'shirt',
+      tshirt: 'shirt',
+      tishirt: 'shirt',
+      't-shirt': 'shirt',
+      সার্ট: 'শার্ট',
+      সার্টের: 'শার্ট',
+      সার্টটি: 'শার্ট',
+      শার্টের: 'শার্ট',
+      শার্টটি: 'শার্ট',
+      পোলো: 'shirt',
+      polo: 'shirt',
+      oxford: 'shirt',
+      গেঞ্জি: 'shirt',
+      genji: 'shirt',
+      ganji: 'shirt',
+
+      // Pant variants & typos
+      pent: 'pant',
+      pents: 'pant',
+      pants: 'pant',
+      pantt: 'pant',
+      pnt: 'pant',
+      প্যান্ট: 'pant',
+      প্যান্টস: 'pant',
+      প্যান্টের: 'pant',
+      প্যান্টটি: 'pant',
+      jeans: 'pant',
+      jean: 'pant',
+      জিন্স: 'pant',
+      জিন্সের: 'pant',
+      জিন্সটি: 'pant',
+      cargo: 'pant',
+      কার্গো: 'pant',
+      jogger: 'pant',
+      joggers: 'pant',
+      জগার: 'pant',
+      জগার্স: 'pant',
+      trouser: 'pant',
+      trousers: 'pant',
+      ট্রাউজার: 'pant',
+      denim: 'pant',
+      ডেনিম: 'pant',
+
+      // Watch variants & typos
+      watc: 'watch',
+      wtch: 'watch',
+      watches: 'watch',
+      woch: 'watch',
+      smartwatch: 'watch',
+      স্মার্টওয়াচ: 'watch',
+      স্মার্টওয়াচ: 'watch',
+      ঘড়ি: 'watch',
+      ঘড়ি: 'watch',
+      ঘড়ির: 'watch',
+      ঘড়ির: 'watch',
+      ghori: 'watch',
+
+      // Panjabi
+      panjabi: 'panjabi',
+      punjabi: 'panjabi',
+      পাঞ্জাবি: 'panjabi',
+      পাঞ্জাবী: 'panjabi'
+    };
+
+    // Check query tokens and normalized tokens
+    const rawTokens = q.split(/[\s\-_,./()]+/).filter((t) => t.length >= 2);
+    const normalizedTokens = rawTokens.map((t) => BANGLISH_SYNONYMS[t] || t);
+
+    // Garment type indicators in query (expanded for Banglish & phonetic typos like shiet, shart, pent)
+    const queryMentionsShirt =
+      q.includes('shirt') ||
+      q.includes('shiet') ||
+      q.includes('shart') ||
+      q.includes('sirt') ||
+      q.includes('sarht') ||
+      q.includes('sart') ||
+      q.includes('শার্ট') ||
+      q.includes('সার্ট') ||
+      q.includes('tshirt') ||
+      q.includes('t-shirt') ||
+      q.includes('oxford') ||
+      q.includes('polo') ||
+      q.includes('গেঞ্জি') ||
+      q.includes('পোলো') ||
+      normalizedTokens.includes('shirt') ||
+      rawTokens.some((t) => t.length >= 4 && getLevenshteinDistance(t, 'shirt') <= 1);
+
+    const queryMentionsPant =
+      q.includes('pant') ||
+      q.includes('pent') ||
+      q.includes('pants') ||
+      q.includes('pents') ||
+      q.includes('প্যান্ট') ||
+      q.includes('জিন্স') ||
+      q.includes('jeans') ||
+      q.includes('cargo') ||
+      q.includes('কার্গো') ||
+      q.includes('jogger') ||
+      q.includes('জগার') ||
+      q.includes('denim') ||
+      q.includes('ডেনিম') ||
+      q.includes('trouser') ||
+      normalizedTokens.includes('pant') ||
+      rawTokens.some((t) => t.length >= 4 && getLevenshteinDistance(t, 'pant') <= 1);
+
+    const queryMentionsWatch =
+      q.includes('watch') ||
+      q.includes('watc') ||
+      q.includes('ঘড়ি') ||
+      q.includes('ঘড়ি') ||
+      q.includes('স্মার্ট') ||
+      q.includes('smartwatch') ||
+      q.includes('calling') ||
+      normalizedTokens.includes('watch') ||
+      rawTokens.some((t) => t.length >= 4 && getLevenshteinDistance(t, 'watch') <= 1);
+
+    const queryMentionsPanjabi =
+      q.includes('panjabi') ||
+      q.includes('punjabi') ||
+      q.includes('পাঞ্জাবি') ||
+      q.includes('পাঞ্জাবী') ||
+      normalizedTokens.includes('panjabi');
+
+    let bestProduct: Product | undefined = undefined;
+    let highestScore = 0;
+
     for (const prod of prods) {
+      let score = 0;
       const pName = prod.name.toLowerCase().trim();
-      if (q.includes(pName) || (pName.length >= 4 && pName.includes(q))) {
-        return prod;
+      const pCategory = (prod.category || '').toLowerCase().trim();
+      const pKeywords = (prod.keywords || []).map((k) => k.toLowerCase().trim());
+
+      // 1. Exact full name match in query
+      if (q.includes(pName)) {
+        score += 150;
+      } else if (pName.length >= 4 && pName.includes(q)) {
+        score += 80;
+      }
+
+      // 2. Significant Name words match (with synonym & fuzzy tolerance)
+      const nameWords = pName.split(/[\s\-_,./()]+/).filter((w) => w.length >= 3);
+      for (const nw of nameWords) {
+        if (rawTokens.includes(nw) || normalizedTokens.includes(nw)) {
+          if (['shirt', 'pant', 'pants', 'jeans', 'watch', 'panjabi', 'cargo', 'jogger', 'oxford'].includes(nw)) {
+            score += 50;
+          } else {
+            score += 25;
+          }
+        } else if (nw.length >= 4 && q.includes(nw)) {
+          score += 15;
+        } else if (nw.length >= 4) {
+          // Check fuzzy match against query tokens (distance <= 1)
+          const fuzzyMatch = rawTokens.some((rt) => rt.length >= 4 && getLevenshteinDistance(rt, nw) <= 1);
+          if (fuzzyMatch) {
+            score += 35;
+          }
+        }
+      }
+
+      // 3. Keywords match (with synonym support)
+      for (const kw of pKeywords) {
+        if (kw.length >= 2 && (rawTokens.includes(kw) || normalizedTokens.includes(kw) || q.includes(kw))) {
+          if (['শার্ট', 'প্যান্ট', 'জিন্স', 'কার্গো', 'ঘড়ি', 'ঘড়ি', 'panjabi', 'shirt', 'pant', 'jeans', 'watch'].includes(kw)) {
+            score += 45;
+          } else if (['কটন', 'cotton', 'blue', 'green', 'black', 'white'].includes(kw)) {
+            score += 10; // generic fabric/color
+          } else {
+            score += 20;
+          }
+        } else if (kw.length >= 4) {
+          const fuzzyKw = rawTokens.some((rt) => rt.length >= 4 && getLevenshteinDistance(rt, kw) <= 1);
+          if (fuzzyKw) {
+            score += 30;
+          }
+        }
+      }
+
+      // 4. Category match
+      if (pCategory && (rawTokens.includes(pCategory) || normalizedTokens.includes(pCategory) || q.includes(pCategory))) {
+        score += 25;
+      }
+
+      // 5. Description words match
+      const descWords = (prod.description || '').toLowerCase().split(/[\s\-_,./()]+/).filter((w) => w.length >= 4);
+      for (const dw of descWords) {
+        if (rawTokens.includes(dw) || normalizedTokens.includes(dw)) {
+          score += 5;
+        }
+      }
+
+      // 6. Garment type INTENT BOOST & CONFLICT PENALTY
+      // If customer asks for SHIRT (even with typo shiet/shart/sirt):
+      if (queryMentionsShirt) {
+        if (pCategory === 'shirts' || pName.includes('shirt') || pName.includes('oxford')) {
+          score += 120; // Massive boost for shirt products
+        } else {
+          score -= 200; // Strong elimination for pants, watches, etc.
+        }
+      }
+
+      // If customer asks for PANT / JEANS / CARGO (including pent):
+      if (queryMentionsPant) {
+        if (pCategory === 'pants' || pName.includes('pant') || pName.includes('jeans') || pName.includes('cargo') || pName.includes('jogger')) {
+          score += 120;
+          // Specific sub-type bonus:
+          if (q.includes('cargo') && pName.includes('cargo')) score += 40;
+          if (q.includes('jeans') && pName.includes('jeans')) score += 40;
+          if (q.includes('jogger') && pName.includes('jogger')) score += 30;
+        } else {
+          score -= 200; // Strong elimination for shirts, watches
+        }
+      }
+
+      // If customer asks for WATCH:
+      if (queryMentionsWatch) {
+        if (pCategory === 'watches' || pName.includes('watch') || pName.includes('স্মার্ট')) {
+          score += 120;
+        } else {
+          score -= 200;
+        }
+      }
+
+      // If customer asks for PANJABI:
+      if (queryMentionsPanjabi) {
+        if (pCategory.includes('panjabi') || pName.includes('panjabi') || pName.includes('পাঞ্জাবি')) {
+          score += 120;
+        } else {
+          score -= 200;
+        }
+      }
+
+      if (score > highestScore && score >= 20) {
+        highestScore = score;
+        bestProduct = prod;
       }
     }
 
-    // 2. Direct match on keywords
-    for (const prod of prods) {
-      if (prod.keywords?.some((k) => k.trim().length >= 3 && q.includes(k.trim().toLowerCase()))) {
-        return prod;
-      }
+    if (bestProduct) {
+      return bestProduct;
     }
 
-    // 3. Match on significant individual name words (words with length >= 3, matching word boundary)
-    const queryTokens = q.split(/[\s\-_,./()]+/).filter((t) => t.length >= 2);
-    for (const prod of prods) {
-      const words = prod.name.toLowerCase().split(/[\s\-_,./()]+/).filter((w) => w.length >= 3);
-      if (words.some((w) => queryTokens.includes(w) || (w.length >= 4 && q.includes(w)))) {
-        return prod;
-      }
-    }
-
-    // 4. Match on category
-    for (const prod of prods) {
-      if (prod.category && prod.category.trim().length >= 3 && q.includes(prod.category.toLowerCase())) {
-        return prod;
-      }
-    }
-
-    // 5. Match on description keywords
-    for (const prod of prods) {
-      const descWords = prod.description.toLowerCase().split(/[\s\-_,./()]+/).filter((w) => w.length >= 4);
-      if (descWords.some((w) => queryTokens.includes(w))) {
-        return prod;
-      }
-    }
-
-    // 6. If customer is asking for "this product's pic" / "ay product ar pic" / "chobi" / "pic"
+    // 7. If customer is asking for "this product's pic" / "ay product ar pic" / "chobi" / "pic"
     // and there is only 1 product in the catalog, return it!
     const isGenericProductInquiry =
       q.includes('ay product') ||

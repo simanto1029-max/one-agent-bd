@@ -3655,37 +3655,6 @@
       "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
       "status": "sent",
       "created_at": "2026-10-09T08:02:34.479Z"
-    },
-    {
-      "id": "msg_1791709340760_in_dg4t",
-      "user_id": "usr_admin_001",
-      "channel_id": "ch_fb_test_page_1",
-      "platform": "messenger",
-      "customer_id": "test_messenger_customer_456",
-      "customer_name": "Rahim Khan",
-      "direction": "inbound",
-      "message_text": "আপনাদের পাঞ্জাবির কালেকশন আছে?",
-      "has_voice": false,
-      "audio_mime_type": "audio/ogg",
-      "has_image": false,
-      "is_ai_reply": false,
-      "status": "delivered",
-      "created_at": "2026-10-11T09:02:20.760Z"
-    },
-    {
-      "id": "msg_1791709344769_out_qbq5",
-      "user_id": "usr_admin_001",
-      "channel_id": "ch_fb_test_page_1",
-      "platform": "messenger",
-      "customer_id": "test_messenger_customer_456",
-      "customer_name": "Rahim Khan",
-      "direction": "outbound",
-      "message_text": "দুঃখিত, বর্তমানে আমাদের কালেকশনে পাঞ্জাবি নেই।\n\nতবে আমাদের কাছে প্রিমিয়াম কোয়ালিটির শার্ট এবং প্যান্টের চমৎকার কালেকশন রয়েছে।\n\nআমাদের বর্তমান কিছু জনপ্রিয় প্রোডাক্ট নিচে দেওয়া হলো:\n\n১. ক্যাজুয়াল অক্সফোর্ড কটন শার্ট (স্কাই ব্লু) — ৮৫০ টাকা (সাইজ: M, L, XL, XXL)\n\n২. কার্গো জগার প্যান্ট (অলিভ গ্রিন) — ১,১৫০ টাকা (সাইজ: ৩০, ৩২, ৩৪, ৩৬)\n\n৩. স্লিম ফিট ডেনিম জিন্স (ডিপ ব্লু) — ১,২৫০ টাকা (সাইজ: ৩০, ৩২, ৩৪, ৩৬)\n\nআপনি কি আমাদের শার্ট বা প্যান্টের কালেকশন থেকে কিছু দেখতে চাচ্ছেন?\n\n(মনে রাখবেন, যেকোনো ২টি আইটেম একসাথে অর্ডার করলে পাচ্ছেন ফ্রি ডেলিভারি অথবা ১০০ টাকা ডিসকাউন্ট!)\n\nআপনি কি এটি অর্ডার করতে চান, নাকি অন্য কোনো প্রোডাক্ট সম্পর্কে জানতে চাচ্ছেন?",
-      "is_ai_reply": true,
-      "has_image": false,
-      "requires_human_attention": false,
-      "status": "sent",
-      "created_at": "2026-10-11T09:02:24.769Z"
     }
   ],
   "settings": {
@@ -3696,8 +3665,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-11T09:01:24.181Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 9:01:24 AM)",
+    "cron_last_run": "2026-10-11T09:28:35.643Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:28:35 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4041,16 +4010,6 @@
   ],
   "webhook_events": [
     {
-      "id": "wh_1791709340768",
-      "platform": "messenger",
-      "event_type": "message",
-      "identifier": "104857291048592",
-      "sender_id": "test_messenger_customer_456",
-      "status": "processed",
-      "message_id": "mid_msg_test_456",
-      "created_at": "2026-10-11T09:02:20.768Z"
-    },
-    {
       "id": "wh_1791478335644",
       "platform": "whatsapp",
       "event_type": "message",
@@ -4134,7 +4093,7 @@
       "currency": "BDT",
       "category": "Pants",
       "description": "Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.",
-      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "image_url": "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80",
       "stock_status": "in_stock",
       "keywords": [
         "cargo",
@@ -4157,7 +4116,7 @@
       "currency": "BDT",
       "category": "Pants",
       "description": "Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.",
-      "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80",
+      "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80",
       "stock_status": "in_stock",
       "keywords": [
         "denim",
@@ -4224,7 +4183,7 @@
       "currency": "BDT",
       "category": "Pants",
       "description": "Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.",
-      "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
+      "image_url": "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80",
       "stock_status": "in_stock",
       "keywords": [
         "cargo",
@@ -4247,7 +4206,7 @@
       "currency": "BDT",
       "category": "Pants",
       "description": "Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.",
-      "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80",
+      "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80",
       "stock_status": "in_stock",
       "keywords": [
         "denim",
@@ -4399,26 +4358,6 @@
   ],
   "notifications": [
     {
-      "id": "notif_meta_perm_1791709344765",
-      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (Trendly Fashion Page)",
-      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Malformed access token EAAB_test_mock_token_for_fb_page\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
-      "type": "warning",
-      "action_label": "চ্যানেল সেটিংস দেখুন",
-      "action_tab": "channels",
-      "is_active": true,
-      "created_at": "2026-10-11T09:02:24.765Z"
-    },
-    {
-      "id": "notif_wh_missing_1791709301870",
-      "title": "ফেসবুক/মেটা থেকে মেসেজ এসেছে (ID: 10992837465)",
-      "message": "ফেসবুক থেকে মেসেজ এসেছে, কিন্তু One Agent BD তে এই পেজটি (10992837465) কানেক্ট করা নেই। AI স্বয়ংক্রিয় রিপ্লাই চালু করতে Channels সেকশন থেকে আপনার Facebook Page ID ও Access Token দিয়ে পেজটি কানেক্ট করুন।",
-      "type": "warning",
-      "action_label": "চ্যানেল কানেক্ট করুন",
-      "action_tab": "channels",
-      "is_active": true,
-      "created_at": "2026-10-11T09:01:41.870Z"
-    },
-    {
       "id": "notif_1791478337209_jjm6",
       "title": "কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (Testing Handover)",
       "message": "কাস্টমারের প্রশ্ন: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।",
@@ -4429,7 +4368,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1791709380400,
+  "_lastUpdatedAt": 1791710915643,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

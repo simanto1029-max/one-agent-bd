@@ -2346,17 +2346,24 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
       // Customer asked about a specific matched product:
       attachedProductsList = [matchedProduct];
     } else if (isAskingForImage) {
-      // Customer asked for photos generally without naming a product:
-      const prodsWithImg = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
-      if (merchantProducts.length === 1) {
-        matchedProduct = merchantProducts[0];
-        attachedProductsList = [matchedProduct];
-      } else if (prodsWithImg.length === 1) {
-        matchedProduct = prodsWithImg[0];
+      // Customer asked for photos:
+      if (!matchedProduct && params.incomingMessage) {
+        matchedProduct = db.findProductForQuery(params.userId, params.incomingMessage);
+      }
+      if (matchedProduct) {
         attachedProductsList = [matchedProduct];
       } else {
-        attachedProductsList = prodsWithImg.length > 0 ? prodsWithImg.slice(0, 6) : merchantProducts.slice(0, 6);
-        // Keep matchedProduct undefined so the catalog list triggers
+        const prodsWithImg = merchantProducts.filter((p) => Boolean(p.image_url && p.image_url.trim().length > 5));
+        if (merchantProducts.length === 1) {
+          matchedProduct = merchantProducts[0];
+          attachedProductsList = [matchedProduct];
+        } else if (prodsWithImg.length === 1) {
+          matchedProduct = prodsWithImg[0];
+          attachedProductsList = [matchedProduct];
+        } else {
+          attachedProductsList = prodsWithImg.length > 0 ? prodsWithImg.slice(0, 6) : merchantProducts.slice(0, 6);
+          // Keep matchedProduct undefined so the catalog list triggers
+        }
       }
     }
   }
@@ -2733,11 +2740,42 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
     callGemini(fullPrompt, effectiveApiKey, systemInstruction),
     9500
   ).catch(() => null);
+  // Determine if image should be attached:
+  // An image should ONLY be attached if:
+  // 1. Customer explicitly asks for photo/picture/chobi (isAskingForImage)
+  // 2. OR customer asks for full catalog (isAskingForCatalog)
+  // 3. OR this is a direct product introduction or targetProductId is specified
+  // 4. If this is a follow-up conversation about size/price/delivery/order and customer did NOT ask for picture, do NOT re-attach!
+  const isPureFollowUpQuestion =
+    (params.history && params.history.length >= 1) &&
+    !isAskingForImage &&
+    !isAskingForCatalog &&
+    (incomingLower.includes('size') ||
+      incomingLower.includes('সাইজ') ||
+      incomingLower.includes('delivery') ||
+      incomingLower.includes('ডেলিভারি') ||
+      incomingLower.includes('charge') ||
+      incomingLower.includes('চার্জ') ||
+      incomingLower.includes('advance') ||
+      incomingLower.includes('অগ্রিম') ||
+      incomingLower.includes('order') ||
+      incomingLower.includes('অর্ডার') ||
+      incomingLower.includes('kobe') ||
+      incomingLower.includes('কবে') ||
+      incomingLower.includes('color') ||
+      incomingLower.includes('কালার') ||
+      incomingLower.includes('রং'));
+
+  const primaryImageUrl =
+    matchedProduct?.image_url ||
+    (isAskingForCatalog ? attachedProductsList[0]?.image_url : undefined) ||
+    (merchantProducts.length === 1 ? merchantProducts[0]?.image_url : undefined);
+
   const shouldAttachImage = Boolean(
-    (matchedProduct?.image_url || attachedProductsList.length > 0) &&
-    (isAskingForImage || isAskingForDetails || isAskingForCatalog || Boolean(params.targetProductId))
+    !isPureFollowUpQuestion &&
+    Boolean(primaryImageUrl || (isAskingForCatalog && attachedProductsList.length > 0)) &&
+    (isAskingForImage || isAskingForCatalog || Boolean(params.targetProductId) || (!params.history?.length && isAskingForDetails))
   );
-  const primaryImageUrl = matchedProduct?.image_url || attachedProductsList[0]?.image_url;
 
   if (geminiReply) {
     const cleanReply = ensureConversationalFollowUp(
