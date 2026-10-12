@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db, Message, Order } from '../db/database.js';
+import { db, Message, Order, Product } from '../db/database.js';
 import { getAuthenticatedUser } from './auth.js';
 import { GoogleGenAI } from '@google/genai';
 import { getUserSubscriptionStatus } from '../services/subscriptionService.js';

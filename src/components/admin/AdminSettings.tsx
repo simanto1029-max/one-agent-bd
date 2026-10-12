@@ -842,7 +842,7 @@ export const AdminSettings: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
-                Meta Login Configuration ID (WhatsApp QR / Coexistence)
+                Meta Login Configuration ID (config_id for WhatsApp Embedded Signup)
               </label>
               <input
                 type="text"
@@ -878,6 +878,52 @@ export const AdminSettings: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* WhatsApp Embedded Signup & Tech Provider Guide */}
+        <div className="p-5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-3">
+          <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-bold text-sm">
+            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>WhatsApp Embedded Signup ও Tech Provider সফলভাবে অনুমোদনের পূর্ণাঙ্গ গাইডলাইন:</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-neutral-700 dark:text-neutral-300">
+            <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5">
+              <span className="font-bold text-emerald-800 dark:text-emerald-400 block">
+                ১. Meta Login Configuration ID (config_id) সংগ্রহ:
+              </span>
+              <p className="leading-relaxed">
+                Meta Developer Portal (<strong>developers.facebook.com</strong>) &gt; আপনার অ্যাপ &gt; <strong>Facebook Login for Business &gt; Configurations</strong> এ যান। "Create Configuration" ক্লিক করে <em>WhatsApp Embedded Signup</em> টেমপ্লেট বেছে নিয়ে প্রাপ্ত ID টি উপরে সেভ করুন।
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5">
+              <span className="font-bold text-emerald-800 dark:text-emerald-400 block">
+                ২. Allowed Domains for JavaScript SDK:
+              </span>
+              <p className="leading-relaxed">
+                <strong>Facebook Login for Business &gt; Settings</strong> এ গিয়ে আপনার সাইটের ডোমেইন (যেমন: <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-emerald-700 dark:text-emerald-300">https://oneagentbd.online</code>) এবং preview ডোমেইন পেস্ট করে সেভ করুন।
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5">
+              <span className="font-bold text-emerald-800 dark:text-emerald-400 block">
+                ৩. অ্যাডমিন নিজে টেস্ট করার পদ্ধতি (Advanced Access ছাড়া):
+              </span>
+              <p className="leading-relaxed">
+                Meta App টি <strong>Development Mode</strong> এ রাখুন। আপনার ফেসবুক অ্যাকাউন্টটি Meta App এর <strong>App Roles &gt; Roles &gt; Administrators</strong> এ যুক্ত থাকলে আপনি কোনো Advanced Access ছাড়াই সম্পূর্ণ Embedded Signup টেস্ট করতে পারবেন।
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5">
+              <span className="font-bold text-emerald-800 dark:text-emerald-400 block">
+                ৪. Tech Provider ভিডিও তৈরি ও App Review সাবমিশন:
+              </span>
+              <p className="leading-relaxed">
+                আপনার স্ক্রিন রেকর্ড অন করে One Agent BD তে ঢুকে WhatsApp বাটন ক্লিক করুন, Meta পপআপ সম্পন্ন করুন, এবং অন্য ফোন থেকে মেসেজ পাঠিয়ে AI রিপ্লাই দেখান। এই ১ মিনিটের ভিডিওটি Meta Review তে আপলোড করলেই Tech Provider Approval পেয়ে যাবেন!
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Permissions Checklist for SaaS Owner */}
         <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-xs space-y-2">

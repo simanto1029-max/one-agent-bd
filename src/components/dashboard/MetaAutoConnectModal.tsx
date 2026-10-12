@@ -160,12 +160,20 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
           if (data?.type === 'WA_EMBEDDED_SIGNUP') {
             if (data.event === 'FINISH') {
-              const phoneId = data.data?.phone_number_id;
-              const wabaId = data.data?.waba_id;
+              const phoneId =
+                data.data?.phone_number_id ||
+                data.data?.phoneNumberId ||
+                data.data?.phone_numbers?.[0]?.id;
+              const wabaId = data.data?.waba_id || data.data?.wabaId;
               capturedWaDataRef.current = {
-                phone_number_id: phoneId,
-                waba_id: wabaId
+                phone_number_id: phoneId ? String(phoneId) : undefined,
+                waba_id: wabaId ? String(wabaId) : undefined
               };
+            } else if (data.event === 'CANCEL') {
+              setLoading(false);
+            } else if (data.event === 'ERROR') {
+              setLoading(false);
+              setError(data.data?.error_message || 'WhatsApp Embedded Signup encounter an issue in Meta.');
             }
           }
         } catch (_e) {}
@@ -219,7 +227,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         window.FB.init({
           appId,
           cookie: true,
-          xfbml: false,
+          xfbml: true,
           version: 'v21.0'
         });
       } catch (_e) {}
@@ -231,7 +239,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         window.FB.init({
           appId,
           cookie: true,
-          xfbml: false,
+          xfbml: true,
           version: 'v21.0'
         });
       }
@@ -255,19 +263,35 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       setLoading(true);
       setError(null);
 
-      // Strategy A: If Facebook JavaScript SDK is loaded, use FB.login with standard business login scopes
+      // Validate Configuration ID requirement for Meta WhatsApp Embedded Signup
+      if (!metaConfigId) {
+        setLoading(false);
+        setError(
+          'Meta Login Configuration ID (config_id) প্রয়োজন! Meta WhatsApp Embedded Signup চালানোর জন্য Meta Developer Portal (Facebook Login for Business > Configurations) এ একটি Configuration তৈরি করে সেটির ID অ্যাডমিন সেটিংসে সংরক্ষণ করা বাধ্যতামূলক। আপনি চাইলে পাশের ট্যাবে গিয়ে সরাসরি Phone Number ID দিয়ে কোনো কনফিগারেশন ছাড়াই কানেক্ট করতে পারেন।'
+        );
+        setShowWaHelp(true);
+        return;
+      }
+
+      // Ensure Facebook JavaScript SDK is loaded
+      if (!window.FB && metaAppId) {
+        initFacebookJsSdk(metaAppId);
+        // Wait a brief moment for script initialization
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+
+      // Strategy A: If Facebook JavaScript SDK is loaded, use official FB.login with config_id
       if (window.FB && metaAppId) {
         const loginOptions: any = {
+          config_id: metaConfigId,
           response_type: 'code',
-          override_default_response_type: true
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: '',
+            sessionInfoVersion: '2'
+          }
         };
-
-        if (metaConfigId) {
-          loginOptions.config_id = metaConfigId;
-        } else {
-          loginOptions.scope =
-            'whatsapp_business_management,whatsapp_business_messaging,business_management';
-        }
 
         window.FB.login(
           (response: any) => {
@@ -305,7 +329,9 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
             } else {
               setLoading(false);
               if (response?.status !== 'connected') {
-                // If cancelled or closed
+                setError(
+                  'Meta Embedded Signup পপআপ সম্পন্ন হয়নি। নিশ্চিত করুন যে আপনার ব্রাউজারে লগইন করা Facebook অ্যাকাউন্টটি Meta App এর Admin/Developer রোলে আছে এবং Allowed Domains এ সাইটের ডোমেইন যোগ করা হয়েছে।'
+                );
               }
             }
           },
@@ -709,6 +735,59 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       </ul>
                     </div>
 
+                    {/* Status & Diagnostic Checklist */}
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 text-left space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-neutral-600 dark:text-neutral-400">Meta App ID:</span>
+                        <span className="font-mono font-bold text-neutral-800 dark:text-neutral-200 text-[11px]">
+                          {metaAppId || 'Not Configured'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-neutral-600 dark:text-neutral-400">Login Config ID:</span>
+                        {metaConfigId ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-[11px]">
+                            {metaConfigId}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold text-[11px]">
+                            Missing (Required)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
+                        <span className="font-semibold text-neutral-600 dark:text-neutral-400">Allowed JS Domain:</span>
+                        <div className="flex items-center gap-1.5">
+                          <code className="text-[10px] bg-neutral-200 dark:bg-neutral-900 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200 font-mono">
+                            {typeof window !== 'undefined' ? window.location.origin : ''}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (typeof window !== 'undefined') {
+                                navigator.clipboard.writeText(window.location.origin);
+                              }
+                            }}
+                            className="text-[10px] text-emerald-600 hover:underline font-bold cursor-pointer"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!metaConfigId && (
+                      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-left text-xs text-amber-800 dark:text-amber-300 space-y-1.5 leading-relaxed">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Configuration ID প্রয়োজন (১ মিনিটে সেটআপ)</span>
+                        </p>
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300">
+                          Meta Developer Portal &gt; <strong>Facebook Login for Business &gt; Configurations</strong> এ গিয়ে "Create Configuration" থেকে WhatsApp Embedded Signup বেছে নিন এবং ID টি Admin Settings এ সেভ করুন। অথবা পাশের ট্যাবে <strong>Phone Number ID</strong> দিয়ে সরাসরি টেস্ট করুন।
+                        </p>
+                      </div>
+                    )}
+
                     {/* Primary Embedded Signup Button */}
                     <button
                       type="button"
@@ -773,6 +852,18 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                             <p className="text-neutral-600 dark:text-neutral-400 pl-4.5">
                               মোবাইলের সাধারণ WhatsApp বা WhatsApp Business অ্যাপ থেকে নম্বরটি Delete Account করতে হবে, কারণ ক্লাউড API এবং মোবাইল অ্যাপ একই নম্বরে একসাথে সচল থাকতে পারে না।
                             </p>
+                          </div>
+
+                          <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-[11px] text-indigo-900 dark:text-indigo-200 space-y-1.5">
+                            <p className="font-bold flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>৪. অ্যাডমিন নিজে টেস্ট করা ও Tech Provider ভিডিও জমা দেওয়ার নিয়ম:</span>
+                            </p>
+                            <ul className="space-y-1 list-disc pl-4 text-neutral-700 dark:text-neutral-300">
+                              <li><strong>Advanced Access ছাড়াই অ্যাডমিন টেস্ট করতে পারবেন:</strong> Meta App এর Development Mode এ আপনার Facebook অ্যাকাউন্টটি Admin বা Developer রোলে থাকলে Standard Access দিয়েই Embedded Signup সম্পন্ন করা যায়। বাইরের পাবলিক ইউজারদের জন্য পরে Advanced Access লাগবে।</li>
+                              <li><strong>Tech Provider ভিডিও তৈরি:</strong> আপনার স্ক্রিন রেকর্ডার অন করে এই বাটন ক্লিক করুন, Meta পপআপে আপনার WhatsApp অ্যাকাউন্ট নির্বাচন করুন, এরপর One Agent BD তে যুক্ত হওয়া নম্বরে অন্য ফোন থেকে মেসেজ পাঠিয়ে AI স্বয়ংক্রিয় রিপ্লাই দেখাচ্ছে—এইটুকু ১ মিনিটের ভিডিও রেকর্ড করে Meta Review তে জমা দিন।</li>
+                              <li><strong>ইনস্ট্যান্ট সমাধান:</strong> ভিডিও বা রিভিউ ছাড়াও আপনি যদি এখনই সরাসরি কানেক্ট করতে চান, উপরের "Phone Number ID দিয়ে কানেক্ট" ট্যাবে গিয়ে Meta WhatsApp API Setup এর Phone number ID দিয়ে ৩ সেকেন্ডে কানেক্ট করে ফেলতে পারবেন!</li>
+                            </ul>
                           </div>
 
                           <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300">

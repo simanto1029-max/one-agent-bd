@@ -967,25 +967,25 @@ export class MetaOAuthService {
     const appSecret = this.getAppSecret();
 
     let effectiveToken = (params.accessToken && String(params.accessToken).trim()) || '';
+    let codeExchangeError = '';
 
     // 1. If authorization code is provided, exchange it for access token
     if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
+      if (!appSecret) {
+        return {
+          success: false,
+          error: 'Meta App Secret is missing in Admin Settings. Please go to Admin Settings and save your Meta App Secret so the authorization code can be exchanged.'
+        };
+      }
+
       try {
-        // Try with redirect_uri='' (required for codes obtained via FB.login)
-        let tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+        // Standard Meta FB.login code exchange for WhatsApp Embedded Signup
+        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
           appId
-        )}&client_secret=${encodeURIComponent(appSecret)}&redirect_uri=&code=${encodeURIComponent(params.code)}`;
+        )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
 
-        let tokenRes = await fetch(tokenUrl);
-        let tokenJson = (await tokenRes.json()) as any;
-
-        if (!tokenRes.ok || !tokenJson.access_token) {
-          tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
-            appId
-          )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
-          tokenRes = await fetch(tokenUrl);
-          tokenJson = (await tokenRes.json()) as any;
-        }
+        const tokenRes = await fetch(tokenUrl);
+        const tokenJson = (await tokenRes.json()) as any;
 
         if (tokenRes.ok && tokenJson.access_token) {
           effectiveToken = tokenJson.access_token;
@@ -1001,11 +1001,20 @@ export class MetaOAuthService {
               effectiveToken = llJson.access_token;
             }
           } catch (_llErr) {}
-        } else if (tokenJson?.error?.message) {
-          console.warn('[MetaOAuth] WhatsApp Embedded Signup code exchange warning:', tokenJson.error.message);
+        } else {
+          codeExchangeError = tokenJson?.error?.message || `HTTP ${tokenRes.status}`;
+          console.warn('[MetaOAuth] WhatsApp Embedded Signup code exchange error:', tokenJson);
         }
       } catch (err: any) {
+        codeExchangeError = err?.message || 'Network error';
         console.error('[MetaOAuth] Code exchange network error:', err);
+      }
+
+      if (!effectiveToken && codeExchangeError) {
+        return {
+          success: false,
+          error: `Meta Token Exchange Error: ${codeExchangeError}. Please check your Meta App ID & App Secret in Admin Settings.`
+        };
       }
     }
 
@@ -1136,7 +1145,7 @@ export class MetaOAuthService {
       error:
         targetWabaId
           ? 'Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup.'
-          : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure you have added the WhatsApp product and switched public_profile to Advanced Access.'
+          : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure your Meta App has WhatsApp product added, and that your Facebook user has an Administrator or Developer role on the Meta App in Development Mode.'
     };
   }
 

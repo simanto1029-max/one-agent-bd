@@ -894,6 +894,9 @@ export const api = {
       success: boolean;
       inboundMessage?: Message;
       aiReplyMessage?: Message;
+      attachedImageUrl?: string;
+      attachedImages?: string[];
+      attachedProducts?: Array<{ id: string; name: string; price: number; image_url?: string }>;
       reason?: string;
     }>('/api/inbox/simulate-inbound', {
       method: 'POST',
@@ -1508,6 +1511,8 @@ export const api = {
     timestamp: string;
     orderCreated?: boolean;
     order?: any;
+    attachedImageUrl?: string;
+    imageUrl?: string;
   }> {
     return fetchJson('/api/widget/chat', {
       method: 'POST',

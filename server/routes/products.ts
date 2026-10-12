@@ -403,7 +403,7 @@ productsRouter.post('/test-ai-query', async (req: Request, res: Response) => {
       customerId: `test_merchant_${user.id}`,
       customerName: 'Customer',
       platform: platform as any,
-      channelName: user.business_name || 'My Store',
+      channelName: (user as any).business_name || user.full_name || 'My Store',
       targetProductId: productId || undefined
     });
 

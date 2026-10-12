@@ -143,13 +143,18 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
   return nextTask;
 }
 
-async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<{
+export interface InboundProcessResult {
   received: boolean;
   inboundMessage?: Message;
   aiReplyMessage?: Message;
   order?: Order;
+  attachedImageUrl?: string;
+  attachedImages?: string[];
+  attachedProducts?: Array<{ id: string; name: string; price: number; image_url?: string }>;
   reason?: string;
-}> {
+}
+
+async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<InboundProcessResult> {
   // 1. Find matching channel (or create virtual simulation channel for the user)
   let channel = db.getChannelByIdentifier(event.platform, event.identifier);
   let isVirtualSimChannel = false;
