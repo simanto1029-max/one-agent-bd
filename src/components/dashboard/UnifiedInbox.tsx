@@ -21,6 +21,8 @@ import {
   Check,
   PanelRightClose,
   PanelRightOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
   Phone,
   Clock,
   CheckCheck,
@@ -35,12 +37,16 @@ import {
   PlayCircle,
   Ban,
   MoreHorizontal,
-  AlertCircle
+  AlertCircle,
+  PanelRight,
+  Star,
+  Filter
 } from 'lucide-react';
 import { api } from '../../api';
 import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
 import { BrowserAudioRecorder, blobToBase64 } from '../../utils/audioRecorder';
 import { CustomerFraudBadge } from './CustomerFraudBadge';
+import { CustomerDetailsPanel } from './CustomerDetailsPanel';
 
 interface UnifiedInboxProps {
   channels: Channel[];
@@ -48,6 +54,8 @@ interface UnifiedInboxProps {
   initialConvKey?: string | null;
   isProPlan?: boolean;
   onUpgradeToPro?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 type CategoryTab = 'all' | 'orders' | 'delivered' | 'new_customer';
@@ -216,7 +224,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   onNavigate,
   initialConvKey,
   isProPlan = true,
-  onUpgradeToPro
+  onUpgradeToPro,
+  isSidebarCollapsed = false,
+  onToggleSidebar
 }) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvKey, setSelectedConvKey] = useState<string | null>(initialConvKey || null);
@@ -234,6 +244,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [sendingReply, setSendingReply] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+  const [showCustomerDetails, setShowCustomerDetails] = useState(true);
+  const [starredConvs, setStarredConvs] = useState<Record<string, boolean>>({});
 
   // Inbound simulation drawer/form
   const [showSimulateDrawer, setShowSimulateDrawer] = useState(false);
@@ -768,6 +780,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </div>
 
             <div className="flex items-center gap-1">
+              {onToggleSidebar && (
+                <button
+                  type="button"
+                  onClick={onToggleSidebar}
+                  className="hidden md:flex p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  title={isSidebarCollapsed ? 'Expand sidebar menu' : 'Collapse sidebar menu (maximize inbox)'}
+                >
+                  {isSidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+                </button>
+              )}
               <button
                 onClick={loadInbox}
                 className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
@@ -787,16 +809,27 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </div>
           </div>
 
-          {/* Search Box */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search name, phone, or message..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-neutral-200/90 dark:border-neutral-700/80 bg-neutral-50/80 dark:bg-neutral-800/90 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
-            />
+          {/* Search Box + Filters Button (Screenshot exact match) */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-neutral-200/90 dark:border-neutral-700/80 bg-neutral-50/80 dark:bg-neutral-800/90 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-2 focus:ring-[#7F22FE]/30 focus:border-[#7F22FE] transition-all"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {}}
+              className="px-3 py-2 rounded-xl border border-neutral-200/90 dark:border-neutral-700/80 bg-neutral-50/80 dark:bg-neutral-800/90 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              title="Filters"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filters</span>
+            </button>
           </div>
 
           {/* Segmented Category Filter Control */}
@@ -964,9 +997,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       >
                         {c.customerName}
                       </span>
-                      <span className="text-[10px] text-neutral-400 shrink-0 font-medium">
-                        {dateStr}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {starredConvs[c.customerId] && (
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                        )}
+                        <span className="text-[10px] text-neutral-400 font-medium">
+                          {dateStr}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Agent Handle */}
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate">
+                      @{c.platform} · {c.messages.length > 1 ? '@AI Agent' : 'No Agents Assigned Yet'}
                     </div>
 
                     {/* Last Message Preview */}
@@ -989,33 +1032,33 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <span className="truncate">{c.lastMessage.message_text}</span>
                     </p>
 
-                    {/* Clean Status Line */}
-                    <div className="flex items-center gap-2 mt-1.5 text-[10px] font-semibold flex-wrap">
+                    {/* Clean Status & Tags Line (Screenshot Exact: Priority, Top Client, Successful) */}
+                    <div className="flex items-center gap-1 mt-1.5 text-[10px] font-bold flex-wrap">
                       {c.requiresHumanAttention && (
-                        <span className="text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 border border-amber-300/80 dark:border-amber-700/60 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold shrink-0">
+                        <span className="text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 border border-amber-300/80 dark:border-amber-700/60 px-1.5 py-0.2 rounded-md flex items-center gap-1 shrink-0">
                           <AlertCircle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
                           Needs Review
                         </span>
                       )}
                       {c.orderCategory === 'delivered' ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Delivered
+                        <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          Successful
                         </span>
                       ) : c.orderCategory === 'orders' ? (
-                        <span className="text-[#7F22FE] dark:text-purple-400 flex items-center gap-1">
-                          <ShoppingBag className="w-3 h-3" />
+                        <span className="px-1.5 py-0.2 rounded-md bg-purple-500/15 text-[#7F22FE] dark:text-purple-300 border border-purple-500/20 flex items-center gap-0.5">
+                          <ShoppingBag className="w-2.5 h-2.5" />
                           Order Confirmed
                         </span>
-                      ) : (
-                        <span className="text-neutral-400 dark:text-neutral-500">
-                          New Inquiry
-                        </span>
-                      )}
-                      <span className="text-neutral-300 dark:text-neutral-700">·</span>
-                      <span className="text-neutral-500 dark:text-neutral-400 capitalize inline-flex items-center gap-1 font-medium">
-                        {getPlatformIcon(c.platform, 'w-3 h-3 shrink-0')}
-                        <span>{c.platform === 'whatsapp' ? 'WhatsApp' : c.platform === 'messenger' ? 'Messenger' : 'Instagram'}</span>
+                      ) : null}
+                      <span className="px-1.5 py-0.2 rounded-md bg-purple-100 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                        Priority
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 hidden sm:inline">
+                        Top Client
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 hidden md:inline">
+                        High Prospect
                       </span>
                     </div>
                   </div>
@@ -1146,7 +1189,44 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     </span>
                   </button>
 
-                {/* More Actions Icon Menu */}
+                  {/* Toggle Right Details Panel (Screenshot style) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomerDetails((prev) => !prev)}
+                    className={`hidden lg:flex p-2 rounded-xl border transition-colors cursor-pointer items-center justify-center ${
+                      showCustomerDetails
+                        ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 text-[#7F22FE] dark:text-purple-300'
+                        : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
+                    }`}
+                    title={showCustomerDetails ? 'Hide Customer Details' : 'Show Customer Details'}
+                  >
+                    <PanelRight className="w-4 h-4" />
+                  </button>
+
+                  {/* Star Conversation Toggle */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStarredConvs((prev) => ({
+                        ...prev,
+                        [selectedConv.customerId]: !prev[selectedConv.customerId]
+                      }))
+                    }
+                    className={`p-2 rounded-xl border transition-colors cursor-pointer flex items-center justify-center ${
+                      starredConvs[selectedConv.customerId]
+                        ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-500'
+                        : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200/80 dark:hover:bg-neutral-700 text-neutral-400 border-neutral-200/80 dark:border-neutral-700'
+                    }`}
+                    title={starredConvs[selectedConv.customerId] ? 'Starred Client' : 'Mark as Starred'}
+                  >
+                    <Star
+                      className={`w-4 h-4 ${
+                        starredConvs[selectedConv.customerId] ? 'fill-amber-400 text-amber-500' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* More Actions Icon Menu */}
                 <div className="relative">
                   <button
                     type="button"
@@ -1998,6 +2078,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           </div>
         )}
       </div>
+
+      {/* =====================================================================
+          PANE 3: RIGHT CUSTOMER DETAILS & ORDER ACTIONS PANEL (Screenshot Match)
+      ===================================================================== */}
+      {selectedConv && showCustomerDetails && (
+        <div className="hidden lg:flex shrink-0 h-full min-h-0 border-l border-neutral-200/80 dark:border-neutral-800/80">
+          <CustomerDetailsPanel
+            conversation={selectedConv}
+            onNavigate={onNavigate}
+            onClose={() => setShowCustomerDetails(false)}
+          />
+        </div>
+      )}
 
       {/* Image Preview Modal */}
       {previewImageUrl && (

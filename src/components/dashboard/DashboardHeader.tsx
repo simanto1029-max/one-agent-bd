@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Globe, LogOut, Menu, X } from 'lucide-react';
+import { Shield, Globe, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { BrandLogo } from '../common/BrandLogo';
 import { UserProfile, SubscriptionStatusInfo } from '../../types';
@@ -17,6 +17,8 @@ interface DashboardHeaderProps {
   onTimerExpire?: () => void;
   isMobileMenuOpen?: boolean;
   onToggleMobileMenu?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
   activeTabLabel?: string;
 }
 
@@ -29,6 +31,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onLogout,
   isMobileMenuOpen = false,
   onToggleMobileMenu,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
   activeTabLabel
 }) => {
   return (
@@ -36,7 +40,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <div className="h-14 sm:h-16 shrink-0" aria-hidden="true" />
       <header className="fixed top-0 left-0 right-0 z-40 w-full h-14 sm:h-16 bg-white/95 dark:bg-[#0F0A24]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-purple-500/15 transition-colors">
         <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-2">
-          {/* Left: Mobile Menu Toggle + Brand Logo + Current Section */}
+          {/* Left: Mobile Menu Toggle + Desktop Sidebar Collapse + Brand Logo + Current Section */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {onToggleMobileMenu && (
               <button
@@ -50,6 +54,18 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </button>
+            )}
+
+            {onToggleSidebar && (
+              <button
+                type="button"
+                onClick={onToggleSidebar}
+                className="hidden md:flex p-2 rounded-xl border border-slate-200/90 dark:border-purple-500/20 text-slate-600 dark:text-slate-300 hover:text-[#7C3AED] hover:border-[#7C3AED]/40 hover:bg-purple-50/60 dark:hover:bg-[#191138] transition-all cursor-pointer shrink-0"
+                title={isSidebarCollapsed ? 'Expand sidebar menu' : 'Collapse sidebar menu (maximize workspace)'}
+                aria-label="Toggle sidebar collapse"
+              >
+                {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
               </button>
             )}
 

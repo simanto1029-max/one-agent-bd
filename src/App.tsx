@@ -22,7 +22,9 @@ import {
   ChevronDown,
   Crown,
   Lock,
-  Zap
+  Zap,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { api } from './api';
 import { UserProfile, SubscriptionStatusInfo, Channel, Plan } from './types';
@@ -212,10 +214,34 @@ export default function App() {
     }
   };
 
+  // Sidebar collapse state (auto-collapses on inbox for maximum width, toggleable anytime)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('oneagentbd_sidebar_collapsed');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('oneagentbd_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const setActiveTab = (tab: TabId, replace = false) => {
     setActiveTabRaw(tab);
     if (TAB_TO_GROUP[tab]) {
       setOpenGroupId(TAB_TO_GROUP[tab]);
+    }
+    // When clicking into inbox, automatically collapse sidebar so inbox expands to full screen width
+    if (tab === 'inbox') {
+      setIsSidebarCollapsed(true);
     }
     const effectiveView = currentView === 'landing' ? 'dashboard' : currentView;
     if (currentView === 'landing') {
@@ -231,6 +257,9 @@ export default function App() {
       setActiveTabRaw(targetTab);
       if (TAB_TO_GROUP[targetTab]) {
         setOpenGroupId(TAB_TO_GROUP[targetTab]);
+      }
+      if (targetTab === 'inbox') {
+        setIsSidebarCollapsed(true);
       }
     }
     updateUrl(view, tabToUse, replace);
@@ -647,6 +676,8 @@ export default function App() {
             onTimerExpire={refreshUserData}
             isMobileMenuOpen={isMobileMenuOpen}
             onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={handleToggleSidebar}
             activeTabLabel={
               currentPrimarySection.tabs.length > 1
                 ? `${currentPrimarySection.label} / ${currentSubTab.label}`
@@ -920,13 +951,82 @@ export default function App() {
 
           {/* DESKTOP + MAIN WORKSPACE BODY */}
           <div className="flex-1 flex min-h-0">
-            {/* Clean Left Sidebar with Collapsible Sub-Menus Under Each Section */}
-            <aside className="hidden md:flex flex-col justify-between w-64 shrink-0 bg-white dark:bg-[#0F0A24] border-r border-slate-200/80 dark:border-purple-500/15 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
-              <div className="space-y-6">
-                <div className="space-y-1.5">
-                  <div className="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    Main Menu
+            {/* Clean Left Sidebar: Supports Full (w-64) or Collapsed Slim Icon Rail (w-16) */}
+            <aside
+              className={`hidden md:flex flex-col justify-between shrink-0 bg-white dark:bg-[#0F0A24] border-r border-slate-200/80 dark:border-purple-500/15 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto transition-all duration-200 ${
+                isSidebarCollapsed ? 'w-16 p-2 items-center' : 'w-64 p-4'
+              }`}
+            >
+              {isSidebarCollapsed ? (
+                /* Collapsed Slim Icon Rail (LazyChat / Slack style) */
+                <>
+                  <div className="w-full flex flex-col items-center space-y-4">
+                    <button
+                      type="button"
+                      onClick={handleToggleSidebar}
+                      className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#191138] transition-colors cursor-pointer"
+                      title="Expand Menu"
+                    >
+                      <PanelLeftOpen className="w-4 h-4" />
+                    </button>
+
+                    <div className="w-full flex flex-col items-center space-y-1.5">
+                      {primarySections.map((section) => {
+                        const Icon = section.icon;
+                        const isSectionActive = currentPrimarySection.groupId === section.groupId;
+                        return (
+                          <div key={section.groupId} className="relative group">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab(section.defaultTab);
+                                setOpenGroupId(section.groupId);
+                              }}
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                                isSectionActive
+                                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-md shadow-purple-500/20'
+                                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white'
+                              }`}
+                            >
+                              <Icon className="w-4 h-4 shrink-0" />
+                            </button>
+                            {/* Hover Tooltip */}
+                            <div className="pointer-events-none absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-neutral-900 text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-md">
+                              {section.label}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  <div className="pt-3 border-t border-slate-200/70 dark:border-purple-500/15 w-full flex flex-col items-center">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('billing')}
+                      className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-[#7F22FE] hover:scale-105 transition-transform cursor-pointer"
+                      title={isProPlan ? 'Pro Plan Active' : 'Upgrade Plan'}
+                    >
+                      <Crown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Full Expanded Sidebar */
+                <>
+                  <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <div className="px-3 pb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <span>Main Menu</span>
+                      <button
+                        type="button"
+                        onClick={handleToggleSidebar}
+                        className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#191138] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        title="Collapse Menu (Full Screen)"
+                      >
+                        <PanelLeftClose className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   {primarySections.map((section) => {
                     const Icon = section.icon;
                     const isSectionActive = currentPrimarySection.groupId === section.groupId;
@@ -1147,14 +1247,16 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              </>
+              )}
             </aside>
 
             {/* Main Content Area */}
             <main
-              className={`flex-1 min-w-0 max-w-[1280px] mx-auto w-full ${
+              className={`flex-1 min-w-0 w-full ${
                 activeTab === 'inbox'
-                  ? 'p-1.5 sm:p-3 lg:px-5 lg:py-2.5 pb-16 md:pb-2.5 flex flex-col min-h-0 h-[calc(100dvh-6.25rem)] md:h-[calc(100vh-4rem)] overflow-hidden'
-                  : 'p-3.5 sm:p-6 lg:p-7 pb-20 md:pb-7'
+                  ? 'max-w-none p-1 sm:p-2 lg:p-2.5 pb-16 md:pb-2 flex flex-col min-h-0 h-[calc(100dvh-6.25rem)] md:h-[calc(100vh-4rem)] overflow-hidden'
+                  : 'max-w-[1280px] mx-auto p-3.5 sm:p-6 lg:p-7 pb-20 md:pb-7'
               }`}
             >
               {/* Show Trial / Expiry Alert Banner ONLY when trial is expiring or expired (no duplicate banner on active plans) */}
@@ -1309,6 +1411,8 @@ export default function App() {
                   initialConvKey={inboxTargetConvKey}
                   isProPlan={isProPlan}
                   onUpgradeToPro={handleNavigateToProUpgrade}
+                  isSidebarCollapsed={isSidebarCollapsed}
+                  onToggleSidebar={handleToggleSidebar}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);
                     if (tab === 'billing') setIsLockBypassedForBilling(true);
