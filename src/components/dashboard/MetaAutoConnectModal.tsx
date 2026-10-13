@@ -890,33 +890,38 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     </div>
 
                     {/* Webhook Configuration Quick Copy Box */}
-                    <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2 text-xs">
-                      <span className="font-bold text-neutral-700 dark:text-neutral-300 block text-[11px]">
-                        Meta Developer Portal &gt; WhatsApp &gt; Configuration-এ বসানোর জন্য Webhook তথ্য:
-                      </span>
-                      <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <div className="min-w-0 font-mono text-[10px] truncate text-neutral-600 dark:text-neutral-300">
-                          https://oneagentbd.online/api/webhooks/whatsapp
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-neutral-800 dark:text-neutral-200 block text-[11px]">
+                          Meta Developer Portal &gt; WhatsApp &gt; Configuration-এ বসানোর জন্য Webhook তথ্য:
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                        <div className="min-w-0 font-mono text-[11px] truncate text-emerald-700 dark:text-emerald-400 font-semibold">
+                          {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/whatsapp` : 'https://ais-dev-nwv6mits3zrthudhqce6uy-735467083503.asia-east1.run.app/api/webhooks/whatsapp'}
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleCopyText('https://oneagentbd.online/api/webhooks/whatsapp', 'wa_wh')}
-                          className="text-[10px] font-bold text-emerald-600 hover:underline shrink-0 cursor-pointer"
+                          onClick={() => handleCopyText(typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/whatsapp` : 'https://ais-dev-nwv6mits3zrthudhqce6uy-735467083503.asia-east1.run.app/api/webhooks/whatsapp', 'wa_wh')}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
                         >
                           {copiedKey === 'wa_wh' ? 'Copied ✓' : 'Copy URL'}
                         </button>
                       </div>
-                      <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <span className="text-[10px] text-neutral-500">
-                          Verify Token: <strong className="font-mono text-neutral-800 dark:text-neutral-200">one_agent_bd_verify_token</strong>
+                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                        <span className="text-[11px] text-neutral-600 dark:text-neutral-300">
+                          Verify Token: <strong className="font-mono text-neutral-900 dark:text-white font-bold">one_agent_bd_verify_token</strong>
                         </span>
                         <button
                           type="button"
                           onClick={() => handleCopyText('one_agent_bd_verify_token', 'wa_vt')}
-                          className="text-[10px] font-bold text-emerald-600 hover:underline shrink-0 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
                         >
                           {copiedKey === 'wa_vt' ? 'Copied ✓' : 'Copy Token'}
                         </button>
+                      </div>
+                      <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-[10.5px] text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                        ⚠️ <strong>সবচেয়ে জরুরি ধাপ:</strong> মেটা পোর্টালে Webhook ভেরিফাই করার পর নিচে <strong>Webhook fields</strong> সেকশনে <strong>Manage</strong> বাটনে ক্লিক করে <strong>messages</strong> ফিল্ডে অবশ্যই <strong>Subscribe</strong> করবেন। এটি না করলে টেস্ট নাম্বারে আসা মেসেজ বা কাস্টমার রিপ্লাই মেটা পাঠাবে না!
                       </div>
                     </div>
 

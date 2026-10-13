@@ -66,6 +66,9 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
     const body = req.body || {};
     console.log('[Unified Meta Webhook POST] object=', body.object);
 
+    // Fast HTTP 200 response to prevent Meta webhook timeout
+    res.status(200).send('EVENT_RECEIVED');
+
     const tasks: Promise<any>[] = [];
 
     // 1. WhatsApp Business Account events
@@ -261,8 +264,9 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
       }
     }
 
-    await Promise.all(tasks);
-    return res.status(200).send('EVENT_RECEIVED');
+    if (tasks.length > 0) {
+      Promise.all(tasks).catch((err) => console.error('[Unified Meta Webhook Async Task Error]:', err));
+    }
   } catch (err: any) {
     console.error('[Unified Meta Webhook Error]:', err);
     if (!res.headersSent) {
@@ -306,8 +310,11 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
 // POST /api/webhooks/whatsapp - Inbound WhatsApp Messages
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
   try {
-    const body = req.body;
-    console.log('[WhatsApp Webhook] Received payload:', JSON.stringify(body));
+    const body = req.body || {};
+    console.log('[WhatsApp Webhook] Received payload at', new Date().toISOString(), 'object=', body.object);
+
+    // Fast HTTP 200 response to prevent Meta webhook timeout (<3s requirement)
+    res.status(200).send('EVENT_RECEIVED');
 
     const tasks: Promise<any>[] = [];
 
@@ -367,8 +374,9 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
       }
     }
 
-    await Promise.all(tasks);
-    return res.status(200).send('EVENT_RECEIVED');
+    if (tasks.length > 0) {
+      Promise.all(tasks).catch((err) => console.error('[WhatsApp Webhook Async Task Error]:', err));
+    }
   } catch (err: any) {
     console.error('Error handling WhatsApp webhook payload:', err);
     if (!res.headersSent) {

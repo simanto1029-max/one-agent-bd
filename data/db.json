@@ -197,9 +197,9 @@
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-10-06T06:40:48.603Z",
-      "updated_at": "2026-10-08T16:52:15.640Z",
-      "last_webhook_at": "2026-10-08T16:52:15.640Z",
-      "last_message_at": "2026-10-08T16:52:15.640Z"
+      "updated_at": "2026-10-13T09:10:06.687Z",
+      "last_webhook_at": "2026-10-13T09:10:06.687Z",
+      "last_message_at": "2026-10-13T09:10:06.687Z"
     }
   ],
   "messages": [
@@ -3655,6 +3655,150 @@
       "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80",
       "status": "sent",
       "created_at": "2026-10-09T08:02:34.479Z"
+    },
+    {
+      "id": "msg_1791882351644_in_9oqe",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "8801700000000",
+      "customer_name": "Simanto Test",
+      "direction": "inbound",
+      "message_text": "Hello test from whatsapp",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "raw_payload": {
+        "from": "8801700000000",
+        "id": "wamid.test_payload_123",
+        "timestamp": "1728810000",
+        "text": {
+          "body": "Hello test from whatsapp"
+        },
+        "type": "text"
+      },
+      "created_at": "2026-10-13T09:05:51.644Z"
+    },
+    {
+      "id": "msg_1791882362282_out_sdi2",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "8801700000000",
+      "customer_name": "Simanto Test",
+      "direction": "outbound",
+      "message_text": "আপনার প্রশ্নের বিস্তারিত তথ্য নিচে দেওয়া হলো:\n\n১. Open daily from 9:00 AM to 11:00 PM. Helpline: 01811-998877.\n\n২. 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.\n\n৩. To confirm an order, we require the customer's Full Name, Complete Delivery Address, and 11-digit Phone Number.\n\n৪. Support & Helpline:\n\nআপনি কি এই বিষয়ে আরও কিছু জানতে চান, নাকি অর্ডার কনফার্ম করতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "interactive_options": {
+        "type": "list",
+        "listButtonLabel": "পছন্দ করুন",
+        "listButtonTitle": "পছন্দ করুন",
+        "listSectionTitle": "পছন্দ করুন",
+        "footerText": "WhatsApp (+8801712345678) AI Assistant",
+        "items": [
+          {
+            "id": "prod_seed_cargo_01",
+            "title": "Cargo Jogger Pant (Olive Green)",
+            "description": "৳1150 BDT",
+            "price": 1150
+          },
+          {
+            "id": "prod_seed_denim_02",
+            "title": "Slim Fit Denim Jeans (Deep Blue)",
+            "description": "৳1250 BDT",
+            "price": 1250
+          },
+          {
+            "id": "prod_seed_shirt_03",
+            "title": "Casual Oxford Cotton Shirt (Sky Blue)",
+            "description": "৳850 BDT",
+            "price": 850
+          },
+          {
+            "id": "prod_seed_watch_04",
+            "title": "Smart Calling Watch (Series 9 Metallic Black)",
+            "description": "৳2450 BDT",
+            "price": 2450
+          }
+        ],
+        "listItems": [
+          {
+            "id": "prod_seed_cargo_01",
+            "title": "Cargo Jogger Pant (Olive Green)",
+            "description": "৳1150 BDT",
+            "price": 1150
+          },
+          {
+            "id": "prod_seed_denim_02",
+            "title": "Slim Fit Denim Jeans (Deep Blue)",
+            "description": "৳1250 BDT",
+            "price": 1250
+          },
+          {
+            "id": "prod_seed_shirt_03",
+            "title": "Casual Oxford Cotton Shirt (Sky Blue)",
+            "description": "৳850 BDT",
+            "price": 850
+          },
+          {
+            "id": "prod_seed_watch_04",
+            "title": "Smart Calling Watch (Series 9 Metallic Black)",
+            "description": "৳2450 BDT",
+            "price": 2450
+          }
+        ],
+        "buttons": [
+          {
+            "id": "btn_order_now",
+            "label": "Order Now",
+            "payload": "অর্ডার করতে চাই",
+            "icon": "order"
+          },
+          {
+            "id": "btn_see_more",
+            "label": "আরও দেখুন",
+            "payload": "আরও দেখুন",
+            "icon": "back"
+          },
+          {
+            "id": "btn_home",
+            "label": "হোম পেজ",
+            "payload": "হোম পেজ",
+            "icon": "home"
+          }
+        ]
+      },
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-13T09:06:02.282Z"
+    },
+    {
+      "id": "msg_1791882606682_in_ogcl",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "8801799887766",
+      "customer_name": "Customer Reply Test",
+      "direction": "inbound",
+      "message_text": "Brother, order kobe pabo?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "raw_payload": {
+        "from": "8801799887766",
+        "id": "wamid.reply_test_instant_1",
+        "timestamp": "1728810500",
+        "text": {
+          "body": "Brother, order kobe pabo?"
+        },
+        "type": "text"
+      },
+      "created_at": "2026-10-13T09:10:06.682Z"
     }
   ],
   "settings": {
@@ -3665,11 +3809,32 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-11T09:34:43.378Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 9:34:43 AM)",
+    "cron_last_run": "2026-10-13T09:10:10.353Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:10:10 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
+    {
+      "id": "ord_1791882487309_juq9",
+      "user_id": "usr_demo_002",
+      "customer_id": "8801700000000",
+      "customer_name": "Simanto Test",
+      "customer_address": "Details shared in conversation",
+      "platform": "whatsapp",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "items": "One Agent BD All-in-One Plan (Monthly)",
+      "quantity": 1,
+      "total_amount": 1450,
+      "buying_cost": 798,
+      "currency": "BDT",
+      "payment_method": "unspecified",
+      "payment_status": "pending",
+      "status": "confirmed",
+      "order_source": "ai_detected",
+      "notes": "Order captured automatically by One Agent BD AI assistant. | 🚨 AI Auto Fraud Alert: Unverified/Incomplete Phone Number — Call customer to verify before COD dispatch. | Confirmation Slip: \"Thank you Simanto Test! Your order for One Agent BD All-in-One Plan (Monthly) has been successfully received. Order ID: #ord_1791882487309_juq9. Total Bill: BDT 1450. Our delivery team will contact you shortly.\"",
+      "created_at": "2026-10-13T09:08:07.309Z",
+      "updated_at": "2026-10-13T09:08:07.309Z"
+    },
     {
       "id": "ord_dm_8841",
       "user_id": "usr_demo_002",
@@ -4010,6 +4175,26 @@
   ],
   "webhook_events": [
     {
+      "id": "wh_1791882606692",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "1389028370964106",
+      "sender_id": "8801799887766",
+      "status": "processed",
+      "message_id": "wamid.reply_test_instant_1",
+      "created_at": "2026-10-13T09:10:06.692Z"
+    },
+    {
+      "id": "wh_1791882351656",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "1389028370964106",
+      "sender_id": "8801700000000",
+      "status": "processed",
+      "message_id": "wamid.test_payload_123",
+      "created_at": "2026-10-13T09:05:51.656Z"
+    },
+    {
       "id": "wh_1791478335644",
       "platform": "whatsapp",
       "event_type": "message",
@@ -4238,7 +4423,9 @@
         "হাফ হাতা"
       ],
       "created_at": "2026-10-09T08:01:58.424Z",
-      "updated_at": "2026-10-11T09:34:52.595Z"
+      "updated_at": "2026-10-13T09:08:07.310Z",
+      "stock_quantity": 24,
+      "sold_count": 1
     },
     {
       "id": "prod_seed_watch_04",
@@ -4602,7 +4789,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1791711292614,
+  "_lastUpdatedAt": 1791882610353,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []
