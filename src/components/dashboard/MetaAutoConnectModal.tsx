@@ -898,11 +898,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       </div>
                       <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                         <div className="min-w-0 font-mono text-[11px] truncate text-emerald-700 dark:text-emerald-400 font-semibold">
-                          {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/whatsapp` : 'https://ais-dev-nwv6mits3zrthudhqce6uy-735467083503.asia-east1.run.app/api/webhooks/whatsapp'}
+                          https://www.oneagentbd.online/api/webhooks/whatsapp
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleCopyText(typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/whatsapp` : 'https://ais-dev-nwv6mits3zrthudhqce6uy-735467083503.asia-east1.run.app/api/webhooks/whatsapp', 'wa_wh')}
+                          onClick={() => handleCopyText('https://www.oneagentbd.online/api/webhooks/whatsapp', 'wa_wh')}
                           className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
                         >
                           {copiedKey === 'wa_wh' ? 'Copied ✓' : 'Copy URL'}
@@ -910,11 +910,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       </div>
                       <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                         <span className="text-[11px] text-neutral-600 dark:text-neutral-300">
-                          Verify Token: <strong className="font-mono text-neutral-900 dark:text-white font-bold">one_agent_bd_verify_token</strong>
+                          Verify Token: <strong className="font-mono text-neutral-900 dark:text-white font-bold">oneagentbd_wa_secret</strong>
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleCopyText('one_agent_bd_verify_token', 'wa_vt')}
+                          onClick={() => handleCopyText('oneagentbd_wa_secret', 'wa_vt')}
                           className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
                         >
                           {copiedKey === 'wa_vt' ? 'Copied ✓' : 'Copy Token'}

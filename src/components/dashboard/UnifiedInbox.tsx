@@ -349,6 +349,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   useEffect(() => {
     loadInbox();
+    // Fast 3-second background polling for live incoming WhatsApp/Messenger messages
+    const livePollTimer = setInterval(() => {
+      api.getInbox({
+        category: selectedCategory !== 'all' ? selectedCategory : undefined
+      }).then((res) => {
+        setConversations(res.conversations);
+        if (res.categoryCounts) {
+          setCategoryCounts(res.categoryCounts);
+        }
+      }).catch(() => {});
+    }, 3000);
+
+    return () => clearInterval(livePollTimer);
   }, [selectedCategory]);
 
   const selectedConv = conversations.find(
