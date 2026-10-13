@@ -722,6 +722,30 @@ export const api = {
     });
   },
 
+  async detectWhatsAppFromToken(data: {
+    accessToken?: string;
+    phoneNumberId?: string;
+  }): Promise<{
+    success: boolean;
+    phoneNumberId?: string;
+    displayPhoneNumber?: string;
+    verifiedName?: string;
+    qualityRating?: string;
+    numbers?: Array<{
+      id: string;
+      waba_id: string;
+      waba_name: string;
+      display_phone_number: string;
+      verified_name?: string;
+      quality_rating?: string;
+    }>;
+  }> {
+    return fetchJson('/api/channels/meta/whatsapp-detect', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async whatsappEmbeddedSignup(data: {
     code?: string;
     wabaId?: string;

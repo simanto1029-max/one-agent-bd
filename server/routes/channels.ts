@@ -554,6 +554,72 @@ channelsRouter.post('/meta/whatsapp-onboarding', async (req: Request, res: Respo
   return res.json({ success: true, channel: sanitized });
 });
 
+// POST /api/channels/meta/whatsapp-detect - Inspect access token or Phone Number ID to auto-populate WhatsApp details from Meta Graph API
+channelsRouter.post('/meta/whatsapp-detect', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { accessToken, phoneNumberId } = req.body || {};
+  const tokenToUse = (typeof accessToken === 'string' && accessToken.trim()) || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
+
+  if (!tokenToUse && !phoneNumberId) {
+    return res.status(400).json({ error: 'Access Token বা Phone Number ID প্রদান করুন।' });
+  }
+
+  try {
+    // 1. If phoneNumberId is provided, query it directly
+    if (phoneNumberId && tokenToUse) {
+      try {
+        const phoneUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          String(phoneNumberId).trim()
+        )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
+          tokenToUse
+        )}`;
+        const phoneRes = await fetch(phoneUrl);
+        const phoneJson = (await phoneRes.json()) as any;
+        if (phoneRes.ok && phoneJson.id) {
+          return res.json({
+            success: true,
+            phoneNumberId: String(phoneJson.id),
+            displayPhoneNumber: phoneJson.display_phone_number || '',
+            verifiedName: phoneJson.verified_name || '',
+            qualityRating: phoneJson.quality_rating || 'GREEN'
+          });
+        }
+      } catch (_directPhErr) {}
+    }
+
+    // 2. Discover from token
+    if (tokenToUse) {
+      const { whatsappNumbers, error } = await metaOAuthService.discoverAssetsFromToken(tokenToUse);
+      if (whatsappNumbers && whatsappNumbers.length > 0) {
+        return res.json({
+          success: true,
+          numbers: whatsappNumbers.map((w) => ({
+            id: w.id,
+            waba_id: w.waba_id,
+            waba_name: w.waba_name,
+            display_phone_number: w.display_phone_number,
+            verified_name: w.verified_name,
+            quality_rating: w.quality_rating
+          }))
+        });
+      }
+      if (error) {
+        return res.status(400).json({ error });
+      }
+    }
+
+    return res.status(404).json({
+      error: 'প্রদত্ত Access Token দিয়ে কোনো সক্রিয় WhatsApp Business ফোন নম্বর পাওয়া যায়নি। দয়া করে Phone Number ID সরাসরি ইনপুট করুন।'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Meta API যাচাই ব্যর্থ হয়েছে।' });
+  }
+});
+
 // POST /api/channels/meta/whatsapp-embedded-signup - 1-Click Meta WhatsApp Embedded Signup handler
 channelsRouter.post('/meta/whatsapp-embedded-signup', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
