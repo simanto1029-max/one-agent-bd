@@ -1033,7 +1033,14 @@ export default function App() {
                     const hasSubTabs = section.tabs.length > 1;
                     const isSubOpen = openGroupId === section.groupId;
                     return (
-                      <div key={section.groupId} className="space-y-1">
+                      <div
+                        key={section.groupId}
+                        className={`rounded-2xl transition-all duration-200 border p-1 space-y-1 ${
+                          isSectionActive
+                            ? 'bg-purple-500/[0.04] dark:bg-purple-500/[0.08] border-purple-500/25 dark:border-purple-500/30 shadow-2xs'
+                            : 'bg-white/60 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/[0.04] hover:border-slate-300 dark:hover:border-purple-500/20'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => {
@@ -1054,19 +1061,19 @@ export default function App() {
                               }
                             }
                           }}
-                          className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-between transition-all cursor-pointer ${
+                          className={`w-full px-3 py-2 rounded-xl text-[13px] font-bold flex items-center justify-between transition-all cursor-pointer ${
                             isSectionActive
                               ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white shadow-md shadow-purple-500/20'
                               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <Icon className="w-4 h-4 shrink-0" />
                             <span className="truncate">{section.label}</span>
                           </div>
                           {hasSubTabs ? (
                             <ChevronDown
-                              className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-in-out ${
+                              className={`w-3.5 h-3.5 shrink-0 transition-transform duration-300 ease-in-out ${
                                 isSubOpen ? 'rotate-180' : 'rotate-0'
                               } ${
                                 isSectionActive
@@ -1081,7 +1088,7 @@ export default function App() {
                           )}
                         </button>
 
-                        {/* Smooth Height-Transition Collapsible Sub-Sections Inside Left Sidebar */}
+                        {/* Smooth Height-Transition Collapsible Sub-Sections Inside Container Box */}
                         {hasSubTabs && (
                           <div
                             className={`grid transition-all duration-300 ease-in-out ${
@@ -1091,7 +1098,7 @@ export default function App() {
                             }`}
                           >
                             <div className="overflow-hidden">
-                              <div className="ml-4 pl-3 border-l-2 border-purple-500/30 dark:border-purple-500/40 space-y-1 py-1">
+                              <div className="ml-3 pl-2.5 border-l-2 border-purple-500/25 dark:border-purple-500/35 space-y-0.5 py-1">
                                 {section.tabs.map((sub) => {
                                   const SubIcon = sub.icon;
                                   const isSubActive = activeTab === sub.id;
@@ -1100,13 +1107,13 @@ export default function App() {
                                       key={sub.id}
                                       type="button"
                                       onClick={() => setActiveTab(sub.id)}
-                                      className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                                      className={`w-full px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
                                         isSubActive
-                                          ? 'bg-purple-50 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 font-extrabold shadow-2xs'
-                                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white font-semibold'
+                                          ? 'bg-purple-100/80 dark:bg-purple-500/25 text-[#7C3AED] dark:text-purple-300 font-bold shadow-2xs'
+                                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-[#191138] hover:text-slate-900 dark:hover:text-white font-medium'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0">
                                         <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? 'text-[#7C3AED] dark:text-purple-300' : 'text-slate-400'}`} />
                                         <span className="truncate">{sub.label}</span>
                                       </div>

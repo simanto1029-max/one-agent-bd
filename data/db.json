@@ -133,9 +133,9 @@
       "plan_id": "plan_pro",
       "status": "active",
       "start_date": "2026-09-15T21:51:51.887Z",
-      "end_date": "2026-10-14T03:10:43.324Z",
+      "end_date": "2027-10-14T06:19:11.793Z",
       "created_at": "2026-09-15T21:51:51.887Z",
-      "updated_at": "2026-09-16T09:51:51.887Z"
+      "updated_at": "2026-10-14T06:19:11.793Z"
     },
     {
       "id": "sub_admin_001",
@@ -3799,6 +3799,22 @@
         "type": "text"
       },
       "created_at": "2026-10-13T09:10:06.682Z"
+    },
+    {
+      "id": "msg_1791958752325_fw_t6v3",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "8801799887766",
+      "customer_name": "Customer Reply Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Customer Reply Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-14T06:19:12.326Z"
     }
   ],
   "settings": {
@@ -3809,8 +3825,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-13T09:10:10.353Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 9:10:10 AM)",
+    "cron_last_run": "2026-10-14T07:13:11.873Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 7:13:11 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4789,7 +4805,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1791882610353,
+  "_lastUpdatedAt": 1791961991874,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": []

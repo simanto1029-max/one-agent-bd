@@ -27,6 +27,8 @@ import { api } from '../../api';
 import { Channel, UserProfile } from '../../types';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { MetaAutoConnectModal } from './MetaAutoConnectModal';
+import { FacebookLogo, InstagramLogo, WhatsAppLogo, MessengerLogo } from '../common/BrandLogos';
+import { ToggleSwitch } from '../common/ToggleSwitch';
 
 interface ChannelsViewProps {
   channels: Channel[];
@@ -237,6 +239,20 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     }
   };
 
+  // 1-Click Toggle AI Agent Active/Pause on a connected channel (Instant optimistic update)
+  const handleToggleChannelActive = async (channelId: string) => {
+    try {
+      setLocalChannels((prev) =>
+        prev.map((c) => (c.id === channelId ? { ...c, is_active: !c.is_active } : c))
+      );
+      await api.toggleChannel(channelId);
+      onRefresh();
+    } catch (err: any) {
+      setLocalChannels(channels);
+      setError(err.message || 'Failed to toggle AI Auto-Reply on this channel.');
+    }
+  };
+
   // Toggle Comment Auto-Reply or Auto Follow-up on a connected channel
   const handleToggleAutomation = async (
     channel: Channel,
@@ -244,11 +260,16 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   ) => {
     try {
       const currentVal = channel[field] !== false; // default true
+      const nextVal = !currentVal;
+      setLocalChannels((prev) =>
+        prev.map((c) => (c.id === channel.id ? { ...c, [field]: nextVal } : c))
+      );
       await api.updateChannelAutomation(channel.id, {
-        [field]: !currentVal
+        [field]: nextVal
       });
       onRefresh();
     } catch (err: any) {
+      setLocalChannels(channels);
       setError(err.message || 'Failed to update automation settings.');
     }
   };
@@ -450,150 +471,138 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         </div>
       )}
 
-      {/* VIEW 1: 3 HORIZONTAL CHANNEL BOXES (FACEBOOK, INSTAGRAM, WHATSAPP) */}
+      {/* VIEW 1: 3 COMPACT CHANNEL BOXES (FACEBOOK, INSTAGRAM, WHATSAPP) */}
       {viewMode === 'channels' && (
-        <div className="space-y-4">
-          {/* Troubleshooting Checklist Accordion */}
-          <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/20 overflow-hidden">
+        <div className="space-y-5 animate-fade-in">
+          {/* Sleek Collapsible Troubleshoot & Webhook Quick Guide */}
+          <div className="rounded-2xl border border-slate-200/80 dark:border-purple-500/20 bg-white/70 dark:bg-[#120B2E]/70 backdrop-blur-sm overflow-hidden shadow-xs transition-all">
             <button
               type="button"
               onClick={() => setShowTroubleshoot(!showTroubleshoot)}
-              className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-blue-100/40 dark:hover:bg-blue-950/40 transition-colors"
+              className="w-full px-4 py-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-600/30">
-                  <HelpCircle className="w-4 h-4" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-[#7F22FE] dark:text-purple-300 flex items-center justify-center shrink-0">
+                  <HelpCircle className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                    <span>💡 ফেসবুক পেজে মেসেজ দিলে রিপ্লাই না আসলে করনীয় (Troubleshooting Checklist)</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#1877F2] dark:text-blue-300 font-extrabold uppercase">
-                      গাইড
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                    আপনার মেটা অ্যাপ Live হওয়ার পরও রিপ্লাই না আসলে এই ৩টি বিষয় চেক করুন
-                  </p>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Troubleshooting &amp; Webhook Setup Guide
+                  </span>
+                  <span className="hidden sm:inline text-[11px] text-slate-400 dark:text-slate-500 ml-2">
+                    Quick checklist if messages don&apos;t receive auto-replies
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[#1877F2] dark:text-blue-400">
-                <span>{showTroubleshoot ? 'বন্ধ করুন' : 'বিস্তারিত দেখুন'}</span>
-                {showTroubleshoot ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#7F22FE] dark:text-purple-400 shrink-0">
+                <span>{showTroubleshoot ? 'Close' : 'View Guide'}</span>
+                {showTroubleshoot ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </div>
             </button>
 
             {showTroubleshoot && (
-              <div className="p-4 sm:p-5 pt-0 border-t border-blue-200/60 dark:border-blue-900/40 space-y-3.5 text-xs text-neutral-700 dark:text-neutral-300 animate-in fade-in duration-150">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
-                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
-                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">1</span>
-                      <span>পেজ কানেক্ট করেছেন কি?</span>
+              <div className="p-4 pt-2 border-t border-slate-200/60 dark:border-purple-500/15 space-y-3 text-xs text-slate-600 dark:text-slate-300 animate-fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-1">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[9px] font-black">1</span>
+                      <span>Page / Number Connected?</span>
                     </div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      নিচের Facebook কার্ডে <strong>Connect Facebook</strong> এ ক্লিক করে আপনার <strong>Page ID</strong> ও <strong>Page Access Token</strong> দিয়ে পেজটি কানেক্ট করুন। পেজ কানেক্ট না থাকলে মেটা থেকে মেসেজ এলেও সার্ভার রিপ্লাই পাঠাতে পারে না।
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Ensure your Page ID &amp; Token are connected in the Facebook card below so the server can authorize replies.
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
-                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">2</span>
-                      <span>Webhook Page Subscribe</span>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-1">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[9px] font-black">2</span>
+                      <span>Webhook Subscription</span>
                     </div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      <strong>developers.facebook.com</strong> &gt; Messenger &gt; Webhooks সেকশনে গিয়ে আপনার ফেসবুক পেজটি সিলেক্ট করে <strong>"Subscribe"</strong> বাটনে ক্লিক করেছেন কিনা এবং <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">messages</code> ফিল্ড টিক দেওয়া আছে কিনা নিশ্চিত করুন।
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      In Meta Developer Console &gt; Webhooks, ensure your Page is Subscribed to <code className="px-1 py-0.5 rounded bg-slate-200/70 dark:bg-purple-900/40 text-[10px]">messages</code>.
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-1.5 shadow-xs">
-                    <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[10px]">3</span>
-                      <span>Live App Permissions (#10)</span>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-1">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-[#1877F2] text-white flex items-center justify-center text-[9px] font-black">3</span>
+                      <span>Testing in Dev Mode</span>
                     </div>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      মেটা অ্যাপ <strong>Live Mode</strong> এ থাকলে এবং <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">pages_messaging</code> এর শুধুমাত্র Standard Access থাকলে, সাধারণ বাইরের কাস্টমারের মেসেজে ফেসবুক ব্লক করে। টেস্টিং করার সময় আপনার আইডিটিকে Meta Developer Portal এর <strong>App Roles &gt; Testers</strong> এ যুক্ত করুন।
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      While in Development mode, only accounts listed under <strong>App Roles &gt; Testers</strong> can receive test replies.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-blue-100/60 dark:bg-blue-900/30 flex items-center justify-between gap-3 text-[11px]">
-                  <span className="text-blue-900 dark:text-blue-200">
-                    আমাদের <strong>Webhook Callback URL:</strong> <code className="font-mono font-bold">{`${effectiveOrigin}/api/webhooks/messenger`}</code> | <strong>Verify Token:</strong> <code className="font-mono font-bold">oneagentbd_messenger_secret</code>
-                  </span>
+                <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
+                  <div className="font-mono text-slate-700 dark:text-purple-200 truncate">
+                    <strong>Webhook:</strong> {`${effectiveOrigin}/api/webhooks/messenger`} · <strong>Token:</strong> oneagentbd_messenger_secret
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleCopy(`${effectiveOrigin}/api/webhooks/messenger`, 'cb_quick')}
-                    className="font-bold text-[#1877F2] dark:text-blue-300 hover:underline shrink-0 cursor-pointer"
+                    className="font-bold text-[#7F22FE] dark:text-purple-300 hover:underline shrink-0 cursor-pointer text-left sm:text-right"
                   >
-                    {copiedText === 'cb_quick' ? 'Copied!' : 'Copy URL'}
+                    {copiedText === 'cb_quick' ? 'Copied!' : 'Copy Webhook URL'}
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* BOX 1: FACEBOOK */}
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
-            <div>
-              {/* Card Header */}
-              <div className="flex items-center justify-between pb-5 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center shadow-md shadow-[#1877F2]/25 shrink-0">
-                    <Facebook className="w-6 h-6 fill-current" />
+          {/* 3 HIGH-DENSITY CHANNEL CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* BOX 1: FACEBOOK */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#1877F2]/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 text-[#1877F2] flex items-center justify-center shadow-xs shrink-0">
+                      <FacebookLogo className="w-5 h-5 text-[#1877F2]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        Facebook
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                        Messenger &amp; Comments
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                      Facebook
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      Messenger &amp; Page Comments
-                    </p>
-                  </div>
+
+                  {facebookChannels.length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active ({facebookChannels.length})
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      Not Connected
+                    </span>
+                  )}
                 </div>
 
+                {/* Content */}
                 {facebookChannels.length > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Connected ({facebookChannels.length})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                    Not Connected
-                  </span>
-                )}
-              </div>
-
-              {/* Card Body */}
-              <div className="py-5 space-y-3">
-                {facebookChannels.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {facebookChannels.map((fbCh) => {
                       const commentOn = fbCh.auto_comment_reply !== false;
                       const followUpOn = fbCh.auto_followup_enabled !== false;
+                      const isAiActive = fbCh.is_active !== false;
                       return (
                         <div
                           key={fbCh.id}
-                          className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5"
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+                              <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                                 {fbCh.name}
                               </h4>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                AI Auto-Reply Active
+                              <span className="text-[10px] text-slate-400 dark:text-slate-400">
+                                ID: {fbCh.identifier}
                               </span>
-                              {testResult[fbCh.id] && (
-                                <p
-                                  className={`text-[11px] mt-0.5 font-semibold ${
-                                    testResult[fbCh.id].success ? 'text-emerald-600' : 'text-rose-600'
-                                  }`}
-                                >
-                                  {testResult[fbCh.id].message}
-                                </p>
-                              )}
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
@@ -601,11 +610,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                 type="button"
                                 onClick={() => handleTestChannel(fbCh.id)}
                                 disabled={testingChannelId === fbCh.id}
-                                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                 title="Verify connection"
                               >
                                 <RefreshCw
-                                  className={`w-4 h-4 ${
+                                  className={`w-3.5 h-3.5 ${
                                     testingChannelId === fbCh.id ? 'animate-spin text-[#7F22FE]' : ''
                                   }`}
                                 />
@@ -613,144 +622,146 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setChannelToDelete({ id: fbCh.id, name: fbCh.name })}
-                                className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                 title="Disconnect page"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          {/* 1-Click Auto Comment & Follow-up Toggles (ON by default) */}
-                          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(fbCh, 'auto_comment_reply')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                commentOn
-                                  ? 'bg-blue-100/80 dark:bg-blue-950/70 text-[#1877F2] dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
+                          {testResult[fbCh.id] && (
+                            <p
+                              className={`text-[10px] font-semibold p-1.5 rounded-lg ${
+                                testResult[fbCh.id].success
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                               }`}
                             >
-                              <span>💬 Auto Comment + Inbox: {commentOn ? 'ON' : 'OFF'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(fbCh, 'auto_followup_enabled')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                followUpOn
-                                  ? 'bg-purple-100/80 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
-                              }`}
-                            >
-                              <span>⏰ Auto Follow-up: {followUpOn ? 'ON' : 'OFF'}</span>
-                            </button>
+                              {testResult[fbCh.id].message}
+                            </p>
+                          )}
+
+                          {/* 1-Click Interactive Switches */}
+                          <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-purple-500/10">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                <span>AI Auto-Reply</span>
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="blue"
+                                checked={isAiActive}
+                                onChange={() => handleToggleChannelActive(fbCh.id)}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                💬 Auto Comment + DM
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="blue"
+                                checked={commentOn}
+                                onChange={() => handleToggleAutomation(fbCh, 'auto_comment_reply')}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                ⏰ Smart Follow-up
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="purple"
+                                checked={followUpOn}
+                                onChange={() => handleToggleAutomation(fbCh, 'auto_followup_enabled')}
+                              />
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Connect your Facebook Page. Our AI will automatically reply to all messages and comments and confirm customer orders 24/7.
+                  <div className="space-y-2 py-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Connect your Facebook Page. AI will automatically reply to customer messages, post comments, and book orders.
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#1877F2] dark:text-blue-300">
-                        ✓ Post Comment Auto-Reply + Inbox
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE] dark:text-purple-300">
-                        ✓ Auto Follow-up Message
-                      </span>
+                    <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-[#1877F2]">✓ 24/7 Messenger AI</span>
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ Auto Comment &amp; DM</span>
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleConnectClick('messenger')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{facebookChannels.length > 0 ? 'Connect Another Page' : 'Connect Facebook'}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Single Action Button */}
-            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
-              <button
-                type="button"
-                onClick={() => handleConnectClick('messenger')}
-                className="w-full py-3.5 px-5 rounded-2xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-sm font-bold shadow-md shadow-[#1877F2]/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {facebookChannels.length > 0 ? (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Connect Another Page</span>
-                  </>
-                ) : (
-                  <>
-                    <Facebook className="w-4 h-4 fill-current" />
-                    <span>Connect Facebook</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+            {/* BOX 2: INSTAGRAM */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-pink-500/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/15 via-pink-500/15 to-purple-500/15 text-pink-600 flex items-center justify-center shadow-xs shrink-0">
+                      <InstagramLogo className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        Instagram
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                        Direct Messages &amp; Stories
+                      </p>
+                    </div>
+                  </div>
 
-          {/* BOX 2: INSTAGRAM */}
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
-            <div>
-              {/* Card Header */}
-              <div className="flex items-center justify-between pb-5 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-pink-500/20 shrink-0">
-                    <Instagram className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                      Instagram
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      Direct Messages &amp; Stories
-                    </p>
-                  </div>
+                  {instagramChannels.length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active ({instagramChannels.length})
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      Not Connected
+                    </span>
+                  )}
                 </div>
 
+                {/* Content */}
                 {instagramChannels.length > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Connected ({instagramChannels.length})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                    Not Connected
-                  </span>
-                )}
-              </div>
-
-              {/* Card Body */}
-              <div className="py-5 space-y-3">
-                {instagramChannels.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {instagramChannels.map((igCh) => {
                       const commentOn = igCh.auto_comment_reply !== false;
                       const followUpOn = igCh.auto_followup_enabled !== false;
+                      const isAiActive = igCh.is_active !== false;
                       return (
                         <div
                           key={igCh.id}
-                          className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5"
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+                              <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                                 {igCh.name}
                               </h4>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-pink-600 dark:text-pink-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                                AI Auto-Reply Active
+                              <span className="text-[10px] text-slate-400 dark:text-slate-400">
+                                ID: {igCh.identifier}
                               </span>
-                              {testResult[igCh.id] && (
-                                <p
-                                  className={`text-[11px] mt-0.5 font-semibold ${
-                                    testResult[igCh.id].success ? 'text-emerald-600' : 'text-rose-600'
-                                  }`}
-                                >
-                                  {testResult[igCh.id].message}
-                                </p>
-                              )}
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
@@ -758,154 +769,157 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                 type="button"
                                 onClick={() => handleTestChannel(igCh.id)}
                                 disabled={testingChannelId === igCh.id}
-                                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                 title="Verify connection"
                               >
                                 <RefreshCw
-                                  className={`w-4 h-4 ${
-                                    testingChannelId === igCh.id ? 'animate-spin text-[#7F22FE]' : ''
+                                  className={`w-3.5 h-3.5 ${
+                                    testingChannelId === igCh.id ? 'animate-spin text-pink-600' : ''
                                   }`}
                                 />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setChannelToDelete({ id: igCh.id, name: igCh.name })}
-                                className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                 title="Disconnect account"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(igCh, 'auto_comment_reply')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                commentOn
-                                  ? 'bg-pink-100/80 dark:bg-pink-950/70 text-pink-600 dark:text-pink-300 border border-pink-200 dark:border-pink-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
+                          {testResult[igCh.id] && (
+                            <p
+                              className={`text-[10px] font-semibold p-1.5 rounded-lg ${
+                                testResult[igCh.id].success
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                               }`}
                             >
-                              <span>💬 Auto Comment + DM: {commentOn ? 'ON' : 'OFF'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(igCh, 'auto_followup_enabled')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                followUpOn
-                                  ? 'bg-purple-100/80 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
-                              }`}
-                            >
-                              <span>⏰ Auto Follow-up: {followUpOn ? 'ON' : 'OFF'}</span>
-                            </button>
+                              {testResult[igCh.id].message}
+                            </p>
+                          )}
+
+                          {/* 1-Click Interactive Switches */}
+                          <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-purple-500/10">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                <span>AI Auto-Reply</span>
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="pink"
+                                checked={isAiActive}
+                                onChange={() => handleToggleChannelActive(igCh.id)}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                💬 Auto Comment + DM
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="pink"
+                                checked={commentOn}
+                                onChange={() => handleToggleAutomation(igCh, 'auto_comment_reply')}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                ⏰ Smart Follow-up
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="purple"
+                                checked={followUpOn}
+                                onChange={() => handleToggleAutomation(igCh, 'auto_followup_enabled')}
+                              />
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Connect your Instagram Business account. Our AI will automatically handle DMs, post comments, and product photo requests.
+                  <div className="space-y-2 py-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Connect your Instagram Business account to handle customer DMs, comment replies, and pricing automatically.
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-300">
-                        ✓ Post Comment Auto-Reply + DM
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE] dark:text-purple-300">
-                        ✓ Auto Follow-up Message
-                      </span>
+                    <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded-md bg-pink-50 dark:bg-pink-950/40 text-pink-600">✓ DM &amp; Story Mentions</span>
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ Auto Follow-up</span>
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleConnectClick('instagram')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{instagramChannels.length > 0 ? 'Connect Another Account' : 'Connect Instagram'}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Single Action Button */}
-            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
-              <button
-                type="button"
-                onClick={() => handleConnectClick('instagram')}
-                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white text-sm font-bold shadow-md shadow-pink-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {instagramChannels.length > 0 ? (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Connect Another Account</span>
-                  </>
-                ) : (
-                  <>
-                    <Instagram className="w-4 h-4" />
-                    <span>Connect Instagram</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+            {/* BOX 3: WHATSAPP */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-emerald-500/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
+                      <WhatsAppLogo className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        WhatsApp
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                        WhatsApp Business API
+                      </p>
+                    </div>
+                  </div>
 
-          {/* BOX 3: WHATSAPP */}
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-6 flex flex-col justify-between">
-            <div>
-              {/* Card Header */}
-              <div className="flex items-center justify-between pb-5 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/25 shrink-0">
-                    <Smartphone className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">
-                      WhatsApp
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      WhatsApp Business API
-                    </p>
-                  </div>
+                  {whatsappChannels.length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active ({whatsappChannels.length})
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      Not Connected
+                    </span>
+                  )}
                 </div>
 
+                {/* Content */}
                 {whatsappChannels.length > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Connected ({whatsappChannels.length})
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                    Not Connected
-                  </span>
-                )}
-              </div>
-
-              {/* Card Body */}
-              <div className="py-5 space-y-3">
-                {whatsappChannels.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {whatsappChannels.map((waCh) => {
                       const followUpOn = waCh.auto_followup_enabled !== false;
+                      const isAiActive = waCh.is_active !== false;
                       return (
                         <div
                           key={waCh.id}
-                          className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5"
+                          className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-neutral-900 dark:text-white truncate">
+                              <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                                 {waCh.name}
                               </h4>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                AI Auto-Reply Active
+                              <span className="text-[10px] text-slate-400 dark:text-slate-400">
+                                ID: {waCh.identifier}
                               </span>
-                              {testResult[waCh.id] && (
-                                <p
-                                  className={`text-[11px] mt-0.5 font-semibold ${
-                                    testResult[waCh.id].success ? 'text-emerald-600' : 'text-rose-600'
-                                  }`}
-                                >
-                                  {testResult[waCh.id].message}
-                                </p>
-                              )}
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
@@ -913,239 +927,229 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                 type="button"
                                 onClick={() => handleTestChannel(waCh.id)}
                                 disabled={testingChannelId === waCh.id}
-                                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-white dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                 title="Verify connection"
                               >
                                 <RefreshCw
-                                  className={`w-4 h-4 ${
-                                    testingChannelId === waCh.id ? 'animate-spin text-[#7F22FE]' : ''
+                                  className={`w-3.5 h-3.5 ${
+                                    testingChannelId === waCh.id ? 'animate-spin text-emerald-600' : ''
                                   }`}
                                 />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setChannelToDelete({ id: waCh.id, name: waCh.name })}
-                                className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                 title="Disconnect number"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAutomation(waCh, 'auto_followup_enabled')}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                                followUpOn
-                                  ? 'bg-emerald-100/80 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                  : 'bg-neutral-200/70 dark:bg-neutral-700 text-neutral-500'
+                          {testResult[waCh.id] && (
+                            <p
+                              className={`text-[10px] font-semibold p-1.5 rounded-lg ${
+                                testResult[waCh.id].success
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                               }`}
                             >
-                              <span>⏰ Auto Follow-up (24h Window): {followUpOn ? 'ON' : 'OFF'}</span>
-                            </button>
+                              {testResult[waCh.id].message}
+                            </p>
+                          )}
+
+                          {/* 1-Click Interactive Switches */}
+                          <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-purple-500/10">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                <span>AI Auto-Reply</span>
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="emerald"
+                                checked={isAiActive}
+                                onChange={() => handleToggleChannelActive(waCh.id)}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                ⏰ Auto Follow-up (24h)
+                              </span>
+                              <ToggleSwitch
+                                size="sm"
+                                color="emerald"
+                                checked={followUpOn}
+                                onChange={() => handleToggleAutomation(waCh, 'auto_followup_enabled')}
+                              />
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Connect your WhatsApp Business number. Voice messages, chats, and order confirmations will run automatically 24/7.
+                  <div className="space-y-2 py-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Connect your WhatsApp Business number. Voice messages, images, and order confirmations run 24/7.
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-                        ✓ Voice &amp; Image AI Reply
-                      </span>
-                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE] dark:text-purple-300">
-                        ✓ Auto Follow-up Message
-                      </span>
+                    <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">✓ Voice &amp; Image AI</span>
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ Auto Follow-up</span>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Single Action Button */}
-            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
-              <button
-                type="button"
-                onClick={() => handleConnectClick('whatsapp')}
-                className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {whatsappChannels.length > 0 ? (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Connect Another Number</span>
-                  </>
-                ) : (
-                  <>
-                    <Smartphone className="w-4 h-4" />
-                    <span>Connect WhatsApp</span>
-                  </>
-                )}
-              </button>
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleConnectClick('whatsapp')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{whatsappChannels.length > 0 ? 'Connect Another Number' : 'Connect WhatsApp'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        </div>
       )}
 
-      {/* DEDICATED SECTION: AUTO COMMENT REPLY & SMART AUTO FOLLOW-UP (ALWAYS VISIBLE) */}
+      {/* DEDICATED SECTION: COMPACT AUTOMATION COMMAND CENTER */}
       {viewMode === 'channels' && (
-        <div className="space-y-4 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-neutral-900 dark:text-white flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#7F22FE]" />
-                <span>Auto Comment Reply &amp; Smart Follow-up Automation</span>
+        <div className="space-y-3 pt-1 animate-fade-in">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#7F22FE]" />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                Automation Command Center
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Configure automatic replies + private Inbox DMs for Facebook &amp; Instagram post comments and smart follow-up messages for undecided shoppers.
-              </p>
             </div>
 
             <button
               type="button"
               onClick={() => handleSaveAutomationSettings()}
               disabled={savingAutomation}
-              className="px-4 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold shadow-md shadow-[#7F22FE]/25 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {savingAutomation ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <RefreshCw className="w-3 h-3 animate-spin" />
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Automation Settings</span>
+                  <Save className="w-3 h-3" />
+                  <span>Save Settings</span>
                 </>
               )}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* CARD A: FACEBOOK & INSTAGRAM AUTO COMMENT REPLY + PRIVATE INBOX DM */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-4 sm:p-6 flex flex-col justify-between space-y-5">
-              <div className="space-y-4">
-                <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#1877F2] flex items-center justify-center shrink-0 font-bold text-base sm:text-lg">
-                        💬
-                      </div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white leading-snug">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* COMPACT CARD A: AUTO COMMENT REPLY & DIRECT INBOX DM */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs p-4 flex flex-col justify-between space-y-3">
+              <div className="space-y-3">
+                {/* Header with 1-Click Master Switch */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">💬</span>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                         Post Comment Auto-Reply + Inbox DM
                       </h3>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Facebook &amp; Instagram post comments
+                      </p>
                     </div>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = !autoCommentEnabled;
-                        setAutoCommentEnabled(next);
-                        handleSaveAutomationSettings({ auto_comment_reply_enabled: next });
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                        autoCommentEnabled
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                          : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                      }`}
-                    >
-                      {autoCommentEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                    Auto-reply to Facebook Page &amp; Instagram Post comments and send price details directly to Inbox.
-                  </p>
-                </div>
-
-                {/* How it works badges */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
-                    <div className="text-xs font-bold text-[#1877F2] dark:text-blue-300">
-                      1. Public Comment Reply
-                    </div>
-                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                      Instantly replies under the customer&apos;s comment thanking them and asking them to check their inbox.
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
-                    <div className="text-xs font-bold text-[#7F22FE] dark:text-purple-300">
-                      2. Private Inbox Message (DM)
-                    </div>
-                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                      Simultaneously sends product pricing and photos directly to their Messenger/Instagram Inbox.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Public Comment Template */}
-                <div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
-                    <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                      Public Comment Reply Template ({'{customer_name}'} auto-filled)
-                    </label>
-                    <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#7F22FE] cursor-pointer whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={sendPrivateInboxOnComment}
-                        onChange={(e) => {
-                          setSendPrivateInboxOnComment(e.target.checked);
-                          handleSaveAutomationSettings({ send_private_inbox_on_comment: e.target.checked });
-                        }}
-                        className="rounded accent-[#7F22FE] shrink-0"
-                      />
-                      <span>Also send AI reply to Inbox</span>
-                    </label>
-                  </div>
-                  <textarea
-                    rows={3}
-                    value={publicCommentTemplate}
-                    onChange={(e) => setPublicCommentTemplate(e.target.value)}
-                    className="w-full text-xs p-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white focus:outline-none focus:border-[#7F22FE] leading-relaxed"
+                  <ToggleSwitch
+                    size="md"
+                    color="blue"
+                    checked={autoCommentEnabled}
+                    onChange={(next) => {
+                      setAutoCommentEnabled(next);
+                      handleSaveAutomationSettings({ auto_comment_reply_enabled: next });
+                    }}
                   />
                 </div>
 
-                {/* 1-Click Live Comment Test Box */}
-                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/70 space-y-2.5">
-                  <div className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center justify-between">
-                    <span>⚡ Live Test (Preview how AI responds when a customer comments)</span>
+                {/* Sub Toggle: Send Private Inbox Message */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/60 dark:border-purple-500/15">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Simultaneously send price/details to customer Inbox
+                  </span>
+                  <ToggleSwitch
+                    size="sm"
+                    color="purple"
+                    checked={sendPrivateInboxOnComment}
+                    onChange={(next) => {
+                      setSendPrivateInboxOnComment(next);
+                      handleSaveAutomationSettings({ send_private_inbox_on_comment: next });
+                    }}
+                  />
+                </div>
+
+                {/* Template Editor with 1-Click Variable Insert */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Public Comment Reply Template
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-400">Insert:</span>
+                      <button
+                        type="button"
+                        onClick={() => setPublicCommentTemplate((prev) => `${prev} {customer_name}`)}
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300 hover:bg-purple-100 cursor-pointer"
+                      >
+                        {'{customer_name}'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <textarea
+                    rows={2}
+                    value={publicCommentTemplate}
+                    onChange={(e) => setPublicCommentTemplate(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50/50 dark:bg-[#18103A]/60 text-slate-800 dark:text-white focus:outline-none focus:border-[#7F22FE] leading-relaxed resize-none"
+                  />
+                </div>
+
+                {/* Compact Live Comment Tester */}
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/60 dark:border-purple-500/15 space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <span>⚡ Instant Live Simulator</span>
+                  </div>
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={testCommentText}
                       onChange={(e) => setTestCommentText(e.target.value)}
-                      placeholder="Enter sample customer comment (e.g. What is the price?)"
-                      className="flex-1 text-xs px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white"
+                      placeholder="e.g. Price koto? Can I order?"
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-purple-500/20 bg-white dark:bg-[#100A26] text-slate-800 dark:text-white focus:outline-none focus:border-[#7F22FE]"
                     />
                     <button
                       type="button"
                       onClick={handleTestCommentReply}
                       disabled={testingComment}
-                      className="px-4 py-2.5 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
                     >
-                      {testingComment ? 'Testing...' : 'Test Comment Reply'}
+                      {testingComment ? 'Testing...' : 'Test Reply'}
                     </button>
                   </div>
 
                   {commentTestResult && (
-                    <div className="p-3 rounded-xl bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-800/70 space-y-2 text-xs">
-                      <div>
-                        <span className="font-bold text-[#1877F2]">💬 Public Comment Reply: </span>
-                        <span className="text-neutral-700 dark:text-neutral-300">
-                          {commentTestResult.publicReply}
-                        </span>
+                    <div className="p-2 rounded-lg bg-white dark:bg-[#100A26] border border-emerald-300 dark:border-emerald-800/60 space-y-1 text-[11px] animate-fade-in">
+                      <div className="text-slate-800 dark:text-slate-200 truncate">
+                        <strong className="text-[#1877F2]">Public: </strong>{commentTestResult.publicReply}
                       </div>
-                      <div className="pt-1.5 border-t border-neutral-100 dark:border-neutral-800">
-                        <span className="font-bold text-[#7F22FE]">📩 Private Inbox DM (AI): </span>
-                        <span className="text-neutral-700 dark:text-neutral-300">
-                          {commentTestResult.privateInboxReply}
-                        </span>
+                      <div className="text-slate-800 dark:text-slate-200 truncate pt-1 border-t border-slate-100 dark:border-slate-800">
+                        <strong className="text-[#7F22FE]">Inbox DM: </strong>{commentTestResult.privateInboxReply}
                       </div>
                     </div>
                   )}
@@ -1153,52 +1157,45 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               </div>
             </div>
 
-            {/* CARD B: SMART AUTO FOLLOW-UP MESSAGE (WITHIN 24H META WINDOW) */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/90 dark:border-neutral-800 shadow-xs p-4 sm:p-6 flex flex-col justify-between space-y-5">
-              <div className="space-y-4">
-                <div className="pb-4 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] flex items-center justify-center shrink-0 font-bold text-base sm:text-lg">
-                        ⏰
-                      </div>
-                      <h3 className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white leading-snug">
-                        Smart Auto Follow-up Message
+            {/* COMPACT CARD B: SMART AUTO FOLLOW-UP (META 24H SAFE) */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs p-4 flex flex-col justify-between space-y-3">
+              <div className="space-y-3">
+                {/* Header with 1-Click Master Switch */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">⏰</span>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                        Smart Auto Follow-up Engine
                       </h3>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        Sends reminders within Meta 24h Window
+                      </p>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = !autoFollowUpEnabled;
-                        setAutoFollowUpEnabled(next);
-                        handleSaveAutomationSettings({ auto_followup_enabled: next });
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                        autoFollowUpEnabled
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                          : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                      }`}
-                    >
-                      {autoFollowUpEnabled ? '● Active (ON)' : '○ Disabled (OFF)'}
-                    </button>
                   </div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                    Automated reminder message for customers who inquired about price but haven&apos;t ordered yet.
-                  </p>
+
+                  <ToggleSwitch
+                    size="md"
+                    color="purple"
+                    checked={autoFollowUpEnabled}
+                    onChange={(next) => {
+                      setAutoFollowUpEnabled(next);
+                      handleSaveAutomationSettings({ auto_followup_enabled: next });
+                    }}
+                  />
                 </div>
 
-                {/* Follow-up Timing Selector */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Send automated follow-up if customer doesn&apos;t reply after: (Meta 24h Window Safe)
+                {/* Delay Selector Pills */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block">
+                    Follow-up Delay Interval
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {[
-                      { mins: 30, label: 'After 30 Mins' },
-                      { mins: 45, label: 'After 45 Mins' },
-                      { mins: 120, label: 'After 2 Hours' },
-                      { mins: 360, label: 'After 6 Hours' }
+                      { mins: 30, label: '30 Mins' },
+                      { mins: 45, label: '45 Mins' },
+                      { mins: 120, label: '2 Hours' },
+                      { mins: 360, label: '6 Hours' }
                     ].map((opt) => (
                       <button
                         key={opt.mins}
@@ -1207,10 +1204,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                           setFollowUpDelayMinutes(opt.mins);
                           handleSaveAutomationSettings({ followup_delay_minutes: opt.mins });
                         }}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer text-center ${
                           followUpDelayMinutes === opt.mins
-                            ? 'bg-[#7F22FE] border-[#7F22FE] text-white shadow-xs'
-                            : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100'
+                            ? 'bg-[#7F22FE] border-[#7F22FE] text-white shadow-2xs'
+                            : 'bg-slate-50 dark:bg-[#18103A] border-slate-200 dark:border-purple-500/20 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                         }`}
                       >
                         {opt.label}
@@ -1220,37 +1217,41 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 </div>
 
                 {/* Follow-up Message Template */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Follow-up Message Template ({'{customer_name}'} auto-filled)
-                  </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Follow-up Message Template
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFollowUpTemplate((prev) => `${prev} {customer_name}`)}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300 hover:bg-purple-100 cursor-pointer"
+                    >
+                      {'{customer_name}'}
+                    </button>
+                  </div>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={followUpTemplate}
                     onChange={(e) => setFollowUpTemplate(e.target.value)}
-                    className="w-full text-xs p-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white focus:outline-none focus:border-[#7F22FE]"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50/50 dark:bg-[#18103A]/60 text-slate-800 dark:text-white focus:outline-none focus:border-[#7F22FE] leading-relaxed resize-none"
                   />
                 </div>
 
-                {/* Action Box: Trigger Follow-up Check Now */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                      🔄 Automatically checked every 15 minutes in the background
-                    </div>
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                      Customers who have already placed an order will never be messaged again.
-                    </p>
+                {/* Compact Background & Run Now Row */}
+                <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/40 flex items-center justify-between gap-2">
+                  <div className="text-[11px] text-emerald-800 dark:text-emerald-300 truncate">
+                    <span>🔄 Background check every 15m</span>
                   </div>
 
                   <button
                     type="button"
                     disabled={runningFollowUps}
                     onClick={handleRunFollowUps}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${runningFollowUps ? 'animate-spin' : ''}`} />
-                    <span>{runningFollowUps ? 'Sending...' : 'Send Follow-ups Now'}</span>
+                    <RefreshCw className={`w-3 h-3 ${runningFollowUps ? 'animate-spin' : ''}`} />
+                    <span>{runningFollowUps ? 'Sending...' : 'Check Now'}</span>
                   </button>
                 </div>
               </div>
