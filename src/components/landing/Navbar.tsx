@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </button>
 
-          {/* Navigation Links - LazyChat style: Solutions, Features, Pricing, Learn */}
+          {/* Navigation Links: Solutions, Features, Pricing */}
           <nav className="hidden md:flex items-center gap-7 lg:gap-9 text-sm font-semibold text-slate-600 dark:text-slate-300">
             <button
               type="button"
@@ -81,16 +81,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Pricing
             </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection('faq')}
-              className="text-slate-600 dark:text-slate-300 hover:text-[#7C3AED] dark:hover:text-white transition-colors cursor-pointer"
-            >
-              Learn
-            </button>
           </nav>
 
-          {/* Right Actions - Theme toggle, Sign In & LazyChat Book a live demo button */}
+          {/* Right Actions - Theme toggle, Sign In & Register button */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
             <ThemeToggle isDark={isDark} onToggle={onToggleTheme} />
 
@@ -121,12 +114,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   Sign In
                 </button>
-                {/* LazyChat's Signature "Book a live demo" Button */}
                 <button
                   onClick={() => onOpenAuth('signup')}
                   className="px-5 sm:px-6 py-2.5 rounded-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-600/30 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <span>Book a live demo</span>
+                  <span>Register</span>
                   <ArrowRight className="w-3.5 h-3.5 hidden sm:inline shrink-0" />
                 </button>
               </div>

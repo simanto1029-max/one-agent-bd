@@ -32,6 +32,7 @@ import { OFFICIAL_TWO_PLANS } from './utils/pricingPlans';
 
 // Common & Auth
 import { AuthModal } from './components/auth/AuthModal';
+import { AuthPage } from './components/auth/AuthPage';
 import { SaasWebsiteChatbot } from './components/common/SaasWebsiteChatbot';
 import { CountdownTimer } from './components/common/CountdownTimer';
 
@@ -129,9 +130,10 @@ const TAB_TO_GROUP: Record<TabId, string> = {
 };
 
 function parseInitialRoute(): {
-  view: 'landing' | 'dashboard' | 'admin';
+  view: 'landing' | 'dashboard' | 'admin' | 'auth';
   tab: TabId;
   openGroup: string;
+  authMode?: 'login' | 'signup';
 } {
   if (typeof window === 'undefined') {
     return { view: 'landing', tab: 'overview', openGroup: 'dashboard' };
@@ -144,6 +146,14 @@ function parseInitialRoute(): {
 
   if (rawPath === 'admin' || queryView === 'admin') {
     return { view: 'admin', tab: 'overview', openGroup: 'dashboard' };
+  }
+
+  // Dedicated Auth routes (/register, /signup, /login, /signin)
+  if (rawPath === 'register' || rawPath === 'signup' || queryView === 'register' || queryView === 'signup') {
+    return { view: 'auth', tab: 'overview', openGroup: 'dashboard', authMode: 'signup' };
+  }
+  if (rawPath === 'login' || rawPath === 'signin' || queryView === 'login' || queryView === 'signin' || queryView === 'auth') {
+    return { view: 'auth', tab: 'overview', openGroup: 'dashboard', authMode: 'login' };
   }
 
   // Check path first
@@ -185,17 +195,25 @@ export default function App() {
   });
 
   // App Navigation with URL Synchronization
-  const [currentView, setCurrentViewRaw] = useState<'landing' | 'dashboard' | 'admin'>(initialRoute.view);
+  const [currentView, setCurrentViewRaw] = useState<'landing' | 'dashboard' | 'admin' | 'auth'>(initialRoute.view);
   const [activeTab, setActiveTabRaw] = useState<TabId>(initialRoute.tab);
   const [openGroupId, setOpenGroupId] = useState<string | null>(initialRoute.openGroup);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Sync URL in browser address bar (HTML5 History API)
-  const updateUrl = (view: 'landing' | 'dashboard' | 'admin', tab: TabId, replace = false) => {
+  const updateUrl = (
+    view: 'landing' | 'dashboard' | 'admin' | 'auth',
+    tab: TabId,
+    replace = false,
+    modeOverride?: 'login' | 'signup'
+  ) => {
     if (typeof window === 'undefined') return;
     let targetPath = '/';
     if (view === 'admin') {
       targetPath = '/admin';
+    } else if (view === 'auth') {
+      const effMode = modeOverride || authMode;
+      targetPath = effMode === 'login' ? '/login' : '/register';
     } else if (view === 'dashboard') {
       targetPath = tab === 'overview' ? '/dashboard' : `/${tab}`;
     }
@@ -206,9 +224,9 @@ export default function App() {
     const currentPath = window.location.pathname;
     if (currentPath !== targetPath) {
       if (replace) {
-        window.history.replaceState({ view, tab }, '', targetPath);
+        window.history.replaceState({ view, tab, authMode: modeOverride || authMode }, '', targetPath);
       } else {
-        window.history.pushState({ view, tab }, '', targetPath);
+        window.history.pushState({ view, tab, authMode: modeOverride || authMode }, '', targetPath);
       }
     }
   };
@@ -249,7 +267,11 @@ export default function App() {
     updateUrl(effectiveView, tab, replace);
   };
 
-  const setCurrentView = (view: 'landing' | 'dashboard' | 'admin', targetTab?: TabId, replace = false) => {
+  const setCurrentView = (
+    view: 'landing' | 'dashboard' | 'admin' | 'auth',
+    targetTab?: TabId,
+    replace = false
+  ) => {
     setCurrentViewRaw(view);
     const tabToUse = targetTab || activeTab || 'overview';
     if (view === 'dashboard' && targetTab) {
@@ -273,7 +295,7 @@ export default function App() {
 
   // Modals & Selection
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>(initialRoute.authMode || 'signup');
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [isLockBypassedForBilling, setIsLockBypassedForBilling] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -291,7 +313,7 @@ export default function App() {
   }, [isDark]);
 
   useEffect(() => {
-    // If started on a dashboard or admin route, ensure URL bar matches
+    // If started on a dashboard, admin, or auth route, ensure URL bar matches
     if (initialRoute.view !== 'landing') {
       updateUrl(initialRoute.view, initialRoute.tab, true);
     }
@@ -304,6 +326,9 @@ export default function App() {
       setCurrentViewRaw(route.view);
       setActiveTabRaw(route.tab);
       setOpenGroupId(route.openGroup);
+      if (route.authMode) {
+        setAuthMode(route.authMode);
+      }
     };
     window.addEventListener('popstate', handlePopState);
 
@@ -349,6 +374,10 @@ export default function App() {
           setCurrentViewRaw('landing');
           updateUrl('landing', 'overview', true);
           handleOpenAuth('login');
+        } else if (route.view === 'auth') {
+          setCurrentViewRaw('auth');
+          if (route.authMode) setAuthMode(route.authMode);
+          updateUrl('auth', 'overview', true, route.authMode);
         }
       }
     } catch (err) {
@@ -393,7 +422,8 @@ export default function App() {
   const handleOpenAuth = (mode: 'login' | 'signup' = 'signup', plan?: Plan) => {
     setAuthMode(mode);
     if (plan) setSelectedPlan(plan);
-    setIsAuthOpen(true);
+    setCurrentViewRaw('auth');
+    updateUrl('auth', activeTab, false, mode);
   };
 
   const handleAuthSuccess = async (user: UserProfile, status: SubscriptionStatusInfo) => {
@@ -562,6 +592,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0B0720] text-neutral-900 dark:text-neutral-100 transition-colors">
+      {/* 0. DEDICATED FULL-PAGE AUTH (Register / Login / Recovery - ChatMakky Clean Style) */}
+      {currentView === 'auth' && (
+        <AuthPage
+          initialMode={authMode}
+          selectedPlan={selectedPlan}
+          onSuccess={handleAuthSuccess}
+          onBackToHome={() => {
+            setCurrentView('landing');
+          }}
+          onChangeMode={(newMode) => {
+            setAuthMode(newMode);
+            updateUrl('auth', activeTab, false, newMode);
+          }}
+        />
+      )}
+
       {/* 1. PUBLIC MARKETING LANDING PAGE */}
       {currentView === 'landing' && (
         <div className="flex flex-col min-h-screen">
@@ -1517,17 +1563,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        defaultMode={authMode}
-        selectedPlan={selectedPlan}
-        onClose={() => {
-          setIsAuthOpen(false);
-          setSelectedPlan(null);
-        }}
-        onSuccess={handleAuthSuccess}
-      />
+
 
       {/* Interactive Getting Started Tour Modal */}
       {currentUser && (

@@ -129,22 +129,22 @@ export const Features: React.FC = () => {
   return (
     <section
       id="features"
-      className="py-20 sm:py-28 bg-[#090A10] text-white relative overflow-hidden select-none"
+      className="py-20 sm:py-28 bg-white dark:bg-[#0B0720] text-slate-900 dark:text-white relative overflow-hidden select-none border-y border-slate-100 dark:border-purple-500/15 transition-colors"
     >
       {/* Subtle ambient lighting */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[140px]"
+        className="pointer-events-none absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-purple-500/5 dark:bg-purple-900/15 rounded-full blur-[140px]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-1/4 right-1/4 w-[450px] h-[450px] bg-emerald-900/10 rounded-full blur-[130px]"
+        className="pointer-events-none absolute bottom-1/4 right-1/4 w-[450px] h-[450px] bg-emerald-500/5 dark:bg-emerald-900/10 rounded-full blur-[130px]"
       />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           
-          {/* LEFT COLUMN: Clean Minimal List matching LazyChat Screenshot */}
+          {/* LEFT COLUMN: Clean Minimal List matching LazyChat Screenshot on White Background */}
           <div className="lg:col-span-5 space-y-10 sm:space-y-12">
             {FEATURE_HIGHLIGHTS.map((item) => {
               const isActive = activeFeatureId === item.id;
@@ -159,7 +159,7 @@ export const Features: React.FC = () => {
                     className={`w-[3px] self-stretch rounded-full transition-all duration-300 ${
                       isActive
                         ? 'bg-[#00DF8F] shadow-[0_0_12px_#00DF8F]'
-                        : 'bg-white/10 group-hover:bg-white/20'
+                        : 'bg-slate-200 dark:bg-white/10 group-hover:bg-slate-300 dark:group-hover:bg-white/20'
                     }`}
                   />
 
@@ -167,12 +167,16 @@ export const Features: React.FC = () => {
                   <div className="space-y-1.5">
                     <h3
                       className={`text-lg sm:text-xl font-bold tracking-tight transition-colors ${
-                        isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'
+                        isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
                       }`}
                     >
                       {item.title}
                     </h3>
-                    <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
+                    <p
+                      className={`text-sm leading-relaxed max-w-sm transition-colors ${
+                        isActive ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-400'
+                      }`}
+                    >
                       {item.description}
                     </p>
                   </div>
