@@ -35,7 +35,7 @@ interface GettingStartedTourProps {
   channels: Channel[];
   onNavigate: (tab: string) => void;
   onRefreshData: () => Promise<void> | void;
-  onOpenWebhookTester: () => void;
+  onOpenWebhookTester?: () => void;
   initialStep?: number;
 }
 
@@ -646,7 +646,7 @@ Tone & Language: ${tonePrompt}
                   <span>Next Recommended Steps:</span>
                 </div>
                 <ul className="text-xs text-neutral-600 dark:text-neutral-300 space-y-1.5 list-disc list-inside">
-                  <li>Use the <strong>Webhook Simulator</strong> to test live AI replies as a customer.</li>
+                  <li>Connect your WhatsApp, Facebook &amp; Instagram in <strong>Channel Integration</strong>.</li>
                   <li>Add your Steadfast or Pathao API keys in <strong>Delivery & Courier</strong> for 1-click parcel booking.</li>
                   <li>Track and manage all confirmed customer orders inside the <strong>Orders Hub</strong>.</li>
                 </ul>
@@ -655,13 +655,13 @@ Tone & Language: ${tonePrompt}
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
                   onClick={() => {
-                    onOpenWebhookTester();
+                    onNavigate('channels');
                     handleFinishTour();
                   }}
                   className="px-5 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
                 >
-                  <Play className="w-4 h-4" />
-                  <span>Test in Webhook Simulator</span>
+                  <Globe className="w-4 h-4" />
+                  <span>Go to Channel Integration</span>
                 </button>
 
                 <button

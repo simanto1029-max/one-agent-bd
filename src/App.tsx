@@ -64,7 +64,6 @@ import { ContactsView } from './components/dashboard/ContactsView';
 import { BillingView } from './components/dashboard/BillingView';
 import { TrialCountdownBanner } from './components/dashboard/TrialCountdownBanner';
 import { PlanLockOverlay } from './components/dashboard/PlanLockOverlay';
-import { WebhookTesterModal } from './components/dashboard/WebhookTesterModal';
 import { GettingStartedTour } from './components/dashboard/GettingStartedTour';
 import { MerchantBroadcastBanner } from './components/dashboard/MerchantBroadcastBanner';
 import { ProFeatureBlurWrapper } from './components/dashboard/ProFeatureBlurWrapper';
@@ -276,7 +275,6 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [isWebhookTesterOpen, setIsWebhookTesterOpen] = useState(false);
   const [isLockBypassedForBilling, setIsLockBypassedForBilling] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [tourInitialStep, setTourInitialStep] = useState(1);
@@ -655,10 +653,6 @@ export default function App() {
             subStatus={subStatus}
             isDark={isDark}
             onToggleTheme={handleToggleTheme}
-            onOpenWebhookTester={() => {
-              setIsMobileMenuOpen(false);
-              setIsWebhookTesterOpen(true);
-            }}
             onOpenTour={() => {
               setIsMobileMenuOpen(false);
               setTourInitialStep(1);
@@ -883,25 +877,14 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      setIsWebhookTesterOpen(true);
-                    }}
-                    className="py-2 px-3 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-[#7C3AED] dark:text-purple-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Activity className="w-3.5 h-3.5" />
-                    <span>Test AI</span>
-                  </button>
+                <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15">
                   <button
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       setCurrentView('landing');
                     }}
-                    className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1A123B] text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1A123B] text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Globe className="w-3.5 h-3.5" />
                     <span>Main Website</span>
@@ -1233,23 +1216,15 @@ export default function App() {
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center gap-1.5 pt-0.5">
+                  <div className="pt-0.5">
                     <button
                       onClick={() => {
                         setActiveTab('billing');
                         setIsLockBypassedForBilling(true);
                       }}
-                      className="flex-1 py-1.5 px-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm"
                     >
                       <span>Manage Plan</span>
-                    </button>
-                    <button
-                      id="open-webhook-tester-btn"
-                      onClick={() => setIsWebhookTesterOpen(true)}
-                      title="Open AI Simulator"
-                      className="p-1.5 rounded-xl bg-white dark:bg-[#1F1647] hover:bg-slate-100 dark:hover:bg-[#2A1E5C] text-[#7C3AED] dark:text-purple-300 border border-slate-200 dark:border-purple-500/25 transition-colors cursor-pointer"
-                    >
-                      <Activity className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1302,7 +1277,6 @@ export default function App() {
                     setActiveTab(tab as any);
                     if (tab === 'billing') setIsLockBypassedForBilling(true);
                   }}
-                  onOpenWebhookTester={() => setIsWebhookTesterOpen(true)}
                   onOpenTour={(step) => {
                     setTourInitialStep(step || 1);
                     setIsTourOpen(true);
@@ -1435,8 +1409,8 @@ export default function App() {
                 <ChannelsView
                   channels={channels}
                   currentUser={currentUser}
+                  subStatus={subStatus}
                   onRefresh={refreshUserData}
-                  onOpenWebhookTester={() => setIsWebhookTesterOpen(true)}
                   onNavigate={(tab) => {
                     setActiveTab(tab as any);
                     if (tab === 'billing') setIsLockBypassedForBilling(true);
@@ -1555,13 +1529,6 @@ export default function App() {
         onSuccess={handleAuthSuccess}
       />
 
-      {/* Webhook Tester Modal */}
-      <WebhookTesterModal
-        isOpen={isWebhookTesterOpen}
-        onClose={() => setIsWebhookTesterOpen(false)}
-        onRefreshInbox={refreshUserData}
-      />
-
       {/* Interactive Getting Started Tour Modal */}
       {currentUser && (
         <GettingStartedTour
@@ -1574,10 +1541,6 @@ export default function App() {
             setIsTourOpen(false);
           }}
           onRefreshData={refreshUserData}
-          onOpenWebhookTester={() => {
-            setIsTourOpen(false);
-            setIsWebhookTesterOpen(true);
-          }}
           initialStep={tourInitialStep}
         />
       )}

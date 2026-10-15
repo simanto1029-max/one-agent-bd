@@ -205,20 +205,6 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
     }
   };
 
-  const handleSimulate = async () => {
-    try {
-      setSubmitting(true);
-      const res = await api.simulateCallRequest();
-      setToastMessage(`✨ Added test call request from ${res.request.customer_name}!`);
-      setTimeout(() => setToastMessage(null), 4000);
-      await loadRequests();
-    } catch (err: any) {
-      setToastError(err.message || 'Simulation failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustomerPhone.trim()) {
@@ -337,16 +323,6 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
               Orders Hub
             </button>
           )}
-
-          <button
-            onClick={handleSimulate}
-            disabled={submitting}
-            title="Simulate a customer in chat asking for human call"
-            className="px-3.5 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-violet-700 dark:text-violet-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            <span>Simulate Customer Call Request</span>
-          </button>
 
           <button
             onClick={() => setShowAddModal(true)}
@@ -498,11 +474,11 @@ export const CallRequestsView: React.FC<CallRequestsViewProps> = ({
             When a customer writes in WhatsApp or Messenger that they want to speak with a human agent, their phone number and message appear here instantly.
           </p>
           <button
-            onClick={handleSimulate}
+            onClick={() => setShowAddModal(true)}
             className="mt-4 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-neutral-950 text-xs font-black inline-flex items-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
           >
-            <Sparkles className="w-4 h-4" />
-            Simulate a Customer Call Request
+            <Plus className="w-4 h-4" />
+            Log Call Manually
           </button>
         </div>
       ) : (

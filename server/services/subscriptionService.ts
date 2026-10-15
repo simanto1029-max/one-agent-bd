@@ -16,6 +16,8 @@ export interface SubscriptionStatusInfo {
   isExpired: boolean;
   isGated: boolean;
   canAccessDashboard: boolean;
+  isTrialActive?: boolean;
+  canConnectWhatsApp?: boolean;
 }
 
 export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInfo {
@@ -152,7 +154,9 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
     serverTime: now.toISOString(),
     isExpired,
     isGated,
-    canAccessDashboard
+    canAccessDashboard,
+    isTrialActive,
+    canConnectWhatsApp: isAdmin || (!isTrialActive && !isExpired)
   };
 }
 

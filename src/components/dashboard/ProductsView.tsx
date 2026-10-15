@@ -175,14 +175,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
     }
   };
 
-  // AI Testing Modal State
-  const [testingProduct, setTestingProduct] = useState<Product | null>(null);
-  const [testQuestion, setTestQuestion] = useState('');
-  const [aiTestResponse, setAiTestResponse] = useState<string | null>(null);
-  const [aiTestAttachedImage, setAiTestAttachedImage] = useState<string | null>(null);
-  const [aiTestAttachedProducts, setAiTestAttachedProducts] = useState<any[]>([]);
-  const [isAiTesting, setIsAiTesting] = useState(false);
-
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -322,33 +314,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
       setStatusMessage({ type: 'error', text: err?.message || 'Failed to seed sample products.' });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleTestAiQuery = async (prod: Product) => {
-    setTestingProduct(prod);
-    setTestQuestion(`Can I see the photo and price of ${prod.name}?`);
-    setAiTestResponse(null);
-    setAiTestAttachedImage(null);
-    setAiTestAttachedProducts([]);
-  };
-
-  const executeAiTest = async (overridePrompt?: string) => {
-    const q = (overridePrompt || testQuestion).trim();
-    if (!q) return;
-    if (overridePrompt) setTestQuestion(overridePrompt);
-    setIsAiTesting(true);
-    try {
-      const res = await api.testProductAiQuery(q, testingProduct?.id);
-      setAiTestResponse(res.reply || 'AI generated a reply.');
-      setAiTestAttachedImage(res.attachedImageUrl || null);
-      setAiTestAttachedProducts(res.attachedProducts || []);
-    } catch (err: any) {
-      setAiTestResponse(`Error: ${err?.message || 'Failed to run AI test.'}`);
-      setAiTestAttachedImage(null);
-      setAiTestAttachedProducts([]);
-    } finally {
-      setIsAiTesting(false);
     }
   };
 
@@ -720,15 +685,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
 
                 {/* Card Action Buttons */}
                 <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleTestAiQuery(prod)}
-                    className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer border border-purple-200 dark:border-purple-800/40"
-                    title="Test how AI responds when customer asks about this item"
-                  >
-                    <Bot className="w-3.5 h-3.5 text-[#7F22FE]" />
-                    <span>Test AI Reply</span>
-                  </button>
+                  <span className="text-[11px] font-bold text-neutral-400">
+                    ৳{prod.price} BDT
+                  </span>
 
                   <div className="flex items-center gap-1">
                     <button
@@ -1134,137 +1093,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* 8. AI Test Simulator Modal */}
-      {testingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-[#7F22FE]/10 text-[#7F22FE]">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-                    Test AI Query for: {testingProduct.name}
-                  </h3>
-                  <span className="text-[10px] text-neutral-400">
-                    ৳{testingProduct.price} • {testingProduct.category}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTestingProduct(null)}
-                className="p-1.5 rounded-xl text-neutral-400 hover:text-neutral-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                Customer Message:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={testQuestion}
-                  onChange={(e) => setTestQuestion(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white"
-                  placeholder="e.g. এই প্রোডাক্টের ছবি দেন or ay product ar pic dete cai"
-                />
-                <button
-                  type="button"
-                  onClick={() => executeAiTest()}
-                  disabled={isAiTesting}
-                  className="px-3 py-2 rounded-xl bg-[#7F22FE] text-white text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                >
-                  {isAiTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  <span>Ask AI</span>
-                </button>
-              </div>
-
-              {/* Quick Inquiry Test Chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {[
-                  `এই প্রোডাক্টের ছবি দেন`,
-                  `ay product ar pic dete cai`,
-                  `কি কি প্রোডাক্ট আছে ছবি দেন`,
-                  `দাম ও সাইজ কত?`
-                ].map((presetPrompt, pIdx) => (
-                  <button
-                    key={pIdx}
-                    type="button"
-                    onClick={() => {
-                      setTestQuestion(presetPrompt);
-                      executeAiTest(presetPrompt);
-                    }}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-neutral-100 dark:bg-neutral-800 hover:bg-[#7F22FE]/10 hover:text-[#7F22FE] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 transition-colors cursor-pointer"
-                  >
-                    "{presetPrompt}"
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* AI Response Display */}
-            {aiTestResponse && (
-              <div className="p-4 rounded-2xl bg-[#7F22FE]/5 border border-[#7F22FE]/20 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#7F22FE]">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI Agent Live Response:</span>
-                </div>
-                <p className="text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium whitespace-pre-line">
-                  {aiTestResponse}
-                </p>
-
-                {/* Primary Attached Image */}
-                {(aiTestAttachedImage || testingProduct.image_url) && (
-                  <div className="pt-2 border-t border-[#7F22FE]/10 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <img
-                      src={aiTestAttachedImage || testingProduct.image_url}
-                      alt={testingProduct.name}
-                      className="w-16 h-16 object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-xs shrink-0"
-                    />
-                    <div>
-                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                        ✓ Product Photo automatically sent in Customer Chat! 📸
-                      </span>
-                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block mt-0.5">
-                        Delivered directly across Messenger, WhatsApp, Instagram & Website Chatbot
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Multi-product Gallery (e.g. When customer asks "কি কি প্রোডাক্ট আছে ছবি দেন") */}
-                {aiTestAttachedProducts && aiTestAttachedProducts.length > 1 && (
-                  <div className="pt-2 border-t border-[#7F22FE]/10">
-                    <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-2">
-                      🖼️ Additional Catalog Photos Dispatched ({aiTestAttachedProducts.length}):
-                    </span>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {aiTestAttachedProducts.map((p, idx) => (
-                        <div key={idx} className="shrink-0 text-center">
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            className="w-12 h-12 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700 mb-1"
-                          />
-                          <span className="text-[9px] text-neutral-500 block truncate max-w-[50px]">
-                            ৳{p.price}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}

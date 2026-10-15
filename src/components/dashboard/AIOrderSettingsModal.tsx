@@ -84,18 +84,6 @@ export const AIOrderSettingsModal: React.FC<AIOrderSettingsModalProps> = ({
   // New keyword input state
   const [newKeyword, setNewKeyword] = useState('');
 
-  // Live Test State
-  const [testMessage, setTestMessage] = useState(
-    'My name is Tanvir Rahman, phone 01711223344. Please deliver 2 Premium Polo T-shirts (Size L) to Uttara Sector 7, Road 3, House 12 via cash on delivery.'
-  );
-  const [testCustomerName, setTestCustomerName] = useState('Tanvir Rahman');
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    hasOrderSignals: boolean;
-    detectedOrder: Order | null;
-    instructionsUsed: string;
-  } | null>(null);
-
   useEffect(() => {
     if (isOpen) {
       loadSettings();
@@ -162,21 +150,6 @@ export const AIOrderSettingsModal: React.FC<AIOrderSettingsModalProps> = ({
       ...settings,
       trigger_keywords: settings.trigger_keywords.filter(k => k !== kwToRemove)
     });
-  };
-
-  const handleRunTest = async () => {
-    if (!testMessage.trim()) return;
-    try {
-      setTesting(true);
-      setTestResult(null);
-      const res = await api.testOrderDetection(testMessage, testCustomerName);
-      setTestResult(res);
-    } catch (err: any) {
-      console.error('Test detection failed:', err);
-      setErrorMessage('Detection test failed: ' + (err.message || 'Unknown error'));
-    } finally {
-      setTesting(false);
-    }
   };
 
   if (!isOpen) return null;
@@ -538,106 +511,6 @@ export const AIOrderSettingsModal: React.FC<AIOrderSettingsModalProps> = ({
                 <p className="text-[10px] text-neutral-400 mt-1">
                   Supported tags: {'{customer_name}'}, {'{items}'}, {'{order_id}'}, {'{total_amount}'}
                 </p>
-              </div>
-
-              {/* Interactive Live AI Tester */}
-              <div className="p-4.5 rounded-2xl bg-[#7F22FE]/5 border border-[#7F22FE]/20 shadow-xs">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Play className="w-4 h-4 text-[#7F22FE] fill-[#7F22FE]" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#7F22FE]">
-                      Live AI Order Test Simulator
-                    </h4>
-                  </div>
-                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
-                    Test whether the AI accurately confirms orders based on your prompt rules
-                  </span>
-                </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={testCustomerName}
-                      onChange={(e) => setTestCustomerName(e.target.value)}
-                      placeholder="Customer Name"
-                      className="w-1/3 px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:ring-1 focus:ring-[#7F22FE] focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={testMessage}
-                      onChange={(e) => setTestMessage(e.target.value)}
-                      placeholder="Enter incoming customer message..."
-                      className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:ring-1 focus:ring-[#7F22FE] focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                      Tip: Try omitting phone numbers or addresses to verify rejection rules.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={testing || !testMessage.trim()}
-                      onClick={handleRunTest}
-                      className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
-                    >
-                      {testing ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Testing...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          Test AI
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Test Result Display */}
-                  {testResult && (
-                    <div className="mt-3 p-3.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${testResult.hasOrderSignals ? 'bg-[#7F22FE]' : 'bg-amber-400'}`} />
-                          <span className="font-bold text-neutral-800 dark:text-neutral-200">
-                            Order Signals: {testResult.hasOrderSignals ? 'Signals Matched' : 'Weak Signals'}
-                          </span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${testResult.detectedOrder ? 'bg-[#7F22FE]/15 text-[#7F22FE]' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'}`}>
-                          {testResult.detectedOrder ? '✅ ORDER CONFIRMED' : '❌ NOT CONFIRMED (Missing Info)'}
-                        </span>
-                      </div>
-
-                      {testResult.detectedOrder ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-                          <div className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                            <span className="text-neutral-400 block text-[10px]">Customer</span>
-                            <span className="font-bold text-neutral-900 dark:text-white">{testResult.detectedOrder.customer_name}</span>
-                          </div>
-                          <div className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                            <span className="text-neutral-400 block text-[10px]">Phone</span>
-                            <span className="font-bold text-[#7F22FE]">{testResult.detectedOrder.customer_phone || 'Missing'}</span>
-                          </div>
-                          <div className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                            <span className="text-neutral-400 block text-[10px]">Items</span>
-                            <span className="font-bold text-neutral-900 dark:text-white truncate block">{testResult.detectedOrder.items}</span>
-                          </div>
-                          <div className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                            <span className="text-neutral-400 block text-[10px]">Address</span>
-                            <span className="font-bold text-neutral-900 dark:text-white truncate block">{testResult.detectedOrder.customer_address}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                          AI did not confirm an order because required information (e.g. customer name, 11-digit mobile number, or complete delivery address) is missing in the message.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             </>
           )}

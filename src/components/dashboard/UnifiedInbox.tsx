@@ -247,25 +247,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [showCustomerDetails, setShowCustomerDetails] = useState(true);
   const [starredConvs, setStarredConvs] = useState<Record<string, boolean>>({});
 
-  // Inbound simulation drawer/form
-  const [showSimulateDrawer, setShowSimulateDrawer] = useState(false);
-  const [simMode, setSimMode] = useState<'text' | 'voice' | 'image'>('text');
-  const [simPlatform, setSimPlatform] = useState<'whatsapp' | 'messenger' | 'instagram'>('whatsapp');
-  const [simCustomerName, setSimCustomerName] = useState('');
-  const [simCustomerId, setSimCustomerId] = useState('');
-  const [simMessage, setSimMessage] = useState('');
-  const [simAudioBase64, setSimAudioBase64] = useState<string | null>(null);
-  const [simAudioMime, setSimAudioMime] = useState<string>('audio/webm');
-  const [simImageBase64, setSimImageBase64] = useState<string | null>(null);
-  const [simImageUrl, setSimImageUrl] = useState<string>('');
-  const [simulating, setSimulating] = useState(false);
-
-  // Voice recording state (Simulator)
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [inboxToast, setInboxToast] = useState<string | null>(null);
-  const audioRecorderRef = useRef<BrowserAudioRecorder | null>(null);
-  const recordTimerRef = useRef<any>(null);
 
   // Direct Composer Media (Image / Video from device storage) & WhatsApp-style Voice state
   const [replyMedia, setReplyMedia] = useState<{
@@ -454,62 +436,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     setTimeout(() => setInboxToast(null), 3000);
   };
 
-  const handleStartRecording = async () => {
-    try {
-      const recorder = new BrowserAudioRecorder();
-      audioRecorderRef.current = recorder;
-      await recorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      recordTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
-    } catch (err: any) {
-      setInboxToast(err.message || 'Could not access microphone.');
-      setTimeout(() => setInboxToast(null), 3500);
-    }
-  };
-
-  const handleStopRecording = async () => {
-    if (!audioRecorderRef.current) return;
-    try {
-      clearInterval(recordTimerRef.current);
-      setIsRecording(false);
-      const res = await audioRecorderRef.current.stop();
-      setSimAudioBase64(res.base64);
-      setSimAudioMime(res.mimeType);
-    } catch (err: any) {
-      console.error('Failed to stop recording:', err);
-      setIsRecording(false);
-    }
-  };
-
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const base64 = await blobToBase64(file);
-      setSimAudioBase64(base64);
-      setSimAudioMime(file.type || 'audio/ogg');
-    } catch (err) {
-      console.error('Failed to read file:', err);
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const base64 = await blobToBase64(file);
-      setSimImageBase64(base64);
-      setSimImageUrl('');
-    } catch (err) {
-      console.error('Failed to read image:', err);
-    }
-  };
-
   const handleSelectReplyMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -647,66 +573,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
-  const handleSimulateInteractiveOptionClick = async (optionText: string) => {
-    if (!selectedConv || !optionText.trim() || simulating) return;
-    try {
-      setSimulating(true);
-      setOpenInteractiveMsgId(null);
-      await api.simulateInboundMessage({
-        platform: selectedConv.platform,
-        customerId: selectedConv.customerId,
-        customerName: selectedConv.customerName,
-        messageText: optionText.trim()
-      });
-      await loadInbox();
-      scrollToBottom();
-    } catch (err) {
-      console.error('Failed to simulate interactive button click:', err);
-    } finally {
-      setSimulating(false);
-    }
-  };
-
-  const handleSimulateInbound = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (simMode === 'text' && !simMessage.trim()) return;
-    if (simMode === 'voice' && !simAudioBase64) {
-      setInboxToast('Please record or upload a voice note first.');
-      setTimeout(() => setInboxToast(null), 3500);
-      return;
-    }
-    if (simMode === 'image' && !simImageBase64 && !simImageUrl) {
-      setInboxToast('Please select or upload a product picture.');
-      setTimeout(() => setInboxToast(null), 3500);
-      return;
-    }
-
-    try {
-      setSimulating(true);
-      await api.simulateInboundMessage({
-        platform: simPlatform,
-        customerName: simCustomerName.trim() || undefined,
-        customerId: simCustomerId.trim() || undefined,
-        messageText: simMessage.trim() || (simMode === 'image' ? 'How much is this product and can you share details?' : undefined),
-        audioBase64: simMode === 'voice' ? simAudioBase64 || undefined : undefined,
-        audioMimeType: simMode === 'voice' ? simAudioMime : undefined,
-        imageBase64: simMode === 'image' ? simImageBase64 || undefined : undefined,
-        imageUrl: simMode === 'image' ? simImageUrl || undefined : undefined
-      });
-
-      setSimMessage('');
-      setSimAudioBase64(null);
-      setSimImageBase64(null);
-      setSimImageUrl('');
-      setShowSimulateDrawer(false);
-      await loadInbox();
-    } catch (err) {
-      console.error('Failed to simulate incoming message:', err);
-    } finally {
-      setSimulating(false);
-    }
-  };
-
   // Filter conversations
   const filteredConversations = conversations.filter((c) => {
     if (filterPlatform !== 'all' && c.platform !== filterPlatform) return false;
@@ -720,29 +586,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
     return true;
   });
-
-  const sampleProducts = [
-    {
-      name: 'Wireless ANC Earbuds Pro',
-      price: 1850,
-      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      name: 'Series 9 Smartwatch AMOLED',
-      price: 2450,
-      image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      name: 'Urban Streetwear Sneakers',
-      price: 2800,
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      name: 'Executive Minimalist Backpack',
-      price: 2150,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&auto=format&fit=crop&q=80'
-    }
-  ];
 
   const quickReplies = [
     { label: '📦 Delivery Info', text: 'Inside Dhaka delivery is 60 TK (24h) and Outside Dhaka is 120 TK (48-72h). Cash on Delivery is available!' },
@@ -808,14 +651,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <button
-                id="simulate-inbox-customer-btn"
-                onClick={() => setShowSimulateDrawer(true)}
-                className="p-1.5 rounded-lg text-[#7F22FE] hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors cursor-pointer"
-                title="Simulate Inbound Inquiry"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-              </button>
+
             </div>
           </div>
 
@@ -893,12 +729,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 <MessageSquare className="w-5 h-5" />
               </div>
               <p className="font-semibold text-neutral-700 dark:text-neutral-300">No conversations found</p>
-              <button
-                onClick={() => setShowSimulateDrawer(true)}
-                className="text-xs text-[#7F22FE] font-bold hover:underline cursor-pointer"
-              >
-                Simulate an incoming customer chat →
-              </button>
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                Incoming messages from your connected channels will appear here automatically.
+              </p>
             </div>
           ) : (
             filteredConversations.map((c) => {
@@ -1630,17 +1463,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                                         <span className="text-[11px] text-neutral-300 truncate">
                                           {selectedInteractiveItem}
                                         </span>
-                                        <button
-                                          type="button"
-                                          disabled={!selectedInteractiveItem || simulating}
-                                          onClick={() =>
-                                            handleSimulateInteractiveOptionClick(selectedInteractiveItem)
-                                          }
-                                          className="w-8 h-8 rounded-full bg-[#00A884] hover:bg-[#029072] text-neutral-950 font-black flex items-center justify-center shadow-sm cursor-pointer"
-                                          title="Simulate Customer Selecting This Option"
-                                        >
-                                          ➤
-                                        </button>
+                                        
                                       </div>
                                     </div>
                                   )}
@@ -1652,22 +1475,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                                 {m.interactive_options.buttons.map((btn, idx) => {
                                   const cleanLabel = String(btn.label || '').replace(/^[🛒↩️🏠☰📞\s]+/u, '');
                                   return (
-                                    <button
+                                    <div
                                       key={btn.id || idx}
-                                      type="button"
-                                      disabled={simulating}
-                                      onClick={() =>
-                                        handleSimulateInteractiveOptionClick(btn.payload || cleanLabel)
-                                      }
-                                      className="w-full py-1.5 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/15"
-                                      title="Click to simulate customer tapping this button"
+                                      className="w-full py-1.5 px-3 rounded-xl bg-black/25 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 select-none"
                                     >
                                       {btn.icon === 'back' && <span>↩️</span>}
                                       {btn.icon === 'home' && <span>🏠</span>}
                                       {btn.icon === 'order' && <span>🛒</span>}
                                       {btn.icon === 'list' && <span>☰</span>}
                                       <span>{cleanLabel}</span>
-                                    </button>
+                                    </div>
                                   );
                                 })}
                               </div>
@@ -1844,7 +1661,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               No Conversation Selected
             </h4>
             <p className="text-xs max-w-xs text-neutral-500">
-              Select a customer thread from the left list or simulate an incoming inquiry to test AI responses.
+              Select a customer conversation from the list to view real-time chat history and reply.
             </p>
           </div>
         )}
@@ -1885,359 +1702,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         </div>
       )}
 
-      {/* Simulator Modal Drawer */}
-      {showSimulateDrawer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-neutral-900 w-full max-w-lg p-6 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-base text-neutral-900 dark:text-white flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-[#7F22FE]/10 text-[#7F22FE] flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5" />
-                </div>
-                <span>Simulate Customer Inbound Inquiry</span>
-              </h3>
-              <button
-                onClick={() => setShowSimulateDrawer(false)}
-                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-sm font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              Test customer queries via text, voice notes, or product photos. The AI Auto-Reply engine will automatically identify the product, send official images, and provide pricing!
-            </p>
-
-            {inboxToast && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
-                {inboxToast}
-              </div>
-            )}
-
-            {/* Mode Switcher: Text vs Voice vs Product Image */}
-            <div className="grid grid-cols-3 gap-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800 p-1">
-              <button
-                type="button"
-                onClick={() => setSimMode('text')}
-                className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  simMode === 'text'
-                    ? 'bg-white dark:bg-neutral-700 text-[#7F22FE] dark:text-white shadow-xs'
-                    : 'text-neutral-600 dark:text-neutral-400'
-                }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                Text Inquiry
-              </button>
-              <button
-                type="button"
-                onClick={() => setSimMode('voice')}
-                className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  simMode === 'voice'
-                    ? 'bg-[#7F22FE] text-white shadow-xs'
-                    : 'text-neutral-600 dark:text-neutral-400'
-                }`}
-              >
-                <Mic className="w-3.5 h-3.5" />
-                Voice Note
-              </button>
-              <button
-                type="button"
-                onClick={() => setSimMode('image')}
-                className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  simMode === 'image'
-                    ? 'bg-[#7F22FE] text-white shadow-xs'
-                    : 'text-neutral-600 dark:text-neutral-400'
-                }`}
-              >
-                <ImageIcon className="w-3.5 h-3.5" />
-                Product Picture
-              </button>
-            </div>
-
-            <form onSubmit={handleSimulateInbound} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Channel Platform
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSimPlatform('whatsapp')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      simPlatform === 'whatsapp'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold'
-                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSimPlatform('messenger')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      simPlatform === 'messenger'
-                        ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-700 dark:text-blue-300 font-bold'
-                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    <Facebook className="w-3.5 h-3.5" />
-                    Messenger
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSimPlatform('instagram')}
-                    className={`py-2 px-2 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      simPlatform === 'instagram'
-                        ? 'bg-pink-50 dark:bg-pink-950/60 border-pink-500 text-pink-700 dark:text-pink-300 font-bold'
-                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    <Instagram className="w-3.5 h-3.5" />
-                    Instagram
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Customer Name
-                  </label>
-                  <input
-                    type="text"
-                    value={simCustomerName}
-                    onChange={(e) => setSimCustomerName(e.target.value)}
-                    placeholder="e.g. Tanvir Ahmed"
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Phone or PSID
-                  </label>
-                  <input
-                    type="text"
-                    value={simCustomerId}
-                    onChange={(e) => setSimCustomerId(e.target.value)}
-                    placeholder={simPlatform === 'whatsapp' ? '+8801711998877' : 'psid_49201948'}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Mode: TEXT */}
-              {simMode === 'text' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                      Message Body
-                    </label>
-                    <span className="text-[11px] text-neutral-400">
-                      Ask for picture or price to test AI!
-                    </span>
-                  </div>
-                  <textarea
-                    required
-                    rows={3}
-                    value={simMessage}
-                    onChange={(e) => setSimMessage(e.target.value)}
-                    placeholder="e.g. Please send me a picture of your wireless earbuds and tell me the price."
-                    className="w-full text-xs p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                  />
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setSimMessage('Please send me a picture of your earbuds and tell me the price.')}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-[#7F22FE] cursor-pointer"
-                    >
-                      "Send earbuds picture"
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSimMessage('Can you show me the smartwatch photo? How much is it?')}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-[#7F22FE] cursor-pointer"
-                    >
-                      "Smartwatch picture"
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSimMessage('I want to place an order. How do I pay?')}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-[#7F22FE] cursor-pointer"
-                    >
-                      "Order inquiry"
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Mode: VOICE */}
-              {simMode === 'voice' && (
-                <div className="space-y-3 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                      Record or Upload Audio Voice Note
-                    </span>
-                    {simAudioBase64 && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                        ✓ Audio Ready
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {!isRecording ? (
-                      <button
-                        type="button"
-                        onClick={handleStartRecording}
-                        className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                      >
-                        <Mic className="w-3.5 h-3.5" />
-                        Record Voice Note
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleStopRecording}
-                        className="px-3 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer animate-pulse"
-                      >
-                        <MicOff className="w-3.5 h-3.5 text-rose-400" />
-                        Stop Recording ({recordingSeconds}s)
-                      </button>
-                    )}
-
-                    <label className="px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <span>Upload Audio File</span>
-                      <input
-                        type="file"
-                        accept="audio/*,.ogg,.mp3,.wav,.m4a,.webm"
-                        onChange={handleAudioUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  {simAudioBase64 && (
-                    <div className="pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                      <audio
-                        controls
-                        className="h-8 w-full"
-                        src={`data:${simAudioMime};base64,${simAudioBase64}`}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Mode: PRODUCT IMAGE / PHOTO */}
-              {simMode === 'image' && (
-                <div className="space-y-3 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                      Select or Upload Product Picture
-                    </span>
-                    {(simImageBase64 || simImageUrl) && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                        ✓ Image Selected
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quick Product Pickers */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {sampleProducts.map((p) => (
-                      <div
-                        key={p.name}
-                        onClick={() => {
-                          setSimImageUrl(p.image);
-                          setSimImageBase64(null);
-                          setSimMessage(`What is the price of this ${p.name}?`);
-                        }}
-                        className={`p-2 rounded-xl border flex items-center gap-2 cursor-pointer transition-all ${
-                          simImageUrl === p.image
-                            ? 'border-[#7F22FE] bg-[#7F22FE]/10 ring-2 ring-[#7F22FE]/30'
-                            : 'border-neutral-200 dark:border-neutral-700 hover:border-[#7F22FE]/50'
-                        }`}
-                      >
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-10 h-10 object-cover rounded-lg shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-neutral-900 dark:text-white truncate">
-                            {p.name}
-                          </p>
-                          <p className="text-[10px] text-[#7F22FE] font-semibold">
-                            {p.price} BDT
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Custom Upload */}
-                  <div className="pt-2 flex items-center justify-between border-t border-neutral-200 dark:border-neutral-700">
-                    <label className="px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <span>Upload Custom Photo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    {simImageUrl && (
-                      <span className="text-[10px] text-neutral-500 truncate max-w-xs">
-                        Preset selected
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                      Customer Inquiry Text
-                    </label>
-                    <input
-                      type="text"
-                      value={simMessage}
-                      onChange={(e) => setSimMessage(e.target.value)}
-                      placeholder="e.g. What is the price of this and do you have it in stock?"
-                      className="w-full text-xs px-3 py-2 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSimulateDrawer(false)}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="submit-simulated-message-btn"
-                  type="submit"
-                  disabled={
-                    simulating ||
-                    (simMode === 'text' && !simMessage.trim()) ||
-                    (simMode === 'voice' && !simAudioBase64) ||
-                    (simMode === 'image' && !simImageBase64 && !simImageUrl)
-                  }
-                  className="px-4 py-2 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold shadow-sm shadow-[#7F22FE]/20 transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  {simulating ? 'AI Processing & Replying...' : 'Send Simulation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 };

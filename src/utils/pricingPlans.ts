@@ -93,24 +93,59 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
   }
 ];
 
-export const OFFICIAL_TWO_PLANS: Plan[] = [
+export const OFFICIAL_THREE_PLANS: Plan[] = [
+  {
+    id: 'plan_trial',
+    name: 'Trial plan',
+    price: 0,
+    currency: 'BDT',
+    duration_days: 2,
+    trial_days: 2,
+    is_active: true,
+    subtitle: 'Growing teams up to 03 users (Testing full automation).',
+    badge: 'Free Trial',
+    features: [
+      'Facebook AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'Instagram AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'Autonomous Order Confirmation & 1-Click Steadfast/Pathao',
+      'Bangla Voice Note & Product Photo AI Recognition',
+      'Auto Comment Reply + Instant Messenger & IG DM',
+      'Unified Multi-Channel Team Inbox',
+      'Website Live Chat Widget Integration',
+      'WhatsApp Official Cloud API (Locked in Free Trial • Unlocks on Standard/Pro)'
+    ],
+    feature_config: {
+      website_stores: true,
+      call_requests: true,
+      vip_broadcast: false,
+      courier_dispatch: true,
+      csv_export: false,
+      max_channels: 3
+    },
+    created_at: '',
+    updated_at: ''
+  },
   {
     id: 'plan_starter',
-    name: 'Starter AI Plan',
+    name: 'Standard plan',
     price: 1250,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
     is_active: true,
+    subtitle: 'Growing teams up to 05 users.',
+    badge: 'Popular',
     features: [
-      '24/7 AI Auto-Reply (Up to 3 Channels)',
-      'Bangla Voice Note & Photo AI',
-      'Auto Comment Reply + Inbox DM',
-      '1-Click Steadfast, Pathao & RedX',
-      'AI Live Parcel Tracking Update',
-      'Fake Order & Courier Ratio Check',
-      'VIP Customer Offer & Retarget DM',
-      'Unlimited Chats (0 TK / Message)'
+      'Facebook AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'Instagram AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'WhatsApp Cloud API: Direct Meta Billing (Direct via Meta BM Card, 0% markup)',
+      'Connect up to 3 Social Pages & Channels',
+      'Auto Comment Reply & Instant Messenger DM',
+      'Autonomous Order Booking & 1-Click Steadfast/Pathao Booking',
+      'Bangla Voice Note & Photo Recognition AI',
+      'Fake Order Shield & Courier Delivery Ratio Check',
+      'Unified Multi-Channel Inbox (Web + Mobile)',
+      'Standard Support & Regular Updates'
     ],
     feature_config: {
       website_stores: false,
@@ -125,21 +160,26 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
   },
   {
     id: 'plan_pro',
-    name: 'Pro Business Plan',
+    name: 'Pro plan',
     price: 1950,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
     is_active: true,
+    subtitle: 'Growing teams up to 10 users & high volume.',
     features: [
-      'Everything in Starter (Up to 10 Channels)',
-      'Accounts, Stock & Profit ERP',
-      'Website & WooCommerce Live Sync',
-      'AI Appointments & Calendar Booking',
-      '1-Click Courier & Live Order Track',
-      'Fake Order Shield & Fraud Check',
-      'VIP Retargeting & Email Marketing',
-      '3 AI Agents + 24/7 VIP Support'
+      'Everything in Standard Plan Included',
+      'Facebook AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'Instagram AI Auto-Reply: Unlimited (100% Free - 0 Meta Fee)',
+      'WhatsApp Cloud API: Direct Meta Billing (Direct via Meta BM Card, 0% markup)',
+      'Connect up to 10 Pages & Channels (Multi-Page / Multi-Brand)',
+      'Up to 10 Team Members & Multi-Agent Inbox Routing',
+      'Dedicated Turbo AI Response Queue (Fastest Latency)',
+      'Advanced AI Sales Persona & Voice Note Auto-Reply',
+      'Multi-Store Website & WooCommerce Real-time Sync',
+      'AI Appointments & Calendar Booking Hub',
+      'VIP Customer Offer & Retargeting Broadcast',
+      'Dedicated VIP Account Manager & 24/7 Priority WhatsApp Support'
     ],
     feature_config: {
       website_stores: true,
@@ -153,6 +193,8 @@ export const OFFICIAL_TWO_PLANS: Plan[] = [
     updated_at: ''
   }
 ];
+
+export const OFFICIAL_TWO_PLANS: Plan[] = OFFICIAL_THREE_PLANS.slice(1);
 
 export interface PlanComparisonRow {
   category: string;
@@ -230,6 +272,42 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
   }
 ];
 
+export function normalizeToThreePlans(apiPlans: Plan[]): Plan[] {
+  const trialFromApi = apiPlans.find((p) => p.price === 0 || p.id === 'plan_trial');
+  const starterFromApi = apiPlans.find((p) => p.price === 1250 || p.id === 'plan_starter');
+  const proFromApi = apiPlans.find((p) => p.price === 1950 || p.id === 'plan_pro');
+
+  return [
+    trialFromApi
+      ? {
+          ...OFFICIAL_THREE_PLANS[0],
+          ...trialFromApi,
+          price: 0,
+          features: OFFICIAL_THREE_PLANS[0].features,
+          feature_config: OFFICIAL_THREE_PLANS[0].feature_config
+        }
+      : OFFICIAL_THREE_PLANS[0],
+    starterFromApi
+      ? {
+          ...OFFICIAL_THREE_PLANS[1],
+          ...starterFromApi,
+          price: 1250,
+          features: OFFICIAL_THREE_PLANS[1].features,
+          feature_config: OFFICIAL_THREE_PLANS[1].feature_config
+        }
+      : OFFICIAL_THREE_PLANS[1],
+    proFromApi
+      ? {
+          ...OFFICIAL_THREE_PLANS[2],
+          ...proFromApi,
+          price: 1950,
+          features: OFFICIAL_THREE_PLANS[2].features,
+          feature_config: OFFICIAL_THREE_PLANS[2].feature_config
+        }
+      : OFFICIAL_THREE_PLANS[2]
+  ];
+}
+
 export function normalizeToTwoPlans(apiPlans: Plan[]): Plan[] {
   const starterFromApi = apiPlans.find((p) => p.price === 1250 || p.id === 'plan_starter');
   const proFromApi = apiPlans.find((p) => p.price === 1950 || p.id === 'plan_pro');
@@ -237,26 +315,26 @@ export function normalizeToTwoPlans(apiPlans: Plan[]): Plan[] {
   return [
     starterFromApi
       ? {
-          ...OFFICIAL_TWO_PLANS[0],
+          ...OFFICIAL_THREE_PLANS[1],
           ...starterFromApi,
           price: 1250,
-          features: OFFICIAL_TWO_PLANS[0].features,
-          feature_config: OFFICIAL_TWO_PLANS[0].feature_config
+          features: OFFICIAL_THREE_PLANS[1].features,
+          feature_config: OFFICIAL_THREE_PLANS[1].feature_config
         }
-      : OFFICIAL_TWO_PLANS[0],
+      : OFFICIAL_THREE_PLANS[1],
     proFromApi
       ? {
-          ...OFFICIAL_TWO_PLANS[1],
+          ...OFFICIAL_THREE_PLANS[2],
           ...proFromApi,
           price: 1950,
-          features: OFFICIAL_TWO_PLANS[1].features,
-          feature_config: OFFICIAL_TWO_PLANS[1].feature_config
+          features: OFFICIAL_THREE_PLANS[2].features,
+          feature_config: OFFICIAL_THREE_PLANS[2].feature_config
         }
-      : OFFICIAL_TWO_PLANS[1]
+      : OFFICIAL_THREE_PLANS[2]
   ];
 }
 
-export const OFFICIAL_PLANS: Plan[] = OFFICIAL_TWO_PLANS;
+export const OFFICIAL_PLANS: Plan[] = OFFICIAL_THREE_PLANS;
 
 export function getDurationDiscountPercent(months: number): number {
   if (months >= 72) return 30;

@@ -9,7 +9,7 @@ interface DashboardHeaderProps {
   subStatus: SubscriptionStatusInfo | null;
   isDark: boolean;
   onToggleTheme: () => void;
-  onOpenWebhookTester: () => void;
+  onOpenWebhookTester?: () => void;
   onOpenTour?: () => void;
   onGoToLanding: () => void;
   onGoToAdmin: () => void;

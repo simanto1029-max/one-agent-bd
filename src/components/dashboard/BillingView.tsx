@@ -24,9 +24,10 @@ import { api } from '../../api';
 import { SubscriptionStatusInfo, Payment, Plan } from '../../types';
 import {
   PLAN_DURATION_OPTIONS,
-  OFFICIAL_PLANS,
+  OFFICIAL_THREE_PLANS,
   calculateCustomPlanPrice,
-  calculateOriginalPlanPrice
+  calculateOriginalPlanPrice,
+  normalizeToThreePlans
 } from '../../utils/pricingPlans';
 
 interface BillingViewProps {
@@ -41,8 +42,8 @@ export const BillingView: React.FC<BillingViewProps> = ({
   onRefresh
 }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [plans, setPlans] = useState<Plan[]>(OFFICIAL_PLANS);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(OFFICIAL_PLANS[0]);
+  const [plans, setPlans] = useState<Plan[]>(OFFICIAL_THREE_PLANS);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(OFFICIAL_THREE_PLANS[1]);
   const [durationMode, setDurationMode] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -110,17 +111,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
       setPayments(myPayments);
 
       const active = availablePlans.filter((p) => p.is_active);
-      let merged = OFFICIAL_PLANS;
-      if (active.length >= 2) {
-        const starter =
-          active.find((p) => p.price === 1250 || p.id === 'plan_starter') || OFFICIAL_PLANS[0];
-        const pro =
-          active.find((p) => p.price === 1950 || p.id === 'plan_pro') || OFFICIAL_PLANS[1];
-        merged = [
-          { ...OFFICIAL_PLANS[0], ...starter, price: 1250, features: OFFICIAL_PLANS[0].features },
-          { ...OFFICIAL_PLANS[1], ...pro, price: 1950, features: OFFICIAL_PLANS[1].features }
-        ];
-      }
+      const merged = active.length >= 2 ? normalizeToThreePlans(active) : OFFICIAL_THREE_PLANS;
       setPlans(merged);
 
       if (initialSelectedPlan) {
@@ -153,7 +144,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
       }
     } catch (err) {
       console.error('Failed to load billing history:', err);
-      setPlans(OFFICIAL_PLANS);
+      setPlans(OFFICIAL_THREE_PLANS);
     } finally {
       setLoading(false);
     }
@@ -371,16 +362,18 @@ export const BillingView: React.FC<BillingViewProps> = ({
       {/* Main Pricing Section */}
       <div className="p-4 sm:p-6 md:p-8 rounded-[24px] sm:rounded-[28px] bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="text-center max-w-lg mx-auto space-y-1.5">
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7F22FE] dark:text-purple-400 block">
+        <div className="text-center max-w-2xl mx-auto space-y-2.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7C3AED] dark:text-purple-400 block">
             PRICING PLANS
           </span>
 
-          <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
-            Choose Your Perfect Plan
+          <h2 className="text-xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+            We believe One Agent BD should be accessible to all companies, no matter the size.
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            2-Day Free Trial • Zero Per-Message Fee • Promo Codes Supported
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+            <strong className="text-slate-800 dark:text-slate-200">Facebook &amp; Instagram:</strong> 100% Unlimited AI auto-replies with 0 Meta fee.
+            <br />
+            <strong className="text-slate-800 dark:text-slate-200">WhatsApp Cloud API:</strong> Official Meta conversation fees are billed directly to your Meta Business Manager card at Meta&apos;s exact official cost with 0% markup.
           </p>
         </div>
 
@@ -457,198 +450,202 @@ export const BillingView: React.FC<BillingViewProps> = ({
           </div>
         </div>
 
-        {/* 2 Narrow Centered Selectable Plan Cards Grid with See More Toggle */}
-        <div className="max-w-[680px] mx-auto relative">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-4 rounded-[36px] bg-gradient-to-r from-violet-500/12 via-purple-500/15 to-fuchsia-500/12 blur-2xl -z-10"
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start justify-center">
+        {/* 3 Selectable Plan Cards Grid (LazyChat Style) */}
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
           {plans.map((plan) => {
-            const isPro = plan.price >= 1950 || plan.id.includes('pro');
+            const isTrial = plan.id === 'plan_trial' || plan.price === 0;
+            const isPopular = plan.id === 'plan_starter' || plan.badge === 'Popular';
+            const isPro = plan.id === 'plan_pro' || plan.price >= 1950;
             const isSelected = selectedPlan?.id === plan.id;
-            const originalPrice = calculateOriginalPlanPrice(plan.price, activeDuration.months);
-            const totalPrice = calculateCustomPlanPrice(plan.price, activeDuration.months);
+
+            const originalPrice = isTrial
+              ? 0
+              : calculateOriginalPlanPrice(plan.price, activeDuration.months);
+            const totalPrice = isTrial
+              ? 0
+              : calculateCustomPlanPrice(plan.price, activeDuration.months);
             const savedAmount = Math.max(0, originalPrice - totalPrice);
-            const displayFeatures = plan.features.filter(
-              (feat) => !feat.toLowerCase().includes('free trial')
+
+            const isCurrentTrialActive = Boolean(subStatus?.isTrialActive && isTrial);
+            const isCurrentPaidPlan = Boolean(
+              !subStatus?.isExpired &&
+              subStatus?.subscription?.status === 'active' &&
+              ((isPro && subStatus?.isProPlan) || (!isPro && !isTrial && !subStatus?.isProPlan))
             );
-            const halfIndex = Math.ceil(displayFeatures.length / 2);
-            const firstHalfFeatures = displayFeatures.slice(0, halfIndex);
-            const secondHalfFeatures = displayFeatures.slice(halfIndex);
-            const isExpanded = Boolean(expandedPlanIds[plan.id]);
 
             return (
               <div
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan)}
-                className={`w-full sm:max-w-[330px] mx-auto relative rounded-[24px] p-5 transition-all duration-300 flex flex-col justify-between cursor-pointer hover:-translate-y-1.5 ${
-                  isPro
-                    ? 'bg-gradient-to-b from-white via-[#FBF9FF] to-[#F3EAFF] dark:from-[#1C1145] dark:via-[#150C35] dark:to-[#11092B] border-2 border-[#7F22FE] shadow-[0_28px_70px_-10px_rgba(127,34,254,0.38),0_16px_36px_-8px_rgba(219,39,119,0.24),0_4px_16px_rgba(15,23,42,0.08)] hover:shadow-[0_34px_80px_-10px_rgba(127,34,254,0.48),0_18px_40px_-8px_rgba(219,39,119,0.3)] ring-1 ring-fuchsia-500/20'
-                    : isSelected
-                    ? 'bg-white dark:bg-[#120B2B] border-2 border-[#7C3AED] ring-4 ring-[#7C3AED]/10 shadow-[0_26px_64px_-12px_rgba(124,58,237,0.3),0_12px_28px_-8px_rgba(15,23,42,0.12)]'
-                    : 'bg-white dark:bg-[#120B2B]/95 border border-violet-200/95 dark:border-purple-500/25 hover:border-[#7C3AED]/50 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.16),0_14px_32px_-8px_rgba(124,58,237,0.18),0_4px_14px_rgba(15,23,42,0.06)] hover:shadow-[0_30px_70px_-12px_rgba(124,58,237,0.28)]'
+                className={`relative rounded-3xl p-6 sm:p-7 transition-all duration-300 flex flex-col justify-between cursor-pointer ${
+                  isPopular
+                    ? 'bg-white dark:bg-[#110B29] border-2 border-[#7C3AED] shadow-[0_0_40px_rgba(124,58,237,0.22)] ring-1 ring-[#7C3AED]/30'
+                    : 'bg-white dark:bg-[#0D0822] border border-slate-200/90 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/40'
                 }`}
               >
-                {isPro ? (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] text-white text-[10px] font-extrabold tracking-wide shadow-md flex items-center gap-1 whitespace-nowrap">
-                    <Crown className="w-3 h-3" />
-                    <span>Most Popular</span>
-                  </div>
-                ) : (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-slate-100 dark:bg-[#1E1445] border border-violet-200 dark:border-purple-500/30 text-slate-700 dark:text-purple-200 text-[10px] font-bold tracking-wide whitespace-nowrap">
-                    <span>Starter Suite</span>
-                  </div>
-                )}
-
                 <div>
-                  <div className="flex items-center justify-between gap-2.5 mb-3.5 pt-1">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white leading-tight">
-                          {plan.name}
-                        </h3>
-                        {isSelected && (
-                          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/80 text-[#7C3AED] dark:text-purple-300 text-[10px] font-extrabold">
-                            Selected
-                          </span>
+                  {/* Top Badge & Header */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+                      {plan.name}
+                    </span>
+
+                    {isPopular && (
+                      <span className="px-3 py-1 rounded-full bg-[#7C3AED] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+                        Popular
+                      </span>
+                    )}
+                    {isTrial && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-purple-950/70 text-slate-700 dark:text-purple-300 text-[10px] font-bold border border-slate-200 dark:border-purple-500/20">
+                        2 Days Free
+                      </span>
+                    )}
+                    {isPro && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold border border-amber-500/20">
+                        Advanced
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-2">
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-extrabold text-3xl sm:text-4xl text-slate-900 dark:text-white leading-none">
+                        ৳
+                      </span>
+                      <span className="font-black text-4xl sm:text-5xl tracking-tight text-slate-900 dark:text-white leading-none">
+                        {isTrial ? '0' : totalPrice.toLocaleString()}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">
+                        {isTrial
+                          ? 'for 2 days'
+                          : activeDuration.months === 1
+                          ? 'per month'
+                          : `for ${activeDuration.label}`}
+                      </span>
+                    </div>
+
+                    {savedAmount > 0 && !isTrial && (
+                      <div className="mt-1.5 inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
+                        Save ৳{savedAmount.toLocaleString()} with {activeDuration.label}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Subtitle */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-6">
+                    {plan.subtitle ||
+                      (isTrial
+                        ? 'Growing teams up to 03 users (Testing full automation).'
+                        : isPopular
+                        ? 'Growing teams up to 05 users.'
+                        : 'Growing teams up to 10 users & high volume.')}
+                  </p>
+
+                  {/* CTA Button directly below price */}
+                  <div className="mb-6">
+                    {isTrial ? (
+                      <button
+                        type="button"
+                        disabled={isCurrentTrialActive || isCurrentPaidPlan}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            setActivatingTrial(plan.id);
+                            await api.startFreeTrial(plan.id);
+                            onRefresh();
+                          } catch (err: any) {
+                            alert(err.message || 'Trial activation error');
+                          } finally {
+                            setActivatingTrial(null);
+                          }
+                        }}
+                        className="w-full py-3.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-900 dark:bg-[#1A1238] dark:hover:bg-[#251A4E] dark:text-white border border-slate-200 dark:border-purple-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {activatingTrial === plan.id ? (
+                          <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
+                        ) : isCurrentTrialActive ? (
+                          <span>✓ Active 2-Day Trial</span>
+                        ) : isCurrentPaidPlan ? (
+                          <span>Active Paid Plan</span>
+                        ) : (
+                          <span>Start 2-day free trial</span>
                         )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                        {isPro
-                          ? 'Up to 10 Channels • Full ERP & Web'
-                          : 'Up to 3 Channels • Full AI & Courier'}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isPro
-                          ? 'bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white shadow-md shadow-purple-500/25'
-                          : 'bg-purple-100 dark:bg-purple-950/70 text-[#7F22FE] dark:text-purple-300'
-                      }`}
-                    >
-                      {isPro ? <Crown className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-                    </div>
-                  </div>
-
-                  <div className="mb-4 pb-3.5 border-b border-violet-100 dark:border-purple-500/15">
-                    <div className="flex flex-wrap items-baseline gap-1.5">
-                      <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#0F172A] dark:text-white">
-                        TK {totalPrice.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">
-                        /{activeDuration.months === 1 ? 'mo' : activeDuration.shortLabel}
-                      </span>
-                      {savedAmount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
-                          Save TK {savedAmount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-400 font-semibold mt-0.5">
-                      {activeDuration.days} Days Access • Unlimited 0 TK/Msg
-                    </p>
-                  </div>
-
-                  {/* First Half Features */}
-                  <ul className="space-y-2">
-                    {firstHalfFeatures.map((feat, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200"
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                            isPro
-                              ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
-                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          }`}
-                        >
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                        <span className="leading-snug font-medium">{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Second Half Features Smooth Accordion */}
-                  {secondHalfFeatures.length > 0 && (
-                    <>
-                      <div
-                        className={`grid transition-all duration-300 ease-in-out ${
-                          isExpanded
-                            ? 'grid-rows-[1fr] opacity-100 mt-2'
-                            : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
-                        }`}
-                      >
-                        <div className="overflow-hidden">
-                          <ul className="space-y-2 pt-0.5">
-                            {secondHalfFeatures.map((feat, i) => (
-                              <li
-                                key={i}
-                                className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-200"
-                              >
-                                <div
-                                  className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                                    isPro
-                                      ? 'bg-[#7F22FE]/15 text-[#7F22FE] dark:bg-purple-500/25 dark:text-purple-300'
-                                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                  }`}
-                                >
-                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                </div>
-                                <span className="leading-snug font-medium">{feat}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExpandedPlanIds((prev) => ({
-                            ...prev,
-                            [plan.id]: !prev[plan.id]
-                          }));
+                          const targetPlan = {
+                            ...plan,
+                            price: totalPrice,
+                            duration_days: activeDuration.days,
+                            name: `${plan.name} (${activeDuration.label})`
+                          };
+                          handleOpenGatewayForPlan(targetPlan, null);
                         }}
-                        className="mt-3 mb-4 w-full py-1.5 px-3 rounded-xl bg-violet-50/80 dark:bg-purple-950/40 hover:bg-violet-100 dark:hover:bg-purple-900/50 text-[#7F22FE] dark:text-purple-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 border border-violet-200/60 dark:border-purple-500/20 transition-all cursor-pointer"
+                        className={`w-full py-3.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                          isPopular
+                            ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-lg shadow-purple-600/30'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-[#0F172A] dark:hover:bg-slate-100 shadow-md'
+                        }`}
                       >
                         <span>
-                          {isExpanded
-                            ? 'Show Less Features'
-                            : `See More Features (+${secondHalfFeatures.length})`}
+                          {isCurrentPaidPlan
+                            ? `Renew ${plan.name} (৳${totalPrice.toLocaleString()})`
+                            : `Choose ${plan.name} (৳${totalPrice.toLocaleString()})`}
                         </span>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                            isExpanded ? 'rotate-180' : 'rotate-0'
-                          }`}
-                        />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                    </>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenGatewayForPlan(plan, null);
-                    }}
-                    className={`w-full py-2.5 px-4 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      isPro
-                        ? 'bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#C026D3] hover:from-[#6D28D9] hover:to-[#A21CAF] text-white shadow-[0_6px_20px_rgba(127,34,254,0.38)]'
-                        : 'bg-[#1E1442] dark:bg-purple-950/90 hover:bg-[#7F22FE] dark:hover:bg-[#7F22FE] text-white border border-purple-500/30 shadow-sm'
-                    }`}
-                  >
-                    <span>
-                      Buy {isPro ? 'Pro Plan' : 'Starter Plan'} — TK {totalPrice.toLocaleString()}
+                  {/* Divider & FEATURES Header */}
+                  <div className="pt-2 pb-3 border-t border-slate-100 dark:border-purple-500/15">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                      FEATURES
                     </span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  </div>
+
+                  {/* Feature list */}
+                  <ul className="space-y-3 pb-2">
+                    {plan.features.map((feature, i) => {
+                      const isLockedWA = isTrial && feature.toLowerCase().includes('whatsapp');
+                      return (
+                        <li
+                          key={i}
+                          className={`flex items-start gap-2.5 text-xs leading-relaxed ${
+                            isLockedWA
+                              ? 'text-slate-400 dark:text-slate-500'
+                              : 'text-slate-700 dark:text-slate-200 font-medium'
+                          }`}
+                        >
+                          <div className="shrink-0 mt-0.5">
+                            {isLockedWA ? (
+                              <div className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center">
+                                <Lock className="w-2.5 h-2.5" />
+                              </div>
+                            ) : (
+                              <CheckCircle2
+                                className={`w-4 h-4 ${
+                                  isPopular
+                                    ? 'text-[#7C3AED]'
+                                    : isPro
+                                    ? 'text-purple-400 dark:text-purple-300'
+                                    : 'text-slate-400 dark:text-slate-400'
+                                }`}
+                              />
+                            )}
+                          </div>
+                          <span className={isLockedWA ? 'line-through decoration-slate-400/60' : ''}>
+                            {feature}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               </div>
             );

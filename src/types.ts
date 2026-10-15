@@ -31,6 +31,8 @@ export interface Plan {
   is_active: boolean;
   features: string[];
   feature_config?: PlanFeaturesConfig;
+  badge?: string;
+  subtitle?: string;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +60,8 @@ export interface SubscriptionStatusInfo {
   isExpired: boolean;
   isGated: boolean;
   canAccessDashboard: boolean;
+  isTrialActive?: boolean;
+  canConnectWhatsApp?: boolean;
 }
 
 export interface Payment {

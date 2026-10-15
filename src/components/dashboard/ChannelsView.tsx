@@ -21,10 +21,12 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { api } from '../../api';
-import { Channel, UserProfile } from '../../types';
+import { Channel, UserProfile, SubscriptionStatusInfo } from '../../types';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { MetaAutoConnectModal } from './MetaAutoConnectModal';
 import { FacebookLogo, InstagramLogo, WhatsAppLogo, MessengerLogo } from '../common/BrandLogos';
@@ -33,6 +35,7 @@ import { ToggleSwitch } from '../common/ToggleSwitch';
 interface ChannelsViewProps {
   channels: Channel[];
   currentUser?: UserProfile | null;
+  subStatus?: SubscriptionStatusInfo | null;
   onRefresh: () => void;
   onOpenWebhookTester?: () => void;
   onNavigate?: (tab: string) => void;
@@ -41,11 +44,19 @@ interface ChannelsViewProps {
 export const ChannelsView: React.FC<ChannelsViewProps> = ({
   channels,
   currentUser,
+  subStatus,
   onRefresh,
   onOpenWebhookTester,
   onNavigate
 }) => {
   const isAdmin = currentUser?.role === 'admin';
+  const isWhatsAppLockedInTrial =
+    !isAdmin &&
+    Boolean(
+      subStatus?.isTrialActive ||
+      subStatus?.subscription?.status === 'trialing' ||
+      subStatus?.planId === 'plan_trial'
+    );
 
   // View mode: 'channels' (3 horizontal cards) or 'admin_setup' (Admin-only Meta App ID & Secret setup)
   const [viewMode, setViewMode] = useState<'channels' | 'admin_setup'>('channels');
@@ -78,12 +89,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️'
   );
   const [savingAutomation, setSavingAutomation] = useState(false);
-  const [testingComment, setTestingComment] = useState(false);
-  const [testCommentText, setTestCommentText] = useState('What is the price of the Premium Panjabi? Can I see a photo?');
-  const [commentTestResult, setCommentTestResult] = useState<{
-    publicReply: string;
-    privateInboxReply: string;
-  } | null>(null);
 
   // Optimistic local channels state so connected pages immediately display on screen
   const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
@@ -191,6 +196,12 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
   // Single-Click Connect Handler for each of the 3 horizontal boxes
   const handleConnectClick = (targetPlatform: 'messenger' | 'instagram' | 'whatsapp') => {
+    if (targetPlatform === 'whatsapp' && isWhatsAppLockedInTrial) {
+      if (onNavigate) {
+        onNavigate('billing');
+      }
+      return;
+    }
     setError(null);
     setSuccessMessage(null);
     setAutoConnectPlatform(targetPlatform);
@@ -337,33 +348,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     }
   };
 
-  // 1-Click Test Comment Auto-Reply
-  const handleTestCommentReply = async () => {
-    try {
-      setTestingComment(true);
-      setError(null);
-      setCommentTestResult(null);
-      const res = await api.testCommentAutoReply({
-        platform: 'messenger',
-        customerName: 'Tanvir Ahmed',
-        commentText: testCommentText.trim() || 'What is the price?'
-      });
-      if (res.publicReply && res.privateInboxReply) {
-        setCommentTestResult({
-          publicReply: res.publicReply,
-          privateInboxReply: res.privateInboxReply
-        });
-        setSuccessMessage('Public comment reply and private Inbox DM generated (and saved to Unified Inbox)!');
-      } else {
-        setError(res.reason || 'Auto comment reply test did not complete.');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to test comment reply.');
-    } finally {
-      setTestingComment(false);
-    }
-  };
-
   // Save Admin Meta App Credentials
   const handleSaveMetaConfig = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -410,17 +394,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         {/* Admin-Only Controls (Hidden from normal users) */}
         {isAdmin && (
           <div className="flex items-center gap-2 shrink-0">
-            {onOpenWebhookTester && (
-              <button
-                type="button"
-                onClick={onOpenWebhookTester}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#7F22FE] bg-[#7F22FE]/10 hover:bg-[#7F22FE]/20 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Webhook Simulator</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={() => setViewMode(viewMode === 'admin_setup' ? 'channels' : 'admin_setup')}
@@ -871,149 +844,179 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             </div>
 
             {/* BOX 3: WHATSAPP */}
-            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-emerald-500/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
-              <div className="space-y-3">
-                {/* Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
-                      <WhatsAppLogo className="w-5 h-5" />
+            <div className="relative bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-emerald-500/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5 overflow-hidden">
+              <div className={`space-y-3 flex-1 flex flex-col justify-between ${isWhatsAppLockedInTrial ? 'filter blur-[5px] opacity-35 pointer-events-none select-none transition-all' : ''}`}>
+                <div>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-xs shrink-0">
+                        <WhatsAppLogo className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                          WhatsApp
+                        </h3>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                          WhatsApp Business API
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                        WhatsApp
-                      </h3>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
-                        WhatsApp Business API
-                      </p>
-                    </div>
+
+                    {whatsappChannels.length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Active ({whatsappChannels.length})
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                        Not Connected
+                      </span>
+                    )}
                   </div>
 
+                  {/* Content */}
                   {whatsappChannels.length > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Active ({whatsappChannels.length})
-                    </span>
+                    <div className="space-y-2 mt-3">
+                      {whatsappChannels.map((waCh) => {
+                        const followUpOn = waCh.auto_followup_enabled !== false;
+                        const isAiActive = waCh.is_active !== false;
+                        return (
+                          <div
+                            key={waCh.id}
+                            className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                  {waCh.name}
+                                </h4>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-400">
+                                  ID: {waCh.identifier}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestChannel(waCh.id)}
+                                  disabled={testingChannelId === waCh.id}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                  title="Verify connection"
+                                >
+                                  <RefreshCw
+                                    className={`w-3.5 h-3.5 ${
+                                      testingChannelId === waCh.id ? 'animate-spin text-emerald-600' : ''
+                                    }`}
+                                  />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setChannelToDelete({ id: waCh.id, name: waCh.name })}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                  title="Disconnect number"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {testResult[waCh.id] && (
+                              <p
+                                className={`text-[10px] font-semibold p-1.5 rounded-lg ${
+                                  testResult[waCh.id].success
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                                }`}
+                              >
+                                {testResult[waCh.id].message}
+                              </p>
+                            )}
+
+                            {/* 1-Click Interactive Switches */}
+                            <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-purple-500/10">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                  <span>AI Auto-Reply</span>
+                                </span>
+                                <ToggleSwitch
+                                  size="sm"
+                                  color="emerald"
+                                  checked={isAiActive}
+                                  onChange={() => handleToggleChannelActive(waCh.id)}
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  ⏰ Auto Follow-up (24h)
+                                </span>
+                                <ToggleSwitch
+                                  size="sm"
+                                  color="emerald"
+                                  checked={followUpOn}
+                                  onChange={() => handleToggleAutomation(waCh, 'auto_followup_enabled')}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                      Not Connected
-                    </span>
+                    <div className="space-y-2 py-1 mt-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Connect your WhatsApp Business number. Voice messages, images, and order confirmations run 24/7.
+                      </p>
+                      <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">✓ Voice &amp; Image AI</span>
+                        <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ Auto Follow-up</span>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Content */}
-                {whatsappChannels.length > 0 ? (
-                  <div className="space-y-2">
-                    {whatsappChannels.map((waCh) => {
-                      const followUpOn = waCh.auto_followup_enabled !== false;
-                      const isAiActive = waCh.is_active !== false;
-                      return (
-                        <div
-                          key={waCh.id}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                {waCh.name}
-                              </h4>
-                              <span className="text-[10px] text-slate-400 dark:text-slate-400">
-                                ID: {waCh.identifier}
-                              </span>
-                            </div>
+                {/* Action Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleConnectClick('whatsapp')}
+                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{whatsappChannels.length > 0 ? 'Connect Another Number' : 'Connect WhatsApp'}</span>
+                  </button>
+                </div>
+              </div>
 
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleTestChannel(waCh.id)}
-                                disabled={testingChannelId === waCh.id}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                                title="Verify connection"
-                              >
-                                <RefreshCw
-                                  className={`w-3.5 h-3.5 ${
-                                    testingChannelId === waCh.id ? 'animate-spin text-emerald-600' : ''
-                                  }`}
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setChannelToDelete({ id: waCh.id, name: waCh.name })}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                                title="Disconnect number"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {testResult[waCh.id] && (
-                            <p
-                              className={`text-[10px] font-semibold p-1.5 rounded-lg ${
-                                testResult[waCh.id].success
-                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
-                              }`}
-                            >
-                              {testResult[waCh.id].message}
-                            </p>
-                          )}
-
-                          {/* 1-Click Interactive Switches */}
-                          <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-purple-500/10">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                                <span>AI Auto-Reply</span>
-                              </span>
-                              <ToggleSwitch
-                                size="sm"
-                                color="emerald"
-                                checked={isAiActive}
-                                onChange={() => handleToggleChannelActive(waCh.id)}
-                              />
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                                ⏰ Auto Follow-up (24h)
-                              </span>
-                              <ToggleSwitch
-                                size="sm"
-                                color="emerald"
-                                checked={followUpOn}
-                                onChange={() => handleToggleAutomation(waCh, 'auto_followup_enabled')}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* Screenshot 2 Style Frosted Glass Blur Overlay for Free Trial Mode */}
+              {isWhatsAppLockedInTrial && (
+                <div className="absolute inset-0 z-20 backdrop-blur-md bg-white/75 dark:bg-[#0E0826]/85 p-5 flex flex-col items-center justify-center text-center space-y-3 border border-purple-500/25">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7C3AED]/20 to-emerald-500/20 border border-purple-500/30 flex items-center justify-center text-[#7C3AED] dark:text-purple-300 shadow-sm">
+                    <Lock className="w-5 h-5" />
                   </div>
-                ) : (
-                  <div className="space-y-2 py-1">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Connect your WhatsApp Business number. Voice messages, images, and order confirmations run 24/7.
+                  <div className="space-y-1">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/80 text-[#7C3AED] dark:text-purple-300 border border-purple-200 dark:border-purple-500/30">
+                      Standard &amp; Pro Plan Only
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-tight">
+                      WhatsApp Cloud API is Locked in Free Trial
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[240px] mx-auto leading-relaxed">
+                      During your 2-Day Free Trial, enjoy 100% unlimited Facebook &amp; Instagram AI replies for free. Upgrade to connect WhatsApp!
                     </p>
-                    <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">✓ Voice &amp; Image AI</span>
-                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ Auto Follow-up</span>
-                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Action Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => handleConnectClick('whatsapp')}
-                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{whatsappChannels.length > 0 ? 'Connect Another Number' : 'Connect WhatsApp'}</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate && onNavigate('billing')}
+                    className="w-full max-w-[210px] py-2 px-3.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-purple-600 hover:from-purple-700 hover:to-[#7C3AED] text-white text-xs font-bold shadow-md shadow-purple-600/25 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <span>Upgrade to Unlock WhatsApp</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1118,41 +1121,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                     onChange={(e) => setPublicCommentTemplate(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50/50 dark:bg-[#18103A]/60 text-slate-800 dark:text-white focus:outline-none focus:border-[#7F22FE] leading-relaxed resize-none"
                   />
-                </div>
-
-                {/* Compact Live Comment Tester */}
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/60 dark:border-purple-500/15 space-y-2">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    <span>⚡ Instant Live Simulator</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={testCommentText}
-                      onChange={(e) => setTestCommentText(e.target.value)}
-                      placeholder="e.g. Price koto? Can I order?"
-                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-purple-500/20 bg-white dark:bg-[#100A26] text-slate-800 dark:text-white focus:outline-none focus:border-[#7F22FE]"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleTestCommentReply}
-                      disabled={testingComment}
-                      className="px-3 py-1.5 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50"
-                    >
-                      {testingComment ? 'Testing...' : 'Test Reply'}
-                    </button>
-                  </div>
-
-                  {commentTestResult && (
-                    <div className="p-2 rounded-lg bg-white dark:bg-[#100A26] border border-emerald-300 dark:border-emerald-800/60 space-y-1 text-[11px] animate-fade-in">
-                      <div className="text-slate-800 dark:text-slate-200 truncate">
-                        <strong className="text-[#1877F2]">Public: </strong>{commentTestResult.publicReply}
-                      </div>
-                      <div className="text-slate-800 dark:text-slate-200 truncate pt-1 border-t border-slate-100 dark:border-slate-800">
-                        <strong className="text-[#7F22FE]">Inbox DM: </strong>{commentTestResult.privateInboxReply}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

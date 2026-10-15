@@ -20,7 +20,8 @@ import {
   DollarSign,
   Sliders,
   Calendar,
-  Mail
+  Mail,
+  Globe
 } from 'lucide-react';
 import { UserProfile, SubscriptionStatusInfo, Channel, OrderMetrics, Message, Order, AutomationSettings } from '../../types';
 import { api } from '../../api';
@@ -32,7 +33,7 @@ interface OverviewViewProps {
   totalMessagesCount: number;
   aiRepliesCount: number;
   onNavigate: (tab: string) => void;
-  onOpenWebhookTester: () => void;
+  onOpenWebhookTester?: () => void;
   onOpenTour?: (step?: number) => void;
 }
 
@@ -619,19 +620,19 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
             <button
               type="button"
-              onClick={onOpenWebhookTester}
+              onClick={() => onNavigate('channels')}
               className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Activity className="w-4 h-4" />
+                  <Globe className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Live AI Chat Simulator
+                    Connected Channels
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Test WA, FB &amp; IG AI replies instantly
+                    Manage WhatsApp, Facebook &amp; Instagram
                   </span>
                 </div>
               </div>

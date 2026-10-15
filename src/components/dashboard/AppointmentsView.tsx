@@ -81,7 +81,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
   // Modals
   const [isNewModalOpen, setIsNewModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
-  const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState<boolean>(false);
   const [isCalendarSyncModalOpen, setIsCalendarSyncModalOpen] = useState<boolean>(false);
 
   // Feedback Banner
@@ -103,19 +102,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
   const [newSlotInput, setNewSlotInput] = useState<string>('');
   const [newServiceInput, setNewServiceInput] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
-
-  // AI Simulator State
-  const [simName, setSimName] = useState<string>('Tanvir Hasan');
-  const [simPhone, setSimPhone] = useState<string>('01712345678');
-  const [simPlatform, setSimPlatform] = useState<'whatsapp' | 'messenger' | 'instagram' | 'website'>('messenger');
-  const [simMessage, setSimMessage] = useState<string>(
-    'Agamikal bikel 4:00 PM a consultation appointment book korte chai. Amar nam Tanvir Hasan, mobile 01712345678'
-  );
-  const [simLoading, setSimLoading] = useState<boolean>(false);
-  const [simResult, setSimResult] = useState<{
-    aiReply: string;
-    bookedAppointment: Appointment | null;
-  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -234,36 +220,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
     }
   };
 
-  const handleRunSimulator = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!simMessage.trim()) return;
-    try {
-      setSimLoading(true);
-      setSimResult(null);
-      const res = await api.simulateAppointmentBooking({
-        customerName: simName.trim() || 'Tanvir Hasan',
-        customerPhone: simPhone.trim() || '01712345678',
-        platform: simPlatform,
-        messageText: simMessage.trim()
-      });
-      setSimResult({
-        aiReply: res.aiReply,
-        bookedAppointment: res.bookedAppointment
-      });
-      await fetchAllData();
-      await fetchSlotsForDate(selectedDate);
-      if (res.bookedAppointment) {
-        showToast(
-          `AI auto-booked slot: ${res.bookedAppointment.appointment_date} at ${res.bookedAppointment.appointment_time}!`
-        );
-      }
-    } catch (err: any) {
-      showToast(err.message || 'Simulation failed');
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
   const fullIcalUrl =
     typeof window !== 'undefined' && icalFeedPath
       ? `${window.location.origin}${icalFeedPath}`
@@ -338,14 +294,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setIsSimulatorModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200/70 dark:border-purple-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Bot className="w-4 h-4" />
-            <span>Test AI Booking</span>
-          </button>
 
           <button
             type="button"
@@ -611,13 +559,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
               When customers ask to book an appointment or consultation on WhatsApp, Messenger, Instagram, or your Website, the AI will automatically check open slots and log bookings here.
             </p>
             <div className="pt-1 flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsSimulatorModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 text-xs font-bold cursor-pointer"
-              >
-                Simulate Customer Booking
-              </button>
               <button
                 type="button"
                 onClick={() => setIsNewModalOpen(true)}
@@ -1248,117 +1189,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ onOpenCustom
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* 4. INTERACTIVE AI BOOKING SIMULATOR MODAL */}
-      {isSimulatorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" />
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                    Live AI Appointment Booking Simulator
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Test how the AI checks open slots and logs customer bookings from chat
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSimulatorModalOpen(false)}
-                className="text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-              >
-                Close ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleRunSimulator} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Customer Name
-                  </label>
-                  <input
-                    type="text"
-                    value={simName}
-                    onChange={(e) => setSimName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#191235] border border-slate-200 dark:border-purple-500/30 text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Customer Phone
-                  </label>
-                  <input
-                    type="text"
-                    value={simPhone}
-                    onChange={(e) => setSimPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#191235] border border-slate-200 dark:border-purple-500/30 text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Simulated Customer Message (Supports Bangla, Banglish, or English)
-                </label>
-                <textarea
-                  rows={3}
-                  value={simMessage}
-                  onChange={(e) => setSimMessage(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#191235] border border-slate-200 dark:border-purple-500/30 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="submit"
-                  disabled={simLoading}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Bot className="w-4 h-4" />
-                  <span>{simLoading ? 'AI Checking Calendar...' : 'Send & Auto-Book Slot'}</span>
-                </button>
-              </div>
-            </form>
-
-            {simResult && (
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#191235] border border-slate-200 dark:border-purple-500/20 space-y-3">
-                <div>
-                  <div className="text-[11px] font-bold text-[#7C3AED] dark:text-purple-400">
-                    AI Assistant Reply:
-                  </div>
-                  <p className="mt-1 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-line">
-                    {simResult.aiReply}
-                  </p>
-                </div>
-
-                {simResult.bookedAppointment && (
-                  <div className="pt-2 border-t border-slate-200/80 dark:border-purple-500/20 flex items-center justify-between gap-2">
-                    <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">
-                      Booked: {simResult.bookedAppointment.appointment_date} at{' '}
-                      {simResult.bookedAppointment.appointment_time}
-                    </div>
-                    {simResult.bookedAppointment.google_calendar_url && (
-                      <a
-                        href={simResult.bookedAppointment.google_calendar_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"
-                      >
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>Add to Google Calendar</span>
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
