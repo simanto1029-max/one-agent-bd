@@ -628,15 +628,9 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                 <Lock className="w-2.5 h-2.5" />
                               </div>
                             ) : (
-                              <CheckCircle2
-                                className={`w-4 h-4 ${
-                                  isPopular
-                                    ? 'text-[#7C3AED]'
-                                    : isPro
-                                    ? 'text-purple-400 dark:text-purple-300'
-                                    : 'text-slate-400 dark:text-slate-400'
-                                }`}
-                              />
+                              <div className="w-4 h-4 rounded-full bg-[#E5F9F1] dark:bg-emerald-950/60 text-[#10B981] dark:text-emerald-400 flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </div>
                             )}
                           </div>
                           <span className={isLockedWA ? 'line-through decoration-slate-400/60' : ''}>

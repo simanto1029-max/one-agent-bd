@@ -64,7 +64,7 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
                 }`}
               >
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#7F22FE] block">
-                  {plan.id === 'plan_pro' ? '3 AI Agents' : '1 AI Agent + Website'}
+                  {plan.id === 'plan_pro' ? '10 AI Agents' : '3 AI Agents'}
                 </span>
                 <span className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white block mt-0.5">
                   {plan.name}
