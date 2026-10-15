@@ -11,10 +11,7 @@ import {
   Mic,
   Smile,
   ThumbsUp,
-  RotateCcw,
-  Sparkles,
-  CheckCircle2,
-  Send
+  Sparkles
 } from 'lucide-react';
 
 interface FeatureHighlight {
@@ -35,48 +32,78 @@ const FEATURE_HIGHLIGHTS: FeatureHighlight[] = [
     id: 'instant',
     title: 'Instant Replies',
     description: 'One Agent BD instantly answers across all platforms and organize the messages for you.',
-    stepIndex: 2
+    stepIndex: 3
   },
   {
     id: 'productivity',
     title: 'Increased Productivity',
     description: 'One Agent BD handles customers all day, so you can focus on your business growth.',
-    stepIndex: 4
+    stepIndex: 5
   }
 ];
 
 export const Features: React.FC = () => {
   const [activeFeatureId, setActiveFeatureId] = useState<string>('sales');
-  // Steps in chat:
-  // 0 = Initial state (customer sent photo + "Price?")
-  // 1 = Bot replies "The price of this product is 5000 tk..." (Increased Sales)
-  // 2 = Customer asks "What else do you have?"
-  // 3 = Bot replies with brown color & blue stripe photos (Instant Replies)
-  // 4 = Customer asks "Is this available? I would like to order"
-  // 5 = Bot confirms order details & courier booking (Increased Productivity)
+  // Conversation steps:
+  // 0: Customer product image + "Price?"
+  // 1: AI reply: "The price of this product is 5000 tk..." (Sales)
+  // 2: Customer: "What else do you have?"
+  // 3: AI reply: 2 suit photos + "We have brown color and blue stripe..." (Instant)
+  // 4: Customer: "Is this available? I would like to order"
+  // 5: AI reply: "Yes, both are in stock! Auto-booked Steadfast Courier..." (Productivity)
   const [chatStep, setChatStep] = useState<number>(1);
   const [isTyping, setIsTyping] = useState<boolean>(false);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
 
-  // Auto-progress the chat conversation smoothly to mimic the video
+  // Self-running autonomous animation loop without any buttons
   useEffect(() => {
-    if (isPaused) return;
+    let timeoutId: NodeJS.Timeout;
 
-    const timer = setInterval(() => {
+    const runStep = () => {
       setChatStep((prev) => {
-        const next = (prev + 1) % 6;
-        // Sync active feature highlight with chat progression
+        // Step progression: 1 -> 2 -> 3 -> 4 -> 5 -> loop back to 0 then 1
+        if (prev >= 5) {
+          // Loop back smoothly
+          timeoutId = setTimeout(() => {
+            setChatStep(0);
+            setActiveFeatureId('sales');
+            timeoutId = setTimeout(() => {
+              setIsTyping(true);
+              timeoutId = setTimeout(() => {
+                setIsTyping(false);
+                setChatStep(1);
+              }, 800);
+            }, 600);
+          }, 3200);
+          return prev;
+        }
+
+        const next = prev + 1;
+        // Sync active highlight card on the left
         if (next === 1) setActiveFeatureId('sales');
-        else if (next === 3) setActiveFeatureId('instant');
-        else if (next === 5) setActiveFeatureId('productivity');
+        else if (next === 2 || next === 3) setActiveFeatureId('instant');
+        else if (next === 4 || next === 5) setActiveFeatureId('productivity');
+
+        // Show typing indicator briefly before AI messages (steps 1, 3, 5)
+        if (next === 1 || next === 3 || next === 5) {
+          setIsTyping(true);
+          timeoutId = setTimeout(() => {
+            setIsTyping(false);
+          }, 700);
+        }
+
         return next;
       });
-    }, 4200);
+    };
 
-    return () => clearInterval(timer);
-  }, [isPaused]);
+    const intervalId = setInterval(runStep, 3600);
 
-  // Handle clicking a feature on the left
+    return () => {
+      clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Allow clicking on any highlight to jump directly to that point in the simulation
   const handleSelectFeature = (f: FeatureHighlight) => {
     setActiveFeatureId(f.id);
     if (f.id === 'sales') {
@@ -88,327 +115,350 @@ export const Features: React.FC = () => {
     }
   };
 
-  const handleRestart = () => {
-    setChatStep(0);
-    setActiveFeatureId('sales');
-    setTimeout(() => setChatStep(1), 600);
-  };
-
   return (
     <section
       id="features"
-      className="py-16 sm:py-24 bg-[#090C16] text-white relative overflow-hidden transition-colors selection:bg-[#7C3AED] selection:text-white"
+      className="py-16 sm:py-24 bg-slate-50 dark:bg-gradient-to-b dark:from-[#0B0720] dark:via-[#130B32] dark:to-[#090518] text-slate-900 dark:text-white relative overflow-hidden transition-colors border-y border-slate-200/80 dark:border-purple-500/20"
     >
-      {/* Ambient background glow */}
+      {/* Website Matching Ambient Radial Glows */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px]"
+        className="pointer-events-none absolute top-1/4 right-1/4 w-[480px] h-[480px] bg-[#7C3AED]/10 dark:bg-[#7F22FE]/20 rounded-full blur-[130px]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[100px]"
+        className="pointer-events-none absolute bottom-1/4 left-1/4 w-[420px] h-[420px] bg-purple-500/10 dark:bg-[#9333EA]/20 rounded-full blur-[110px]"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
           
-          {/* LEFT COLUMN: Feature highlights list (Exact LazyChat style) */}
-          <div className="lg:col-span-5 space-y-8 sm:space-y-12">
-            {FEATURE_HIGHLIGHTS.map((item) => {
-              const isActive = activeFeatureId === item.id;
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelectFeature(item)}
-                  className={`group cursor-pointer transition-all duration-300 p-4 sm:p-5 rounded-2xl border ${
-                    isActive
-                      ? 'bg-white/[0.04] border-purple-500/40 shadow-[0_0_30px_rgba(124,58,237,0.12)]'
-                      : 'border-transparent hover:bg-white/[0.02]'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    {/* Active Indicator Bar */}
-                    <div
-                      className={`w-1 self-stretch rounded-full transition-all duration-300 ${
-                        isActive
-                          ? 'bg-gradient-to-b from-[#7C3AED] to-[#A855F7] shadow-[0_0_12px_#7C3AED]'
-                          : 'bg-white/10 group-hover:bg-white/20'
-                      }`}
-                    />
+          {/* LEFT COLUMN: Feature highlights list (LazyChat style with website colors) */}
+          <div className="lg:col-span-5 space-y-6 sm:space-y-8">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#7C3AED]/10 dark:bg-purple-950/60 border border-[#7C3AED]/25 dark:border-purple-500/30 text-xs font-semibold text-[#7C3AED] dark:text-purple-300">
+              <Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" />
+              <span>Autonomous AI Sales Agent</span>
+            </div>
 
-                    <div className="space-y-2">
-                      <h3
-                        className={`text-xl sm:text-2xl font-bold tracking-tight transition-colors ${
-                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+            <div className="space-y-4 sm:space-y-5">
+              {FEATURE_HIGHLIGHTS.map((item) => {
+                const isActive = activeFeatureId === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectFeature(item)}
+                    className={`group cursor-pointer transition-all duration-300 p-5 sm:p-6 rounded-2xl border ${
+                      isActive
+                        ? 'bg-white dark:bg-[#1A1238]/90 border-purple-500/50 shadow-[0_8px_30px_rgba(124,58,237,0.14)] dark:shadow-[0_0_35px_rgba(124,58,237,0.22)] ring-1 ring-purple-500/30 scale-[1.01]'
+                        : 'bg-white/60 dark:bg-white/[0.02] border-slate-200/80 dark:border-white/10 hover:bg-white dark:hover:bg-white/[0.05] hover:border-purple-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Active Indicator Bar */}
+                      <div
+                        className={`w-1 self-stretch rounded-full transition-all duration-300 ${
+                          isActive
+                            ? 'bg-gradient-to-b from-[#7C3AED] to-[#A855F7] shadow-[0_0_12px_#7C3AED]'
+                            : 'bg-slate-200 dark:bg-white/10 group-hover:bg-slate-300 dark:group-hover:bg-white/20'
                         }`}
-                      >
-                        {item.title}
-                      </h3>
-                      <p
-                        className={`text-xs sm:text-sm leading-relaxed transition-colors ${
-                          isActive ? 'text-slate-300' : 'text-slate-500 group-hover:text-slate-400'
-                        }`}
-                      >
-                        {item.description}
-                      </p>
+                      />
+
+                      <div className="space-y-1.5">
+                        <h3
+                          className={`text-xl sm:text-2xl font-bold tracking-tight transition-colors ${
+                            isActive
+                              ? 'text-slate-900 dark:text-white'
+                              : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'
+                          }`}
+                        >
+                          {item.title}
+                        </h3>
+                        <p
+                          className={`text-xs sm:text-sm leading-relaxed transition-colors ${
+                            isActive
+                              ? 'text-slate-600 dark:text-slate-300'
+                              : 'text-slate-500 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400'
+                          }`}
+                        >
+                          {item.description}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-
-            {/* Controls & Call to Action */}
-            <div className="pt-2 flex flex-wrap items-center gap-4">
-              <button
-                type="button"
-                onClick={handleRestart}
-                className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-purple-400" />
-                <span>Replay Animation</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPaused((prev) => !prev)}
-                className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer"
-              >
-                {isPaused ? '▶ Resume' : '⏸ Pause'}
-              </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Realistic Smartphone Mockup with Animated Chat (Exact LazyChat Video) */}
-          <div className="lg:col-span-7 flex justify-center lg:justify-end relative">
+          {/* RIGHT COLUMN: Realistic iPhone 14 UI Mockup (Shifted left to balance properly with the left column) */}
+          <div className="lg:col-span-7 flex justify-center lg:justify-start lg:pl-4 xl:pl-8 relative">
             
-            {/* Phone Chassis */}
-            <div className="relative w-full max-w-[360px] sm:max-w-[390px] rounded-[48px] p-3.5 bg-gradient-to-b from-neutral-800 via-neutral-900 to-black border-4 border-neutral-700/80 shadow-[0_30px_90px_rgba(0,0,0,0.85)] ring-1 ring-white/15">
+            {/* iPhone 14 Frame Container with Outer Buttons */}
+            <div className="relative">
               
-              {/* Speaker notch / Dynamic Island */}
-              <div className="absolute top-5 left-1/2 -translate-x-1/2 w-28 h-4 bg-neutral-950 rounded-full z-30 flex items-center justify-center">
-                <div className="w-10 h-1 bg-neutral-800 rounded-full" />
-                <div className="w-2.5 h-2.5 rounded-full bg-neutral-900 ml-2" />
-              </div>
+              {/* iPhone 14 Left Side Buttons (Volume Up / Down / Mute) */}
+              <div className="hidden sm:block absolute -left-[7px] top-24 w-[5px] h-9 bg-neutral-600 dark:bg-neutral-700 rounded-l-xs" />
+              <div className="hidden sm:block absolute -left-[7px] top-36 w-[5px] h-12 bg-neutral-600 dark:bg-neutral-700 rounded-l-xs" />
+              <div className="hidden sm:block absolute -left-[7px] top-52 w-[5px] h-12 bg-neutral-600 dark:bg-neutral-700 rounded-l-xs" />
+              
+              {/* iPhone 14 Right Side Power Button */}
+              <div className="hidden sm:block absolute -right-[7px] top-32 w-[5px] h-16 bg-neutral-600 dark:bg-neutral-700 rounded-r-xs" />
 
-              {/* Inside Screen */}
-              <div className="relative rounded-[38px] bg-[#0E0F14] overflow-hidden flex flex-col h-[650px] border border-neutral-800 text-white select-none">
+              {/* iPhone 14 Chassis */}
+              <div className="w-[340px] sm:w-[380px] rounded-[52px] p-3 sm:p-3.5 bg-gradient-to-b from-[#2C2D35] via-[#1E1F27] to-[#121319] border-2 border-neutral-600/70 dark:border-neutral-700/60 shadow-[0_25px_70px_rgba(15,23,42,0.25)] dark:shadow-[0_30px_90px_rgba(0,0,0,0.85)] ring-1 ring-white/20">
                 
-                {/* Phone Status & Messenger Header */}
-                <div className="pt-6 pb-2.5 px-4 bg-[#14151C]/90 backdrop-blur-md border-b border-white/5 z-20">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold px-1 mb-2">
-                    <span>10:44</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px]">5G</span>
-                      <div className="w-4 h-2 border border-slate-400 rounded-xs flex items-center p-0.5">
-                        <div className="h-full w-full bg-slate-200 rounded-xs" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <ChevronLeft className="w-5 h-5 text-[#0084FF] cursor-pointer" />
-                      
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-xs text-white shadow-xs">
-                          OA
-                        </div>
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#14151C]" />
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold leading-tight">One Agent Store</h4>
-                        <span className="text-[10px] text-emerald-400 font-medium">Active now</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-[#0084FF]">
-                      <Phone className="w-4 h-4 cursor-pointer hover:opacity-80" />
-                      <Video className="w-4 h-4 cursor-pointer hover:opacity-80" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Chat Feed */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-none text-xs">
+                {/* Inside Screen */}
+                <div className="relative rounded-[42px] bg-[#0E0F15] overflow-hidden flex flex-col h-[640px] border border-neutral-800 text-white select-none shadow-inner">
                   
-                  {/* Replied to story tag */}
-                  <div className="text-center">
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      You replied to their story
-                    </span>
-                  </div>
+                  {/* iPhone 14 iOS Top Bar with Dynamic Island */}
+                  <div className="pt-3 pb-2 px-6 bg-[#13141B] z-30 select-none">
+                    
+                    {/* Status Bar Row (Time, Dynamic Island, Battery) */}
+                    <div className="flex items-center justify-between text-xs font-semibold text-white">
+                      {/* Left: Apple 9:41 Time */}
+                      <span className="w-12 text-left font-bold tracking-tight text-[13px] pl-1">
+                        9:41
+                      </span>
 
-                  {/* 1. Customer sends product image + "Price?" */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex flex-col items-end space-y-1.5"
-                  >
-                    <div className="w-32 sm:w-36 rounded-2xl overflow-hidden border border-white/10 shadow-md">
-                      <img
-                        src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=400&q=80"
-                        alt="Classic Double Breasted Blazer"
-                        className="w-full h-36 object-cover"
-                      />
-                    </div>
-                    <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium shadow-sm">
-                      Price?
-                    </div>
-                    <span className="text-[9px] text-slate-400 pr-1">10:44</span>
-                  </motion.div>
-
-                  {/* 2. Bot reply: "The price of this product is 5000 tk..." */}
-                  {chatStep >= 1 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.35 }}
-                      className="flex items-start gap-2 max-w-[85%]"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5">
-                        AI
+                      {/* Center: iPhone 14 Dynamic Island */}
+                      <div className="w-24 h-[22px] bg-black rounded-full flex items-center justify-between px-2 shadow-xs border border-neutral-800/80">
+                        {/* Camera lens */}
+                        <div className="w-2 h-2 rounded-full bg-[#111219] ring-1 ring-neutral-700/60" />
+                        {/* Audio sensor dot */}
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#1b1c26]" />
                       </div>
-                      <div className="space-y-1">
-                        <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed font-normal shadow-sm">
-                          The price of this product is 5000 tk. Would you like to order it?
+
+                      {/* Right: Signal, 5G, Battery */}
+                      <div className="w-12 flex items-center justify-end gap-1.5 pr-1">
+                        {/* 4-bar signal */}
+                        <div className="flex items-end gap-[1.5px] h-2.5">
+                          <span className="w-[2px] h-1 bg-white rounded-2xs" />
+                          <span className="w-[2px] h-1.5 bg-white rounded-2xs" />
+                          <span className="w-[2px] h-2 bg-white rounded-2xs" />
+                          <span className="w-[2px] h-2.5 bg-white rounded-2xs" />
+                        </div>
+                        <span className="text-[10px] font-bold">5G</span>
+                        {/* Battery */}
+                        <div className="w-5 h-2.5 border border-white/80 rounded-[3px] p-[1.5px] flex items-center relative">
+                          <div className="h-full w-3/4 bg-white rounded-[1.5px]" />
+                          <div className="w-[2px] h-1 bg-white/80 absolute -right-[3px] rounded-r-2xs" />
                         </div>
                       </div>
-                    </motion.div>
-                  )}
+                    </div>
 
-                  {/* 3. Customer: "What else do you have?" */}
-                  {chatStep >= 2 && (
+                    {/* Messenger Chat App Header */}
+                    <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-white/5 pt-2">
+                      <div className="flex items-center gap-2">
+                        <ChevronLeft className="w-5 h-5 text-[#0084FF] cursor-pointer" />
+                        
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-xs text-white shadow-xs">
+                            OA
+                          </div>
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#13141B]" />
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-bold leading-tight">One Agent Store</h4>
+                          <span className="text-[10px] text-emerald-400 font-medium">Active now</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[#0084FF]">
+                        <Phone className="w-4 h-4 cursor-pointer hover:opacity-80" />
+                        <Video className="w-4 h-4 cursor-pointer hover:opacity-80" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat Feed */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-none text-xs bg-[#0E0F15]">
+                    
+                    {/* Story reply indicator */}
+                    <div className="text-center">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        You replied to their story
+                      </span>
+                    </div>
+
+                    {/* 1. Customer sends product image + "Price?" */}
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="flex flex-col items-end space-y-1"
+                      className="flex flex-col items-end space-y-1.5"
                     >
-                      <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium">
-                        What else do you have?
+                      <div className="w-32 sm:w-36 rounded-2xl overflow-hidden border border-white/10 shadow-md">
+                        <img
+                          src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=400&q=80"
+                          alt="Classic Double Breasted Blazer"
+                          className="w-full h-32 object-cover"
+                        />
                       </div>
+                      <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium shadow-sm">
+                        Price?
+                      </div>
+                      <span className="text-[9px] text-slate-400 pr-1">9:41</span>
                     </motion.div>
-                  )}
 
-                  {/* 4. Bot: "We have brown color and blue stripe as well." + 2 Photos */}
-                  {chatStep >= 3 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.35 }}
-                      className="flex items-start gap-2 max-w-[92%]"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5">
-                        AI
-                      </div>
-                      <div className="space-y-2">
-                        <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed">
-                          We have brown color and blue stripe as well.
+                    {/* 2. Bot reply: "The price of this product is 5000 tk..." */}
+                    {chatStep >= 1 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex items-start gap-2 max-w-[86%]"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          AI
                         </div>
-
-                        {/* 2 Product Photos Side-by-Side (as in LazyChat Video) */}
-                        <div className="grid grid-cols-2 gap-2 pt-0.5">
-                          <div className="rounded-xl overflow-hidden border border-white/10 bg-[#1C1D24]">
-                            <img
-                              src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80"
-                              alt="Brown Tailored Suit"
-                              className="w-full h-24 object-cover"
-                            />
-                            <div className="p-1.5 text-center text-[10px] font-semibold text-slate-300">
-                              Brown Classic
-                            </div>
-                          </div>
-                          <div className="rounded-xl overflow-hidden border border-white/10 bg-[#1C1D24]">
-                            <img
-                              src="https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=300&q=80"
-                              alt="Navy Pinstripe Suit"
-                              className="w-full h-24 object-cover"
-                            />
-                            <div className="p-1.5 text-center text-[10px] font-semibold text-slate-300">
-                              Blue Stripe
-                            </div>
+                        <div className="space-y-1">
+                          <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed font-normal shadow-sm">
+                            The price of this product is 5000 tk. Would you like to order it?
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
 
-                  {/* 5. Customer: "Is this available? I would like to order" */}
-                  {chatStep >= 4 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="flex flex-col items-end space-y-1"
-                    >
-                      <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium text-right leading-snug">
-                        Is this available? I would like to order
-                      </div>
-                    </motion.div>
-                  )}
+                    {/* 3. Customer: "What else do you have?" */}
+                    {chatStep >= 2 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="flex flex-col items-end space-y-1"
+                      >
+                        <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium">
+                          What else do you have?
+                        </div>
+                      </motion.div>
+                    )}
 
-                  {/* 6. Bot: Order confirmation & address prompt */}
-                  {chatStep >= 5 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.35 }}
-                      className="flex items-start gap-2 max-w-[88%]"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5">
-                        AI
-                      </div>
-                      <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed space-y-1">
-                        <p>Yes, both are in stock!</p>
-                        <p className="text-emerald-400 font-semibold text-[11px]">
-                          ✓ Auto-booked Steadfast Courier Cash on Delivery
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
+                    {/* 4. Bot: "We have brown color and blue stripe as well." + 2 Photos */}
+                    {chatStep >= 3 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex items-start gap-2 max-w-[92%]"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          AI
+                        </div>
+                        <div className="space-y-2">
+                          <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed">
+                            We have brown color and blue stripe as well.
+                          </div>
 
-                  {/* Dynamic Typing indicator */}
-                  {isTyping && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0">
-                        AI
+                          {/* 2 Product Photos Side-by-Side */}
+                          <div className="grid grid-cols-2 gap-2 pt-0.5">
+                            <div className="rounded-xl overflow-hidden border border-white/10 bg-[#1C1D24]">
+                              <img
+                                src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80"
+                                alt="Brown Tailored Suit"
+                                className="w-full h-20 object-cover"
+                              />
+                              <div className="p-1 text-center text-[10px] font-semibold text-slate-300">
+                                Brown Classic
+                              </div>
+                            </div>
+                            <div className="rounded-xl overflow-hidden border border-white/10 bg-[#1C1D24]">
+                              <img
+                                src="https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=300&q=80"
+                                alt="Navy Pinstripe Suit"
+                                className="w-full h-20 object-cover"
+                              />
+                              <div className="p-1 text-center text-[10px] font-semibold text-slate-300">
+                                Blue Stripe
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* 5. Customer: "Is this available? I would like to order" */}
+                    {chatStep >= 4 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="flex flex-col items-end space-y-1"
+                      >
+                        <div className="px-3.5 py-2 rounded-2xl rounded-tr-xs bg-[#0084FF] text-white font-medium text-right leading-snug">
+                          Is this available? I would like to order
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* 6. Bot: Order confirmation & address prompt */}
+                    {chatStep >= 5 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex items-start gap-2 max-w-[88%]"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          AI
+                        </div>
+                        <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-xs bg-[#242526] text-slate-100 leading-relaxed space-y-1">
+                          <p>Yes, both are in stock!</p>
+                          <p className="text-emerald-400 font-semibold text-[11px]">
+                            ✓ Auto-booked Steadfast Courier Cash on Delivery
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Typing indicator */}
+                    {isTyping && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-purple-600 text-[10px] font-black text-white flex items-center justify-center shrink-0">
+                          AI
+                        </div>
+                        <div className="px-3 py-2 rounded-2xl rounded-tl-xs bg-[#242526] flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.4s]" />
+                        </div>
                       </div>
-                      <div className="px-3 py-2 rounded-2xl rounded-tl-xs bg-[#242526] flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.4s]" />
-                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Messenger Input Bar */}
+                  <div className="p-3 bg-[#13141B] border-t border-white/5 flex items-center gap-2 z-20">
+                    <div className="flex items-center gap-2 text-[#0084FF]">
+                      <Plus className="w-4 h-4 cursor-pointer" />
+                      <Camera className="w-4 h-4 cursor-pointer" />
+                      <ImageIcon className="w-4 h-4 cursor-pointer" />
+                      <Mic className="w-4 h-4 cursor-pointer" />
                     </div>
-                  )}
-                </div>
 
-                {/* Bottom Messenger Input Bar */}
-                <div className="p-3 bg-[#14151C] border-t border-white/5 flex items-center gap-2 z-20">
-                  <div className="flex items-center gap-2 text-[#0084FF]">
-                    <Plus className="w-4 h-4 cursor-pointer" />
-                    <Camera className="w-4 h-4 cursor-pointer" />
-                    <ImageIcon className="w-4 h-4 cursor-pointer" />
-                    <Mic className="w-4 h-4 cursor-pointer" />
+                    <div className="flex-1 h-8 rounded-full bg-[#242526] px-3 flex items-center justify-between text-slate-400 text-xs">
+                      <span>Aa</span>
+                      <Smile className="w-4 h-4 text-[#0084FF] cursor-pointer" />
+                    </div>
+
+                    <ThumbsUp className="w-4 h-4 text-[#0084FF] cursor-pointer" />
                   </div>
 
-                  <div className="flex-1 h-8 rounded-full bg-[#242526] px-3 flex items-center justify-between text-slate-400 text-xs">
-                    <span>Aa</span>
-                    <Smile className="w-4 h-4 text-[#0084FF] cursor-pointer" />
+                  {/* iOS Home Indicator Bar */}
+                  <div className="py-1 bg-[#13141B] flex justify-center">
+                    <div className="w-32 h-1 bg-white/40 rounded-full" />
                   </div>
 
-                  <ThumbsUp className="w-4 h-4 text-[#0084FF] cursor-pointer" />
                 </div>
               </div>
-            </div>
 
-            {/* Floating "Chat with us" Messenger Button (Exact as LazyChat video) */}
-            <div className="absolute -bottom-4 right-0 sm:right-6 z-30">
-              <div className="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#0084FF] text-white text-xs font-bold shadow-xl flex items-center gap-2 cursor-pointer hover:scale-105 transition-all">
-                <MessageCircle className="w-4 h-4 fill-white" />
-                <span>Chat with us</span>
+              {/* Floating "Chat with us" Messenger Button */}
+              <div className="absolute -bottom-4 -right-2 sm:right-2 z-30">
+                <div className="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#0084FF] text-white text-xs font-bold shadow-xl flex items-center gap-2 cursor-pointer hover:scale-105 transition-all">
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>Chat with us</span>
+                </div>
               </div>
+
             </div>
 
           </div>
