@@ -11,6 +11,8 @@ interface NavbarProps {
   onOpenAuth: (mode?: 'login' | 'signup') => void;
   onGoToDashboard: () => void;
   onGoToAdmin: () => void;
+  onGoToLanding?: () => void;
+  onGoToDemo?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,10 +21,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onOpenAuth,
   onGoToDashboard,
-  onGoToAdmin
+  onGoToAdmin,
+  onGoToLanding,
+  onGoToDemo
 }) => {
   const scrollToSection = (sectionId?: string) => {
     if (typeof window === 'undefined') return;
+
+    if (onGoToLanding) {
+      onGoToLanding();
+      // Allow slight delay if view was not landing
+      setTimeout(() => {
+        if (!sectionId) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 50);
+      return;
+    }
+
     if (window.location.href.includes('#')) {
       try {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -41,16 +62,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Spacer so page content starts cleanly below the floating navbar */}
-      <div className="h-20 sm:h-24 shrink-0" aria-hidden="true" />
+      <div className="h-20 sm:h-22 shrink-0" aria-hidden="true" />
 
-      {/* Floating Header with spacious margins, rounded pill shape, and glass blur (Exact LazyChat style) */}
-      <div className="fixed top-3 sm:top-5 left-0 right-0 z-50 flex justify-center px-3 sm:px-6 pointer-events-none">
-        <header className="pointer-events-auto w-full max-w-6xl rounded-2xl sm:rounded-full bg-white/85 dark:bg-[#0D0826]/85 backdrop-blur-xl border border-slate-200/90 dark:border-purple-500/25 shadow-[0_10px_35px_rgba(15,23,42,0.07)] dark:shadow-[0_12px_45px_rgba(0,0,0,0.55)] px-4 sm:px-7 py-2.5 sm:py-3 flex items-center justify-between gap-4 transition-all">
+      {/* Floating Header: elevated position, 10px corner radius, taller height, subtle soft shadow */}
+      <div className="fixed top-2 sm:top-2.5 left-0 right-0 z-50 flex justify-center px-3 sm:px-6 pointer-events-none">
+        <header className="pointer-events-auto w-full max-w-6xl rounded-[10px] bg-white/90 dark:bg-[#0D0826]/90 backdrop-blur-xl border border-slate-200/90 dark:border-purple-500/25 shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)] px-4 sm:px-7 py-3.5 sm:py-4 flex items-center justify-between gap-4 transition-all">
           
           {/* Brand Wordmark (Logo icon removed as requested, clean typography) */}
           <button
             type="button"
-            onClick={() => scrollToSection()}
+            onClick={() => {
+              if (onGoToLanding) {
+                onGoToLanding();
+              } else {
+                scrollToSection();
+              }
+            }}
             className="group focus:outline-hidden shrink-0 cursor-pointer text-left"
           >
             <span className="font-black text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">
@@ -58,15 +85,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </button>
 
-          {/* Navigation Links: Solutions, Features, Pricing */}
+          {/* Navigation Links: Demo, Features, Pricing */}
           <nav className="hidden md:flex items-center gap-7 lg:gap-9 text-sm font-semibold text-slate-600 dark:text-slate-300">
             <button
               type="button"
-              onClick={() => scrollToSection('features')}
+              onClick={() => {
+                if (onGoToDemo) {
+                  onGoToDemo();
+                } else if (typeof window !== 'undefined') {
+                  window.location.href = '/demo';
+                }
+              }}
               className="text-slate-600 dark:text-slate-300 hover:text-[#7C3AED] dark:hover:text-white transition-colors cursor-pointer"
             >
-              Solutions
+              Demo
             </button>
+
             <button
               type="button"
               onClick={() => scrollToSection('features')}

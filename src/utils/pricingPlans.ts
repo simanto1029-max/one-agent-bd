@@ -277,65 +277,54 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
 ];
 
 export function normalizeToThreePlans(apiPlans: Plan[]): Plan[] {
-  const trialFromApi = apiPlans.find((p) => p.price === 0 || p.id === 'plan_trial');
-  const starterFromApi = apiPlans.find((p) => p.price === 1250 || p.id === 'plan_starter');
-  const proFromApi = apiPlans.find((p) => p.price === 1950 || p.id === 'plan_pro');
+  const trialFromApi = apiPlans.find((p) => p.id === 'plan_trial' || p.price === 0);
+  const starterFromApi = apiPlans.find(
+    (p) =>
+      p.id === 'plan_starter' ||
+      p.name.toLowerCase().includes('starter') ||
+      p.name.toLowerCase().includes('advanced')
+  );
+  const proFromApi = apiPlans.find(
+    (p) =>
+      p.id === 'plan_pro' ||
+      p.name.toLowerCase().includes('agency') ||
+      p.name.toLowerCase().includes('pro')
+  );
 
   return [
     trialFromApi
       ? {
           ...OFFICIAL_THREE_PLANS[0],
           ...trialFromApi,
-          price: 0,
-          features: OFFICIAL_THREE_PLANS[0].features,
-          feature_config: OFFICIAL_THREE_PLANS[0].feature_config
+          price: trialFromApi.price ?? 0,
+          features: trialFromApi.features?.length ? trialFromApi.features : OFFICIAL_THREE_PLANS[0].features,
+          feature_config: trialFromApi.feature_config || OFFICIAL_THREE_PLANS[0].feature_config
         }
       : OFFICIAL_THREE_PLANS[0],
     starterFromApi
       ? {
           ...OFFICIAL_THREE_PLANS[1],
           ...starterFromApi,
-          price: 1250,
-          features: OFFICIAL_THREE_PLANS[1].features,
-          feature_config: OFFICIAL_THREE_PLANS[1].feature_config
+          price: typeof starterFromApi.price === 'number' ? starterFromApi.price : 1250,
+          features: starterFromApi.features?.length ? starterFromApi.features : OFFICIAL_THREE_PLANS[1].features,
+          feature_config: starterFromApi.feature_config || OFFICIAL_THREE_PLANS[1].feature_config
         }
       : OFFICIAL_THREE_PLANS[1],
     proFromApi
       ? {
           ...OFFICIAL_THREE_PLANS[2],
           ...proFromApi,
-          price: 1950,
-          features: OFFICIAL_THREE_PLANS[2].features,
-          feature_config: OFFICIAL_THREE_PLANS[2].feature_config
+          price: typeof proFromApi.price === 'number' ? proFromApi.price : 1950,
+          features: proFromApi.features?.length ? proFromApi.features : OFFICIAL_THREE_PLANS[2].features,
+          feature_config: proFromApi.feature_config || OFFICIAL_THREE_PLANS[2].feature_config
         }
       : OFFICIAL_THREE_PLANS[2]
   ];
 }
 
 export function normalizeToTwoPlans(apiPlans: Plan[]): Plan[] {
-  const starterFromApi = apiPlans.find((p) => p.price === 1250 || p.id === 'plan_starter');
-  const proFromApi = apiPlans.find((p) => p.price === 1950 || p.id === 'plan_pro');
-
-  return [
-    starterFromApi
-      ? {
-          ...OFFICIAL_THREE_PLANS[1],
-          ...starterFromApi,
-          price: 1250,
-          features: OFFICIAL_THREE_PLANS[1].features,
-          feature_config: OFFICIAL_THREE_PLANS[1].feature_config
-        }
-      : OFFICIAL_THREE_PLANS[1],
-    proFromApi
-      ? {
-          ...OFFICIAL_THREE_PLANS[2],
-          ...proFromApi,
-          price: 1950,
-          features: OFFICIAL_THREE_PLANS[2].features,
-          feature_config: OFFICIAL_THREE_PLANS[2].feature_config
-        }
-      : OFFICIAL_THREE_PLANS[2]
-  ];
+  const three = normalizeToThreePlans(apiPlans);
+  return [three[1], three[2]];
 }
 
 export const OFFICIAL_PLANS: Plan[] = OFFICIAL_THREE_PLANS;

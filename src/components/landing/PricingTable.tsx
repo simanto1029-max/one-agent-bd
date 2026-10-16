@@ -67,7 +67,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   return (
     <section
       id="pricing"
-      className="py-16 sm:py-24 bg-[#F8F9FE] dark:bg-[#09061A] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
+      className="py-10 sm:py-14 bg-[#F8F9FE] dark:bg-[#09061A] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
         {/* ChatMakky Style Clean Centered Headline */}

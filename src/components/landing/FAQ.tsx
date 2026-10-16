@@ -40,7 +40,7 @@ export const FAQ: React.FC = () => {
   return (
     <section
       id="faq"
-      className="py-14 sm:py-20 bg-white dark:bg-[#0B0720] border-t border-slate-100 dark:border-purple-500/15 transition-colors"
+      className="py-10 sm:py-14 bg-white dark:bg-[#0B0720] border-t border-slate-100 dark:border-purple-500/15 transition-colors"
     >
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-9 sm:mb-11">

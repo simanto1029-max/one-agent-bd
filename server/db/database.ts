@@ -1056,27 +1056,30 @@ class Database {
       parsed.plans = initialData.plans;
     } else {
       parsed.plans = parsed.plans.map((p: Plan) => {
-        if (p.id === 'plan_starter' || p.price === 1250) {
+        if (p.id === 'plan_starter') {
           return {
+            ...initialData.plans[0],
             ...p,
-            price: 1250,
-            trial_days: 2,
-            features: initialData.plans[0].features,
-            feature_config: initialData.plans[0].feature_config
+            price: typeof p.price === 'number' ? p.price : 1250,
+            trial_days: p.trial_days ?? 2,
+            features: p.features?.length ? p.features : initialData.plans[0].features,
+            feature_config: p.feature_config || initialData.plans[0].feature_config
           };
         }
-        if (p.id === 'plan_pro' || p.price === 1950) {
+        if (p.id === 'plan_pro') {
           return {
+            ...initialData.plans[1],
             ...p,
-            price: 1950,
-            trial_days: 2,
-            features: initialData.plans[1].features,
-            feature_config: initialData.plans[1].feature_config
+            price: typeof p.price === 'number' ? p.price : 1950,
+            trial_days: p.trial_days ?? 2,
+            features: p.features?.length ? p.features : initialData.plans[1].features,
+            feature_config: p.feature_config || initialData.plans[1].feature_config
           };
         }
         return p;
       });
     }
+    if (!parsed.agents) parsed.agents = [];
     if (!parsed.businesses) parsed.businesses = [];
     if (!parsed.facebook_pages) parsed.facebook_pages = [];
     if (!parsed.instagram_accounts) parsed.instagram_accounts = [];

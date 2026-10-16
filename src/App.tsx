@@ -40,7 +40,9 @@ import { CountdownTimer } from './components/common/CountdownTimer';
 import { Navbar } from './components/landing/Navbar';
 import { Hero } from './components/landing/Hero';
 import { HowItWorksVideo } from './components/landing/HowItWorksVideo';
+import { LiveDemoPage } from './components/landing/LiveDemoPage';
 import { Features } from './components/landing/Features';
+import { CostComparison } from './components/landing/CostComparison';
 import { PricingTable } from './components/landing/PricingTable';
 import { Testimonials } from './components/landing/Testimonials';
 import { FAQ } from './components/landing/FAQ';
@@ -130,7 +132,7 @@ const TAB_TO_GROUP: Record<TabId, string> = {
 };
 
 function parseInitialRoute(): {
-  view: 'landing' | 'dashboard' | 'admin' | 'auth';
+  view: 'landing' | 'dashboard' | 'admin' | 'auth' | 'demo';
   tab: TabId;
   openGroup: string;
   authMode?: 'login' | 'signup';
@@ -146,6 +148,17 @@ function parseInitialRoute(): {
 
   if (rawPath === 'admin' || queryView === 'admin') {
     return { view: 'admin', tab: 'overview', openGroup: 'dashboard' };
+  }
+
+  // Dedicated Live Demo Video Route (/demo, /live-demo, /video)
+  if (
+    rawPath === 'demo' ||
+    rawPath === 'live-demo' ||
+    rawPath === 'watch-demo' ||
+    queryView === 'demo' ||
+    queryView === 'live-demo'
+  ) {
+    return { view: 'demo', tab: 'overview', openGroup: 'dashboard' };
   }
 
   // Dedicated Auth routes (/register, /signup, /login, /signin)
@@ -195,14 +208,14 @@ export default function App() {
   });
 
   // App Navigation with URL Synchronization
-  const [currentView, setCurrentViewRaw] = useState<'landing' | 'dashboard' | 'admin' | 'auth'>(initialRoute.view);
+  const [currentView, setCurrentViewRaw] = useState<'landing' | 'dashboard' | 'admin' | 'auth' | 'demo'>(initialRoute.view);
   const [activeTab, setActiveTabRaw] = useState<TabId>(initialRoute.tab);
   const [openGroupId, setOpenGroupId] = useState<string | null>(initialRoute.openGroup);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Sync URL in browser address bar (HTML5 History API)
   const updateUrl = (
-    view: 'landing' | 'dashboard' | 'admin' | 'auth',
+    view: 'landing' | 'dashboard' | 'admin' | 'auth' | 'demo',
     tab: TabId,
     replace = false,
     modeOverride?: 'login' | 'signup'
@@ -211,6 +224,8 @@ export default function App() {
     let targetPath = '/';
     if (view === 'admin') {
       targetPath = '/admin';
+    } else if (view === 'demo') {
+      targetPath = '/demo';
     } else if (view === 'auth') {
       const effMode = modeOverride || authMode;
       targetPath = effMode === 'login' ? '/login' : '/register';
@@ -260,15 +275,15 @@ export default function App() {
     if (tab === 'inbox') {
       setIsSidebarCollapsed(true);
     }
-    const effectiveView = currentView === 'landing' ? 'dashboard' : currentView;
-    if (currentView === 'landing') {
+    const effectiveView = (currentView === 'landing' || currentView === 'demo') ? 'dashboard' : currentView;
+    if (currentView === 'landing' || currentView === 'demo') {
       setCurrentViewRaw('dashboard');
     }
     updateUrl(effectiveView, tab, replace);
   };
 
   const setCurrentView = (
-    view: 'landing' | 'dashboard' | 'admin' | 'auth',
+    view: 'landing' | 'dashboard' | 'admin' | 'auth' | 'demo',
     targetTab?: TabId,
     replace = false
   ) => {
@@ -617,6 +632,8 @@ export default function App() {
             currentUser={currentUser}
             subStatus={subStatus}
             onOpenAuth={(mode) => handleOpenAuth(mode || 'signup')}
+            onGoToLanding={() => setCurrentView('landing')}
+            onGoToDemo={() => setCurrentView('demo')}
             onGoToDashboard={() => setCurrentView('dashboard')}
             onGoToAdmin={() => setCurrentView('admin')}
           />
@@ -637,7 +654,11 @@ export default function App() {
               onOpenLogin={() => handleOpenAuth('login')}
               onOpenSignup={() => handleOpenAuth('signup')}
             />
-            <HowItWorksVideo
+            {/* Features (Phone UI with live auto-scrolling chat) */}
+            <Features />
+
+            {/* Smart Business ROI: Why Pay 20,000 TK for a Moderator (Positioned directly under Phone UI) */}
+            <CostComparison
               onStartTrial={() => {
                 if (currentUser) {
                   setCurrentView('dashboard');
@@ -646,13 +667,27 @@ export default function App() {
                 }
               }}
             />
-            <Features />
+
             <PricingTable onSelectPlan={handleSelectPlanFromLanding} />
             <FAQ />
             <Testimonials />
           </main>
           <Footer onOpenAuth={() => handleOpenAuth('signup')} />
         </div>
+      )}
+
+      {/* 2. DEDICATED 60-SECOND LIVE DEMO VIDEO PAGE */}
+      {currentView === 'demo' && (
+        <LiveDemoPage
+          isDark={isDark}
+          onToggleTheme={handleToggleTheme}
+          currentUser={currentUser}
+          subStatus={subStatus}
+          onOpenAuth={(mode) => handleOpenAuth(mode || 'signup')}
+          onGoToLanding={() => setCurrentView('landing')}
+          onGoToDashboard={() => setCurrentView('dashboard')}
+          onGoToAdmin={() => setCurrentView('admin')}
+        />
       )}
 
       {/* 2. ADMIN PORTAL */}
@@ -1581,8 +1616,8 @@ export default function App() {
         />
       )}
 
-      {/* Official One Agent BD Website AI Chatbot (Shown on Public Landing Page Only) */}
-      {currentView === 'landing' && <SaasWebsiteChatbot />}
+      {/* Official One Agent BD Website AI Chatbot (Shown on Public Landing & Demo Pages) */}
+      {(currentView === 'landing' || currentView === 'demo') && <SaasWebsiteChatbot />}
     </div>
   );
 }

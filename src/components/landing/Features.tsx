@@ -129,7 +129,7 @@ export const Features: React.FC = () => {
   return (
     <section
       id="features"
-      className="py-20 sm:py-28 bg-white dark:bg-[#0B0720] text-slate-900 dark:text-white relative overflow-hidden select-none border-y border-slate-100 dark:border-purple-500/15 transition-colors"
+      className="py-10 sm:py-14 bg-white dark:bg-[#0B0720] text-slate-900 dark:text-white relative overflow-hidden select-none border-y border-slate-100 dark:border-purple-500/15 transition-colors"
     >
       {/* Subtle ambient lighting */}
       <div

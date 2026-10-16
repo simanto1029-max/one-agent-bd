@@ -228,7 +228,7 @@ export const Testimonials: React.FC = () => {
   return (
     <section
       id="testimonials"
-      className="py-16 sm:py-20 bg-white dark:bg-[#0B0720] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
+      className="py-10 sm:py-14 bg-white dark:bg-[#0B0720] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
     >
       <div id="reviews" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* $100K Section Header */}
