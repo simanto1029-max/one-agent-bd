@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Megaphone
 } from 'lucide-react';
+import { MultiChannelEngineVisualization } from './MultiChannelEngineVisualization';
 
 interface HeroProps {
   onStartTrial: () => void;
@@ -171,6 +172,9 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Dynamic Multi-Channel AI Core Neural Hub Visualization */}
+        <MultiChannelEngineVisualization />
 
         {/* =====================================================================
             $100K ENTERPRISE VISUAL FLOWCHART BOX (Replaces Marquee & Channels)
