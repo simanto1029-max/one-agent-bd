@@ -11,6 +11,9 @@ export const AdminPlans: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Edit fields
   const [name, setName] = useState('');
@@ -34,10 +37,19 @@ export const AdminPlans: React.FC = () => {
   const loadPlans = async () => {
     try {
       setLoading(true);
-      const data = await api.getPlans();
+      const data = await api.getPlans(true);
       setPlans(data);
-    } catch (err) {
+      if (Array.isArray(data) && data.length > 0) {
+        try {
+          localStorage.setItem('oneagent_custom_plans', JSON.stringify(data));
+        } catch {}
+      }
+    } catch (err: any) {
       console.error('Failed to load plans:', err);
+      try {
+        const cached = localStorage.getItem('oneagent_custom_plans');
+        if (cached) setPlans(JSON.parse(cached));
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -58,7 +70,9 @@ export const AdminPlans: React.FC = () => {
     setFeatCallRequests(cfg.call_requests !== undefined ? Boolean(cfg.call_requests) : true);
     setFeatCourierDispatch(cfg.courier_dispatch !== undefined ? Boolean(cfg.courier_dispatch) : true);
     setFeatCsvExport(cfg.csv_export !== undefined ? Boolean(cfg.csv_export) : true);
-    setFeatMaxChannels(cfg.max_channels || (isPro ? 8 : 2));
+    setFeatMaxChannels(cfg.max_channels || (isPro ? 10 : 3));
+    setSuccessMsg(null);
+    setErrorMsg(null);
   };
 
   const cancelEdit = () => {
@@ -67,7 +81,10 @@ export const AdminPlans: React.FC = () => {
 
   const handleSaveEdit = async (planId: string) => {
     try {
-      await api.updatePlan(planId, {
+      setSavingPlan(true);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      const updated = await api.updatePlan(planId, {
         name,
         price: Number(price),
         currency,
@@ -83,9 +100,21 @@ export const AdminPlans: React.FC = () => {
         }
       });
       setEditingId(null);
+      setSuccessMsg(`Plan "${name || planId}" updated successfully to ৳${price.toLocaleString()}! Changes are live across the website.`);
       await loadPlans();
-    } catch (err) {
+      // Also update local storage for immediate persistence
+      setPlans((prev) => {
+        const next = prev.map((p) => (p.id === planId ? { ...p, ...updated, price: Number(price) } : p));
+        try {
+          localStorage.setItem('oneagent_custom_plans', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    } catch (err: any) {
       console.error('Failed to update plan:', err);
+      setErrorMsg(err?.message || 'Failed to update plan. Please try again.');
+    } finally {
+      setSavingPlan(false);
     }
   };
 
@@ -168,6 +197,27 @@ export const AdminPlans: React.FC = () => {
           Create New Plan
         </button>
       </div>
+
+      {successMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg(null)} className="text-xs font-bold hover:underline cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <span className="font-semibold">{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="text-xs font-bold hover:underline cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

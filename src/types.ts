@@ -119,8 +119,31 @@ export interface Channel {
   meta_asset_name?: string;
   meta_asset_id?: string;
   meta_business_id?: string;
+  agent_id?: string;
+  agent_name?: string;
+  business_name?: string;
   has_token?: boolean;
   token_preview?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Agent {
+  id: string;
+  user_id: string;
+  name: string;
+  business_name: string;
+  avatar_url?: string;
+  tone: 'friendly' | 'professional' | 'sales_closer' | 'urgent';
+  language: 'bangla' | 'english' | 'banglish';
+  assigned_channels: string[]; // array of channel IDs
+  system_prompt: string;
+  knowledge_base: string;
+  delivery_charge_inside_dhaka?: number;
+  delivery_charge_outside_dhaka?: number;
+  is_active: boolean;
+  total_chats?: number;
+  total_orders?: number;
   created_at: string;
   updated_at: string;
 }

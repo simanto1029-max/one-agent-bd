@@ -17,7 +17,8 @@ import {
   AutoCourierDispatchSettings,
   StoreIntegration,
   CallRequest,
-  Product
+  Product,
+  Agent
 } from './types';
 
 // Read or store active user ID
@@ -192,6 +193,41 @@ export const api = {
   async deletePlan(id: string): Promise<{ success: boolean; message: string }> {
     return fetchJson<{ success: boolean; message: string }>(`/api/plans/${id}`, {
       method: 'DELETE'
+    });
+  },
+
+  // Multi-Business AI Agents
+  async getAgents(): Promise<{
+    agents: Agent[];
+    meta: { total: number; maxAllowed: number; planName: string; isPro: boolean; canCreateMore: boolean };
+  }> {
+    return fetchJson('/api/agents');
+  },
+
+  async createAgent(data: Partial<Agent>): Promise<{ success: boolean; agent: Agent; message: string }> {
+    return fetchJson('/api/agents', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateAgent(id: string, data: Partial<Agent>): Promise<{ success: boolean; agent: Agent; message: string }> {
+    return fetchJson(`/api/agents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteAgent(id: string): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/agents/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async testAgentReply(agentId: string, message: string): Promise<{ reply: string; agentId: string; agentName: string }> {
+    return fetchJson(`/api/agents/${agentId}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ message })
     });
   },
 

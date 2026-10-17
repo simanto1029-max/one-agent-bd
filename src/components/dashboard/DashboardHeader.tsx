@@ -1,7 +1,6 @@
 import React from 'react';
-import { Shield, Globe, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Shield, Globe, LogOut, Menu, X } from 'lucide-react';
 import { ThemeToggle } from '../common/ThemeToggle';
-import { BrandLogo } from '../common/BrandLogo';
 import { UserProfile, SubscriptionStatusInfo } from '../../types';
 
 interface DashboardHeaderProps {
@@ -57,24 +56,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </button>
             )}
 
-            {onToggleSidebar && (
-              <button
-                type="button"
-                onClick={onToggleSidebar}
-                className="hidden md:flex p-2 rounded-xl border border-slate-200/90 dark:border-purple-500/20 text-slate-600 dark:text-slate-300 hover:text-[#7C3AED] hover:border-[#7C3AED]/40 hover:bg-purple-50/60 dark:hover:bg-[#191138] transition-all cursor-pointer shrink-0"
-                title={isSidebarCollapsed ? 'Expand sidebar menu' : 'Collapse sidebar menu (maximize workspace)'}
-                aria-label="Toggle sidebar collapse"
-              >
-                {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-              </button>
-            )}
-
             <div
               onClick={onGoToLanding}
-              className="flex items-center gap-2 cursor-pointer group shrink-0"
-              title="Back to Main Website"
+              className="flex items-center gap-1.5 cursor-pointer group shrink-0"
+              title="One Agent BD Workspace"
             >
-              <BrandLogo size="sm" />
               <span className="font-black text-[15px] sm:text-lg tracking-tight text-slate-900 dark:text-white whitespace-nowrap leading-none">
                 One Agent <span className="text-[#7C3AED] dark:text-[#A78BFA]">BD</span>
               </span>

@@ -268,6 +268,29 @@ export interface Channel {
   meta_asset_name?: string;
   meta_asset_id?: string;
   meta_business_id?: string;
+  agent_id?: string;
+  agent_name?: string;
+  business_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Agent {
+  id: string;
+  user_id: string;
+  name: string;
+  business_name: string;
+  avatar_url?: string;
+  tone: 'friendly' | 'professional' | 'sales_closer' | 'urgent';
+  language: 'bangla' | 'english' | 'banglish';
+  assigned_channels: string[]; // array of channel IDs
+  system_prompt: string;
+  knowledge_base: string;
+  delivery_charge_inside_dhaka?: number;
+  delivery_charge_outside_dhaka?: number;
+  is_active: boolean;
+  total_chats?: number;
+  total_orders?: number;
   created_at: string;
   updated_at: string;
 }
@@ -614,6 +637,7 @@ interface DatabaseSchema {
   products?: Product[];
   stores?: StoreIntegration[];
   call_requests?: CallRequest[];
+  agents?: Agent[];
   businesses?: Business[];
   facebook_pages?: FacebookPage[];
   instagram_accounts?: InstagramAccount[];
@@ -1056,27 +1080,18 @@ class Database {
       parsed.plans = initialData.plans;
     } else {
       parsed.plans = parsed.plans.map((p: Plan) => {
-        if (p.id === 'plan_starter') {
-          return {
-            ...initialData.plans[0],
-            ...p,
-            price: typeof p.price === 'number' ? p.price : 1250,
-            trial_days: p.trial_days ?? 2,
-            features: p.features?.length ? p.features : initialData.plans[0].features,
-            feature_config: p.feature_config || initialData.plans[0].feature_config
-          };
-        }
-        if (p.id === 'plan_pro') {
-          return {
-            ...initialData.plans[1],
-            ...p,
-            price: typeof p.price === 'number' ? p.price : 1950,
-            trial_days: p.trial_days ?? 2,
-            features: p.features?.length ? p.features : initialData.plans[1].features,
-            feature_config: p.feature_config || initialData.plans[1].feature_config
-          };
-        }
-        return p;
+        const defaultMatch = initialData.plans.find((ip) => ip.id === p.id) || initialData.plans[0];
+        return {
+          ...defaultMatch,
+          ...p,
+          name: p.name?.trim() || defaultMatch.name,
+          price: typeof p.price === 'number' && !isNaN(p.price) ? p.price : defaultMatch.price,
+          currency: p.currency || defaultMatch.currency || 'BDT',
+          duration_days: typeof p.duration_days === 'number' ? p.duration_days : defaultMatch.duration_days,
+          trial_days: typeof p.trial_days === 'number' ? p.trial_days : defaultMatch.trial_days,
+          features: Array.isArray(p.features) && p.features.length ? p.features : defaultMatch.features,
+          feature_config: p.feature_config || defaultMatch.feature_config
+        };
       });
     }
     if (!parsed.agents) parsed.agents = [];
@@ -1494,6 +1509,40 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       }
     }
 
+    // Merge plans: preserve locally customized plans and pricing
+    if (this.data?.plans && this.data.plans.length > 0) {
+      const localPlanMap = new Map(this.data.plans.map((p) => [p.id, p]));
+      incoming.plans = (incoming.plans || []).map((remotePlan) => {
+        const local = localPlanMap.get(remotePlan.id);
+        if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remotePlan.updated_at || new Date(local.updated_at) >= new Date(remotePlan.updated_at))))) {
+          return local;
+        }
+        return remotePlan;
+      });
+      for (const localP of this.data.plans) {
+        if (!incoming.plans.some((ip) => ip.id === localP.id)) {
+          incoming.plans.push(localP);
+        }
+      }
+    }
+
+    // Merge agents: preserve user-created multi-business AI agents
+    if (this.data?.agents && this.data.agents.length > 0) {
+      const localAgentMap = new Map(this.data.agents.map((a) => [a.id, a]));
+      incoming.agents = (incoming.agents || []).map((remoteAgent) => {
+        const local = localAgentMap.get(remoteAgent.id);
+        if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remoteAgent.updated_at || new Date(local.updated_at) >= new Date(remoteAgent.updated_at))))) {
+          return local;
+        }
+        return remoteAgent;
+      });
+      for (const localA of this.data.agents) {
+        if (!incoming.agents.some((ia) => ia.id === localA.id)) {
+          incoming.agents.push(localA);
+        }
+      }
+    }
+
     return incoming;
   }
 
@@ -1659,6 +1708,73 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     const idx = this.data.plans.findIndex((p) => p.id === id);
     if (idx === -1) return false;
     this.data.plans.splice(idx, 1);
+    this.persist();
+    return true;
+  }
+
+  // --- Multi-Business AI Agents ---
+  getAgents(userId: string): Agent[] {
+    if (!this.data.agents) this.data.agents = [];
+    let userAgents = this.data.agents.filter((a) => a.user_id === userId);
+    if (userAgents.length === 0) {
+      const user = this.getProfileById(userId);
+      const userChannels = this.getChannels(userId);
+      const defaultAgent: Agent = {
+        id: `agent_${userId.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now().toString(36)}`,
+        user_id: userId,
+        name: 'Main Business AI Agent',
+        business_name: user?.full_name || 'My Online Store',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
+        tone: 'sales_closer',
+        language: 'bangla',
+        assigned_channels: userChannels.map((c) => c.id),
+        system_prompt: user?.system_prompt || 'You are an executive customer service and sales AI agent for our business. Reply politely in natural Bangla, answer product questions accurately, and collect Name, Full Address, and Phone Number to close orders.',
+        knowledge_base: 'Business: E-commerce products & fast delivery.\nDelivery Charges: Inside Dhaka 60 BDT, Outside Dhaka 120 BDT.\nPayment: Cash on Delivery (COD), bKash / Nagad.',
+        delivery_charge_inside_dhaka: 60,
+        delivery_charge_outside_dhaka: 120,
+        is_active: true,
+        total_chats: 0,
+        total_orders: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      this.data.agents.push(defaultAgent);
+      this.persist();
+      userAgents = [defaultAgent];
+    }
+    return userAgents;
+  }
+
+  getAgentById(id: string): Agent | undefined {
+    if (!this.data.agents) this.data.agents = [];
+    return this.data.agents.find((a) => a.id === id);
+  }
+
+  createAgent(agent: Agent): Agent {
+    if (!this.data.agents) this.data.agents = [];
+    this.data.agents.push(agent);
+    this.persist();
+    return agent;
+  }
+
+  updateAgent(id: string, updates: Partial<Agent>): Agent | undefined {
+    if (!this.data.agents) this.data.agents = [];
+    const idx = this.data.agents.findIndex((a) => a.id === id);
+    if (idx === -1) return undefined;
+    this.data.agents[idx] = {
+      ...this.data.agents[idx],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    this.persist();
+    return this.data.agents[idx];
+  }
+
+  deleteAgent(id: string): boolean {
+    if (!this.data.agents) this.data.agents = [];
+    const idx = this.data.agents.findIndex((a) => a.id === id);
+    if (idx === -1) return false;
+    this.data.agents.splice(idx, 1);
     this.persist();
     return true;
   }

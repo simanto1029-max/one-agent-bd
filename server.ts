@@ -20,6 +20,7 @@ import { productsRouter } from './server/routes/products.js';
 import { appointmentsRouter } from './server/routes/appointments.js';
 import { emailCampaignsRouter } from './server/routes/emailCampaigns.js';
 import { erpRouter } from './server/routes/erp.js';
+import { agentsRouter } from './server/routes/agents.js';
 import { runSubscriptionExpiryCheck } from './server/services/subscriptionService.js';
 import { runAutoFollowUpEngine } from './server/services/metaService.js';
 import { startTunnelIfNeeded } from './server/services/tunnelService.js';
@@ -135,6 +136,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/email-campaigns', emailCampaignsRouter);
 app.use('/api/erp', erpRouter);
+app.use('/api/agents', agentsRouter);
 
 async function startServer() {
   startTunnelIfNeeded();

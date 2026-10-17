@@ -23,10 +23,11 @@ import {
   ChevronUp,
   Info,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Bot
 } from 'lucide-react';
 import { api } from '../../api';
-import { Channel, UserProfile, SubscriptionStatusInfo } from '../../types';
+import { Channel, UserProfile, SubscriptionStatusInfo, Agent } from '../../types';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { MetaAutoConnectModal } from './MetaAutoConnectModal';
 import { FacebookLogo, InstagramLogo, WhatsAppLogo, MessengerLogo } from '../common/BrandLogos';
@@ -93,10 +94,43 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   // Optimistic local channels state so connected pages immediately display on screen
   const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
 
   useEffect(() => {
     setLocalChannels(channels);
   }, [channels]);
+
+  useEffect(() => {
+    api.getAgents().then((res) => {
+      if (res.agents) setAvailableAgents(res.agents);
+    }).catch(() => {});
+  }, []);
+
+  const handleAssignAgentToChannel = async (channelId: string, agentId: string) => {
+    try {
+      const agent = availableAgents.find((a) => a.id === agentId);
+      if (agent) {
+        const currentAssigned = agent.assigned_channels || [];
+        const nextChannels = currentAssigned.includes(channelId) ? currentAssigned : [...currentAssigned, channelId];
+        await api.updateAgent(agent.id, { assigned_channels: nextChannels });
+        setLocalChannels((prev) =>
+          prev.map((c) =>
+            c.id === channelId
+              ? { ...c, agent_id: agent.id, agent_name: agent.name, business_name: agent.business_name }
+              : c
+          )
+        );
+        setSuccessMessage(`Assigned to AI Agent "${agent.name}" (${agent.business_name})!`);
+      } else {
+        // Unassign / default
+        setLocalChannels((prev) =>
+          prev.map((c) => (c.id === channelId ? { ...c, agent_id: undefined, agent_name: undefined } : c))
+        );
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update channel agent.');
+    }
+  };
 
   // Admin-only Meta App Setup state
   const [publicTunnelUrl, setPublicTunnelUrl] = useState<string | null>(null);
@@ -391,9 +425,20 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           </p>
         </div>
 
-        {/* Admin-Only Controls (Hidden from normal users) */}
-        {isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('agents')}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-[#7C3AED] dark:text-purple-300 hover:bg-purple-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Bot className="w-4 h-4" />
+              <span>AI Agents Hub ({availableAgents.length})</span>
+            </button>
+          )}
+
+          {/* Admin-Only Controls (Hidden from normal users) */}
+          {isAdmin && (
             <button
               type="button"
               onClick={() => setViewMode(viewMode === 'admin_setup' ? 'channels' : 'admin_setup')}
@@ -415,8 +460,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 </>
               )}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Feedback Alerts */}
@@ -653,6 +698,26 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                 onChange={() => handleToggleAutomation(fbCh, 'auto_followup_enabled')}
                               />
                             </div>
+
+                            {/* Multi-Business Assigned AI Agent */}
+                            <div className="pt-2 border-t border-slate-200/60 dark:border-purple-500/10 flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1 shrink-0">
+                                <Bot className="w-3 h-3 text-[#7C3AED]" />
+                                <span>Agent:</span>
+                              </span>
+                              <select
+                                value={fbCh.agent_id || ''}
+                                onChange={(e) => handleAssignAgentToChannel(fbCh.id, e.target.value)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-500/25 bg-white dark:bg-[#1C1442] text-[#7C3AED] dark:text-purple-300 max-w-[150px] truncate cursor-pointer"
+                              >
+                                <option value="">Default AI Assistant</option>
+                                {availableAgents.map((ag) => (
+                                  <option key={ag.id} value={ag.id}>
+                                    {ag.name} ({ag.business_name})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </div>
                       );
@@ -812,6 +877,26 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                 onChange={() => handleToggleAutomation(igCh, 'auto_followup_enabled')}
                               />
                             </div>
+
+                            {/* Multi-Business Assigned AI Agent */}
+                            <div className="pt-2 border-t border-slate-200/60 dark:border-purple-500/10 flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1 shrink-0">
+                                <Bot className="w-3 h-3 text-pink-600" />
+                                <span>Agent:</span>
+                              </span>
+                              <select
+                                value={igCh.agent_id || ''}
+                                onChange={(e) => handleAssignAgentToChannel(igCh.id, e.target.value)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg border border-pink-200 dark:border-pink-500/25 bg-white dark:bg-[#1C1442] text-pink-600 dark:text-pink-300 max-w-[150px] truncate cursor-pointer"
+                              >
+                                <option value="">Default AI Assistant</option>
+                                {availableAgents.map((ag) => (
+                                  <option key={ag.id} value={ag.id}>
+                                    {ag.name} ({ag.business_name})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </div>
                       );
@@ -958,6 +1043,26 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                   checked={followUpOn}
                                   onChange={() => handleToggleAutomation(waCh, 'auto_followup_enabled')}
                                 />
+                              </div>
+
+                              {/* Multi-Business Assigned AI Agent */}
+                              <div className="pt-2 border-t border-slate-200/60 dark:border-purple-500/10 flex items-center justify-between gap-1.5">
+                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1 shrink-0">
+                                  <Bot className="w-3 h-3 text-emerald-600" />
+                                  <span>Agent:</span>
+                                </span>
+                                <select
+                                  value={waCh.agent_id || ''}
+                                  onChange={(e) => handleAssignAgentToChannel(waCh.id, e.target.value)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/25 bg-white dark:bg-[#1C1442] text-emerald-600 dark:text-emerald-400 max-w-[150px] truncate cursor-pointer"
+                                >
+                                  <option value="">Default AI Assistant</option>
+                                  {availableAgents.map((ag) => (
+                                    <option key={ag.id} value={ag.id}>
+                                      {ag.name} ({ag.business_name})
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
                           </div>

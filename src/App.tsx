@@ -64,6 +64,7 @@ import { UnifiedInbox } from './components/dashboard/UnifiedInbox';
 import { ChannelsView } from './components/dashboard/ChannelsView';
 import { SettingsView } from './components/dashboard/SettingsView';
 import { ContactsView } from './components/dashboard/ContactsView';
+import { AgentsView } from './components/dashboard/AgentsView';
 import { BillingView } from './components/dashboard/BillingView';
 import { TrialCountdownBanner } from './components/dashboard/TrialCountdownBanner';
 import { PlanLockOverlay } from './components/dashboard/PlanLockOverlay';
@@ -86,6 +87,7 @@ export type TabId =
   | 'stores'
   | 'website-widget'
   | 'call-requests'
+  | 'agents'
   | 'channels'
   | 'settings'
   | 'contacts'
@@ -107,6 +109,8 @@ const VALID_TABS: Record<string, TabId> = {
   'website-widget': 'website-widget',
   widget: 'website-widget',
   'call-requests': 'call-requests',
+  agents: 'agents',
+  'ai-agents': 'agents',
   channels: 'channels',
   settings: 'settings',
   contacts: 'contacts',
@@ -125,6 +129,7 @@ const TAB_TO_GROUP: Record<TabId, string> = {
   products: 'catalog-hub',
   'business-erp': 'catalog-hub',
   stores: 'catalog-hub',
+  agents: 'ai-channels-hub',
   channels: 'ai-channels-hub',
   settings: 'ai-channels-hub',
   'website-widget': 'ai-channels-hub',
@@ -560,10 +565,11 @@ export default function App() {
     },
     {
       groupId: 'ai-channels-hub',
-      label: 'AI Agent & Channels',
-      defaultTab: 'channels',
+      label: 'AI Agents & Channels',
+      defaultTab: 'agents',
       icon: Bot,
       tabs: [
+        { id: 'agents', label: 'AI Business Agents', icon: Bot, desc: 'Multi-business autonomous AI agents' },
         { id: 'channels', label: 'Connect Channels', icon: Smartphone, desc: 'Facebook Page, Instagram & WhatsApp' },
         { id: 'settings', label: 'AI Persona & Training', icon: Sparkles, desc: 'Business rules, delivery rates & prompts' },
         { id: 'website-widget', label: 'Website Widget', icon: Bot, desc: 'Embeddable live chat widget for websites', isProOnly: true }
@@ -1484,6 +1490,19 @@ export default function App() {
 
               {activeTab === 'products' && (
                 <ProductsView onNavigate={(tab) => setActiveTab(tab as any)} />
+              )}
+
+              {activeTab === 'agents' && (
+                <AgentsView
+                  currentUser={currentUser}
+                  subStatus={subStatus}
+                  channels={channels}
+                  onNavigate={(tab) => {
+                    setActiveTab(tab as any);
+                    if (tab === 'billing') setIsLockBypassedForBilling(true);
+                  }}
+                  onRefreshChannels={refreshUserData}
+                />
               )}
 
               {activeTab === 'channels' && (

@@ -1,30 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import {
-  MessageSquare,
-  Bot,
-  ArrowRight,
-  Zap,
-  Sparkles,
-  Activity,
   ShoppingBag,
-  Truck,
-  BarChart3,
-  Smartphone,
-  Facebook,
-  Instagram,
-  CheckCircle2,
-  Package,
-  Check,
   TrendingUp,
-  Calculator,
   DollarSign,
-  Sliders,
+  Truck,
+  Bot,
+  Smartphone,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Sparkles,
+  ShieldAlert,
+  Plus,
+  RefreshCw,
+  MessageSquare,
+  Users,
+  Store,
+  Layers,
+  ChevronRight,
+  Filter,
+  Eye,
   Calendar,
-  Mail,
-  Globe
+  AlertTriangle,
+  Zap,
+  ArrowUpRight
 } from 'lucide-react';
-import { UserProfile, SubscriptionStatusInfo, Channel, OrderMetrics, Message, Order, AutomationSettings } from '../../types';
+import {
+  UserProfile,
+  SubscriptionStatusInfo,
+  Channel,
+  OrderMetrics,
+  Order,
+  Agent
+} from '../../types';
 import { api } from '../../api';
+import { FacebookLogo, InstagramLogo, WhatsAppLogo } from '../common/BrandLogos';
 
 interface OverviewViewProps {
   user: UserProfile;
@@ -37,610 +47,589 @@ interface OverviewViewProps {
   onOpenTour?: (step?: number) => void;
 }
 
-interface DayTrend {
-  dayName: string;
-  dateStr: string;
-  total: number;
-  whatsapp: number;
-  messenger: number;
-  instagram: number;
-}
-
 export const OverviewView: React.FC<OverviewViewProps> = ({
   user,
+  subStatus,
   channels,
   totalMessagesCount,
   aiRepliesCount,
-  onNavigate,
-  onOpenWebhookTester,
-  onOpenTour
+  onNavigate
 }) => {
   const [orderMetrics, setOrderMetrics] = useState<OrderMetrics | null>(null);
   const [ordersList, setOrdersList] = useState<Order[]>([]);
-  const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
-  const [showProfitEditor, setShowProfitEditor] = useState(false);
-  const [adSpendInput, setAdSpendInput] = useState(500);
-  const [costPctInput, setCostPctInput] = useState(55);
-  const [returnLossInput, setReturnLossInput] = useState(110);
-  const [savingProfitConfig, setSavingProfitConfig] = useState(false);
-  const [insightsTimeframe, setInsightsTimeframe] = useState<'7d' | '14d' | '30d'>('7d');
-  const [dailyTrends, setDailyTrends] = useState<DayTrend[]>([]);
-  const [activeTrendPlatform, setActiveTrendPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
-  const [productsCount, setProductsCount] = useState<number>(0);
+  const [agentsList, setAgentsList] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState<'today' | '7d' | '30d' | 'all'>('7d');
+  const [selectedBusinessFilter, setSelectedBusinessFilter] = useState<string>('all');
 
   useEffect(() => {
-    api.getOrders().then(res => {
-      if (res.metrics) setOrderMetrics(res.metrics);
-      if (res.orders) setOrdersList(res.orders);
-    }).catch(() => {});
+    loadDashboardData();
+  }, []);
 
-    api.getAutomationSettings().then(res => {
-      if (res.settings) {
-        setAutoSettings(res.settings);
-        setAdSpendInput(res.settings.daily_ad_spend_bdt ?? 500);
-        setCostPctInput(res.settings.avg_product_cost_percent ?? 55);
-        setReturnLossInput(res.settings.return_courier_loss_per_order ?? 110);
-      }
-    }).catch(() => {});
-
-    api.getProducts().then(res => {
-      setProductsCount(res.products?.length || 0);
-    }).catch(() => {});
-
-    api.getInbox().then(res => {
-      const messages = res.allMessages || [];
-      buildDailyTrends(messages);
-    }).catch(() => {
-      buildDailyTrends([]);
-    });
-  }, [insightsTimeframe]);
-
-  const buildDailyTrends = (messages: Message[]) => {
-    const daysCount = insightsTimeframe === '7d' ? 7 : insightsTimeframe === '14d' ? 14 : 30;
-    const days: DayTrend[] = [];
-
-    const now = new Date();
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dateKey = d.toISOString().split('T')[0];
-      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-      const dayMsgs = messages.filter(m => {
-        if (!m.created_at) return false;
-        return m.created_at.startsWith(dateKey) && m.direction === 'inbound';
-      });
-
-      const waCount = dayMsgs.filter(m => m.platform === 'whatsapp').length || (i % 2 === 0 ? 8 + (i * 3) % 9 : 5 + (i * 4) % 8);
-      const fbCount = dayMsgs.filter(m => m.platform === 'messenger').length || (i % 3 === 0 ? 6 + (i * 2) % 7 : 4 + (i * 3) % 6);
-      const igCount = dayMsgs.filter(m => m.platform === 'instagram').length || (i % 2 === 1 ? 4 + (i * 2) % 5 : 3 + (i * 1) % 4);
-
-      days.push({
-        dayName,
-        dateStr: displayDate,
-        total: waCount + fbCount + igCount,
-        whatsapp: waCount,
-        messenger: fbCount,
-        instagram: igCount
-      });
-    }
-
-    setDailyTrends(days);
-  };
-
-  const activeChannels = channels.filter((c) => c.is_active);
-  const waCount = channels.filter((c) => c.platform === 'whatsapp' && c.is_active).length;
-  const fbCount = channels.filter((c) => c.platform === 'messenger' && c.is_active).length;
-  const igCount = channels.filter((c) => c.platform === 'instagram' && c.is_active).length;
-
-  const isChannelsDone = channels.length > 0;
-  const isAiDone = Boolean(user.system_prompt && user.system_prompt.length > 20);
-  const isProductsDone = productsCount > 0;
-  const completedSteps = (isChannelsDone ? 1 : 0) + (isAiDone ? 1 : 0) + (isProductsDone ? 1 : 0);
-
-  const maxDailyVolume = Math.max(...dailyTrends.map(d => {
-    if (activeTrendPlatform === 'whatsapp') return d.whatsapp;
-    if (activeTrendPlatform === 'messenger') return d.messenger;
-    if (activeTrendPlatform === 'instagram') return d.instagram;
-    return d.total;
-  }), 10);
-
-  const totalPeriodVolume = dailyTrends.reduce((acc, curr) => {
-    if (activeTrendPlatform === 'whatsapp') return acc + curr.whatsapp;
-    if (activeTrendPlatform === 'messenger') return acc + curr.messenger;
-    if (activeTrendPlatform === 'instagram') return acc + curr.instagram;
-    return acc + curr.total;
-  }, 0);
-
-  const confirmedOrdersTotal = orderMetrics
-    ? orderMetrics.confirmedCount + orderMetrics.processingCount + orderMetrics.deliveredCount
-    : 0;
-
-  // Business Net Profit & ROI Calculation
-  const activeOrders = ordersList.filter(o => o.status !== 'cancelled');
-  const cancelledOrdersCount = ordersList.filter(o => o.status === 'cancelled').length;
-  const grossRevenue = orderMetrics ? orderMetrics.totalRevenue : activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-  const totalBuyingCost = activeOrders.reduce((sum, o) => {
-    if (typeof o.buying_cost === 'number' && o.buying_cost > 0) return sum + o.buying_cost;
-    return sum + Math.round((o.total_amount || 0) * ((costPctInput || 55) / 100));
-  }, 0);
-  const returnCourierLoss = cancelledOrdersCount * (returnLossInput || 110);
-  const totalAdSpend = adSpendInput || 0;
-  const netProfit = grossRevenue - totalBuyingCost - totalAdSpend - returnCourierLoss;
-  const profitMarginPct = grossRevenue > 0 ? Math.round((netProfit / grossRevenue) * 100) : 0;
-
-  const handleSaveProfitSettings = async () => {
+  const loadDashboardData = async () => {
     try {
-      setSavingProfitConfig(true);
-      const res = await api.updateAutomationSettings({
-        ...(autoSettings || {}),
-        daily_ad_spend_bdt: Number(adSpendInput) || 0,
-        avg_product_cost_percent: Number(costPctInput) || 55,
-        return_courier_loss_per_order: Number(returnLossInput) || 110
-      });
-      if (res.settings) setAutoSettings(res.settings);
-      setShowProfitEditor(false);
-    } catch {
-      // ignore
+      setLoading(true);
+      const [ordersRes, agentsRes] = await Promise.all([
+        api.getOrders().catch(() => ({ orders: [], metrics: null })),
+        api.getAgents().catch(() => ({ agents: [] }))
+      ]);
+
+      if (ordersRes.orders) {
+        setOrdersList(ordersRes.orders);
+      }
+      if (ordersRes.metrics) {
+        setOrderMetrics(ordersRes.metrics);
+      }
+      if (agentsRes.agents) {
+        setAgentsList(agentsRes.agents);
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
     } finally {
-      setSavingProfitConfig(false);
+      setLoading(false);
     }
   };
+
+  // Filter orders
+  const filteredOrders = ordersList.filter((o) => {
+    if (selectedBusinessFilter !== 'all') {
+      const matchAgent = agentsList.find((a) => a.id === selectedBusinessFilter);
+      if (matchAgent && matchAgent.assigned_channels) {
+        if (o.channel_id && !matchAgent.assigned_channels.includes(o.channel_id)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  // Calculate real sales KPIs
+  const totalRevenue = filteredOrders.reduce(
+    (sum, o) => (o.status !== 'cancelled' ? sum + (o.total_amount || 0) : sum),
+    0
+  );
+
+  const confirmedCount = filteredOrders.filter(
+    (o) => o.status === 'confirmed' || o.status === 'processing'
+  ).length;
+
+  const shippedCount = filteredOrders.filter((o) => o.status === 'shipped').length;
+  const deliveredCount = filteredOrders.filter((o) => o.status === 'delivered').length;
+  const pendingCount = filteredOrders.filter((o) => !o.status || o.status === 'processing').length;
+  const cancelledCount = filteredOrders.filter((o) => o.status === 'cancelled').length;
+
+  // AI-captured orders
+  const aiOrders = filteredOrders.filter((o) => o.order_source === 'ai_detected' || !o.order_source);
+  const aiRevenue = aiOrders.reduce(
+    (sum, o) => (o.status !== 'cancelled' ? sum + (o.total_amount || 0) : sum),
+    0
+  );
+
+  // Conversion rate (AI closed orders vs total inquiries)
+  const totalInquiries = Math.max(totalMessagesCount > 0 ? Math.round(totalMessagesCount / 3) : 12, filteredOrders.length);
+  const conversionRate = totalInquiries > 0 ? Math.min(Math.round((filteredOrders.length / totalInquiries) * 100), 100) : 32;
+
+  // Average Order Value
+  const nonCancelledOrders = filteredOrders.filter((o) => o.status !== 'cancelled');
+  const avgOrderValue =
+    nonCancelledOrders.length > 0 ? Math.round(totalRevenue / nonCancelledOrders.length) : 0;
+
+  // Suspicious orders
+  const suspiciousOrders = filteredOrders.filter((o) => o.is_suspicious);
+
+  const isProPlan = subStatus?.isProPlan;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 1. Clean Top Welcome Bar (ChatMakky Style) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 p-4 sm:p-6 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs">
+    <div className="space-y-6 animate-in fade-in duration-200 max-w-6xl mx-auto">
+      {/* Top Welcome & Business Filter Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#7C3AED] dark:text-purple-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>AI Sales & Auto-Reply Engine Active</span>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              Autonomous Sales Operation Center
+            </span>
           </div>
-          <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Welcome back, {user.full_name || 'Merchant'}
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {user.full_name || 'Merchant'} E-Commerce Command Hub
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Monitor your live conversations, automated AI orders, and connected social channels from one place.
+            Real-time sales revenue, parcel bookings, multi-business AI agents, and order conversions.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0">
-          <button
-            onClick={() => onNavigate('inbox')}
-            className="px-3.5 sm:px-4 py-2.5 rounded-xl sm:rounded-full bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold shadow-sm shadow-purple-500/25 flex items-center justify-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
-          >
-            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Open Live Inbox</span>
-          </button>
-          <button
-            onClick={() => onNavigate('channels')}
-            className="px-3.5 sm:px-4 py-2.5 rounded-xl sm:rounded-full bg-slate-100 dark:bg-[#1C1442] hover:bg-slate-200/80 dark:hover:bg-[#251B54] text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200/80 dark:border-purple-500/25 flex items-center justify-center gap-1.5 sm:gap-2 transition-all cursor-pointer"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400 shrink-0" />
-            <span className="truncate">Connect Channels</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. 4 Clean KPI Cards (2x2 Grid on Mobile, 4 Columns on Desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div
-          onClick={() => onNavigate('inbox')}
-          className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">Total Messages</span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-500/15 text-[#7C3AED] dark:text-purple-400 flex items-center justify-center shrink-0">
-              <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        {/* Business Brand Filter + Quick Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {agentsList.length > 1 && (
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-[#1A123B] border border-slate-200 dark:border-purple-500/20">
+              <Store className="w-3.5 h-3.5 text-[#7C3AED] ml-2" />
+              <select
+                value={selectedBusinessFilter}
+                onChange={(e) => setSelectedBusinessFilter(e.target.value)}
+                className="text-xs font-bold bg-transparent text-slate-800 dark:text-slate-200 pr-3 py-1 cursor-pointer focus:outline-none"
+              >
+                <option value="all">All Businesses &amp; Pages</option>
+                {agentsList.map((ag) => (
+                  <option key={ag.id} value={ag.id}>
+                    {ag.business_name} ({ag.name})
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-            {totalMessagesCount}
-          </div>
-          <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-            Inbound & outbound logs
-          </div>
-        </div>
-
-        <div
-          onClick={() => onNavigate('settings')}
-          className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">AI Auto-Replies</span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-500/15 text-[#7C3AED] dark:text-purple-400 flex items-center justify-center shrink-0">
-              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-            {aiRepliesCount}
-          </div>
-          <div className="text-[11px] sm:text-xs text-[#7C3AED] dark:text-purple-400 font-semibold mt-1 truncate">
-            {totalMessagesCount > 0 ? `${Math.round((aiRepliesCount / totalMessagesCount) * 100)}% automated` : '100% automated'}
-          </div>
-        </div>
-
-        <div
-          onClick={() => onNavigate('orders')}
-          className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">Confirmed Orders</span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-500/15 text-[#7C3AED] dark:text-purple-400 flex items-center justify-center shrink-0">
-              <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-            {confirmedOrdersTotal}
-          </div>
-          <div className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 tabular-nums truncate">
-            ৳ {orderMetrics ? orderMetrics.totalRevenue.toLocaleString() : '0'} total value
-          </div>
-        </div>
-
-        <div
-          onClick={() => onNavigate('channels')}
-          className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">Active Channels</span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-500/15 text-[#7C3AED] dark:text-purple-400 flex items-center justify-center shrink-0">
-              <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-            {activeChannels.length} / {channels.length}
-          </div>
-          <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-            {waCount} WA · {fbCount} FB · {igCount} IG
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Business Net Profit & ROI Calculator Card */}
-      <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-white via-purple-50/30 to-emerald-50/30 dark:from-[#130D2E] dark:via-[#171038] dark:to-[#112229] border border-purple-200/80 dark:border-purple-500/25 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-start sm:items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <Calculator className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
-                  Business Net Profit & ROI Calculator
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                  Real-Time P&L
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Automated P&L: Real-time net profit after deducting product cost, Facebook Ad spend, and return courier loss from gross sales.
-              </p>
-            </div>
-          </div>
+          )}
 
           <button
             type="button"
-            onClick={() => setShowProfitEditor(!showProfitEditor)}
-            className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-white dark:bg-[#1C1442] hover:bg-purple-50 dark:hover:bg-[#251B54] text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-purple-500/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+            onClick={() => onNavigate('orders')}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold shadow-sm shadow-purple-500/25 flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <Sliders className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400" />
-            <span>{showProfitEditor ? 'Close Cost Editor' : 'Edit Ad Spend & Costs'}</span>
+            <Plus className="w-4 h-4" />
+            <span>New Order</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('agents')}
+            className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#191138] hover:bg-slate-200 dark:hover:bg-[#251A4F] text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-purple-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Bot className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <span>AI Agents ({agentsList.length})</span>
           </button>
         </div>
+      </div>
 
-        {showProfitEditor && (
-          <div className="mb-4 p-4 rounded-xl bg-white/90 dark:bg-[#1A123B] border border-purple-200/70 dark:border-purple-500/25 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                Ad Spend / Boost Cost (৳)
-              </label>
-              <input
-                type="number"
-                value={adSpendInput}
-                onChange={(e) => setAdSpendInput(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
-              />
+      {/* 4 PRIMARY SALES & REVENUE KPI CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Gross Sales (BDT) */}
+        <div
+          onClick={() => onNavigate('orders')}
+          className="p-5 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Total Business Sales
+            </span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm">
+              ৳
             </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                Default Product Cost (%)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={95}
-                value={costPctInput}
-                onChange={(e) => setCostPctInput(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
-              />
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              ৳ {totalRevenue.toLocaleString()}
             </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                Courier Loss per Return (৳)
-              </label>
-              <input
-                type="number"
-                value={returnLossInput}
-                onChange={(e) => setReturnLossInput(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-slate-50 dark:bg-[#120C2B] border border-slate-200 dark:border-purple-500/30 text-slate-900 dark:text-white"
-              />
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>AOV: ৳ {avgOrderValue.toLocaleString()} / order</span>
             </div>
-            <button
-              type="button"
-              onClick={handleSaveProfitSettings}
-              disabled={savingProfitConfig}
-              className="px-4 py-2 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold transition-all cursor-pointer"
-            >
-              {savingProfitConfig ? 'Saving...' : 'Save Parameters'}
-            </button>
           </div>
-        )}
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-purple-500/10 flex items-center justify-between">
+            <span>{filteredOrders.length} total customer orders</span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#7C3AED] transition-colors" />
+          </div>
+        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Gross Order Revenue</span>
-            <span className="text-lg font-extrabold text-slate-900 dark:text-white tabular-nums mt-0.5 block">
-              ৳ {grossRevenue.toLocaleString()}
+        {/* Card 2: Confirmed & Booked Orders */}
+        <div
+          onClick={() => onNavigate('orders')}
+          className="p-5 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Confirmed Orders
             </span>
-            <span className="text-[10px] text-slate-400">{activeOrders.length} active orders</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Product Buying Cost</span>
-            <span className="text-lg font-extrabold text-slate-700 dark:text-slate-200 tabular-nums mt-0.5 block">
-              - ৳ {totalBuyingCost.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-slate-400">Catalog or {costPctInput}% avg cost</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Ad / Boost Spend</span>
-            <span className="text-lg font-extrabold text-amber-600 dark:text-amber-400 tabular-nums mt-0.5 block">
-              - ৳ {totalAdSpend.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-slate-400">Marketing investment</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#1A123B]/90 border border-slate-200/70 dark:border-purple-500/15">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Return Courier Loss</span>
-            <span className="text-lg font-extrabold text-rose-600 dark:text-rose-400 tabular-nums mt-0.5 block">
-              - ৳ {returnCourierLoss.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-slate-400">{cancelledOrdersCount} cancelled × ৳{returnLossInput}</span>
-          </div>
-
-          <div className="col-span-2 sm:col-span-1 p-3.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">Actual Net Profit</span>
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <div className="w-9 h-9 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4" />
             </div>
-            <span className={`text-lg font-extrabold tabular-nums mt-0.5 block ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-              ৳ {netProfit.toLocaleString()}
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              {confirmedCount + deliveredCount + shippedCount}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-[#7C3AED] dark:text-purple-300 font-bold mt-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{deliveredCount} Delivered · {shippedCount} in Transit</span>
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-purple-500/10 flex items-center justify-between">
+            <span>{pendingCount} pending confirmation</span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#7C3AED] transition-colors" />
+          </div>
+        </div>
+
+        {/* Card 3: AI Autonomous Order Share */}
+        <div
+          onClick={() => onNavigate('agents')}
+          className="p-5 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              AI Autonomous Sales
             </span>
-            <span className="text-[10px] font-bold text-emerald-700/80 dark:text-emerald-300/80">
-              Margin: {profitMarginPct}% ROI
+            <div className="w-9 h-9 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <Bot className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              ৳ {aiRevenue.toLocaleString()}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>{conversionRate}% Inquiries Converted</span>
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-purple-500/10 flex items-center justify-between">
+            <span>Closed with 0 human shift cost</span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#7C3AED] transition-colors" />
+          </div>
+        </div>
+
+        {/* Card 4: Connected Channels & Agents */}
+        <div
+          onClick={() => onNavigate('channels')}
+          className="p-5 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/50 transition-all cursor-pointer group space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Active Sales Channels
             </span>
+            <div className="w-9 h-9 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <Smartphone className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              {channels.filter((c) => c.is_active).length} / {channels.length || 0}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-1">
+              <Store className="w-3.5 h-3.5" />
+              <span>{agentsList.length} AI Business Agents</span>
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-purple-500/10 flex items-center justify-between">
+            <span>WhatsApp, FB &amp; Instagram</span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#7C3AED] transition-colors" />
           </div>
         </div>
       </div>
 
-      {/* 4. 2-Column Main Workspace Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Analytics Chart */}
-        <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs flex flex-col justify-between space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#7C3AED] dark:text-purple-400" />
-                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  Message & Inquiry Analytics
-                </h2>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {totalPeriodVolume} messages processed · 1.4s avg response speed
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-[#1C1442] rounded-xl text-xs font-semibold">
-                <button
-                  onClick={() => setActiveTrendPlatform('all')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                    activeTrendPlatform === 'all'
-                      ? 'bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setActiveTrendPlatform('whatsapp')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
-                    activeTrendPlatform === 'whatsapp'
-                      ? 'bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3" />
-                  WA
-                </button>
-                <button
-                  onClick={() => setActiveTrendPlatform('messenger')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
-                    activeTrendPlatform === 'messenger'
-                      ? 'bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Facebook className="w-3 h-3" />
-                  FB
-                </button>
-                <button
-                  onClick={() => setActiveTrendPlatform('instagram')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
-                    activeTrendPlatform === 'instagram'
-                      ? 'bg-[#7C3AED] text-white shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Instagram className="w-3 h-3" />
-                  IG
-                </button>
-              </div>
-
-              <select
-                value={insightsTimeframe}
-                onChange={(e) => setInsightsTimeframe(e.target.value as any)}
-                className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#1C1442] text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
-              >
-                <option value="7d">7 Days</option>
-                <option value="14d">14 Days</option>
-                <option value="30d">30 Days</option>
-              </select>
-            </div>
+      {/* QUICK OPERATIONS BAR (1-Click Courier, Add Product, Test AI Agent, View Inbox) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button
+          type="button"
+          onClick={() => onNavigate('delivery-courier')}
+          className="p-4 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/40 shadow-xs text-left transition-all cursor-pointer flex items-center gap-3 group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <Truck className="w-5 h-5" />
           </div>
-
-          {/* Bar Chart */}
-          <div className="overflow-x-auto pb-1 scrollbar-none">
-            <div className={`h-48 flex items-end gap-2 sm:gap-3.5 px-1 pt-4 ${dailyTrends.length > 7 ? 'min-w-[440px]' : 'w-full'}`}>
-              {dailyTrends.map((d, idx) => {
-                const val =
-                  activeTrendPlatform === 'whatsapp'
-                    ? d.whatsapp
-                    : activeTrendPlatform === 'messenger'
-                    ? d.messenger
-                    : activeTrendPlatform === 'instagram'
-                    ? d.instagram
-                    : d.total;
-
-                const heightPercent = Math.max(Math.round((val / maxDailyVolume) * 100), 8);
-
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <div className="text-[10px] font-bold text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 transition-colors tabular-nums">
-                      {val}
-                    </div>
-                    <div className="w-full max-w-[42px] bg-slate-100 dark:bg-[#1C1442] rounded-t-xl overflow-hidden flex flex-col justify-end relative h-36">
-                      <div
-                        className="w-full rounded-t-xl bg-gradient-to-t from-[#5B21B6] via-[#7C3AED] to-[#A855F7] group-hover:brightness-110 transition-all"
-                        style={{ height: `${heightPercent}%` }}
-                      />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block">
-                        {d.dayName}
-                      </span>
-                      <span className="text-[9px] text-slate-400 hidden sm:block">
-                        {d.dateStr}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Right 1 Column: Clean Workspace Quick Modules */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 shadow-2xs flex flex-col justify-between space-y-4">
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-              Quick Workspace Tools
+            <span className="block text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Courier Dispatch
+            </span>
+            <span className="text-[11px] text-slate-400">Steadfast &amp; Pathao</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('products')}
+          className="p-4 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/40 shadow-xs text-left transition-all cursor-pointer flex items-center gap-3 group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="block text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Product Catalog
+            </span>
+            <span className="text-[11px] text-slate-400">Inventory &amp; Pricing</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('agents')}
+          className="p-4 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/40 shadow-xs text-left transition-all cursor-pointer flex items-center gap-3 group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <Bot className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="block text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Train AI Agents
+            </span>
+            <span className="text-[11px] text-slate-400">Multi-Business Rules</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('inbox')}
+          className="p-4 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7C3AED]/40 shadow-xs text-left transition-all cursor-pointer flex items-center gap-3 group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-950/60 text-pink-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <MessageSquare className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="block text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Live Omnichannel Inbox
+            </span>
+            <span className="text-[11px] text-slate-400">WhatsApp &amp; DM Chats</span>
+          </div>
+        </button>
+      </div>
+
+      {/* SUSPICIOUS / FRAUD RISK BANNER (If any fake orders detected) */}
+      {suspiciousOrders.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Fraud Alert:</strong> {suspiciousOrders.length} order(s) flagged for risky phone numbers or incomplete addresses. Review before dispatching to Steadfast.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('orders')}
+            className="font-bold underline text-amber-700 dark:text-amber-300 hover:text-amber-900 cursor-pointer shrink-0"
+          >
+            Review Risky Orders
+          </button>
+        </div>
+      )}
+
+      {/* RECENT SALES & ORDERS STREAM */}
+      <div className="bg-white dark:bg-[#120B2E] rounded-3xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs overflow-hidden">
+        {/* Table Header */}
+        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-purple-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-[#7C3AED]" />
+              <span>Live Sales &amp; Customer Orders Feed</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Direct shortcuts to your core automation hubs
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Orders automatically confirmed by AI from Facebook, WhatsApp, and Instagram.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 flex-1 content-start">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadDashboardData}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A123B] transition-colors cursor-pointer"
+              title="Refresh Orders"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#7C3AED]' : ''}`} />
+            </button>
             <button
               type="button"
               onClick={() => onNavigate('orders')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
+              className="px-3.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Truck className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Orders &amp; Courier
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    AI orders &amp; 1-click Steadfast/Pathao
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('products')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Package className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Products &amp; Store ERP
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {productsCount} products, stock &amp; accounts
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('settings')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    AI Persona &amp; Prompts
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Delivery rates, return policy &amp; tone
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('channels')}
-              className="w-full p-3 rounded-xl bg-slate-50/80 dark:bg-[#1A123B] hover:bg-purple-50/60 dark:hover:bg-[#23184E] border border-slate-200/70 dark:border-purple-500/15 hover:border-[#7C3AED]/40 flex items-center justify-between transition-all cursor-pointer group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100/80 dark:bg-purple-500/20 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                    Connected Channels
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Manage WhatsApp, Facebook &amp; Instagram
-                  </span>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 shrink-0" />
+              <span>View All ({filteredOrders.length})</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
+
+        {/* Orders Table */}
+        {filteredOrders.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 space-y-3">
+            <ShoppingBag className="w-10 h-10 text-slate-300 dark:text-purple-400 mx-auto" />
+            <p className="text-xs">No orders recorded yet. When customers place orders in chat, they will show up here automatically.</p>
+            <button
+              type="button"
+              onClick={() => onNavigate('orders')}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#7C3AED] text-white hover:bg-[#6D28D9] cursor-pointer"
+            >
+              Add First Order
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/75 dark:bg-[#18103A] text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-purple-500/10 font-bold">
+                <tr>
+                  <th className="py-3 px-4">Order ID &amp; Time</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Items</th>
+                  <th className="py-3 px-4">Channel / Agent</th>
+                  <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-purple-500/10">
+                {filteredOrders.slice(0, 6).map((order) => {
+                  const ch = channels.find((c) => c.id === order.channel_id);
+                  const isDelivered = order.status === 'delivered';
+                  const isShipped = order.status === 'shipped';
+                  const isCancelled = order.status === 'cancelled';
+
+                  return (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-[#18103A]/50 transition-colors"
+                    >
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        <div className="font-bold text-slate-900 dark:text-white">
+                          #{order.id.slice(-6).toUpperCase()}
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          {order.created_at
+                            ? new Date(order.created_at).toLocaleDateString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Today'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-extrabold text-slate-900 dark:text-white">
+                          {order.customer_name || 'Valued Buyer'}
+                        </div>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {order.customer_phone || 'Phone not provided'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 max-w-[200px] truncate text-slate-700 dark:text-slate-300">
+                        {order.items || order.product_summary || 'Order Items'}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5">
+                          {order.platform === 'whatsapp' ? (
+                            <WhatsAppLogo className="w-3.5 h-3.5" />
+                          ) : order.platform === 'messenger' ? (
+                            <FacebookLogo className="w-3.5 h-3.5" />
+                          ) : (
+                            <InstagramLogo className="w-3.5 h-3.5" />
+                          )}
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[110px]">
+                            {ch?.name || (order.platform === 'whatsapp' ? 'WhatsApp' : 'Facebook')}
+                          </span>
+                        </div>
+                        {order.order_source === 'ai_detected' && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-purple-600 dark:text-purple-400 mt-0.5">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>AI Closed</span>
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-white tabular-nums">
+                        ৳ {(order.total_amount || 0).toLocaleString()}
+                      </td>
+
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isDelivered
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : isShipped
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              : isCancelled
+                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                              : 'bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                          }`}
+                        >
+                          {order.status || 'Confirmed'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('delivery-courier')}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-[#7C3AED] hover:text-white transition-colors cursor-pointer"
+                        >
+                          Courier
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* MULTI-AGENT / MULTI-BUSINESS SALES PERFORMANCE BREAKDOWN */}
+      {agentsList.length > 0 && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Store className="w-4 h-4 text-[#7C3AED]" />
+                <span>Multi-Business AI Agent Performance Breakdown</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Sales generated and customer inquiries handled per business brand.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('agents')}
+              className="text-xs font-bold text-[#7C3AED] dark:text-purple-300 hover:underline cursor-pointer"
+            >
+              Manage Agents &rarr;
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {agentsList.map((agent) => {
+              const assignedChannels = channels.filter(
+                (c) => (agent.assigned_channels || []).includes(c.id) || c.agent_id === agent.id
+              );
+              const agentOrders = ordersList.filter(
+                (o) => o.channel_id && assignedChannels.some((ac) => ac.id === o.channel_id)
+              );
+              const agentSales = agentOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+
+              return (
+                <div
+                  key={agent.id}
+                  className="p-4 rounded-2xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={agent.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80'}
+                        alt={agent.name}
+                        className="w-8 h-8 rounded-xl object-cover"
+                      />
+                      <div className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {agent.business_name}
+                        </span>
+                        <span className="block text-[10px] text-slate-400 truncate">
+                          Agent: {agent.name}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300">
+                      {assignedChannels.length} Channels
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50 dark:border-purple-500/10">
+                    <span className="text-slate-500 dark:text-slate-400">Captured Sales:</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white tabular-nums">
+                      ৳ {agentSales.toLocaleString()} ({agentOrders.length} orders)
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
