@@ -19,11 +19,19 @@ contactsRouter.get('/', (req: Request, res: Response) => {
   const nowMs = Date.now();
   const window24hMs = 24 * 60 * 60 * 1000;
 
+  const allCustomerMeta = db.getAllCustomerMetadata(user.id);
+  const metaMap = new Map<string, any>(allCustomerMeta.map((m) => [m.customer_id, m]));
+
   const contactsMap = new Map<
     string,
     {
       customerId: string;
       customerName: string;
+      customerAvatar?: string;
+      customerPhone?: string;
+      customerAddress?: string;
+      tags?: string[];
+      notes?: string;
       platform: 'whatsapp' | 'messenger' | 'instagram';
       channelId?: string;
       totalMessages: number;
@@ -63,10 +71,27 @@ contactsRouter.get('/', (req: Request, res: Response) => {
       const validOrders = matchingOrders.filter((o) => o.status !== 'cancelled');
       const totalSpent = validOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
       const isVip = validOrders.some((o) => o.is_vip) || validOrders.length >= 2 || totalSpent >= 3000;
+      const custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
+
+      const resolvedName = custMeta?.customer_name || msg.customer_name || msg.customer_id;
+      const resolvedPhone = custMeta?.customer_phone || matchingOrders[0]?.customer_phone;
+      const resolvedAddress = custMeta?.customer_address || matchingOrders[0]?.customer_address;
+      const resolvedTags = custMeta?.tags && custMeta.tags.length > 0 
+        ? custMeta.tags 
+        : isVip 
+        ? ['VIP Client'] 
+        : validOrders.length > 0 
+        ? ['Top Client'] 
+        : ['Prospect'];
 
       contactsMap.set(key, {
         customerId: msg.customer_id,
-        customerName: msg.customer_name || msg.customer_id,
+        customerName: resolvedName,
+        customerAvatar: msg.customer_avatar,
+        customerPhone: resolvedPhone,
+        customerAddress: resolvedAddress,
+        tags: resolvedTags,
+        notes: custMeta?.notes || '',
         platform: msg.platform,
         channelId: msg.channel_id,
         totalMessages: 0,

@@ -1,308 +1,611 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  Check,
-  Lock,
-  Loader2,
-  ChevronDown,
-  Calendar
-} from 'lucide-react';
-import { api } from '../../api';
+import React, { useEffect, useRef } from 'react';
 import { Plan } from '../../types';
-import {
-  PLAN_DURATION_OPTIONS,
-  OFFICIAL_THREE_PLANS,
-  calculateCustomPlanPrice,
-  calculateOriginalPlanPrice,
-  normalizeToThreePlans
-} from '../../utils/pricingPlans';
+import { OFFICIAL_THREE_PLANS } from '../../utils/pricingPlans';
 
 interface PricingTableProps {
   onSelectPlan: (plan: Plan, action?: 'buy' | 'trial') => void;
 }
 
 export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
-  const [plans, setPlans] = useState<Plan[]>(OFFICIAL_THREE_PLANS);
-  const [loading, setLoading] = useState(true);
-  const [selectedDurationId, setSelectedDurationId] = useState<string>('1m');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadPlans();
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const loadPlans = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getPlans();
-      const activePlans = data.filter((p) => p.is_active);
-      if (activePlans.length >= 2) {
-        setPlans(normalizeToThreePlans(activePlans));
-      } else {
-        setPlans(OFFICIAL_THREE_PLANS);
-      }
-    } catch (err) {
-      console.error('Failed to fetch plans:', err);
-      setPlans(OFFICIAL_THREE_PLANS);
-    } finally {
-      setLoading(false);
+  const PLANS = [
+    {
+      id: 'basic_trial',
+      n: 'Basic',
+      tag: '2 Days Free',
+      p: 0,
+      u: '/ 2 days',
+      s: 'Build One Business Agent',
+      b: 'Start 2-day free trial',
+      c: 'b-light',
+      isTrial: true,
+      f: [
+        'Facebook Unlimited conversations',
+        'Instagram Unlimited conversations',
+        '!WhatsApp Unlimited conversations (Locked in 2-day trial)',
+        '1 AI business agent',
+        'Bangla voice note & photo AI',
+        'Auto comment & inbox reply',
+        '1-Click courier booking (Steadfast & Pathao)',
+        'Unified team inbox',
+        'Standard AI reply speed'
+      ]
+    },
+    {
+      id: 'starter_plan',
+      n: 'Starter AI Plan',
+      pop: 1,
+      p: 1250,
+      u: '/ month',
+      s: 'Manage Multiple Business',
+      b: 'Choose Starter AI Plan',
+      c: 'b-violet',
+      isTrial: false,
+      f: [
+        '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)',
+        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
+        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
+        'AI Auto Delivery Tracking & Customer Live Status Update',
+        'VIP Customer Retargeting & Smart Follow-Up Message',
+        'WhatsApp, Facebook Messenger & Instagram Auto-Reply',
+        'Voice Note AI Listening & Product Photo Recognition',
+        'Auto Post Comment Reply + Direct Inbox (DM) Automation',
+        'Unlimited Product Catalog & Autonomous Chat Order Capture',
+        'Unlimited Customer Conversations (0 TK per-msg fee)'
+      ]
+    },
+    {
+      id: 'pro_plan',
+      n: 'Pro Business Plan',
+      p: 1950,
+      u: '/ month',
+      s: 'Scale Your Client Base',
+      b: 'Choose Pro Business Plan',
+      c: 'b-dark',
+      isTrial: false,
+      f: [
+        'Everything in Starter Plan + Connect up to 10 Channels',
+        'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)',
+        'AI Appointments & Google Calendar Auto-Slot Booking',
+        'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
+        'AI Auto Delivery Tracking & Customer Live Status Update',
+        'VIP Customer Retargeting Message & AI Email Marketing',
+        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
+        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
+        'Customer Callback Queue, Human Handover & CSV/Text Export',
+        '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support'
+      ]
     }
+  ];
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const count = () => {
+      const els = root.querySelectorAll('[data-to]');
+      els.forEach((el, i) => {
+        const to = +(el.getAttribute('data-to') || '0');
+        const t0 = performance.now() + 700 + i * 140;
+        const d = 1500;
+        const s = (n: number) => {
+          const p = Math.min(Math.max((n - t0) / d, 0), 1);
+          el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US');
+          if (p < 1) requestAnimationFrame(s);
+        };
+        requestAnimationFrame(s);
+      });
+    };
+
+    const go = () => {
+      root.classList.add('in');
+      count();
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          go();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(root);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleSelect = (p: (typeof PLANS)[0]) => {
+    const matched =
+      OFFICIAL_THREE_PLANS.find(
+        (pl) =>
+          pl.name.toLowerCase().includes(p.n.toLowerCase().split(' ')[0]) ||
+          (p.isTrial && (pl.trial_days > 0 || pl.price === 0))
+      ) || OFFICIAL_THREE_PLANS[0];
+
+    onSelectPlan(matched, p.isTrial ? 'trial' : 'buy');
   };
 
-  const displayPlans = plans.length >= 3 ? plans.slice(0, 3) : OFFICIAL_THREE_PLANS;
-  const activeDuration =
-    PLAN_DURATION_OPTIONS.find((d) => d.id === selectedDurationId) || PLAN_DURATION_OPTIONS[0];
-
   return (
-    <section
-      id="pricing"
-      className="py-10 sm:py-14 bg-[#F8F9FE] dark:bg-[#09061A] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-        {/* ChatMakky Style Clean Centered Headline */}
-        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10 space-y-2">
-          <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-            Start small, then add channels and automation as you need them. Every plan includes autonomous AI replies.
-          </p>
-          <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500">
-            Facebook &amp; Instagram conversations: 100% Unlimited • WhatsApp Cloud API: Direct Meta billing
-          </p>
-        </div>
+    <section ref={rootRef} className="pr" id="pricing">
+      <style>{`
+        @property --a {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        .pr {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+          padding: clamp(48px, 6vw, 90px) clamp(16px, 4vw, 56px);
+          background: linear-gradient(180deg, #fff, #faf8ff 40%, #f6f2ff);
+          color: #0e1629;
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+        .pr::before {
+          content: "";
+          position: absolute;
+          left: 50%;
+          top: -120px;
+          width: min(900px, 120vw);
+          aspect-ratio: 1;
+          transform: translateX(-50%);
+          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.16), transparent);
+          z-index: -1;
+        }
+        .pr::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: radial-gradient(rgba(124, 58, 237, 0.13) 1px, transparent 1px);
+          background-size: 28px 28px;
+          -webkit-mask-image: radial-gradient(ellipse 60% 45% at 50% 20%, #000, transparent 80%);
+          mask-image: radial-gradient(ellipse 60% 45% at 50% 20%, #000, transparent 80%);
+        }
+        .pr .head {
+          text-align: center;
+          max-width: 720px;
+          margin: 0 auto;
+        }
+        .pr .badge {
+          display: inline-block;
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #6d28d9;
+          background: rgba(124, 58, 237, 0.07);
+          border: 1px solid rgba(124, 58, 237, 0.22);
+        }
+        .pr h2 {
+          font-size: clamp(28px, 3.6vw, 46px);
+          font-weight: 800;
+          letter-spacing: -0.035em;
+          line-height: 1.1;
+          margin: 16px 0 12px;
+          color: #0e1629;
+        }
+        .pr .head p {
+          font-size: clamp(14px, 1.3vw, 16px);
+          line-height: 1.65;
+          color: #5a6781;
+        }
+        .pr .head small {
+          display: block;
+          margin-top: 10px;
+          font-size: 12px;
+          color: #8b94ad;
+        }
+        .pr .bill {
+          display: flex;
+          justify-content: center;
+          margin: 26px 0 42px;
+        }
+        .pr .bill div {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px 8px 16px;
+          border-radius: 999px;
+          background: #fff;
+          border: 1px solid rgba(124, 58, 237, 0.2);
+          box-shadow: 0 10px 26px -14px rgba(76, 29, 149, 0.4);
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #5a6781;
+        }
+        .pr .bill b {
+          padding: 5px 12px;
+          border-radius: 999px;
+          color: #fff;
+          font-size: 12px;
+          background: linear-gradient(135deg, #8b3dff, #6d28d9);
+        }
+        .pr .grid {
+          max-width: 1120px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: clamp(16px, 2vw, 28px);
+          align-items: stretch;
+        }
+        .pr .card {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          padding: 28px 26px 26px;
+          border-radius: 30px;
+          background: #fff;
+          border: 1px solid rgba(14, 22, 41, 0.08);
+          box-shadow: 0 30px 60px -36px rgba(60, 20, 140, 0.35);
+          opacity: 0;
+          transform: translateY(46px) scale(0.97);
+          transition: box-shadow 0.35s, translate 0.35s;
+        }
+        .pr .card:hover {
+          translate: 0 -8px;
+          box-shadow: 0 44px 80px -34px rgba(91, 33, 182, 0.5);
+        }
+        .pr .spot {
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.3s;
+          background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), rgba(124, 58, 237, 0.12), transparent 70%);
+        }
+        .pr .card:hover .spot {
+          opacity: 1;
+        }
+        .pr .pop {
+          background: linear-gradient(180deg, #fff, #fbf8ff);
+          box-shadow: 0 40px 90px -34px rgba(124, 58, 237, 0.65);
+          z-index: 1;
+        }
+        .pr .pop::before {
+          content: "";
+          position: absolute;
+          inset: -1.5px;
+          border-radius: 31px;
+          padding: 2px;
+          pointer-events: none;
+          background: conic-gradient(from var(--a), #7c3aed, #d8c2ff, #6366f1, #a855f7, #7c3aed);
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+          animation: spinPr 5s linear infinite;
+        }
+        @keyframes spinPr {
+          to { --a: 360deg; }
+        }
+        .pr .tag {
+          position: absolute;
+          left: 50%;
+          top: 0;
+          translate: -50% -50%;
+          padding: 6px 16px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 800;
+          color: #fff;
+          background: linear-gradient(135deg, #8b3dff, #5b3df0);
+          box-shadow: 0 10px 22px -6px rgba(91, 61, 240, 0.7);
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        .pr .tag::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 30px;
+          left: -40px;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+          transform: skewX(-20deg);
+          animation: shinePr 3s ease-in-out 2s infinite;
+        }
+        @keyframes shinePr {
+          0% { left: -40px; }
+          50%, 100% { left: 130%; }
+        }
+        .pr .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .pr .top h3 {
+          font-size: 20px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .pr .free {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          color: #475069;
+          background: #eef0f6;
+        }
+        .pr .price {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          margin-top: 16px;
+          font-weight: 800;
+          letter-spacing: -0.04em;
+        }
+        .pr .price strong {
+          font-size: clamp(38px, 4vw, 48px);
+          line-height: 1;
+        }
+        .pr .price em {
+          font-style: normal;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0;
+          color: #8b94ad;
+        }
+        .pr .sub {
+          margin-top: 8px;
+          font-size: 13px;
+          color: #5a6781;
+          font-weight: 500;
+        }
+        .pr .btn {
+          position: relative;
+          overflow: hidden;
+          display: block;
+          margin-top: 20px;
+          padding: 14px;
+          border-radius: 14px;
+          text-align: center;
+          font: 700 14px inherit;
+          text-decoration: none;
+          transition: transform 0.25s, box-shadow 0.25s;
+          cursor: pointer;
+        }
+        .pr .btn:hover {
+          transform: translateY(-2px);
+        }
+        .pr .btn::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 50px;
+          left: -70px;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+          transform: skewX(-20deg);
+        }
+        .pr .btn:hover::after {
+          left: 120%;
+          transition: left 0.7s;
+        }
+        .pr .b-light {
+          color: #0e1629;
+          background: #f1f3f8;
+          border: 1px solid rgba(14, 22, 41, 0.08);
+        }
+        .pr .b-violet {
+          color: #fff;
+          background: linear-gradient(135deg, #8b3dff, #6d28d9);
+          box-shadow: 0 18px 34px -12px rgba(109, 40, 217, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        }
+        .pr .b-dark {
+          color: #fff;
+          background: linear-gradient(135deg, #1a2540, #0b1121);
+          box-shadow: 0 18px 34px -12px rgba(11, 17, 33, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .pr .fl {
+          margin: 22px 0 14px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(14, 22, 41, 0.08);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          color: #97a0b8;
+        }
+        .pr ul {
+          list-style: none;
+          display: grid;
+          gap: 12px;
+          padding: 0;
+          margin: 0;
+        }
+        .pr li {
+          display: flex;
+          gap: 11px;
+          align-items: flex-start;
+          font-size: 13px;
+          line-height: 1.5;
+          font-weight: 500;
+          color: #2a3652;
+          opacity: 0;
+          transform: translateX(-12px);
+        }
+        .pr li svg {
+          flex: none;
+          width: 18px;
+          height: 18px;
+          margin-top: 1px;
+        }
+        .pr li.lock {
+          color: #a2aabf;
+          text-decoration: line-through;
+        }
+        .pr .ck circle {
+          fill: rgba(16, 185, 129, 0.14);
+        }
+        .pr .ck path {
+          fill: none;
+          stroke: #10b981;
+          stroke-width: 2.2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-dasharray: 14;
+          stroke-dashoffset: 14;
+        }
+        .pr.in .head > *, .pr.in .bill {
+          animation: upPr 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+          animation-delay: calc(var(--d, 0) * 1s);
+        }
+        .pr .head > *, .pr .bill {
+          opacity: 0;
+        }
+        .pr.in .head > *, .pr.in .bill {
+          opacity: 1;
+        }
+        .pr.in .card {
+          animation: risePr 0.95s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          animation-delay: calc(0.45s + var(--i) * 0.14s);
+        }
+        .pr.in li {
+          animation: slidePr 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          animation-delay: calc(0.9s + var(--i) * 0.14s + var(--k) * 0.06s);
+        }
+        .pr.in .ck path {
+          animation: tickPr 0.5s ease forwards;
+          animation-delay: calc(1s + var(--i) * 0.14s + var(--k) * 0.06s);
+        }
+        .pr.in .pop {
+          animation: risePr 0.95s cubic-bezier(0.2, 0.8, 0.2, 1) forwards, glowPr 4s ease-in-out 2s infinite;
+          animation-delay: calc(0.45s + var(--i) * 0.14s), 2s;
+        }
+        @keyframes upPr {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes risePr {
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes slidePr {
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes tickPr {
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes glowPr {
+          50% { box-shadow: 0 44px 110px -30px rgba(124, 58, 237, 0.9); }
+        }
+        @media (min-width: 901px) {
+          .pr .pop {
+            margin-top: -14px;
+            margin-bottom: -14px;
+            padding-top: 34px;
+          }
+        }
+        @media (max-width: 900px) {
+          .pr .grid {
+            grid-template-columns: 1fr;
+            max-width: 460px;
+          }
+          .pr .pop {
+            order: -1;
+            margin-top: 14px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pr.in * {
+            animation-duration: 0.01s !important;
+            animation-delay: 0s !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
+      `}</style>
 
-        {/* Clean Duration Selector Pill */}
-        <div className="flex justify-center mb-10 sm:mb-12">
-          <div ref={dropdownRef} className="relative inline-block">
+      <div className="head">
+        <span className="badge" style={{ '--d': 0 } as React.CSSProperties}>
+          Pricing
+        </span>
+        <h2 style={{ '--d': 0.1 } as React.CSSProperties}>Simple plans that grow with your business</h2>
+        <p style={{ '--d': 0.2 } as React.CSSProperties}>
+          Start small, then add channels and automation as you need them. Every plan includes autonomous AI replies.
+        </p>
+        <small style={{ '--d': 0.3 } as React.CSSProperties}>
+          Facebook &amp; Instagram conversations: 100% Unlimited • WhatsApp Cloud API: Direct Meta billing
+        </small>
+      </div>
+
+      <div className="bill" style={{ '--d': 0.4 } as React.CSSProperties}>
+        <div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round">
+            <rect x="3" y="5" width="18" height="16" rx="3" />
+            <path d="M8 3v4M16 3v4M3 10h18" />
+          </svg>
+          Billing Duration: <b>1 Month</b>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b94ad" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
+      </div>
+
+      <div ref={gridRef} className="grid" id="grid">
+        {PLANS.map((P, i) => (
+          <article
+            key={P.id}
+            className={`card${P.pop ? ' pop' : ''}`}
+            style={{ '--i': i } as React.CSSProperties}
+            onPointerMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+            }}
+          >
+            <div className="spot"></div>
+            {P.pop && <span className="tag">Most popular</span>}
+            <div className="top">
+              <h3>{P.n}</h3>
+              {P.tag && <span className="free">{P.tag}</span>}
+            </div>
+            <div className="price">
+              <strong>
+                &#2547;<span data-to={P.p}>0</span>
+              </strong>
+              <em>{P.u}</em>
+            </div>
+            <div className="sub">{P.s}</div>
             <button
               type="button"
-              onClick={() => setDropdownOpen((prev) => !prev)}
-              className="pl-4 pr-3.5 py-2.5 rounded-full bg-white dark:bg-[#120B2E] border border-slate-200/90 dark:border-purple-500/30 shadow-xs hover:border-[#7C3AED]/60 transition-all flex items-center gap-2.5 cursor-pointer"
+              onClick={() => handleSelect(P)}
+              className={`btn ${P.c} w-full`}
             >
-              <Calendar className="w-4 h-4 text-[#7C3AED] dark:text-purple-400 shrink-0" />
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Billing Duration:
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#7C3AED] text-white text-xs font-extrabold flex items-center gap-1.5">
-                <span>{activeDuration.label}</span>
-                {activeDuration.discountPercent > 0 && (
-                  <span className="text-[10px] text-purple-100 font-bold">
-                    • Save {activeDuration.discountPercent}%
-                  </span>
-                )}
-              </span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-500 dark:text-purple-300 transition-transform duration-200 ${
-                  dropdownOpen ? 'rotate-180' : ''
-                }`}
-              />
+              {P.b}
             </button>
-
-            {dropdownOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-64 rounded-2xl bg-white dark:bg-[#150D36] border border-slate-200/90 dark:border-purple-500/30 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.25)] p-2 z-30">
-                {PLAN_DURATION_OPTIONS.map((opt) => {
-                  const isSelected = opt.id === selectedDurationId;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDurationId(opt.id);
-                        setDropdownOpen(false);
-                      }}
-                      className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#7C3AED] text-white'
-                          : 'text-slate-700 dark:text-slate-200 hover:bg-violet-50 dark:hover:bg-purple-950/60'
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                      {opt.discountPercent > 0 ? (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            isSelected
-                              ? 'bg-white/20 text-white'
-                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          }`}
-                        >
-                          Save {opt.discountPercent}%
-                        </span>
-                      ) : (
-                        <span
-                          className={`text-[10px] font-semibold ${
-                            isSelected ? 'text-purple-200' : 'text-slate-400'
-                          }`}
-                        >
-                          Standard
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-[#7C3AED]" />
-          </div>
-        ) : (
-          /* Exact ChatMakky 3-Card Grid */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-7 items-stretch">
-            {displayPlans.map((plan, index) => {
-              const isTrial = plan.id === 'plan_trial' || plan.price === 0;
-              const isPopular = plan.id === 'plan_starter' || plan.badge === 'Most popular' || plan.name.toLowerCase().includes('advanced');
-              const isAgency = plan.id === 'plan_pro' || plan.price >= 1950;
-
-              const originalPrice = isTrial
-                ? 0
-                : calculateOriginalPlanPrice(plan.price, activeDuration.months);
-              const totalPrice = isTrial
-                ? 0
-                : calculateCustomPlanPrice(plan.price, activeDuration.months);
-              const savedAmount = Math.max(0, originalPrice - totalPrice);
-
-              return (
-                <motion.div
-                  key={plan.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className={`relative rounded-[28px] p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 ${
-                    isPopular
-                      ? 'bg-white dark:bg-[#120B2E] border-2 border-[#7C3AED] shadow-[0_12px_45px_rgba(124,58,237,0.20)] dark:shadow-[0_12px_45px_rgba(124,58,237,0.30)] ring-1 ring-[#7C3AED]/20'
-                      : 'bg-white dark:bg-[#10092B] border border-slate-200/90 dark:border-purple-500/20 shadow-xs hover:border-[#7C3AED]/35'
-                  }`}
-                >
-                  {/* Floating Pill Badge for Popular Plan */}
-                  {isPopular && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#6366F1] to-[#7C3AED] text-white text-[11px] font-bold shadow-md shadow-indigo-500/25 whitespace-nowrap">
-                      Most popular
-                    </div>
-                  )}
-
-                  {/* Top Header & Price */}
-                  <div>
-                    {/* Title */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-tight">
-                        {plan.name}
-                      </h3>
-                      {isTrial && (
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-purple-950/70 text-slate-700 dark:text-purple-300 text-[10px] font-bold border border-slate-200 dark:border-purple-500/20">
-                          2 Days Free
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Price in BDT */}
-                    <div className="flex items-baseline mt-3">
-                      <span className="font-extrabold text-3xl sm:text-4xl text-slate-900 dark:text-white leading-none">
-                        ৳
-                      </span>
-                      <span className="font-black text-4xl sm:text-5xl tracking-tight text-slate-900 dark:text-white leading-none">
-                        {isTrial ? '0' : totalPrice.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-400 dark:text-slate-400 font-medium ml-1.5">
-                        {isTrial ? '/ 2 days' : '/ month'}
-                      </span>
-                    </div>
-
-                    {savedAmount > 0 && !isTrial && (
-                      <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                        • Save ৳{savedAmount.toLocaleString()} ({activeDuration.label} billing)
-                      </div>
+            <div className="fl">FEATURES</div>
+            <ul>
+              {P.f.map((t, k) => {
+                const l = t[0] === '!';
+                return (
+                  <li
+                    key={k}
+                    className={l ? 'lock' : ''}
+                    style={{ '--k': k } as React.CSSProperties}
+                  >
+                    {l ? (
+                      <svg viewBox="0 0 18 18" fill="none" stroke="#a2aabf" strokeWidth="1.6" strokeLinecap="round">
+                        <rect x="4" y="8" width="10" height="7" rx="2" />
+                        <path d="M6.5 8V6a2.5 2.5 0 015 0v2" />
+                      </svg>
+                    ) : (
+                      <svg className="ck" viewBox="0 0 18 18">
+                        <circle cx="9" cy="9" r="9" />
+                        <path d="M5.2 9.3l2.5 2.5 5-5.2" />
+                      </svg>
                     )}
-
-                    {/* Subtitle */}
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium">
-                      {plan.subtitle}
-                    </p>
-
-                    {/* CTA Button placed right below price/subtitle (LazyChat Style) */}
-                    <div className="mt-5 mb-5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onSelectPlan(
-                            {
-                              ...plan,
-                              price: isTrial ? 0 : totalPrice,
-                              duration_days: isTrial ? 2 : activeDuration.days,
-                              trial_days: 2,
-                              name: isTrial ? plan.name : `${plan.name} (${activeDuration.label})`
-                            },
-                            isTrial ? 'trial' : 'buy'
-                          )
-                        }
-                        className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold transition-all text-center cursor-pointer shadow-xs ${
-                          isPopular
-                            ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-600/25'
-                            : isTrial
-                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-900 dark:bg-[#1A1238] dark:hover:bg-[#251A4E] dark:text-white border border-slate-200 dark:border-purple-500/25'
-                            : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-[#0F172A] dark:hover:bg-slate-100'
-                        }`}
-                      >
-                        {isTrial ? 'Start 2-day free trial' : `Choose ${plan.name}`}
-                      </button>
-                    </div>
-
-                    {/* FEATURES Divider */}
-                    <div className="pt-3 pb-3 border-t border-slate-100 dark:border-purple-500/15">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-                        FEATURES
-                      </span>
-                    </div>
-
-                    {/* Feature List (Exact ChatMakky Mint Checkmark & Clean Single Point) */}
-                    <ul className="space-y-3">
-                      {plan.features.map((feature, i) => {
-                        const isLockedWA = isTrial && feature.toLowerCase().includes('whatsapp');
-                        return (
-                          <li
-                            key={i}
-                            className={`flex items-start gap-2.5 text-xs sm:text-[13px] leading-relaxed ${
-                              isLockedWA
-                                ? 'text-slate-400 dark:text-slate-500'
-                                : 'text-slate-700 dark:text-slate-200 font-medium'
-                            }`}
-                          >
-                            <div className="shrink-0 mt-0.5">
-                              {isLockedWA ? (
-                                <div className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
-                                  <Lock className="w-2.5 h-2.5" />
-                                </div>
-                              ) : (
-                                <div className="w-4 h-4 rounded-full bg-[#E5F9F1] dark:bg-emerald-950/60 text-[#10B981] dark:text-emerald-400 flex items-center justify-center">
-                                  <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                </div>
-                              )}
-                            </div>
-                            <span className={isLockedWA ? 'line-through decoration-slate-400/50' : ''}>
-                              {feature}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+                    <span>{l ? t.slice(1) : t}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </article>
+        ))}
       </div>
     </section>
   );

@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
-import { HowItWorksSteps } from './HowItWorksSteps';
+import { IntegrationSection } from './IntegrationSection';
 
 interface HeroProps {
   onStartTrial: () => void;
@@ -166,9 +166,9 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
-        {/* Premium "How it works" 3-Step Section (White brand background, purple accent #7c3aed, glass cards) */}
-        <div className="mt-4 sm:mt-6 -mx-4 sm:-mx-6 lg:-mx-8">
-          <HowItWorksSteps />
+        {/* Omnichannel Integration Section (Second Picture - Exactly replacing First Picture) */}
+        <div className="mt-6 sm:mt-10">
+          <IntegrationSection />
         </div>
       </div>
     </section>

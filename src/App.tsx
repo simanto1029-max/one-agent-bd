@@ -663,7 +663,7 @@ export default function App() {
             {/* Features (Phone UI with live auto-scrolling chat) */}
             <Features />
 
-            {/* Smart Business ROI: Why Pay 20,000 TK for a Moderator (Positioned directly under Phone UI) */}
+            {/* Smart Business ROI: Why Pay 20,000 TK for a Moderator */}
             <CostComparison
               onStartTrial={() => {
                 if (currentUser) {

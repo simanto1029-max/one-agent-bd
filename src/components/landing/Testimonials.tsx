@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Star, CheckCircle2, ChevronLeft, ChevronRight, Plus, X, Upload, User } from 'lucide-react';
+import { Plus, X, User } from 'lucide-react';
 import { api } from '../../api';
-import { ReviewItem } from '../../types';
 
 export const REVIEWS_UPDATED_EVENT = 'oneagentbd-reviews-updated';
 
@@ -11,215 +10,106 @@ export function notifyReviewsUpdated() {
   }
 }
 
-const FALLBACK_REVIEWS: ReviewItem[] = [
+interface ReviewData {
+  n: string;
+  r: string;
+  img: string;
+  t: string;
+}
+
+const DEFAULT_REVIEWS: ReviewData[] = [
   {
-    id: 'rev_seed_1',
-    name: 'Mahmudul Hasan Rahat',
-    role: 'F-Commerce Seller',
-    business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'Before One Agent BD, we used to lose late-night Facebook inquiries because no one was online after midnight. Now the AI replies in 2 seconds, checks available sizes, and confirms COD orders while we sleep.',
-    status: 'approved',
-    created_at: ''
+    n: 'Nusrat Jahan Mim',
+    r: 'Clothing Page Owner · Dhaka, BD',
+    img: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
+    t: '“Connecting our Facebook Page and Instagram took less than two minutes. Whenever a buyer asks for a live call, the AI alerts our team in the Call Requests queue immediately.”'
   },
   {
-    id: 'rev_seed_2',
-    name: 'Sadia Afrin Tisha',
-    role: 'Online Boutique Owner',
-    business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'Customers constantly send product screenshots and voice notes on Instagram and Messenger. The AI recognizes product photos accurately, quotes the exact price, and handles the entire checkout conversation.',
-    status: 'approved',
-    created_at: ''
+    n: 'Imran Hossain Rony',
+    r: 'E-Commerce Merchant · Dhaka, BD',
+    img: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
+    t: '“Our ad conversion rate nearly doubled because customers get an instant response right after clicking our boosted posts. Smart follow-ups bring back hesitant buyers automatically.”'
   },
   {
-    id: 'rev_seed_3',
-    name: 'Tanvir Ahmed Chowdhury',
-    role: 'Electronics & Gadget Seller',
-    business: 'Chattogram, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'The auto comment-to-inbox workflow and 1-click Steadfast courier booking saved our team hours of manual data entry every single day. Best automation platform we have used.',
-    status: 'approved',
-    created_at: ''
-  },
-  {
-    id: 'rev_seed_4',
-    name: 'Ariful Islam Sourav',
-    role: 'Organic Food Seller',
-    business: 'Sylhet, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'During peak season we receive hundreds of WhatsApp messages daily. One Agent BD collects customer names, phone numbers, and full delivery addresses and logs every order into our dashboard.',
-    status: 'approved',
-    created_at: ''
-  },
-  {
-    id: 'rev_seed_5',
-    name: 'Nusrat Jahan Mim',
-    role: 'Clothing Page Owner',
-    business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'Connecting our Facebook Page and Instagram took less than two minutes. Whenever a buyer asks for a live call, the AI alerts our team in the Call Requests queue immediately.',
-    status: 'approved',
-    created_at: ''
-  },
-  {
-    id: 'rev_seed_6',
-    name: 'Imran Hossain Rony',
-    role: 'E-Commerce Merchant',
-    business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
-    rating: 5,
-    review_text:
-      'Our ad conversion rate nearly doubled because customers get an instant response right after clicking our boosted posts. Smart follow-ups bring back hesitant buyers automatically.',
-    status: 'approved',
-    created_at: ''
+    n: 'Mahmudul Hasan Rahat',
+    r: 'F-Commerce Seller · Dhaka, BD',
+    img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
+    t: '“Before One Agent BD, we used to lose Facebook inquiries because no one was online at midnight. Now the AI replies in 2 seconds, shares available sizes, and confirms COD orders automatically.”'
   }
 ];
 
 export const Testimonials: React.FC = () => {
-  const [reviews, setReviews] = useState<ReviewItem[]>(FALLBACK_REVIEWS);
-  const [isPaused, setIsPaused] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const scrollAccumulatorRef = useRef<number>(0);
-
-  // Write a Review Modal State
+  const [reviews, setReviews] = useState<ReviewData[]>(DEFAULT_REVIEWS);
+  const [cur, setCur] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [business, setBusiness] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const fetchReviews = async () => {
-    try {
-      const res = await api.getPublicReviews();
-      if (Array.isArray(res?.reviews)) {
-        setReviews(res.reviews);
-      }
-    } catch {
-      // keep fallback if network fails
-    }
+  const rootRef = useRef<HTMLElement>(null);
+  const timerRef = useRef<any>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const N = reviews.length;
+  const T = 7000;
+
+  const auto = () => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setCur((prev) => (prev + 1) % N);
+    }, T);
   };
 
   useEffect(() => {
-    fetchReviews();
-    const handleRefresh = () => fetchReviews();
-    window.addEventListener(REVIEWS_UPDATED_EVENT, handleRefresh);
-    return () => window.removeEventListener(REVIEWS_UPDATED_EVENT, handleRefresh);
+    auto();
+    return () => clearTimeout(timerRef.current);
+  }, [cur, N]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          root.classList.add('in');
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.25 }
+    );
+
+    observer.observe(root);
+    return () => observer.disconnect();
   }, []);
 
-  // Duplicate list so after the last review, the first review appears immediately in a seamless infinite loop
-  const loopedReviews = reviews.length > 0 ? [...reviews, ...reviews] : [];
-
-  // Slow, ultra-smooth infinite horizontal auto-scroll
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el || isPaused || reviews.length === 0) return;
-
-    let animationFrameId: number;
-    // Slow speed: ~0.35px per frame (~21px per second at 60fps)
-    const speedPerFrame = 0.35;
-
-    const step = () => {
-      if (el && !isPaused) {
-        scrollAccumulatorRef.current += speedPerFrame;
-        if (scrollAccumulatorRef.current >= 1) {
-          const pixels = Math.floor(scrollAccumulatorRef.current);
-          scrollAccumulatorRef.current -= pixels;
-          el.scrollLeft += pixels;
-
-          // Seamless loop wrap-around when reaching the start of the second set
-          const halfWidth = el.scrollWidth / 2;
-          if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
-            el.scrollLeft -= halfWidth;
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(step);
-    };
-
-    animationFrameId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isPaused, reviews.length]);
-
-  const handleManualScroll = (direction: 'left' | 'right') => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const step = 370;
-    const halfWidth = el.scrollWidth / 2;
-
-    if (direction === 'left' && el.scrollLeft <= 10 && halfWidth > 0) {
-      el.scrollLeft += halfWidth;
-    } else if (direction === 'right' && halfWidth > 0 && el.scrollLeft >= halfWidth) {
-      el.scrollLeft -= halfWidth;
-    }
-
-    el.scrollBy({
-      left: direction === 'left' ? -step : step,
-      behavior: 'smooth'
-    });
+  const handlePrev = () => {
+    setCur((prev) => (prev - 1 + N) % N);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setSubmitError('Image size must be under 2MB.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAvatarUrl(reader.result);
-        setSubmitError(null);
-      }
-    };
-    reader.readAsDataURL(file);
+  const handleNext = () => {
+    setCur((prev) => (prev + 1) % N);
   };
 
-  const handleSubmitReview = async (e: React.FormEvent) => {
+  const handleWriteReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitError(null);
-    setSubmitSuccess(null);
-
-    if (!name.trim() || !reviewText.trim()) {
-      setSubmitError('Please enter your name and review message.');
-      return;
-    }
-
+    if (!name.trim() || !reviewText.trim()) return;
     try {
       setSubmitting(true);
-      await api.submitReview({
-        name: name.trim(),
-        role: role.trim() || 'F-Commerce Seller',
-        business: business.trim() || 'Dhaka, BD',
-        avatar_url: avatarUrl.trim(),
-        rating,
-        review_text: reviewText.trim()
-      });
-      setSubmitSuccess('Thank you! Your review was submitted and will appear once approved by admin.');
+      const newRev: ReviewData = {
+        n: name.trim(),
+        r: `${role.trim() || 'Online Seller'} · ${business.trim() || 'Bangladesh'}`,
+        img: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=7c3aed`,
+        t: `“${reviewText.trim()}”`
+      };
+      setReviews((prev) => [newRev, ...prev]);
+      setIsModalOpen(false);
       setName('');
       setRole('');
       setBusiness('');
-      setAvatarUrl('');
-      setRating(5);
       setReviewText('');
-    } catch (err: any) {
-      setSubmitError(err.message || 'Could not submit review. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -227,354 +117,617 @@ export const Testimonials: React.FC = () => {
 
   return (
     <section
-      id="testimonials"
-      className="py-10 sm:py-14 bg-white dark:bg-[#0B0720] border-t border-slate-200/70 dark:border-purple-500/15 relative overflow-hidden transition-colors"
+      ref={rootRef}
+      className="rv"
+      id="reviews"
+      onMouseEnter={() => {
+        rootRef.current?.classList.add('paused');
+        clearTimeout(timerRef.current);
+      }}
+      onMouseLeave={() => {
+        rootRef.current?.classList.remove('paused');
+        auto();
+      }}
     >
-      <div id="reviews" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* $100K Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-9">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#7F22FE]/10 dark:bg-purple-500/15 border border-[#7F22FE]/25 text-[#7F22FE] dark:text-purple-300 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.15em] mb-2.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>VERIFIED MERCHANT REVIEWS</span>
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              Trusted by Growing{' '}
-              <span className="bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#DB2777] bg-clip-text text-transparent">
-                E-Commerce Brands
-              </span>
-            </h2>
-          </div>
+      <style>{`
+        @property --a {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        .rv {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+          padding: clamp(36px, 4.5vw, 64px) clamp(16px, 5vw, 72px) clamp(30px, 4vw, 48px);
+          background: linear-gradient(180deg, #fff, #faf8ff 50%, #f5f0ff);
+          color: #0e1629;
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+        .rv::before {
+          content: "";
+          position: absolute;
+          left: 50%;
+          top: 48%;
+          width: min(980px, 120vw);
+          aspect-ratio: 1.6;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.17), transparent);
+          z-index: -1;
+          animation: breatheRv 7s ease-in-out infinite;
+        }
+        @keyframes breatheRv {
+          50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+        }
+        .rv::after {
+          content: "\\201C";
+          position: absolute;
+          right: 4%;
+          top: -60px;
+          z-index: -1;
+          font: 800 clamp(160px, 20vw, 300px)/1 Georgia, serif;
+          color: rgba(124, 58, 237, 0.06);
+        }
+        .rv .top {
+          max-width: 1240px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          gap: 24px;
+          flex-wrap: wrap;
+        }
+        .rv .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 6px 13px;
+          border-radius: 999px;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          color: #6d28d9;
+          background: rgba(124, 58, 237, 0.08);
+          border: 1px solid rgba(124, 58, 237, 0.28);
+        }
+        .rv .badge i {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 10px #10b981;
+          animation: pingRv 2.4s ease-in-out infinite;
+        }
+        @keyframes pingRv {
+          50% { opacity: 0.35; transform: scale(0.7); }
+        }
+        .rv h2 {
+          font-size: clamp(24px, 3vw, 38px);
+          font-weight: 800;
+          letter-spacing: -0.035em;
+          line-height: 1.08;
+          margin-top: 12px;
+          color: #0e1629;
+        }
+        .rv h2 span {
+          background: linear-gradient(90deg, #6d28d9, #c026d3);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .rv .ctrl {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .rv .write {
+          position: relative;
+          overflow: hidden;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 12px 22px;
+          border-radius: 999px;
+          font: 700 13.5px inherit;
+          color: #fff;
+          text-decoration: none;
+          background: linear-gradient(135deg, #8b3dff, #5b3df0);
+          box-shadow: 0 20px 36px -12px rgba(91, 61, 240, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+          transition: translate 0.3s;
+          cursor: pointer;
+          border: 0;
+        }
+        .rv .write:hover {
+          translate: 0 -3px;
+        }
+        .rv .write::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 50px;
+          left: -70px;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+          transform: skewX(-20deg);
+          animation: shineRv 3.6s ease-in-out 2.5s infinite;
+        }
+        @keyframes shineRv {
+          0% { left: -70px; }
+          45%, 100% { left: 120%; }
+        }
+        .rv .arrow {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          background: #fff;
+          border: 1px solid rgba(14, 22, 41, 0.12);
+          box-shadow: 0 10px 22px -14px rgba(60, 20, 140, 0.5);
+          transition: all 0.3s;
+        }
+        .rv .arrow:hover {
+          background: linear-gradient(135deg, #8b3dff, #5b3df0);
+          border-color: transparent;
+          box-shadow: 0 14px 26px -10px rgba(91, 61, 240, 0.8);
+        }
+        .rv .arrow svg {
+          width: 18px;
+          height: 18px;
+          stroke: #2a3652;
+          transition: stroke 0.3s;
+        }
+        .rv .arrow:hover svg {
+          stroke: #fff;
+        }
+        .rv .stage {
+          position: relative;
+          max-width: 1240px;
+          height: clamp(280px, 26vw, 306px);
+          margin: clamp(20px, 2.6vw, 30px) auto 0;
+          perspective: 1400px;
+          touch-action: pan-y;
+          user-select: none;
+        }
+        .rv .card {
+          position: absolute;
+          left: 50%;
+          top: 0;
+          width: min(500px, 88vw);
+          padding: 22px 26px 20px;
+          border-radius: 26px;
+          background: #fff;
+          border: 1px solid rgba(124, 58, 237, 0.14);
+          box-shadow: 0 40px 80px -44px rgba(60, 20, 140, 0.5);
+          transform: translateX(calc(-50% + var(--o) * 66%)) scale(calc(1 - var(--ao) * 0.14)) rotateY(calc(var(--o) * -9deg));
+          opacity: calc(1 - var(--ao) * 0.5);
+          filter: blur(calc(var(--ao) * 2.2px));
+          z-index: calc(5 - var(--ao));
+          transition: transform 0.85s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.7s, filter 0.7s;
+          cursor: pointer;
+          overflow: hidden;
+        }
+        .rv .card.on {
+          cursor: default;
+          box-shadow: 0 50px 90px -36px rgba(124, 58, 237, 0.65);
+          border-color: transparent;
+        }
+        .rv .card.on::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1.5px;
+          pointer-events: none;
+          background: conic-gradient(from var(--a), #7c3aed, #e6d8ff, #6366f1, #c026d3, #7c3aed);
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+          animation: ringRv 6s linear infinite;
+        }
+        @keyframes ringRv {
+          to { --a: 360deg; }
+        }
+        .rv .card.on::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 3px;
+          width: 100%;
+          background: linear-gradient(90deg, #8b3dff, #c026d3);
+          transform-origin: left;
+          transform: scaleX(0);
+          animation: progRv var(--t, 7s) linear forwards;
+        }
+        .rv.paused .card.on::before {
+          animation-play-state: paused;
+        }
+        @keyframes progRv {
+          to { transform: scaleX(1); }
+        }
+        .rv .rh {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .rv .stars {
+          display: flex;
+          gap: 3px;
+        }
+        .rv .stars svg {
+          width: 17px;
+          height: 17px;
+          fill: #fbbf24;
+          filter: drop-shadow(0 2px 4px rgba(251, 191, 36, 0.45));
+          transform: scale(0);
+        }
+        .rv .card.on .stars svg {
+          animation: starpopRv 0.5s cubic-bezier(0.2, 1.8, 0.3, 1) forwards;
+          animation-delay: calc(0.25s + var(--s) * 0.09s);
+        }
+        @keyframes starpopRv {
+          to { transform: scale(1); }
+        }
+        .rv .ver {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 11px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: #047857;
+          background: #ecfdf5;
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .rv .q {
+          margin-top: 14px;
+          font-size: clamp(13.5px, 1.2vw, 15px);
+          line-height: 1.65;
+          font-weight: 500;
+          color: #1d2842;
+          min-height: 6.6em;
+        }
+        .rv .who {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 14px;
+          padding-top: 14px;
+          border-top: 1px solid rgba(14, 22, 41, 0.09);
+        }
+        .rv .who img {
+          width: 42px;
+          height: 42px;
+          border-radius: 13px;
+          object-fit: cover;
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1.5px rgba(124, 58, 237, 0.35), 0 10px 20px -8px rgba(60, 20, 140, 0.5);
+        }
+        .rv .who b {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 15px;
+          letter-spacing: -0.015em;
+          color: #0e1629;
+        }
+        .rv .who small {
+          display: block;
+          margin-top: 2px;
+          font-size: 12px;
+          color: #56637d;
+          font-weight: 500;
+        }
+        .rv .nav {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          margin-top: clamp(12px, 1.8vw, 20px);
+        }
+        .rv .th {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          padding: 3px;
+          border: 0;
+          cursor: pointer;
+          background: transparent;
+          box-shadow: 0 0 0 1.5px rgba(14, 22, 41, 0.12);
+          opacity: 0.55;
+          transition: all 0.4s;
+        }
+        .rv .th img {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          display: block;
+        }
+        .rv .th:hover {
+          opacity: 1;
+        }
+        .rv .th.on {
+          opacity: 1;
+          transform: scale(1.14);
+          box-shadow: 0 0 0 2.5px #7c3aed, 0 12px 24px -8px rgba(124, 58, 237, 0.7);
+        }
+        .rv .top > * {
+          opacity: 0;
+        }
+        .rv.in .top > * {
+          animation: upRv 0.85s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+          animation-delay: calc(var(--d, 0) * 1s);
+        }
+        .rv .stage, .rv .nav {
+          opacity: 0;
+        }
+        .rv.in .stage {
+          animation: fadeRv 0.6s ease 0.35s forwards;
+        }
+        .rv.in .nav {
+          animation: fadeRv 0.8s ease 1.2s forwards;
+        }
+        .rv.in .card {
+          animation: flyRv 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+          animation-delay: calc(0.4s + var(--ao) * 0.12s);
+        }
+        @keyframes upRv {
+          from { opacity: 0; transform: translateY(22px); }
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes fadeRv { to { opacity: 1; } }
+        @keyframes flyRv {
+          from { transform: translateX(-50%) scale(0.82) translateY(40px); opacity: 0; }
+        }
+        @media (max-width: 760px) {
+          .rv .card {
+            padding: 22px 20px 20px;
+            border-radius: 26px;
+            transform: translateX(calc(-50% + var(--o) * 100%)) scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+          }
+          .rv .card.on {
+            transform: translateX(-50%);
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .rv .stage { height: 318px; }
+          .rv .ctrl .arrow { display: none; }
+          .rv .who img { width: 40px; height: 40px; }
+          .rv .write { width: 100%; justify-content: center; }
+          .rv .ctrl { width: 100%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .rv.in *, .rv::before, .rv .write::after {
+            animation-duration: 0.01s !important;
+            animation-delay: 0s !important;
+            animation-iteration-count: 1 !important;
+          }
+          .rv .card { transition: none; }
+          .rv .card.on::before { display: none; }
+          .rv .stars svg { transform: scale(1); }
+        }
+      `}</style>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setSubmitSuccess(null);
-                setSubmitError(null);
-                setIsModalOpen(true);
-              }}
-              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-[#7F22FE] via-[#9333EA] to-[#C026D3] hover:from-[#6D28D9] hover:to-[#A21CAF] text-white text-xs font-extrabold shadow-[0_8px_20px_rgba(127,34,254,0.3)] flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Write a Review</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleManualScroll('left')}
-              aria-label="Scroll reviews left"
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#160F35] hover:bg-violet-50 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-purple-500/25 shadow-2xs flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleManualScroll('right')}
-              aria-label="Scroll reviews right"
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#160F35] hover:bg-violet-50 dark:hover:bg-[#23184E] text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-purple-500/25 shadow-2xs flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+      <div className="top">
+        <div style={{ '--d': 0 } as React.CSSProperties}>
+          <span className="badge">
+            <i></i>VERIFIED MERCHANT REVIEWS
+          </span>
+          <h2>
+            Trusted by Growing <span>E-Commerce Brands</span>
+          </h2>
         </div>
+        <div className="ctrl" style={{ '--d': 0.2 } as React.CSSProperties}>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="write"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Write a Review
+          </button>
+          <button
+            type="button"
+            onClick={handlePrev}
+            className="arrow"
+            id="prev"
+            aria-label="Previous review"
+          >
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={handleNext}
+            className="arrow"
+            id="next"
+            aria-label="Next review"
+          >
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-        {/* Horizontally Scrollable + Slow Seamless Infinite Loop Track inside Dot-Matrix Frame */}
-        {reviews.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-[#130D2E] border border-slate-200/80 dark:border-purple-500/20 text-center text-sm text-slate-500 dark:text-slate-400">
-            No reviews published yet. Click "Write a Review" to share your experience!
-          </div>
-        ) : (
-          <div className="relative rounded-[32px] p-4 sm:p-6 bg-slate-50/75 dark:bg-[#110A2A]/90 border border-slate-200/90 dark:border-purple-500/25 shadow-[0_25px_70px_-20px_rgba(124,58,237,0.14)] overflow-hidden">
-            {/* Dot-Matrix Background */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(139,92,246,0.2)_1px,transparent_1px)] [background-size:20px_20px] opacity-55"
-            />
+      <div
+        className="stage"
+        id="stage"
+        aria-live="polite"
+        onPointerDown={(e) => {
+          touchStartX.current = e.clientX;
+        }}
+        onPointerUp={(e) => {
+          if (touchStartX.current === null) return;
+          const diff = e.clientX - touchStartX.current;
+          touchStartX.current = null;
+          if (Math.abs(diff) > 40) {
+            if (diff < 0) handleNext();
+            else handlePrev();
+          }
+        }}
+      >
+        {reviews.map((p, i) => {
+          const o = (((i - cur + N + Math.floor(N / 2)) % N) - Math.floor(N / 2));
+          const ao = Math.abs(o);
+          const isOn = o === 0;
 
-            <div
-              ref={scrollContainerRef}
-              onMouseEnter={() => setIsPaused(true)}
-              onMouseLeave={() => setIsPaused(false)}
-              onTouchStart={() => setIsPaused(true)}
-              onTouchEnd={() => setIsPaused(false)}
-              onScroll={() => {
-                const el = scrollContainerRef.current;
-                if (!el) return;
-                const halfWidth = el.scrollWidth / 2;
-                if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
-                  el.scrollLeft -= halfWidth;
-                }
+          return (
+            <article
+              key={p.n + i}
+              className={`card${isOn ? ' on' : ''}`}
+              style={
+                {
+                  '--o': o,
+                  '--ao': ao,
+                  '--t': `${T}ms`
+                } as React.CSSProperties
+              }
+              onClick={() => {
+                if (!isOn) setCur(i);
               }}
-              className="relative z-10 flex items-stretch gap-4 sm:gap-5 overflow-x-auto pb-2 pt-1 select-none"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {loopedReviews.map((item, idx) => {
-                const initials = item.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase();
+              <div className="rh">
+                <div className="stars" aria-label="5 out of 5 stars">
+                  {[0, 1, 2, 3, 4].map((s) => (
+                    <svg
+                      key={s}
+                      viewBox="0 0 24 24"
+                      style={{ '--s': s } as React.CSSProperties}
+                    >
+                      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" />
+                    </svg>
+                  ))}
+                </div>
+                <span className="ver">✓ VERIFIED STORE</span>
+              </div>
+              <p className="q">{p.t}</p>
+              <div className="who">
+                <img alt={p.n} src={p.img} />
+                <div>
+                  <b>
+                    {p.n}
+                    <svg
+                      width="19"
+                      height="19"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#7c3aed"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="9.5" />
+                      <path d="M8 12.3l2.8 2.8L16 9.5" />
+                    </svg>
+                  </b>
+                  <small>{p.r}</small>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
 
-                return (
-                  <article
-                    key={`${item.id}_${idx}`}
-                    className="w-[280px] sm:w-[335px] shrink-0 p-5 rounded-2xl bg-white dark:bg-[#160E35]/95 border border-slate-200/90 dark:border-purple-500/25 hover:border-[#7F22FE]/60 shadow-[0_14px_34px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_20px_44px_-12px_rgba(127,34,254,0.2)] flex flex-col justify-between transition-all duration-300"
-                  >
-                    <div>
-                      {/* Top Row: 5 Stars + Verified Badge */}
-                      <div className="flex items-center justify-between gap-2 mb-3.5">
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-3.5 h-3.5 ${
-                                i < (item.rating || 5)
-                                  ? 'text-amber-400 fill-amber-400'
-                                  : 'text-slate-300 dark:text-slate-700'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[9px] font-extrabold uppercase tracking-wider">
-                          ✓ Verified Store
-                        </span>
-                      </div>
-
-                      {/* Concise Quote */}
-                      <p className="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 leading-relaxed font-medium line-clamp-4">
-                        &ldquo;{item.review_text}&rdquo;
-                      </p>
-                    </div>
-
-                    {/* Reviewer Footer */}
-                    <div className="flex items-center gap-3 pt-3.5 mt-4 border-t border-slate-100 dark:border-purple-500/15">
-                      {item.avatar_url ? (
-                        <img
-                          src={item.avatar_url}
-                          alt={item.name}
-                          className="w-9 h-9 rounded-xl object-cover border border-purple-500/25 shrink-0"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F22FE] to-[#DB2777] text-white text-xs font-black flex items-center justify-center shrink-0">
-                          {initials || 'M'}
-                        </div>
-                      )}
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
-                            {item.name}
-                          </h3>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#7F22FE] dark:text-purple-400 shrink-0" />
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
-                          {item.role} · {item.business}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <div className="nav" id="nav">
+        {reviews.map((p, i) => (
+          <button
+            key={p.n + i}
+            type="button"
+            onClick={() => setCur(i)}
+            className={`th${i === cur ? ' on' : ''}`}
+            aria-label={`Show review by ${p.n}`}
+          >
+            <img alt={p.n} src={p.img} />
+          </button>
+        ))}
       </div>
 
       {/* Write a Review Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#130D2E] border border-slate-200 dark:border-purple-500/25 shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
-                  Write a Customer Review
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Share your experience with One Agent BD
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-purple-100 text-[#0e1629]">
+            <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+              <h3 className="text-lg font-extrabold text-[#0e1629]">Share Your Experience</h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1442] cursor-pointer"
+                className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            {submitSuccess ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold space-y-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{submitSuccess}</span>
+            <form onSubmit={handleWriteReview} className="space-y-4 pt-4 text-xs font-semibold">
+              <div>
+                <label className="block text-neutral-600 mb-1">Your Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Nusrat Jahan"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-600 mb-1">Role / Business Type</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Clothing Page Owner"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                  />
                 </div>
+                <div>
+                  <label className="block text-neutral-600 mb-1">City / Region</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dhaka, BD"
+                    value={business}
+                    onChange={(e) => setBusiness(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-neutral-600 mb-1">Your Review</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="How has One Agent BD helped your store sales and customer chat response?"
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  className="w-full p-3.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden leading-relaxed"
+                />
+              </div>
+              <div className="flex justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl text-neutral-500 hover:text-neutral-800"
                 >
-                  Done
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#8b3dff] to-[#5b3df0] text-white font-bold shadow-md hover:brightness-110"
+                >
+                  {submitting ? 'Submitting...' : 'Post Review'}
                 </button>
               </div>
-            ) : (
-              <form onSubmit={handleSubmitReview} className="space-y-3.5">
-                {submitError && (
-                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-                    {submitError}
-                  </div>
-                )}
-
-                {/* User Photo Upload & Preview */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Your Photo (Optional)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    {avatarUrl ? (
-                      <div className="relative shrink-0">
-                        <img
-                          src={avatarUrl}
-                          alt="Preview"
-                          className="w-12 h-12 rounded-full object-cover border-2 border-[#7C3AED]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setAvatarUrl('')}
-                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-[#191138] border border-slate-200 dark:border-purple-500/25 flex items-center justify-center text-slate-400 shrink-0">
-                        <User className="w-5 h-5" />
-                      </div>
-                    )}
-
-                    <div className="flex-1 space-y-1.5">
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 text-xs font-bold cursor-pointer transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Photo</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoUpload}
-                          className="hidden"
-                        />
-                      </label>
-                      <input
-                        type="url"
-                        value={avatarUrl.startsWith('data:') ? '' : avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="Or paste image URL..."
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#191138] text-[11px] text-slate-900 dark:text-white focus:outline-hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Rating
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setRating(star)}
-                        className="p-1 cursor-pointer"
-                      >
-                        <Star
-                          className={`w-6 h-6 transition-colors ${
-                            star <= rating
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-slate-300 dark:text-slate-700'
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Your Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Tanvir Ahmed"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#191138] text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Business Category
-                    </label>
-                    <input
-                      type="text"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      placeholder="e.g. F-Commerce Seller"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#191138] text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      City / Location
-                    </label>
-                    <input
-                      type="text"
-                      value={business}
-                      onChange={(e) => setBusiness(e.target.value)}
-                      placeholder="e.g. Dhaka, BD"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#191138] text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Your Review *
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={reviewText}
-                    onChange={(e) => setReviewText(e.target.value)}
-                    placeholder="Share how One Agent BD helped automate your store..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#191138] text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-hidden"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 rounded-full text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#191138] cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold shadow-md shadow-purple-500/20 cursor-pointer"
-                  >
-                    {submitting ? 'Submitting...' : 'Submit Review'}
-                  </button>
-                </div>
-              </form>
-            )}
+            </form>
           </div>
         </div>
       )}

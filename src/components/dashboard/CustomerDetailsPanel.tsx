@@ -45,6 +45,7 @@ interface CustomerDetailsPanelProps {
   onCustomerUpdated?: () => void;
   allAgents?: Array<{ id: string; name: string }>;
   onAssignAgent?: (agentName: string) => void;
+  onSelectTag?: (tag: string) => void;
 }
 
 export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
@@ -57,7 +58,8 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   isAiPaused = false,
   onCustomerUpdated,
   allAgents = [{ id: '1', name: 'Dhruba' }, { id: '2', name: 'Anan' }, { id: '3', name: 'Alif' }, { id: '4', name: 'Rumman' }],
-  onAssignAgent
+  onAssignAgent,
+  onSelectTag
 }) => {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
@@ -543,11 +545,19 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                       t
                     )}`}
                   >
-                    <span>{t}</span>
+                    <button
+                      type="button"
+                      onClick={() => onSelectTag?.(t)}
+                      className="hover:underline cursor-pointer"
+                      title={`Click to filter inbox conversations by tag: ${t}`}
+                    >
+                      {t}
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(t)}
-                      className="hover:text-white cursor-pointer opacity-70 hover:opacity-100"
+                      className="hover:text-white cursor-pointer opacity-70 hover:opacity-100 ml-0.5"
+                      title="Remove tag"
                     >
                       ×
                     </button>
@@ -555,12 +565,33 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                 ))}
               </div>
 
-              {/* Add Tag Input */}
+              {/* Quick Preset Tags to add with 1-click */}
+              <div className="pt-1">
+                <span className="text-[10px] text-neutral-400 font-semibold block mb-1">
+                  Quick Add Presets:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {['Priority', 'Top Client', 'VIP Client', 'High Prospect', 'Risky', 'Follow Up', 'Attention']
+                    .filter((pt) => !tags.includes(pt))
+                    .map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => handleAddTag(preset)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-[#141923] hover:bg-[#1E2536] border border-[#232B3E] hover:border-neutral-500 text-neutral-300 hover:text-white transition-all cursor-pointer"
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Add Custom Tag Input */}
               {showAddTag && (
                 <div className="flex items-center gap-1.5 pt-2">
                   <input
                     type="text"
-                    placeholder="Tag name (e.g. Priority, VIP)..."
+                    placeholder="Tag name (e.g. VIP, Urgent, Wholesale)..."
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddTag(newTagInput)}
@@ -576,6 +607,10 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                   </button>
                 </div>
               )}
+
+              <p className="text-[10px] text-neutral-500 italic pt-1">
+                💡 Tip: Click any tag to filter conversations instantly. You can also search or filter tags from the inbox Search bar.
+              </p>
             </div>
           )}
         </div>

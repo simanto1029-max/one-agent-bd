@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
-import { Mail, HeartHandshake, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LegalModal } from '../common/LegalModal';
-import { BrandLogo } from '../common/BrandLogo';
 
 interface FooterProps {
   onOpenAuth: () => void;
@@ -12,375 +10,511 @@ const WHATSAPP_URL = 'https://wa.me/8801601705804';
 const EMAIL_URL = 'mailto:support.oneagentbd@gmail.com';
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
-  const resolveUrlLegalTab = (): { open: boolean; tab: 'privacy' | 'terms' } => {
-    if (typeof window === 'undefined') return { open: false, tab: 'privacy' };
-    const path = window.location.pathname.toLowerCase();
-    const hash = window.location.hash.toLowerCase();
-    const params = new URLSearchParams(window.location.search);
-    const legalParam = (params.get('legal') || '').toLowerCase();
+  const rootRef = useRef<HTMLElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const wordRef = useRef<HTMLDivElement>(null);
 
-    if (path.includes('terms') || hash.includes('terms') || legalParam === 'terms') {
-      return { open: true, tab: 'terms' };
-    }
-    if (
-      path.includes('privacy') ||
-      path.includes('data-deletion') ||
-      hash.includes('privacy') ||
-      legalParam === 'privacy'
-    ) {
-      return { open: true, tab: 'privacy' };
-    }
-    return { open: false, tab: 'privacy' };
-  };
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<'privacy' | 'terms'>('privacy');
 
-  const [legalModalOpen, setLegalModalOpen] = useState<boolean>(() => resolveUrlLegalTab().open);
-  const [legalTab, setLegalTab] = useState<'privacy' | 'terms'>(() => resolveUrlLegalTab().tab);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
 
-  React.useEffect(() => {
-    const syncFromUrl = () => {
-      const state = resolveUrlLegalTab();
-      if (state.open) {
-        setLegalTab(state.tab);
-        setLegalModalOpen(true);
+    // Build letter spans for One Agent BD
+    if (wordRef.current) {
+      const text = 'One Agent BD';
+      let html = '';
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        html +=
+          c === ' '
+            ? `<span class="sp" style="--k:${i}">&nbsp;</span>`
+            : `<span style="--k:${i}" aria-hidden="true">${c}</span>`;
       }
-    };
-    syncFromUrl();
-    window.addEventListener('popstate', syncFromUrl);
-    window.addEventListener('hashchange', syncFromUrl);
-    return () => {
-      window.removeEventListener('popstate', syncFromUrl);
-      window.removeEventListener('hashchange', syncFromUrl);
-    };
+      wordRef.current.innerHTML = html;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          root.classList.add('in');
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(root);
+
+    return () => observer.disconnect();
   }, []);
 
   const openLegal = (tab: 'privacy' | 'terms') => {
     setLegalTab(tab);
     setLegalModalOpen(true);
-    try {
-      window.history.pushState({}, '', tab === 'terms' ? '/terms' : '/privacy');
-    } catch {}
-  };
-
-  const closeLegal = () => {
-    setLegalModalOpen(false);
-    try {
-      if (window.location.pathname.includes('privacy') || window.location.pathname.includes('terms')) {
-        window.history.pushState({}, '', '/');
-      }
-    } catch {}
-  };
-
-  const scrollToSection = (sectionId?: string) => {
-    if (typeof window === 'undefined') return;
-    if (window.location.href.includes('#')) {
-      try {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      } catch {}
-    }
-    if (!sectionId) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   return (
-    <footer className="bg-white dark:bg-[#080518] pt-8 pb-12 sm:pt-12 sm:pb-16 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10">
-        {/* 4. PREMIUM BOTTOM GRADIENT CTA BANNER */}
-        <div className="relative rounded-[28px] sm:rounded-[32px] p-6 sm:p-10 lg:p-12 bg-gradient-to-r from-[#5B21B6] via-[#7F22FE] to-[#C026D3] text-white shadow-[0_24px_60px_-14px_rgba(127,34,254,0.45)] overflow-hidden">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/15 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-fuchsia-300/15 blur-3xl"
-          />
+    <footer ref={rootRef} className="ft" id="ft">
+      <style>{`
+        @property --a {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        .ft {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+          background: #fff;
+          color: #0e1629;
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+          padding: clamp(40px, 5vw, 72px) clamp(14px, 4vw, 56px) clamp(18px, 2.5vw, 30px);
+        }
+        .ft a {
+          color: inherit;
+          text-decoration: none;
+        }
+        .ft .beams {
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 60%;
+          z-index: -3;
+          pointer-events: none;
+          background: repeating-linear-gradient(90deg, rgba(124, 58, 237, 0.05) 0 clamp(60px, 8vw, 130px), transparent 0 clamp(72px, 9.4vw, 152px));
+          -webkit-mask-image: linear-gradient(180deg, #000, transparent);
+          mask-image: linear-gradient(180deg, #000, transparent);
+        }
+        .ft .glow {
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 70%;
+          z-index: -2;
+          pointer-events: none;
+          background: linear-gradient(90deg, rgba(124, 58, 237, 0.22), rgba(168, 85, 247, 0.08) 45%, transparent 72%);
+          -webkit-mask-image: linear-gradient(180deg, transparent, #000 65%, transparent);
+          mask-image: linear-gradient(180deg, transparent, #000 65%, transparent);
+          animation: driftFt 9s ease-in-out infinite alternate;
+        }
+        @keyframes driftFt {
+          from { transform: translateX(-6%); opacity: 0.7; }
+          to { transform: translateX(10%); opacity: 1; }
+        }
+        .ft::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -240px;
+          width: min(1000px, 130vw);
+          aspect-ratio: 1.5;
+          transform: translateX(-50%);
+          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.14), transparent);
+          z-index: -1;
+        }
+        .ft .wrap {
+          max-width: 1240px;
+          margin: 0 auto;
+        }
+        .ft .box {
+          position: relative;
+          border-radius: 34px;
+          background: rgba(255, 255, 255, 0.8);
+          border: 1px solid rgba(124, 58, 237, 0.14);
+          box-shadow: 0 50px 100px -56px rgba(91, 33, 182, 0.5);
+          -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+          padding: clamp(24px, 3.6vw, 48px) clamp(20px, 3.6vw, 52px) 0;
+          overflow: hidden;
+        }
+        .ft .spot {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: radial-gradient(380px circle at var(--mx, 70%) var(--my, 0%), rgba(124, 58, 237, 0.09), transparent 70%);
+        }
+        .ft .grid {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1.3fr 0.6fr 0.6fr 0.6fr 1.15fr;
+          gap: clamp(22px, 3vw, 44px);
+          align-items: start;
+        }
+        .ft .lead {
+          font-size: clamp(20px, 2vw, 26px);
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          line-height: 1.25;
+          max-width: 300px;
+          color: #0e1629;
+        }
+        .ft .follow {
+          margin-top: 26px;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          color: #97a0b8;
+        }
+        .ft .soc {
+          display: flex;
+          gap: 10px;
+          margin-top: 14px;
+        }
+        .ft .soc a {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          color: #fff;
+          box-shadow: 0 12px 22px -10px rgba(14, 22, 41, 0.45);
+          transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s;
+        }
+        .ft .soc a svg {
+          width: 20px;
+          height: 20px;
+          fill: currentColor;
+        }
+        .ft .soc a:hover {
+          transform: translateY(-5px) scale(1.06);
+          box-shadow: 0 18px 28px -10px rgba(14, 22, 41, 0.5);
+        }
+        .ft .fb { background: #1877f2; }
+        .ft .wa { background: #25d366; }
+        .ft .em { background: #38a8f5; }
+        .ft .col h4 {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          color: #97a0b8;
+          margin-bottom: 18px;
+        }
+        .ft .col ul {
+          list-style: none;
+          display: grid;
+          gap: 13px;
+          padding: 0;
+          margin: 0;
+        }
+        .ft .col a {
+          position: relative;
+          display: inline-block;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: #2a3652;
+          transition: color 0.25s, transform 0.25s;
+        }
+        .ft .col a::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: -3px;
+          height: 2px;
+          border-radius: 2px;
+          background: linear-gradient(90deg, #7c3aed, #c026d3);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .ft .col a:hover {
+          color: #7c3aed;
+          transform: translateX(3px);
+        }
+        .ft .col a:hover::after {
+          transform: scaleX(1);
+        }
+        .ft .sup {
+          position: relative;
+          padding: 22px;
+          border-radius: 24px;
+          background: #fff;
+          box-shadow: 0 26px 50px -30px rgba(91, 33, 182, 0.5);
+        }
+        .ft .sup::before {
+          content: "";
+          position: absolute;
+          inset: -1px;
+          border-radius: 25px;
+          padding: 1.5px;
+          pointer-events: none;
+          background: conic-gradient(from var(--a), #7c3aed, #e0cfff, #6366f1, #c026d3, #7c3aed);
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+          animation: spinFt 6s linear infinite;
+        }
+        @keyframes spinFt {
+          to { --a: 360deg; }
+        }
+        .ft .live {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 12px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          color: #6d28d9;
+          background: rgba(124, 58, 237, 0.08);
+          border: 1px solid rgba(124, 58, 237, 0.22);
+        }
+        .ft .live i {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 10px #10b981;
+          animation: pingFt 2.4s ease-in-out infinite;
+        }
+        @keyframes pingFt {
+          50% { opacity: 0.35; transform: scale(0.7); }
+        }
+        .ft .sup h5 {
+          margin-top: 14px;
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #0e1629;
+        }
+        .ft .sup p {
+          margin-top: 3px;
+          font-size: 13.5px;
+          color: #5a6781;
+        }
+        .ft .cta {
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          justify-content: center;
+          margin-top: 18px;
+          padding: 13px;
+          border-radius: 14px;
+          font-size: 14px;
+          font-weight: 700;
+          color: #fff;
+          background: linear-gradient(135deg, #8b3dff, #6d28d9);
+          box-shadow: 0 18px 34px -12px rgba(109, 40, 217, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+          transition: transform 0.3s;
+          cursor: pointer;
+        }
+        .ft .cta:hover {
+          transform: translateY(-3px);
+        }
+        .ft .cta::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 46px;
+          left: -70px;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+          transform: skewX(-20deg);
+          animation: shineFt 4s ease-in-out 2.6s infinite;
+        }
+        @keyframes shineFt {
+          0% { left: -70px; }
+          40%, 100% { left: 125%; }
+        }
+        .ft .bar {
+          position: relative;
+          margin-top: clamp(26px, 3.6vw, 44px);
+          padding: 18px 0;
+          border-top: 1px solid rgba(14, 22, 41, 0.08);
+          text-align: center;
+          font-size: 13.5px;
+          color: #5a6781;
+        }
+        .ft .word {
+          margin: 0 -8px;
+          text-align: center;
+          white-space: nowrap;
+          line-height: 0.86;
+          font-weight: 800;
+          letter-spacing: -0.055em;
+          font-size: min(11.4vw, 150px);
+          user-select: none;
+          overflow: hidden;
+          padding: 0.02em 0 0;
+          height: 0.74em;
+          -webkit-mask-image: linear-gradient(180deg, #000 38%, transparent 96%);
+          mask-image: linear-gradient(180deg, #000 38%, transparent 96%);
+        }
+        .ft .word span {
+          display: inline-block;
+          background: linear-gradient(180deg, #8236f1, #b98bff);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          transform: translateY(105%);
+          opacity: 0;
+        }
+        .ft .word .sp {
+          width: 0.26em;
+        }
+        .ft.in .word span {
+          animation: letterFt 1s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+          animation-delay: calc(0.3s + var(--k) * 0.06s);
+        }
+        @keyframes letterFt {
+          to { transform: none; opacity: 1; }
+        }
+        .ft .fade {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        .ft.in .fade {
+          animation: upFt 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          animation-delay: calc(var(--d) * 1s);
+        }
+        @keyframes upFt {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: none; }
+        }
+        .ft.in .box {
+          animation: popFt 1s ease backwards;
+        }
+        @keyframes popFt {
+          from { opacity: 0; transform: scale(0.975); }
+        }
+        @media (max-width: 1020px) {
+          .ft .grid { grid-template-columns: repeat(3, 1fr); }
+          .ft .brand, .ft .sup { grid-column: 1 / -1; }
+          .ft .sup { max-width: 420px; }
+        }
+        @media (max-width: 520px) {
+          .ft .grid { grid-template-columns: 1fr 1fr; gap: 26px 16px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ft.in *, .ft .glow, .ft .sup::before, .ft .cta::after, .ft .live i {
+            animation-duration: 0.01s !important;
+            animation-delay: 0s !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
+      `}</style>
 
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 text-center lg:text-left">
-            <div className="max-w-2xl space-y-2.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/25 text-[11px] font-extrabold uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>24/7 Autonomous AI Sales Suite</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-                Ready to Automate Your Page &amp; Store Sales 24/7?
-              </h2>
-              <p className="text-xs sm:text-sm text-purple-100/90 leading-relaxed">
-                Start your 2-day free trial in 60 seconds. Instant Bangla &amp; voice note replies, auto courier fraud check, and 1-click Steadfast, Pathao &amp; RedX dispatch.
-              </p>
-              <div className="pt-1 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-1.5 text-[11px] sm:text-xs font-bold text-purple-100">
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>2-Day Free Trial</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Meta Official API (0% Ban Risk)</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>0 TK Per-Message Fee</span>
-                </span>
+      <div className="beams"></div>
+      <div className="glow"></div>
+
+      <div className="wrap">
+        <div
+          ref={boxRef}
+          className="box"
+          id="box"
+          onPointerMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+            e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+          }}
+        >
+          <div className="spot"></div>
+          <div className="grid">
+            <div className="brand fade" style={{ '--d': 0.1 } as React.CSSProperties}>
+              <p className="lead">Simple AI support for chats, leads, and sales.</p>
+              <div className="follow">FOLLOW US</div>
+              <div className="soc">
+                <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer" className="fb" aria-label="Facebook">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M13.5 21v-7.6h2.6l.4-3h-3V8.5c0-.9.3-1.5 1.5-1.5h1.6V4.3c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.3H8v3h2.5V21h3z" />
+                  </svg>
+                </a>
+                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="wa" aria-label="WhatsApp">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 3a9 9 0 00-7.8 13.5L3 21l4.6-1.2A9 9 0 1012 3zm0 1.7a7.3 7.3 0 11-3.8 13.6l-.3-.2-2.7.7.7-2.6-.2-.3A7.3 7.3 0 0112 4.700zM8.900 7.800c-.2 0-.5.100-.7.400-.3.300-.9.900-.9 2.100s.9 2.400 1 2.600c.1.200 1.800 2.800 4.400 3.800 2.200.9 2.600.700 3.100.600.500 0 1.500-.600 1.700-1.200.2-.600.200-1.100.1-1.200-.1-.1-.2-.2-.5-.3l-1.600-.8c-.2-.1-.4-.1-.5.100l-.7.900c-.1.200-.3.200-.5.100-.3-.1-1-.4-1.900-1.200-.7-.6-1.200-1.400-1.300-1.600-.1-.2 0-.4.100-.5l.4-.4.200-.4c.1-.1 0-.3 0-.4l-.7-1.700c-.2-.4-.4-.4-.5-.4z" />
+                  </svg>
+                </a>
+                <a href={EMAIL_URL} className="em" aria-label="Email">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 5.500h16A1.500 1.500 0 0121.500 7v10a1.500 1.500 0 01-1.500 1.500H4A1.500 1.500 0 012.500 17V7A1.500 1.500 0 014 5.500zm.6 1.700l7.400 5.300 7.400-5.300zm14.900 1.800l-7.100 5.100a.7.7 0 01-.8 0L4.500 9v8h15z" />
+                  </svg>
+                </a>
               </div>
             </div>
 
-            <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={onOpenAuth}
-                className="px-7 py-3.5 sm:px-8 sm:py-4 rounded-2xl sm:rounded-full bg-white hover:bg-purple-50 text-[#6D28D9] font-black text-sm sm:text-base shadow-xl shadow-purple-950/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
-              >
-                <span>Start 2-Day Free Trial</span>
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
+            <nav className="col fade" style={{ '--d': 0.18 } as React.CSSProperties} aria-label="Product">
+              <h4>PRODUCT</h4>
+              <ul>
+                <li>
+                  <a href="#channels">Channels</a>
+                </li>
+                <li>
+                  <a href="#features">Features</a>
+                </li>
+                <li>
+                  <a href="#pricing">Pricing</a>
+                </li>
+              </ul>
+            </nav>
 
-        {/* Single ChatMakky-Style Rounded Card Aligned Full-Width with Header */}
-        <div className="w-full rounded-[28px] bg-slate-50/90 dark:bg-[#110C24] border border-slate-200/80 dark:border-white/[0.07] p-7 sm:p-10 lg:p-12 shadow-xl shadow-purple-950/5">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10">
-            {/* Column 1: Brand + Tagline + FOLLOW US Horizontal Logo Circles */}
-            <div className="max-w-xs space-y-4">
-              <button
-                type="button"
-                onClick={() => scrollToSection()}
-                className="flex items-center gap-2.5 cursor-pointer focus:outline-hidden"
-              >
-                <BrandLogo size="md" />
-                <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">
-                  One Agent <span className="text-[#7C3AED]">BD</span>
-                </span>
-              </button>
+            <nav className="col fade" style={{ '--d': 0.26 } as React.CSSProperties} aria-label="Company">
+              <h4>COMPANY</h4>
+              <ul>
+                <li>
+                  <a href="#reviews">Reviews</a>
+                </li>
+                <li>
+                  <a href="#faq">FAQ</a>
+                </li>
+                <li>
+                  <a href={EMAIL_URL}>Contact</a>
+                </li>
+              </ul>
+            </nav>
 
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Simple AI support for chats, leads, and sales.
-              </p>
-
-              <div className="pt-1 space-y-3">
-                <span className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-400">
-                  FOLLOW US
-                </span>
-
-                {/* Horizontal Circular Icons Only (No Text) */}
-                <div className="flex items-center gap-2.5">
-                  <a
-                    href={FACEBOOK_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Facebook Page"
-                    title="Facebook Page"
-                    className="w-10 h-10 rounded-full bg-[#1877F2] hover:bg-[#166FE5] text-white flex items-center justify-center shadow-sm hover:scale-105 transition-all"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" />
-                    </svg>
-                  </a>
-
-                  <a
-                    href={EMAIL_URL}
-                    aria-label="Email Support"
-                    title="Email Support"
-                    className="w-10 h-10 rounded-full bg-[#1DA1F2] hover:bg-[#0D8ECF] text-white flex items-center justify-center shadow-sm hover:scale-105 transition-all"
-                  >
-                    <Mail className="w-4 h-4" />
-                  </a>
-
-                  <a
-                    href={WHATSAPP_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="WhatsApp Support"
-                    title="WhatsApp Support"
-                    className="w-10 h-10 rounded-full bg-[#25D366] hover:bg-[#1EBE5D] text-white flex items-center justify-center shadow-sm hover:scale-105 transition-all"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M12.031 2c-5.516 0-9.999 4.486-9.999 10.001 0 1.766.461 3.489 1.338 5.012L2 22l5.118-1.341c1.477.805 3.141 1.23 4.911 1.23h.004c5.515 0 9.998-4.486 9.998-10.001 0-2.672-1.04-5.184-2.928-7.073C17.214 3.04 14.703 2 12.031 2zm5.826 14.12c-.244.687-1.425 1.314-1.976 1.397-.505.075-1.144.107-1.846-.116-.426-.135-.974-.316-1.678-.62-2.953-1.275-4.881-4.249-5.029-4.446-.147-.197-1.2-1.596-1.2-3.045 0-1.449.759-2.161 1.029-2.456.27-.295.589-.369.785-.369.196 0 .392.002.564.01.181.009.424-.069.663.507.245.59.834 2.039.908 2.186.074.147.123.319.025.516-.098.197-.147.319-.295.491-.147.172-.31.384-.442.516-.147.147-.301.307-.129.602.172.295.763 1.259 1.639 2.04 1.126 1.004 2.075 1.315 2.37 1.462.295.147.466.123.638-.074.172-.197.736-.86.933-1.155.196-.295.392-.246.662-.147.27.098 1.718.81 2.012.958.295.147.491.221.565.344.073.123.073.712-.171 1.399z" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 2: PRODUCT */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-400">
-                PRODUCT
-              </h4>
-              <ul className="space-y-3 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <nav className="col fade" style={{ '--d': 0.34 } as React.CSSProperties} aria-label="Legal">
+              <h4>LEGAL</h4>
+              <ul>
                 <li>
                   <button
                     type="button"
-                    onClick={() => scrollToSection('channels')}
-                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                    onClick={() => openLegal('privacy')}
+                    className="cursor-pointer text-left font-semibold text-[#2a3652] hover:text-[#7c3aed]"
                   >
-                    Channels
+                    Privacy policy
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
-                    onClick={() => scrollToSection('features')}
-                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                    onClick={() => openLegal('terms')}
+                    className="cursor-pointer text-left font-semibold text-[#2a3652] hover:text-[#7c3aed]"
                   >
-                    Features
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('pricing')}
-                    className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    Pricing
+                    Terms of service
                   </button>
                 </li>
               </ul>
-            </div>
+            </nav>
 
-            {/* Column 3: COMPANY & LEGAL */}
-            <div className="space-y-7">
-              <div className="space-y-4">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-400">
-                  COMPANY
-                </h4>
-                <ul className="space-y-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => openLegal('privacy')}
-                      className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                    >
-                      Privacy policy
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => openLegal('terms')}
-                      className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                    >
-                      Terms of service
-                    </button>
-                  </li>
-                  <li>
-                    <a
-                      href={WHATSAPP_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-slate-900 dark:hover:text-white transition-colors"
-                    >
-                      Contact
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-400">
-                  LEGAL
-                </h4>
-                <ul className="space-y-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => openLegal('privacy')}
-                      className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                    >
-                      Privacy policy
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => openLegal('terms')}
-                      className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                    >
-                      Terms of service
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Column 4: ChatMakky-Style Right Inner Boxed Card (Horizontal Logos Only, No Text Links) */}
-            <div className="w-full sm:w-auto lg:min-w-[280px]">
-              <div className="rounded-2xl bg-white dark:bg-[#15102C] border border-slate-200/90 dark:border-white/[0.08] p-5 space-y-4">
-                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-white/[0.08]">
-                  OFFICIAL SUPPORT
-                </span>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-[#25184E] text-[#7C3AED] dark:text-purple-400 flex items-center justify-center shrink-0">
-                    <HeartHandshake className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
-                      One Agent BD
-                    </h5>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Official support in Bangladesh
-                    </p>
-                  </div>
-                </div>
-
-                {/* Horizontal Circular Icons Only (Exact ChatMakky Style) */}
-                <div className="flex items-center gap-2.5 pt-1">
-                  <a
-                    href={FACEBOOK_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Facebook Page"
-                    title="Facebook Page"
-                    className="w-9 h-9 rounded-full bg-[#1877F2] hover:bg-[#166FE5] text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" />
-                    </svg>
-                  </a>
-
-                  <a
-                    href={WHATSAPP_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="WhatsApp Support"
-                    title="WhatsApp Support"
-                    className="w-9 h-9 rounded-full bg-[#25D366] hover:bg-[#1EBE5D] text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M12.031 2c-5.516 0-9.999 4.486-9.999 10.001 0 1.766.461 3.489 1.338 5.012L2 22l5.118-1.341c1.477.805 3.141 1.23 4.911 1.23h.004c5.515 0 9.998-4.486 9.998-10.001 0-2.672-1.04-5.184-2.928-7.073C17.214 3.04 14.703 2 12.031 2zm5.826 14.12c-.244.687-1.425 1.314-1.976 1.397-.505.075-1.144.107-1.846-.116-.426-.135-.974-.316-1.678-.62-2.953-1.275-4.881-4.249-5.029-4.446-.147-.197-1.2-1.596-1.2-3.045 0-1.449.759-2.161 1.029-2.456.27-.295.589-.369.785-.369.196 0 .392.002.564.01.181.009.424-.069.663.507.245.59.834 2.039.908 2.186.074.147.123.319.025.516-.098.197-.147.319-.295.491-.147.172-.31.384-.442.516-.147.147-.301.307-.129.602.172.295.763 1.259 1.639 2.04 1.126 1.004 2.075 1.315 2.37 1.462.295.147.466.123.638-.074.172-.197.736-.86.933-1.155.196-.295.392-.246.662-.147.27.098 1.718.81 2.012.958.295.147.491.221.565.344.073.123.073.712-.171 1.399z" />
-                    </svg>
-                  </a>
-
-                  <a
-                    href={EMAIL_URL}
-                    aria-label="Email Support"
-                    title="Email Support"
-                    className="w-9 h-9 rounded-full bg-[#1DA1F2] hover:bg-[#0D8ECF] text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all"
-                  >
-                    <Mail className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
+            <div className="sup fade" style={{ '--d': 0.42 } as React.CSSProperties}>
+              <span className="live">
+                <i></i>OFFICIAL SUPPORT
+              </span>
+              <h5>One Agent BD</h5>
+              <p>Official support in Bangladesh</p>
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="cta w-full"
+              >
+                Start 2-day free trial
+              </button>
             </div>
           </div>
-
-          {/* Bottom Divider & Copyright inside the Card */}
-          <div className="mt-10 pt-6 border-t border-slate-200/80 dark:border-white/[0.06] text-center text-xs text-slate-500 dark:text-slate-400">
-            © {new Date().getFullYear()} One Agent BD. All rights reserved.
+          <div className="bar fade" style={{ '--d': 0.55 } as React.CSSProperties}>
+            &copy; 2026 One Agent BD. All rights reserved.
           </div>
         </div>
+
+        <div ref={wordRef} className="word" id="word" aria-label="One Agent BD"></div>
       </div>
 
+      {/* Legal Privacy & Terms Modal */}
       <LegalModal
         isOpen={legalModalOpen}
-        onClose={closeLegal}
-        defaultTab={legalTab}
+        onClose={() => setLegalModalOpen(false)}
+        initialTab={legalTab}
       />
     </footer>
   );

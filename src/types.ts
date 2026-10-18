@@ -358,6 +358,11 @@ export interface AccountTransaction {
 export interface ContactLead {
   customerId: string;
   customerName: string;
+  customerAvatar?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  tags?: string[];
+  notes?: string;
   platform: 'whatsapp' | 'messenger' | 'instagram';
   channelId?: string;
   totalMessages: number;

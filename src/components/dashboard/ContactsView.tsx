@@ -281,7 +281,10 @@ export const ContactsView: React.FC = () => {
       const q = search.toLowerCase();
       return (
         (c.customerName && c.customerName.toLowerCase().includes(q)) ||
-        (c.customerId && c.customerId.toLowerCase().includes(q))
+        (c.customerId && c.customerId.toLowerCase().includes(q)) ||
+        (c.customerPhone && c.customerPhone.toLowerCase().includes(q)) ||
+        (c.tags && c.tags.some((t: string) => t.toLowerCase().includes(q))) ||
+        (c.notes && c.notes.toLowerCase().includes(q))
       );
     }
     return true;
@@ -764,6 +767,18 @@ export const ContactsView: React.FC = () => {
                             </span>
                           )}
                         </div>
+                        {c.tags && c.tags.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            {c.tags.map((tg, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#2E1A47] text-[#BF7AF0] border border-[#5E2B97]/60"
+                              >
+                                {tg}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <div className="text-[11px] text-neutral-400 mt-0.5">
                           {c.totalMessages} messages • Last active{' '}
                           {c.lastContactDate

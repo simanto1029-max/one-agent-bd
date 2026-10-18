@@ -161,8 +161,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [selectedFilterTag, setSelectedFilterTag] = useState<string | null>(null);
 
-  // Available tags in system for filter
-  const allAvailableTags = ['Priority', 'Top Client', 'High Prospect', 'Risky', 'Low Prospect', 'Attention', 'Successful', 'VIP Client'];
+  // Dynamic tags in system for filter (presets + any custom tags saved on customers)
+  const basePresetTags = ['Priority', 'Top Client', 'High Prospect', 'VIP Client', 'Risky', 'Low Prospect', 'Attention', 'Successful'];
+  const allAvailableTags = Array.from(
+    new Set([
+      ...basePresetTags,
+      ...conversations.flatMap((c) => c.tags || [])
+    ])
+  ).filter(Boolean);
 
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -777,12 +783,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       {/* Line 4: TAGS ROW ON CONVERSATION CARD (Picture 2 Exact Match) */}
                       <div className="flex items-center gap-1 pt-0.5 flex-wrap">
                         {convTags.slice(0, 3).map((tg, idx) => (
-                          <span
+                          <button
                             key={idx}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getTagBadgeStyle(tg)}`}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFilterTag(selectedFilterTag === tg ? null : tg);
+                            }}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer hover:brightness-125 ${getTagBadgeStyle(tg)}`}
+                            title={`Filter conversations with tag: ${tg}`}
                           >
                             {tg}
-                          </span>
+                          </button>
                         ))}
                         {convTags.length > 3 && (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1E2536] text-neutral-400 border border-[#2B354D]">
@@ -1107,6 +1119,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             }}
             onOpenProductPicker={() => setShowProductPickerModal(true)}
             onCustomerUpdated={loadInbox}
+            onSelectTag={(tag) => setSelectedFilterTag(tag)}
           />
         )}
       </div>
