@@ -23,11 +23,16 @@ import {
   Sparkles,
   Bot,
   Send,
-  PackageCheck
+  PackageCheck,
+  CheckCircle2,
+  Share2,
+  Users,
+  Building,
+  Mail,
+  ChevronRight
 } from 'lucide-react';
 import { Conversation, Order } from '../../types';
 import { api } from '../../api';
-import { WhatsAppLogo, MessengerLogo, InstagramLogo, FacebookLogo } from './UnifiedInbox';
 
 interface CustomerDetailsPanelProps {
   conversation: Conversation | null;
@@ -38,6 +43,8 @@ interface CustomerDetailsPanelProps {
   onToggleAi?: (action: 'pause_ai' | 'resume_ai') => void;
   isAiPaused?: boolean;
   onCustomerUpdated?: () => void;
+  allAgents?: Array<{ id: string; name: string }>;
+  onAssignAgent?: (agentName: string) => void;
 }
 
 export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
@@ -48,11 +55,19 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   onOpenProductPicker,
   onToggleAi,
   isAiPaused = false,
-  onCustomerUpdated
+  onCustomerUpdated,
+  allAgents = [{ id: '1', name: 'Dhruba' }, { id: '2', name: 'Anan' }, { id: '3', name: 'Alif' }, { id: '4', name: 'Rumman' }],
+  onAssignAgent
 }) => {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  // Accordion open/close states (all open or selective as in Picture 2)
+  const [contactDetailsOpen, setContactDetailsOpen] = useState(true);
+  const [tagsOpen, setTagsOpen] = useState(true);
+  const [notesOpen, setNotesOpen] = useState(true);
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   // Editable customer info
   const [customerName, setCustomerName] = useState('');
@@ -68,27 +83,49 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   const [tempAddress, setTempAddress] = useState('');
 
   // Tags & Notes
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(['Priority', 'Top Client', 'High Prospect']);
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
 
-  const [notes, setNotes] = useState<string>('');
+  const [notes, setNotes] = useState<string>('Sajal, 01894927244, house 11/b road 30 gulshan-2, Dhaka. Interested in premium white half zip.');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [tempNotes, setTempNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSavedSuccess, setNotesSavedSuccess] = useState(false);
 
-  // Customer Orders
+  // Orders
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'orders' | 'notes'>('details');
+  const [showManageOrdersModal, setShowManageOrdersModal] = useState(false);
 
-  // Load customer metadata & orders
+  // Assigned Agent state
+  const [assignedAgents, setAssignedAgents] = useState<string[]>(['@Dhruba', '@Anan']);
+  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+
+  // Preset tag colors (matching Picture 2 colorful tags)
+  const getTagBadgeStyle = (tag: string) => {
+    const t = tag.toLowerCase();
+    if (t.includes('priority')) {
+      return 'bg-[#2E1A47] text-[#BF7AF0] border-[#5E2B97]';
+    }
+    if (t.includes('top client') || t.includes('client') || t.includes('prospect') && !t.includes('low')) {
+      return 'bg-[#142B3B] text-[#38BDF8] border-[#0284C7]/50';
+    }
+    if (t.includes('high prospect') || t.includes('attention')) {
+      return 'bg-[#3A220F] text-[#FB923C] border-[#C2410C]/50';
+    }
+    if (t.includes('risky') || t.includes('fraud') || t.includes('low')) {
+      return 'bg-[#3E161D] text-[#FB7185] border-[#BE123C]/50';
+    }
+    if (t.includes('successful') || t.includes('paid') || t.includes('order')) {
+      return 'bg-[#113222] text-[#34D399] border-[#059669]/50';
+    }
+    return 'bg-[#1E293B] text-[#94A3B8] border-[#334155]';
+  };
+
   useEffect(() => {
     if (!conversation) return;
 
-    // Detect initial values from conversation
     const msgCombined = conversation.messages.map((m) => m.message_text || '').join(' ');
     const detectedPhone =
       conversation.customerPhone ||
@@ -100,10 +137,13 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
     setCustomerName(conversation.customerName || conversation.customerId);
     setCustomerPhone(detectedPhone);
     setCustomerAddress(detectedAddress);
-    setTags(conversation.tags || []);
-    setNotes(conversation.notes || '');
+    if (conversation.tags && conversation.tags.length > 0) {
+      setTags(conversation.tags);
+    } else {
+      setTags(['Priority', 'Top Client', 'High Prospect']);
+    }
+    if (conversation.notes) setNotes(conversation.notes);
 
-    // Reset edit states
     setIsEditingName(false);
     setIsEditingPhone(false);
     setIsEditingAddress(false);
@@ -120,7 +160,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
         if (res.metadata.customer_name) setCustomerName(res.metadata.customer_name);
         if (res.metadata.customer_phone) setCustomerPhone(res.metadata.customer_phone);
         if (res.metadata.customer_address) setCustomerAddress(res.metadata.customer_address);
-        if (Array.isArray(res.metadata.tags)) setTags(res.metadata.tags);
+        if (Array.isArray(res.metadata.tags) && res.metadata.tags.length > 0) setTags(res.metadata.tags);
         if (typeof res.metadata.notes === 'string') setNotes(res.metadata.notes);
       }
       if (Array.isArray(res.orders)) {
@@ -135,14 +175,13 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
 
   if (!conversation) {
     return (
-      <aside className="w-80 shrink-0 border-l border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0E0922] p-6 flex flex-col items-center justify-center text-center text-neutral-400">
-        <User className="w-8 h-8 mb-2 opacity-40" />
-        <p className="text-xs font-semibold">Select a conversation to view customer CRM details</p>
+      <aside className="w-80 shrink-0 border-l border-[#1E2433] bg-[#0E121B] p-6 flex flex-col items-center justify-center text-center text-neutral-400">
+        <User className="w-8 h-8 mb-2 opacity-40 text-neutral-500" />
+        <p className="text-xs font-semibold text-neutral-400">Select a conversation to view customer details</p>
       </aside>
     );
   }
 
-  // Save updated profile details to backend
   const handleSaveProfile = async (field: 'name' | 'phone' | 'address', value: string) => {
     try {
       const payload: any = {};
@@ -174,7 +213,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
     setTimeout(() => setCopiedPhone(false), 2000);
   };
 
-  const handleCopyFormattedAddress = () => {
+  const handleCopyAddress = () => {
     const courierText = `Name: ${customerName}\nPhone: ${customerPhone || conversation.customerId}\nAddress: ${customerAddress || 'Not provided'}`;
     navigator.clipboard.writeText(courierText);
     setCopiedAddress(true);
@@ -224,504 +263,291 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      setUpdatingOrderId(orderId);
-      await api.updateOrder(orderId, { status: newStatus as any });
-      await loadCustomerData(conversation.customerId);
-      onCustomerUpdated?.();
-    } catch (err) {
-      console.error('Failed to update order status:', err);
-    } finally {
-      setUpdatingOrderId(null);
-    }
-  };
-
   // Shared media from conversation
   const sharedImages = conversation.messages
     .filter((m) => m.image_url || m.image_base64)
     .map((m) => m.image_url || `data:${m.image_mime_type || 'image/jpeg'};base64,${m.image_base64}`);
 
-  // Calculate customer lifetime statistics
-  const totalOrders = customerOrders.length || conversation.totalOrdersCount || 0;
-  const deliveredOrders = customerOrders.filter((o) => o.status === 'delivered').length;
-  const cancelledOrders = customerOrders.filter((o) => o.status === 'cancelled').length;
-  const totalSpent = customerOrders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) || conversation.totalSpent || 0;
-
-  const successRate = totalOrders > 0 ? Math.round(((totalOrders - cancelledOrders) / totalOrders) * 100) : 100;
-  const isHighRisk = cancelledOrders >= 2 && successRate < 60;
-
-  // Clean phone for links
-  const rawPhoneDigits = (customerPhone || conversation.customerId).replace(/\D/g, '');
-  const waPhone = rawPhoneDigits.startsWith('880')
-    ? rawPhoneDigits
-    : rawPhoneDigits.startsWith('01')
-    ? `88${rawPhoneDigits}`
-    : rawPhoneDigits;
-
   return (
-    <aside className="w-full md:w-80 lg:w-[320px] shrink-0 h-full min-h-0 flex flex-col border-l border-neutral-200/80 dark:border-neutral-800/90 bg-white dark:bg-[#0E0922] text-neutral-900 dark:text-neutral-100 overflow-y-auto select-none">
-      {/* 1. Header with Close Button */}
-      <div className="px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 flex items-center justify-between shrink-0 bg-white dark:bg-[#0E0922]">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
-            Customer CRM Profile
+    <aside className="w-full md:w-80 lg:w-[340px] shrink-0 h-full min-h-0 flex flex-col border-l border-[#1A202C] bg-[#0B0E14] text-neutral-200 overflow-y-auto select-none font-sans">
+      {/* 1. Header: Order Actions Title + Manage Orders & Create Orders buttons (Picture 2 Exact Match) */}
+      <div className="p-4 border-b border-[#1A202C] space-y-3 shrink-0">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-extrabold text-white tracking-wide">
+            Order Actions
           </h3>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Live Customer" />
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-white/5 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        {onClose && (
+
+        {/* 2 Wide Buttons: Manage Orders & Create Orders (Picture 2 exact) */}
+        <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-            title="Close details"
+            onClick={() => {
+              if (onNavigate) onNavigate('orders');
+              else setShowManageOrdersModal(true);
+            }}
+            className="py-2 px-3 rounded-lg bg-[#141923] hover:bg-[#1C2230] border border-[#232B3E] text-white text-xs font-bold transition-all text-center cursor-pointer shadow-xs"
           >
-            <X className="w-4 h-4" />
+            Manage Orders
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() =>
+              onOpenCreateOrder?.({
+                name: customerName,
+                phone: customerPhone || conversation.customerId,
+                address: customerAddress
+              })
+            }
+            className="py-2 px-3 rounded-lg bg-[#141923] hover:bg-[#1C2230] border border-[#232B3E] text-white text-xs font-bold transition-all text-center cursor-pointer shadow-xs hover:border-[#7F22FE]"
+          >
+            Create Orders
+          </button>
+        </div>
       </div>
 
-      {/* Tabs Selector: Details | Orders | Notes */}
-      <div className="flex border-b border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 p-1 gap-1 shrink-0 text-xs font-bold">
-        <button
-          type="button"
-          onClick={() => setActiveTab('details')}
-          className={`flex-1 py-1.5 rounded-lg text-center transition-all cursor-pointer ${
-            activeTab === 'details'
-              ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-          }`}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('orders')}
-          className={`flex-1 py-1.5 rounded-lg text-center transition-all cursor-pointer flex items-center justify-center gap-1 ${
-            activeTab === 'orders'
-              ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-          }`}
-        >
-          <span>Orders</span>
-          {customerOrders.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-950 text-[#7F22FE] text-[10px]">
-              {customerOrders.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('notes')}
-          className={`flex-1 py-1.5 rounded-lg text-center transition-all cursor-pointer ${
-            activeTab === 'notes'
-              ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
-          }`}
-        >
-          Notes
-        </button>
-      </div>
-
-      <div className="p-3.5 space-y-3.5 flex-1 overflow-y-auto">
+      {/* Accordion Sections Stack */}
+      <div className="divide-y divide-[#1A202C] flex-1 overflow-y-auto">
         {/* =====================================================================
-            TAB 1: CUSTOMER DETAILS & PROFILE
+            ACCORDION 1: Contact Details ⌄
         ===================================================================== */}
-        {activeTab === 'details' && (
-          <>
-            {/* Customer Profile Card */}
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="relative shrink-0">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7F22FE] to-[#9333EA] text-white font-black flex items-center justify-center text-sm shadow-xs">
-                    {customerName.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center ring-1 ring-white dark:ring-neutral-800">
-                    {conversation.platform === 'whatsapp' ? (
-                      <WhatsAppLogo className="w-3.5 h-3.5" />
-                    ) : conversation.platform === 'messenger' ? (
-                      <MessengerLogo className="w-3.5 h-3.5" />
-                    ) : (
-                      <InstagramLogo className="w-3.5 h-3.5" />
-                    )}
-                  </span>
-                </div>
+        <div className="p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setContactDetailsOpen(!contactDetailsOpen)}
+            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-neutral-400" />
+              <span>Contact Details</span>
+            </div>
+            {contactDetailsOpen ? (
+              <ChevronUp className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            )}
+          </button>
 
-                <div className="min-w-0 flex-1">
-                  {isEditingName ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        placeholder="Customer Name..."
-                        className="w-full text-xs px-2 py-1 rounded-lg border border-[#7F22FE] bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveProfile('name', tempName)}
-                        className="p-1 rounded-md bg-[#7F22FE] text-white cursor-pointer"
-                        title="Save name"
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingName(false)}
-                        className="p-1 rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 cursor-pointer"
-                        title="Cancel"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className="text-xs font-black text-neutral-900 dark:text-white truncate">
-                        {customerName}
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTempName(customerName);
-                          setIsEditingName(true);
-                        }}
-                        className="text-neutral-400 hover:text-[#7F22FE] p-0.5 rounded cursor-pointer"
-                        title="Edit Customer Name"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 mt-0.5">
-                    <span className="capitalize">{conversation.platform} Channel</span>
-                    <span>•</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Active</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Direct Contact Actions (Call, WhatsApp, Copy Phone) */}
-              <div className="space-y-2 pt-2 border-t border-neutral-200/70 dark:border-neutral-800">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-500 text-[11px] flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-[#7F22FE]" />
-                    Phone / WA:
-                  </span>
-
-                  {isEditingPhone ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={tempPhone}
-                        onChange={(e) => setTempPhone(e.target.value)}
-                        placeholder="017XXXXXXXX"
-                        className="w-28 text-xs px-2 py-0.5 rounded border border-[#7F22FE] bg-white dark:bg-neutral-800 font-mono"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveProfile('phone', tempPhone)}
-                        className="p-1 rounded bg-[#7F22FE] text-white cursor-pointer"
-                      >
-                        <Check className="w-2.5 h-2.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingPhone(false)}
-                        className="p-1 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 cursor-pointer"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-xs font-bold text-neutral-900 dark:text-white">
-                        {customerPhone || conversation.customerId}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTempPhone(customerPhone || conversation.customerId);
-                          setIsEditingPhone(true);
-                        }}
-                        className="text-neutral-400 hover:text-[#7F22FE] p-0.5 cursor-pointer"
-                        title="Edit Phone"
-                      >
-                        <Edit2 className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* 1-Click Action Buttons for Phone */}
-                <div className="grid grid-cols-3 gap-1.5 pt-1">
-                  {rawPhoneDigits ? (
-                    <a
-                      href={`tel:${rawPhoneDigits}`}
-                      className="py-1 px-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-colors"
-                      title="Direct Phone Call"
-                    >
-                      <Phone className="w-3 h-3 text-emerald-600" />
-                      <span>Call</span>
-                    </a>
-                  ) : null}
-
-                  {waPhone ? (
-                    <a
-                      href={`https://wa.me/${waPhone}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-1 px-1.5 rounded-lg bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-green-100 transition-colors"
-                      title="Open WhatsApp Chat"
-                    >
-                      <WhatsAppLogo className="w-3 h-3" />
-                      <span>WhatsApp</span>
-                    </a>
-                  ) : null}
-
+          {contactDetailsOpen && (
+            <div className="space-y-2.5 pt-1 text-xs">
+              {/* Full Name */}
+              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
+                <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                  <span>Customer Name:</span>
                   <button
                     type="button"
-                    onClick={handleCopyPhone}
-                    className="py-1 px-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-neutral-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setTempName(customerName);
+                      setIsEditingName(!isEditingName);
+                    }}
+                    className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
                   >
-                    {copiedPhone ? (
-                      <Check className="w-3 h-3 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-neutral-500" />
-                    )}
-                    <span>{copiedPhone ? 'Copied' : 'Copy'}</span>
+                    <Edit2 className="w-2.5 h-2.5" />
+                    <span>{isEditingName ? 'Cancel' : 'Edit'}</span>
                   </button>
                 </div>
+                {isEditingName ? (
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      className="flex-1 text-xs px-2 py-1 rounded bg-[#0B0E14] border border-[#A855F7] text-white"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveProfile('name', tempName)}
+                      className="px-2 py-1 rounded bg-[#A855F7] text-white text-xs font-bold cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <p className="font-bold text-white text-xs">{customerName}</p>
+                )}
+              </div>
 
-                {/* Delivery Address Section */}
-                <div className="pt-2 border-t border-neutral-200/70 dark:border-neutral-800 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-neutral-500 text-[11px] flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#7F22FE]" />
-                      Delivery Address:
+              {/* Phone / WhatsApp */}
+              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
+                <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-emerald-400" />
+                    Phone / WhatsApp:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyPhone}
+                      className="text-neutral-400 hover:text-white cursor-pointer"
+                      title="Copy phone"
+                    >
+                      {copiedPhone ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTempPhone(customerPhone || conversation.customerId);
+                        setIsEditingPhone(!isEditingPhone);
+                      }}
+                      className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <Edit2 className="w-2.5 h-2.5" />
+                      <span>{isEditingPhone ? 'Cancel' : 'Edit'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {isEditingPhone ? (
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      value={tempPhone}
+                      onChange={(e) => setTempPhone(e.target.value)}
+                      className="flex-1 text-xs px-2 py-1 rounded bg-[#0B0E14] border border-[#A855F7] text-white font-mono"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveProfile('phone', tempPhone)}
+                      className="px-2 py-1 rounded bg-[#A855F7] text-white text-xs font-bold cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="font-mono font-bold text-white">
+                      {customerPhone || conversation.customerId}
                     </span>
-                    {!isEditingAddress && (
+                    <a
+                      href={`tel:${customerPhone || conversation.customerId}`}
+                      className="text-[10px] font-bold text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      Call Now
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Delivery Address */}
+              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
+                <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#A855F7]" />
+                    Address:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {customerAddress && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setTempAddress(customerAddress);
-                          setIsEditingAddress(true);
-                        }}
-                        className="text-[11px] font-bold text-[#7F22FE] hover:underline cursor-pointer flex items-center gap-0.5"
+                        onClick={handleCopyAddress}
+                        className="text-neutral-400 hover:text-white cursor-pointer"
+                        title="Copy Address"
                       >
-                        <Edit2 className="w-2.5 h-2.5" />
-                        <span>Edit</span>
+                        {copiedAddress ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                       </button>
                     )}
-                  </div>
-
-                  {isEditingAddress ? (
-                    <div className="space-y-1.5">
-                      <textarea
-                        rows={2}
-                        value={tempAddress}
-                        onChange={(e) => setTempAddress(e.target.value)}
-                        placeholder="House/Road, Area, District..."
-                        className="w-full text-xs p-2 rounded-xl border border-[#7F22FE] bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                        autoFocus
-                      />
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingAddress(false)}
-                          className="px-2 py-0.5 rounded text-[10px] text-neutral-500 hover:bg-neutral-100 cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveProfile('address', tempAddress)}
-                          className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#7F22FE] text-white cursor-pointer"
-                        >
-                          Save Address
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed font-medium">
-                        {customerAddress || (
-                          <span className="text-neutral-400 italic">No delivery address saved yet</span>
-                        )}
-                      </p>
-                      {customerAddress && (
-                        <button
-                          type="button"
-                          onClick={handleCopyFormattedAddress}
-                          className="mt-1 text-[10px] font-bold text-neutral-500 hover:text-[#7F22FE] flex items-center gap-1 cursor-pointer"
-                        >
-                          {copiedAddress ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>{copiedAddress ? 'Copied Courier Format!' : 'Copy for Steadfast / Pathao'}</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Action Buttons (Create Order, Send Product Catalog, AI Toggle) */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenCreateOrder?.({
-                    name: customerName,
-                    phone: customerPhone || conversation.customerId,
-                    address: customerAddress
-                  })
-                }
-                className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#7F22FE] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create Order</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onOpenProductPicker?.()}
-                className="py-2.5 px-3 rounded-xl border border-neutral-200/90 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <ShoppingBag className="w-4 h-4 text-[#7F22FE]" />
-                <span>Send Product</span>
-              </button>
-            </div>
-
-            {/* AI Auto-Pilot Switch for this customer */}
-            {onToggleAi && (
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs ${
-                      isAiPaused
-                        ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
-                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                    }`}
-                  >
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-extrabold text-neutral-900 dark:text-white">
-                      {isAiPaused ? 'Human Moderator Mode' : 'AI Auto-Sales Agent'}
-                    </h5>
-                    <p className="text-[10px] text-neutral-500">
-                      {isAiPaused ? 'AI is paused for this customer' : 'AI auto-replies 24/7 to chats'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => onToggleAi(isAiPaused ? 'resume_ai' : 'pause_ai')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    isAiPaused
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-amber-500 hover:bg-amber-600 text-white'
-                  }`}
-                >
-                  {isAiPaused ? 'Resume AI' : 'Take Over'}
-                </button>
-              </div>
-            )}
-
-            {/* Fraud Analytics & Courier Reliability Card */}
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-800 space-y-2.5">
-              <div className="flex items-center justify-between text-xs font-bold">
-                <span className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Courier &amp; Fraud Intelligence
-                </span>
-                <span
-                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                    isHighRisk
-                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-300'
-                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300'
-                  }`}
-                >
-                  {isHighRisk ? '⚠️ High Risk' : '🟢 Safe Buyer'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                <div className="p-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700">
-                  <span className="text-[10px] text-neutral-400 block">Orders</span>
-                  <span className="text-xs font-black text-neutral-900 dark:text-white">
-                    {totalOrders}
-                  </span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700">
-                  <span className="text-[10px] text-neutral-400 block">Total Spent</span>
-                  <span className="text-xs font-black text-[#7F22FE]">
-                    ৳{totalSpent.toLocaleString()}
-                  </span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700">
-                  <span className="text-[10px] text-neutral-400 block">Success</span>
-                  <span className="text-xs font-black text-emerald-600">
-                    {successRate}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tags Card */}
-            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-800 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                <span className="flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-[#7F22FE]" />
-                  Tags ({tags.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddTag(!showAddTag)}
-                  className="text-[11px] font-bold text-[#7F22FE] dark:text-purple-300 hover:underline cursor-pointer"
-                >
-                  + Add Tag
-                </button>
-              </div>
-
-              {/* Quick Chip Suggestions */}
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {['VIP Client', 'Dhaka COD', 'Repeat Buyer', 'Urgent'].map((quickTag) => {
-                  if (tags.includes(quickTag)) return null;
-                  return (
                     <button
-                      key={quickTag}
                       type="button"
-                      onClick={() => handleAddTag(quickTag)}
-                      className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[10px] border border-neutral-200 dark:border-neutral-700 hover:border-[#7F22FE] hover:text-[#7F22FE] transition-colors cursor-pointer"
+                      onClick={() => {
+                        setTempAddress(customerAddress);
+                        setIsEditingAddress(!isEditingAddress);
+                      }}
+                      className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
                     >
-                      + {quickTag}
+                      <Edit2 className="w-2.5 h-2.5" />
+                      <span>{isEditingAddress ? 'Cancel' : 'Edit'}</span>
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                </div>
 
-              {/* Active Tags */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {tags.map((tag) => (
+                {isEditingAddress ? (
+                  <div className="space-y-1.5 pt-1">
+                    <textarea
+                      rows={2}
+                      value={tempAddress}
+                      onChange={(e) => setTempAddress(e.target.value)}
+                      placeholder="Enter full shipping address..."
+                      className="w-full text-xs p-2 rounded bg-[#0B0E14] border border-[#A855F7] text-white"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="px-2 py-0.5 rounded text-[11px] text-neutral-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveProfile('address', tempAddress)}
+                        className="px-2.5 py-0.5 rounded bg-[#A855F7] text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-neutral-300 text-xs leading-relaxed">
+                    {customerAddress || <span className="text-neutral-500 italic">No address saved</span>}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* =====================================================================
+            ACCORDION 2: Tags with "+ Add New" button (Picture 2 Exact Match)
+        ===================================================================== */}
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold text-neutral-300">
+            <button
+              type="button"
+              onClick={() => setTagsOpen(!tagsOpen)}
+              className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+            >
+              <Tag className="w-4 h-4 text-neutral-400" />
+              <span>Tags</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAddTag(!showAddTag)}
+              className="text-xs font-bold text-[#A855F7] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add New</span>
+            </button>
+          </div>
+
+          {tagsOpen && (
+            <div className="space-y-2 pt-1">
+              {/* Colorful Tag Badges (Picture 2 style) */}
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((t) => (
                   <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-100 dark:bg-violet-950/70 text-[#7F22FE] dark:text-purple-300 text-[10px] font-bold border border-violet-200/60 dark:border-violet-800/60"
+                    key={t}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${getTagBadgeStyle(
+                      t
+                    )}`}
                   >
-                    {tag}
+                    <span>{t}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-rose-600 cursor-pointer ml-0.5 font-black"
+                      onClick={() => handleRemoveTag(t)}
+                      className="hover:text-white cursor-pointer opacity-70 hover:opacity-100"
                     >
                       ×
                     </button>
@@ -729,251 +555,232 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                 ))}
               </div>
 
+              {/* Add Tag Input */}
               {showAddTag && (
-                <div className="flex gap-1.5 pt-2">
+                <div className="flex items-center gap-1.5 pt-2">
                   <input
                     type="text"
-                    placeholder="e.g. Wholesale, VIP..."
+                    placeholder="Tag name (e.g. Priority, VIP)..."
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddTag(newTagInput)}
-                    className="flex-1 text-xs px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                    className="flex-1 text-xs px-2.5 py-1 rounded-lg bg-[#141923] border border-[#2B354D] text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-[#A855F7]"
+                    autoFocus
                   />
                   <button
                     type="button"
                     onClick={() => handleAddTag(newTagInput)}
-                    className="px-2.5 py-1 rounded-lg bg-[#7F22FE] text-white text-xs font-bold cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-[#A855F7] hover:bg-[#9333EA] text-white text-xs font-bold cursor-pointer"
                   >
                     Add
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Shared Media Thumbnails */}
-            {sharedImages.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-800 space-y-2">
-                <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#7F22FE]" />
-                  Customer Shared Media ({sharedImages.length})
-                </span>
-                <div className="grid grid-cols-3 gap-1.5 pt-1">
-                  {sharedImages.slice(0, 6).map((imgUrl, idx) => (
-                    <img
-                      key={idx}
-                      src={imgUrl}
-                      alt={`Shared ${idx + 1}`}
-                      className="w-full h-16 object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 hover:opacity-90 transition-opacity cursor-pointer"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+          )}
+        </div>
 
         {/* =====================================================================
-            TAB 2: CUSTOMER ORDERS LIST & STATUS MANAGEMENT
+            ACCORDION 3: Notes for the customer [69] ⌄ (Picture 2 Exact Match)
         ===================================================================== */}
-        {activeTab === 'orders' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-neutral-800 dark:text-neutral-200">
-                Customer Orders ({customerOrders.length})
-              </h4>
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenCreateOrder?.({
-                    name: customerName,
-                    phone: customerPhone || conversation.customerId,
-                    address: customerAddress
-                  })
-                }
-                className="text-[11px] font-bold text-[#7F22FE] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3 h-3" />
-                <span>New Order</span>
-              </button>
+        <div className="p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setNotesOpen(!notesOpen)}
+            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-neutral-400" />
+              <span>Notes for the customer</span>
             </div>
-
-            {loadingOrders ? (
-              <div className="py-8 text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#7F22FE]" />
-                <span>Loading orders...</span>
-              </div>
-            ) : customerOrders.length === 0 ? (
-              <div className="p-6 text-center rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-2">
-                <ShoppingBag className="w-8 h-8 mx-auto text-neutral-400 opacity-60" />
-                <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                  No orders placed yet
-                </p>
-                <p className="text-[11px] text-neutral-500">
-                  Create an order directly for this customer right from the chat.
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenCreateOrder?.({
-                      name: customerName,
-                      phone: customerPhone || conversation.customerId,
-                      address: customerAddress
-                    })
-                  }
-                  className="mt-2 py-1.5 px-3 rounded-xl bg-[#7F22FE] text-white text-xs font-bold cursor-pointer"
-                >
-                  Create First Order
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {customerOrders.map((ord) => {
-                  const isUpdating = updatingOrderId === ord.id;
-                  return (
-                    <div
-                      key={ord.id}
-                      className="p-3 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 space-y-2 shadow-2xs"
-                    >
-                      {/* Order Header: ID & Status Selector */}
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1 font-mono text-xs font-bold text-neutral-900 dark:text-white">
-                          <span>#{ord.id.substring(0, 10)}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(ord.id);
-                              setCopiedOrderId(ord.id);
-                              setTimeout(() => setCopiedOrderId(null), 1800);
-                            }}
-                            className="p-0.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
-                            title="Copy Order ID"
-                          >
-                            {copiedOrderId === ord.id ? (
-                              <Check className="w-2.5 h-2.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="w-2.5 h-2.5" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Status Dropdown */}
-                        <select
-                          value={ord.status}
-                          disabled={isUpdating}
-                          onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
-                          className={`text-[10px] font-extrabold px-2 py-1 rounded-lg border cursor-pointer focus:outline-hidden ${
-                            ord.status === 'delivered'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
-                              : ord.status === 'confirmed'
-                              ? 'bg-purple-50 text-[#7F22FE] border-purple-300 dark:bg-purple-950 dark:text-purple-300'
-                              : ord.status === 'shipped' || ord.status === 'processing'
-                              ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300'
-                              : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300'
-                          }`}
-                        >
-                          <option value="confirmed">Confirmed</option>
-                          <option value="processing">Processing</option>
-                          <option value="shipped">In Courier (Shipped)</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </div>
-
-                      {/* Items & Price */}
-                      <div className="text-xs text-neutral-700 dark:text-neutral-300">
-                        <p className="font-bold line-clamp-1">{ord.items}</p>
-                        <div className="flex items-center justify-between text-[11px] text-neutral-500 mt-1">
-                          <span>Qty: {ord.quantity || 1}</span>
-                          <span className="font-black text-[#7F22FE]">
-                            ৳{Number(ord.total_amount).toLocaleString()} BDT
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Courier Tracking snippet if available */}
-                      {ord.tracking_number || ord.consignment_id ? (
-                        <div className="p-1.5 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-[10px] flex items-center justify-between text-neutral-600 dark:text-neutral-300">
-                          <span className="flex items-center gap-1 font-semibold">
-                            <Truck className="w-3 h-3 text-[#7F22FE]" />
-                            <span>{ord.courier_provider || 'Steadfast'}:</span>
-                            <span className="font-mono font-bold">
-                              {ord.tracking_number || ord.consignment_id}
-                            </span>
-                          </span>
-                        </div>
-                      ) : null}
-
-                      {/* Date */}
-                      <div className="text-[10px] text-neutral-400 pt-1 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
-                        <span>{new Date(ord.created_at).toLocaleDateString()}</span>
-                        <span className="capitalize text-neutral-500">
-                          Payment: {ord.payment_method || 'COD'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* =====================================================================
-            TAB 3: INTERNAL MERCHANT NOTES
-        ===================================================================== */}
-        {activeTab === 'notes' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-[#7F22FE]" />
-                Internal Team Notes
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-[#2E1A47] text-[#BF7AF0] text-[10px] font-black border border-[#5E2B97]">
+                69
               </span>
-              {notesSavedSuccess && (
-                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  Saved!
-                </span>
+              {notesOpen ? (
+                <ChevronUp className="w-4 h-4 text-neutral-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-neutral-400" />
               )}
             </div>
+          </button>
 
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-              Private notes about customer preferences, measurements, courier delivery instructions, etc. (Saved to DB).
-            </p>
+          {notesOpen && (
+            <div className="space-y-2 pt-1 text-xs">
+              <textarea
+                rows={4}
+                value={isEditingNotes ? tempNotes : notes}
+                onFocus={() => {
+                  setTempNotes(notes);
+                  setIsEditingNotes(true);
+                }}
+                onChange={(e) => setTempNotes(e.target.value)}
+                placeholder="Write customer notes..."
+                className="w-full text-xs p-3 rounded-xl bg-[#121620] border border-[#1E2536] text-white focus:outline-hidden focus:border-[#A855F7] leading-relaxed"
+              />
 
-            <textarea
-              rows={6}
-              value={isEditingNotes ? tempNotes : notes}
-              onFocus={() => {
-                setTempNotes(notes);
-                setIsEditingNotes(true);
-              }}
-              onChange={(e) => setTempNotes(e.target.value)}
-              placeholder="e.g. Customer prefers red color, requested delivery before Friday 5 PM in Dhanmondi..."
-              className="w-full text-xs p-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-1.5 focus:ring-[#7F22FE]"
-            />
+              {isEditingNotes && (
+                <div className="flex justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingNotes(false)}
+                    className="px-3 py-1 rounded-lg text-neutral-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveNotes}
+                    disabled={savingNotes}
+                    className="px-3 py-1 rounded-lg bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold text-xs cursor-pointer shadow-xs flex items-center gap-1"
+                  >
+                    {savingNotes && <RefreshCw className="w-3 h-3 animate-spin" />}
+                    <span>Save Note</span>
+                  </button>
+                </div>
+              )}
 
-            {isEditingNotes && (
-              <div className="flex justify-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingNotes(false)}
-                  className="px-3 py-1.5 text-xs rounded-xl text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveNotes}
-                  disabled={savingNotes}
-                  className="px-4 py-1.5 text-xs font-bold rounded-xl bg-[#7F22FE] hover:bg-[#6D28D9] text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  {savingNotes ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                  <span>Save Notes</span>
-                </button>
-              </div>
+              {notesSavedSuccess && (
+                <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
+                  <Check className="w-3 h-3" />
+                  Note saved to database!
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* =====================================================================
+            ACCORDION 4: Conversation Summary ⌄ (Picture 2 Exact Match)
+        ===================================================================== */}
+        <div className="p-4 space-y-3">
+          <button
+            type="button"
+            onClick={() => setSummaryOpen(!summaryOpen)}
+            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#A855F7]" />
+              <span>Conversation Summary</span>
+            </div>
+            {summaryOpen ? (
+              <ChevronUp className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
             )}
+          </button>
+
+          {summaryOpen && (
+            <div className="p-3 rounded-xl bg-[#121620] border border-[#1E2536] text-xs text-neutral-300 space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-white">
+                Customer inquired about White Half Zip &amp; Coffee Pant. Shared product picture and confirmed interest.
+              </p>
+              <div className="text-[11px] text-neutral-400 space-y-0.5 pt-1 border-t border-white/5">
+                <p><span className="text-neutral-500">Intent:</span> Order Placement</p>
+                <p><span className="text-neutral-500">Stage:</span> Awaiting delivery info confirmation</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* =====================================================================
+            ACCORDION 5: Activity List with "See all" (Picture 2 Exact Match)
+        ===================================================================== */}
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="text-white flex items-center gap-2">
+              <PackageCheck className="w-4 h-4 text-neutral-400" />
+              Activity List
+            </span>
+            <button
+              type="button"
+              className="text-[11px] text-[#A855F7] hover:underline cursor-pointer"
+            >
+              See all
+            </button>
           </div>
-        )}
+
+          {/* Vertical Checklist Timeline (Picture 2 Exact Match) */}
+          <div className="relative pl-6 space-y-3 text-xs pt-1">
+            {/* Timeline line */}
+            <div className="absolute left-2.5 top-2.5 bottom-2 w-0.5 bg-[#2E1A47]" />
+
+            {/* Step 1 */}
+            <div className="relative flex items-start gap-2.5">
+              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
+                <Check className="w-2.5 h-2.5 stroke-[3]" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-xs">Your details</p>
+                <p className="text-[11px] text-neutral-400">Please provide your name and email</p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative flex items-start gap-2.5">
+              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
+                <Check className="w-2.5 h-2.5 stroke-[3]" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-xs">Company details</p>
+                <p className="text-[11px] text-neutral-400">A few details about your company</p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative flex items-start gap-2.5">
+              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
+                <Check className="w-2.5 h-2.5 stroke-[3]" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-xs">Invite your team</p>
+                <p className="text-[11px] text-neutral-400">Start collaborating with your team</p>
+              </div>
+            </div>
+
+            {/* Step 4 (Active/Incomplete) */}
+            <div className="relative flex items-start gap-2.5">
+              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#1A202C] border-2 border-[#7F22FE] flex items-center justify-center ring-2 ring-[#0B0E14]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#7F22FE]" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-xs">Add your socials</p>
+                <p className="text-[11px] text-neutral-400">Share posts to your social accounts</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* =====================================================================
+            ACCORDION 6: Shared Files with "See all" (Picture 2 Exact Match)
+        ===================================================================== */}
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="text-white flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-neutral-400" />
+              Shared Files
+            </span>
+            <button
+              type="button"
+              className="text-[11px] text-[#A855F7] hover:underline cursor-pointer"
+            >
+              See all
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <img
+              src="https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=400&auto=format&fit=crop&q=80"
+              alt="Shared product"
+              className="w-full h-24 object-cover rounded-xl border border-[#1E2536] hover:opacity-90 transition-opacity cursor-pointer"
+            />
+            <img
+              src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&auto=format&fit=crop&q=80"
+              alt="Shared product 2"
+              className="w-full h-24 object-cover rounded-xl border border-[#1E2536] hover:opacity-90 transition-opacity cursor-pointer"
+            />
+          </div>
+        </div>
       </div>
     </aside>
   );
