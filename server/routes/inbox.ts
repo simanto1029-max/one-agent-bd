@@ -41,11 +41,21 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     );
   }
 
+  const allCustomerMeta = db.getAllCustomerMetadata(user.id);
+  const metaMap = new Map<string, any>(allCustomerMeta.map((m) => [m.customer_id, m]));
+
   // Group by customer conversation
   const conversationsMap = new Map<string, {
     customerId: string;
     customerName: string;
     customerAvatar?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    tags?: string[];
+    notes?: string;
+    isStarred?: boolean;
+    assignedAgentId?: string;
+    totalSpent?: number;
     platform: 'whatsapp' | 'messenger' | 'instagram';
     channelId?: string;
     lastMessage: Message;
@@ -65,8 +75,8 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     const key = `${msg.platform}_${msg.customer_id}`;
     if (!conversationsMap.has(key)) {
       // Cross-match orders for this customer
+      const cleanMsgId = msg.customer_id.replace(/\D/g, '');
       const matchingOrders = userOrders.filter((o) => {
-        const cleanMsgId = msg.customer_id.replace(/\D/g, '');
         const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, '') : '';
         const phoneMatch = cleanOrderPhone.length >= 8 && cleanMsgId.length >= 8 &&
           (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
@@ -92,13 +102,28 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
         }
       }
 
+      const validOrders = matchingOrders.filter((o) => o.status !== 'cancelled');
+      const totalSpent = validOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+      const custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
       const isAiPaused = pausedList.includes(msg.customer_id) || pausedList.includes(key);
       const isBlocked = blockedList.includes(msg.customer_id) || blockedList.includes(key);
 
+      const resolvedName = custMeta?.customer_name || msg.customer_name || msg.customer_id;
+      const resolvedPhone = custMeta?.customer_phone || (matchingOrders[0]?.customer_phone) || (cleanMsgId.length >= 11 && cleanMsgId.startsWith('01') ? cleanMsgId : undefined);
+      const resolvedAddress = custMeta?.customer_address || (matchingOrders[0]?.customer_address) || undefined;
+
       conversationsMap.set(key, {
         customerId: msg.customer_id,
-        customerName: msg.customer_name || msg.customer_id,
+        customerName: resolvedName,
         customerAvatar: msg.customer_avatar,
+        customerPhone: resolvedPhone,
+        customerAddress: resolvedAddress,
+        tags: custMeta?.tags || (matchingOrders.length > 0 ? ['Order Client'] : []),
+        notes: custMeta?.notes || '',
+        isStarred: Boolean(custMeta?.is_starred),
+        assignedAgentId: custMeta?.assigned_agent_id,
+        totalSpent,
         platform: msg.platform,
         channelId: msg.channel_id,
         lastMessage: msg,
@@ -452,6 +477,55 @@ inboxRouter.post('/customer-control', (req: Request, res: Response) => {
     paused_customers: paused,
     blocked_customers: blocked
   });
+});
+
+// GET /api/inbox/customer-details/:customerId - Get customer metadata and orders
+inboxRouter.get('/customer-details/:customerId', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId } = req.params;
+  const meta = db.getCustomerMetadata(user.id, customerId);
+  const userOrders = db.getOrders(user.id);
+  const cleanMsgId = customerId.replace(/\D/g, '');
+  const matchingOrders = userOrders.filter((o) => {
+    const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, '') : '';
+    const phoneMatch =
+      cleanOrderPhone.length >= 8 &&
+      cleanMsgId.length >= 8 &&
+      (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
+    return o.customer_id === customerId || phoneMatch;
+  });
+
+  return res.json({
+    metadata: meta,
+    orders: matchingOrders
+  });
+});
+
+// PUT /api/inbox/customer-details/:customerId - Update customer metadata (name, phone, address, tags, notes, starred, agent)
+inboxRouter.put('/customer-details/:customerId', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId } = req.params;
+  const { customerName, customerPhone, customerAddress, tags, notes, isStarred, assignedAgentId } = req.body || {};
+
+  const updated = db.upsertCustomerMetadata(user.id, customerId, {
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    customer_address: customerAddress,
+    tags: Array.isArray(tags) ? tags : undefined,
+    notes: typeof notes === 'string' ? notes : undefined,
+    is_starred: typeof isStarred === 'boolean' ? isStarred : undefined,
+    assigned_agent_id: assignedAgentId
+  });
+
+  return res.json({ success: true, metadata: updated });
 });
 
 // Helper to compute WhatsApp & VIP Broadcast Quota per 24 hours

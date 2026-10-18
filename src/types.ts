@@ -240,6 +240,13 @@ export interface Conversation {
   customerId: string;
   customerName: string;
   customerAvatar?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  tags?: string[];
+  notes?: string;
+  isStarred?: boolean;
+  assignedAgentId?: string;
+  totalSpent?: number;
   platform: 'whatsapp' | 'messenger' | 'instagram';
   channelId?: string;
   lastMessage: Message;

@@ -987,6 +987,28 @@ export const api = {
     });
   },
 
+  async getCustomerDetails(customerId: string): Promise<{
+    metadata: any;
+    orders: Order[];
+  }> {
+    return fetchJson(`/api/inbox/customer-details/${encodeURIComponent(customerId)}`);
+  },
+
+  async updateCustomerDetails(customerId: string, data: {
+    customerName?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    tags?: string[];
+    notes?: string;
+    isStarred?: boolean;
+    assignedAgentId?: string;
+  }): Promise<{ success: boolean; metadata: any }> {
+    return fetchJson(`/api/inbox/customer-details/${encodeURIComponent(customerId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   async getBroadcastQuota(): Promise<{
     dailyLimit: number;
     perCustomerDailyLimit: number;

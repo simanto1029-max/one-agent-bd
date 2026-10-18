@@ -306,6 +306,21 @@ export interface Business {
   updated_at: string;
 }
 
+export interface CustomerMetadata {
+  id: string; // `${userId}_${customerId}`
+  user_id: string;
+  customer_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_address?: string;
+  tags?: string[];
+  notes?: string;
+  is_starred?: boolean;
+  assigned_agent_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FacebookPage {
   id: string; // page_id
   user_id: string;
@@ -654,6 +669,7 @@ interface DatabaseSchema {
   purchases?: PurchaseRecord[];
   dues?: DueRecord[];
   account_transactions?: AccountTransaction[];
+  customer_metadata?: CustomerMetadata[];
   settings: SystemSettings;
 }
 
@@ -748,6 +764,7 @@ const initialData: DatabaseSchema = {
   whatsapp_phone_numbers: [],
   webhook_events: [],
   audit_logs: [],
+  customer_metadata: [],
   products: defaultSeedProducts,
   profiles: [
     {
@@ -1279,6 +1296,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     } else {
       parsed.profiles = initialData.profiles;
     }
+    if (!parsed.customer_metadata) parsed.customer_metadata = [];
     return parsed as DatabaseSchema;
   }
 
@@ -2109,6 +2127,68 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       this.persist();
     }
     return updatedMsg;
+  }
+
+  // --- Customer Metadata ---
+  getCustomerMetadata(userId: string, customerId: string): CustomerMetadata | null {
+    if (!this.data.customer_metadata) this.data.customer_metadata = [];
+    const id = `${userId}_${customerId}`;
+    return (
+      this.data.customer_metadata.find(
+        (m) => m.id === id || (m.user_id === userId && m.customer_id === customerId)
+      ) || null
+    );
+  }
+
+  upsertCustomerMetadata(
+    userId: string,
+    customerId: string,
+    updates: Partial<CustomerMetadata>
+  ): CustomerMetadata {
+    if (!this.data.customer_metadata) this.data.customer_metadata = [];
+    const id = `${userId}_${customerId}`;
+    const nowIso = new Date().toISOString();
+    const existingIndex = this.data.customer_metadata.findIndex(
+      (m) => m.id === id || (m.user_id === userId && m.customer_id === customerId)
+    );
+
+    if (existingIndex !== -1) {
+      const current = this.data.customer_metadata[existingIndex];
+      const updated: CustomerMetadata = {
+        ...current,
+        ...updates,
+        id,
+        user_id: userId,
+        customer_id: customerId,
+        updated_at: nowIso
+      };
+      this.data.customer_metadata[existingIndex] = updated;
+      this.persist();
+      return updated;
+    } else {
+      const created: CustomerMetadata = {
+        id,
+        user_id: userId,
+        customer_id: customerId,
+        customer_name: updates.customer_name,
+        customer_phone: updates.customer_phone,
+        customer_address: updates.customer_address,
+        tags: updates.tags || [],
+        notes: updates.notes || '',
+        is_starred: updates.is_starred || false,
+        assigned_agent_id: updates.assigned_agent_id,
+        created_at: nowIso,
+        updated_at: nowIso
+      };
+      this.data.customer_metadata.push(created);
+      this.persist();
+      return created;
+    }
+  }
+
+  getAllCustomerMetadata(userId: string): CustomerMetadata[] {
+    if (!this.data.customer_metadata) this.data.customer_metadata = [];
+    return this.data.customer_metadata.filter((m) => m.user_id === userId);
   }
 
   // --- Orders ---

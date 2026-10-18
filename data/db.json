@@ -3825,8 +3825,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-17T09:16:41.476Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 9:16:41 AM)",
+    "cron_last_run": "2026-10-18T13:41:55.819Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 1:41:55 PM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4805,7 +4805,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1792228610664,
+  "_lastUpdatedAt": 1792330929367,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],
@@ -4830,6 +4830,24 @@
       "total_orders": 0,
       "created_at": "2026-10-17T09:16:41.485Z",
       "updated_at": "2026-10-17T09:16:41.485Z"
+    }
+  ],
+  "customer_metadata": [
+    {
+      "id": "usr_demo_002_8801799887766",
+      "user_id": "usr_demo_002",
+      "customer_id": "8801799887766",
+      "customer_name": "Tanvir Ahmed",
+      "customer_phone": "01799887766",
+      "customer_address": "House 14, Road 5, Dhanmondi, Dhaka",
+      "tags": [
+        "VIP Client",
+        "Dhaka COD"
+      ],
+      "notes": "Prefers morning delivery",
+      "is_starred": false,
+      "created_at": "2026-10-18T13:42:09.367Z",
+      "updated_at": "2026-10-18T13:42:09.367Z"
     }
   ]
 }

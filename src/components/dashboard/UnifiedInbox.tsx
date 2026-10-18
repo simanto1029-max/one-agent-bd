@@ -40,12 +40,18 @@ import {
   AlertCircle,
   PanelRight,
   Star,
-  Filter
+  Filter,
+  Plus,
+  Truck,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Tag
 } from 'lucide-react';
 import { api } from '../../api';
-import { Conversation, ConversationSummaryResult, Channel, Product } from '../../types';
+import { Conversation, ConversationSummaryResult, Channel, Product, Order } from '../../types';
 import { BrowserAudioRecorder, blobToBase64 } from '../../utils/audioRecorder';
-import { CustomerFraudBadge } from './CustomerFraudBadge';
 import { CustomerDetailsPanel } from './CustomerDetailsPanel';
 
 interface UnifiedInboxProps {
@@ -176,7 +182,6 @@ const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
     return <FacebookLogo className={badgeIconSize} />;
   };
 
-  // If customerAvatar exists or dicebear fallback for named customer
   const displayAvatar =
     customerAvatar ||
     (customerName && !customerName.startsWith('Messenger User') && !customerName.startsWith('Instagram User')
@@ -219,6 +224,112 @@ const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
   );
 };
 
+// WhatsApp / Telegram Style Waveform Voice Player
+const VoiceWaveformPlayer: React.FC<{
+  audioSrc: string;
+  isOutbound: boolean;
+}> = ({ audioSrc, isOutbound }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [speed, setSpeed] = useState<1 | 1.5 | 2>(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  const cycleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+    setSpeed(nextSpeed);
+    if (audioRef.current) audioRef.current.playbackRate = nextSpeed;
+  };
+
+  const formatSec = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 p-2 rounded-xl my-1.5 max-w-xs ${
+        isOutbound
+          ? 'bg-black/20 text-white border border-white/10'
+          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700'
+      }`}
+    >
+      <audio
+        ref={audioRef}
+        src={audioSrc}
+        onTimeUpdate={() => {
+          if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+        }}
+        onLoadedMetadata={() => {
+          if (audioRef.current) setDuration(audioRef.current.duration || 0);
+        }}
+        onEnded={() => setIsPlaying(false)}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-xs cursor-pointer ${
+          isOutbound ? 'bg-white text-[#7F22FE]' : 'bg-[#7F22FE] text-white'
+        }`}
+      >
+        {isPlaying ? <PauseCircle className="w-4 h-4 fill-current" /> : <PlayCircle className="w-4 h-4 fill-current ml-0.5" />}
+      </button>
+
+      {/* Waveform visual bars */}
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-0.5 h-5">
+          {[40, 75, 55, 90, 60, 30, 80, 100, 70, 45, 85, 60, 35, 95, 50, 75, 40].map((h, i) => {
+            const progressRatio = duration > 0 ? currentTime / duration : 0;
+            const barRatio = i / 17;
+            const isFilled = barRatio <= progressRatio;
+            return (
+              <span
+                key={i}
+                style={{ height: `${h}%` }}
+                className={`w-1 rounded-full transition-colors ${
+                  isFilled
+                    ? isOutbound
+                      ? 'bg-white'
+                      : 'bg-[#7F22FE]'
+                    : isOutbound
+                    ? 'bg-white/40'
+                    : 'bg-neutral-300 dark:bg-neutral-600'
+                }`}
+              />
+            );
+          })}
+        </div>
+        <div className="flex justify-between text-[10px] opacity-75 font-mono">
+          <span>{formatSec(currentTime)}</span>
+          <span>{formatSec(duration || 0)}</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        className="px-1.5 py-0.5 rounded text-[10px] font-black bg-black/10 dark:bg-white/10 hover:bg-black/20 cursor-pointer"
+        title="Playback Speed"
+      >
+        {speed}x
+      </button>
+    </div>
+  );
+};
+
 export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   channels,
   onNavigate,
@@ -249,6 +360,26 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   const [inboxToast, setInboxToast] = useState<string | null>(null);
 
+  // Products from inventory
+  const [products, setProducts] = useState<Product[]>([]);
+  const [showProductPickerModal, setShowProductPickerModal] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+
+  // Quick Order Creator Modal state
+  const [showQuickOrderModal, setShowQuickOrderModal] = useState(false);
+  const [quickOrderCustomer, setQuickOrderCustomer] = useState<{ name: string; phone: string; address: string }>({
+    name: '',
+    phone: '',
+    address: ''
+  });
+  const [quickOrderProduct, setQuickOrderProduct] = useState('');
+  const [quickOrderQty, setQuickOrderQty] = useState(1);
+  const [quickOrderPrice, setQuickOrderPrice] = useState(1000);
+  const [quickOrderZone, setQuickOrderZone] = useState<'inside_dhaka' | 'outside_dhaka' | 'free'>('inside_dhaka');
+  const [quickOrderPaymentMethod, setQuickOrderPaymentMethod] = useState<'cod' | 'bkash' | 'nagad'>('cod');
+  const [quickOrderAdvance, setQuickOrderAdvance] = useState(0);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+
   // Direct Composer Media (Image / Video from device storage) & WhatsApp-style Voice state
   const [replyMedia, setReplyMedia] = useState<{
     type: 'image' | 'video';
@@ -277,6 +408,30 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [blockedCustomers, setBlockedCustomers] = useState<string[]>([]);
   const [showHeaderActionsMenu, setShowHeaderActionsMenu] = useState(false);
 
+  // Canned Responses
+  const cannedTemplates = [
+    {
+      label: '📦 ডেলিভারি চার্জ',
+      text: 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে ৬০ টাকা (২৪ ঘণ্টার মধ্যে ডেলিভারি) এবং ঢাকা সিটির বাইরে ১২০ টাকা (৪৮-৭২ ঘণ্টার মধ্যে ডেলিভারি)। ক্যাশ অন ডেলিভারি সুবিধা রয়েছে!'
+    },
+    {
+      label: '💳 বিকাশ পেমেন্ট',
+      text: 'বিকাশে পেমেন্ট করতে আমাদের মার্চেন্ট নম্বরে Payment অপশন সিলেক্ট করুন: 01700000000। পেমেন্ট শেষে ট্রানজেকশন আইডি বা স্ক্রিনশট পাঠিয়ে নিশ্চিত করুন।'
+    },
+    {
+      label: '✅ অর্ডার কনফার্ম ফরম',
+      text: 'অর্ডারটি কনফার্ম করতে অনুগ্রহ করে আপনার ১) পূর্ণ নাম, ২) ডেলিভারি ঠিকানা (থানা ও জেলা সহ), এবং ৩) সচল ফোন নম্বরটি লিখে পাঠান।'
+    },
+    {
+      label: '🚚 কুরিয়ার ট্র্যাকিং',
+      text: 'আপনার অর্ডারটি স্টিডফাস্ট কুরিয়ারে বুকিং সম্পন্ন হয়েছে! কুরিয়ার থেকে ট্র্যাকিং লিংক সম্বলিত SMS পেয়ে যাবেন।'
+    },
+    {
+      label: '🕒 শপ টাইম',
+      text: 'আমাদের কাস্টমার সাপোর্ট প্রতিদিন সকাল ৯টা থেকে রাত ১১টা পর্যন্ত সচল থাকে। যেকোনো তথ্যের জন্য সরাসরি মেসেজ দিন।'
+    }
+  ];
+
   useEffect(() => {
     api
       .getAutomationSettings()
@@ -284,6 +439,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         if (res.settings) {
           setPausedCustomers(res.settings.paused_customers || []);
           setBlockedCustomers(res.settings.blocked_customers || []);
+        }
+      })
+      .catch(() => {});
+
+    api
+      .getProducts()
+      .then((res) => {
+        if (res.products && res.products.length > 0) {
+          setProducts(res.products);
+          setQuickOrderProduct(res.products[0].name);
+          setQuickOrderPrice(res.products[0].price);
         }
       })
       .catch(() => {});
@@ -331,16 +497,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   useEffect(() => {
     loadInbox();
-    // Fast 3-second background polling for live incoming WhatsApp/Messenger messages
+    // 3-second live background polling
     const livePollTimer = setInterval(() => {
-      api.getInbox({
-        category: selectedCategory !== 'all' ? selectedCategory : undefined
-      }).then((res) => {
-        setConversations(res.conversations);
-        if (res.categoryCounts) {
-          setCategoryCounts(res.categoryCounts);
-        }
-      }).catch(() => {});
+      api
+        .getInbox({
+          category: selectedCategory !== 'all' ? selectedCategory : undefined
+        })
+        .then((res) => {
+          setConversations(res.conversations);
+          if (res.categoryCounts) {
+            setCategoryCounts(res.categoryCounts);
+          }
+        })
+        .catch(() => {});
     }, 3000);
 
     return () => clearInterval(livePollTimer);
@@ -520,13 +689,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
-  const handleSendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedConv || (!replyText.trim() && !replyMedia) || sendingReply) return;
+  const handleSendReply = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    const textToSend = (customText !== undefined ? customText : replyText).trim();
+    if (!selectedConv || (!textToSend && !replyMedia) || sendingReply) return;
 
     try {
       setSendingReply(true);
-      const text = replyText.trim();
       const mediaToSend = replyMedia;
       setReplyText('');
       setReplyMedia(null);
@@ -536,7 +705,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         customerName: selectedConv.customerName,
         platform: selectedConv.platform,
         channelId: selectedConv.channelId,
-        messageText: text || undefined,
+        messageText: textToSend || undefined,
         imageBase64: mediaToSend?.type === 'image' ? mediaToSend.base64 : undefined,
         imageMimeType: mediaToSend?.type === 'image' ? mediaToSend.mimeType : undefined,
         videoBase64: mediaToSend?.type === 'video' ? mediaToSend.base64 : undefined,
@@ -552,9 +721,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
-  const handleQuickSendProduct = async (product: { name: string; price: number }) => {
+  const handleQuickSendProduct = async (product: { name: string; price: number; image_url?: string; description?: string }) => {
     if (!selectedConv || sendingReply) return;
-    const text = `✨ ${product.name}\n💰 Price: ৳${product.price.toLocaleString()} BDT\n📦 In Stock — Reply with your Name, Phone & Address to confirm your order!`;
+    const text = `🛍️ *${product.name}*\n💰 মূল্য: ৳${product.price.toLocaleString()} BDT\n📦 ইন-স্টক এভেইলেবল!\n${product.description ? `${product.description}\n` : ''}অর্ডার করতে আপনার নাম, ডেলিভারি ঠিকানা এবং ফোন নম্বর লিখে মেসেজ দিন।`;
+
     try {
       setSendingReply(true);
       await api.sendReply({
@@ -564,13 +734,87 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         channelId: selectedConv.channelId,
         messageText: text
       });
+      setShowProductPickerModal(false);
       await loadInbox();
       scrollToBottom();
+      setInboxToast(`✅ ${product.name} কার্ড পাঠানো হয়েছে!`);
+      setTimeout(() => setInboxToast(null), 3000);
     } catch (err) {
       console.error('Failed to send product info:', err);
     } finally {
       setSendingReply(false);
     }
+  };
+
+  // Create Quick Order directly from Inbox
+  const handleCreateQuickOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedConv || submittingOrder) return;
+
+    const deliveryFee = quickOrderZone === 'inside_dhaka' ? 60 : quickOrderZone === 'outside_dhaka' ? 120 : 0;
+    const totalAmount = quickOrderPrice * quickOrderQty + deliveryFee - quickOrderAdvance;
+
+    try {
+      setSubmittingOrder(true);
+      const created = await api.createOrder({
+        customer_name: quickOrderCustomer.name || selectedConv.customerName,
+        customer_phone: quickOrderCustomer.phone || selectedConv.customerPhone || selectedConv.customerId,
+        customer_address: quickOrderCustomer.address || selectedConv.customerAddress || '',
+        platform: selectedConv.platform as any,
+        channel_id: selectedConv.channelId,
+        items: `${quickOrderProduct} x ${quickOrderQty}`,
+        quantity: quickOrderQty,
+        total_amount: totalAmount,
+        currency: 'BDT',
+        payment_method: quickOrderPaymentMethod,
+        payment_status: quickOrderAdvance > 0 ? 'paid' : 'pending',
+        status: 'confirmed',
+        order_source: 'manual',
+        advance_paid_amount: quickOrderAdvance
+      });
+
+      // Send confirmation message to customer chat
+      const confirmText = `🎉 আপনার অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে!\n📦 অর্ডার আইডি: #${created.order.id.substring(0, 10)}\n🛍️ পণ্য: ${quickOrderProduct} (${quickOrderQty} টি)\n💰 মোট প্রদেয়: ৳${totalAmount.toLocaleString()} BDT (${quickOrderPaymentMethod === 'cod' ? 'ক্যাশ অন ডেলিভারি' : quickOrderPaymentMethod.toUpperCase()})\n🚚 ডেলিভারি ঠিকানা: ${quickOrderCustomer.address || 'Dhaka'}\n📞 ফোন: ${quickOrderCustomer.phone || selectedConv.customerId}\nআমাদের কুরিয়ার টিম শীঘ্রই পার্সেলটি পাঠিয়ে ট্র্যাকিং কোড SMS করবে। ধন্যবাদ! ❤️`;
+
+      await api.sendReply({
+        customerId: selectedConv.customerId,
+        customerName: selectedConv.customerName,
+        platform: selectedConv.platform,
+        channelId: selectedConv.channelId,
+        messageText: confirmText
+      });
+
+      setShowQuickOrderModal(false);
+      await loadInbox();
+      scrollToBottom();
+      setInboxToast('✅ অর্ডার কনফার্ম করে চ্যাটে পাঠিয়ে দেওয়া হয়েছে!');
+      setTimeout(() => setInboxToast(null), 3500);
+    } catch (err: any) {
+      console.error('Failed to create quick order:', err);
+      setInboxToast(err?.message || 'Failed to create order');
+      setTimeout(() => setInboxToast(null), 3500);
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
+
+  // AI Smart Suggestion
+  const handleGenerateAiSmartReply = () => {
+    if (!selectedConv) return;
+    const lastMsg = selectedConv.lastMessage.message_text.toLowerCase();
+    let smartSuggestion = 'ধন্যবাদ আপনার মেসেজের জন্য! আমাদের প্রডাক্টটি স্টকে রয়েছে। অর্ডারটি কনফার্ম করতে অনুগ্রহ করে আপনার ১) পূর্ণ নাম, ২) ডেলিভারি ঠিকানা এবং ৩) ফোন নম্বর লিখে পাঠান।';
+
+    if (lastMsg.includes('price') || lastMsg.includes('দাম') || lastMsg.includes('dam') || lastMsg.includes('koto')) {
+      smartSuggestion = 'স্যার/ম্যাম, আমাদের পণ্যের বিশেষ মূল্য চলছে। সাথে ক্যাশ অন ডেলিভারি সুবিধা রয়েছে। আপনি কয়টি পিস নিতে চাচ্ছেন জানাবেন?';
+    } else if (lastMsg.includes('delivery') || lastMsg.includes('ডেলিভারি') || lastMsg.includes('charge')) {
+      smartSuggestion = 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে ৬০ টাকা (২৪ ঘণ্টার মধ্যে ডেলিভারি) এবং ঢাকা সিটির বাইরে ১২০ টাকা (৪৮-৭২ ঘণ্টার মধ্যে ডেলিভারি)।';
+    } else if (lastMsg.includes('order') || lastMsg.includes('অর্ডার') || lastMsg.includes('নিব') || lastMsg.includes('চাই')) {
+      smartSuggestion = 'অর্ডারটি গ্রহণ করার জন্য ধন্যবাদ! আপনার নাম, ডেলিভারি ঠিকানা এবং সচল মোবাইল নম্বরটি দিলে আমরা আজই পার্সেলটি পাঠিয়ে দেব।';
+    }
+
+    setReplyText(smartSuggestion);
+    setInboxToast('✨ AI Smart Reply ড্রাফট করা হয়েছে!');
+    setTimeout(() => setInboxToast(null), 2500);
   };
 
   // Filter conversations
@@ -581,17 +825,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       return (
         c.customerName.toLowerCase().includes(q) ||
         c.customerId.toLowerCase().includes(q) ||
+        (c.customerPhone && c.customerPhone.toLowerCase().includes(q)) ||
         c.lastMessage.message_text.toLowerCase().includes(q)
       );
     }
     return true;
   });
-
-  const quickReplies = [
-    { label: '📦 Delivery Info', text: 'Inside Dhaka delivery is 60 TK (24h) and Outside Dhaka is 120 TK (48-72h). Cash on Delivery is available!' },
-    { label: '✅ Confirm Order', text: 'Thank you! Please share your Full Name, 11-digit Phone Number, and full Delivery Address so we can dispatch your parcel today.' },
-    { label: '🚚 Courier Status', text: 'Your order has been booked with Steadfast Courier! You will receive an SMS tracking link shortly.' }
-  ];
 
   const getPlatformIcon = (platform: 'whatsapp' | 'messenger' | 'instagram' | string, className = 'w-3.5 h-3.5') => {
     if (platform === 'whatsapp') return <WhatsAppLogo className={className} />;
@@ -599,16 +838,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     if (platform === 'instagram') return <InstagramLogo className={className} />;
     return <FacebookLogo className={className} />;
   };
-
-  const getPlatformBadgeStyle = (platform: 'whatsapp' | 'messenger' | 'instagram' | string) => {
-    if (platform === 'whatsapp') return 'bg-emerald-500 text-white';
-    if (platform === 'messenger') return 'bg-blue-600 text-white';
-    return 'bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 text-white';
-  };
-
-  const aiReplyCountInThread = selectedConv
-    ? selectedConv.messages.filter((m) => m.is_ai_reply).length
-    : 0;
 
   return (
     <div className="flex-1 min-h-0 h-full rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 shadow-sm flex flex-col md:flex-row overflow-hidden">
@@ -621,12 +850,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         } w-full md:w-80 lg:w-[320px] h-full min-h-0 flex-1 md:flex-none border-b md:border-b-0 md:border-r border-neutral-200/80 dark:border-neutral-800 flex-col shrink-0 bg-neutral-50/50 dark:bg-neutral-900/60 overflow-hidden`}
       >
         {/* Sidebar Top Header */}
-        {/* Sidebar Top Header (Ultra Clean LazyChat Style) */}
         <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800 space-y-2 bg-white dark:bg-neutral-900 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-extrabold text-neutral-900 dark:text-white tracking-tight">
-                Inbox
+                Live Omnichannel Inbox
               </h2>
               <span className="px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 text-[#7F22FE] dark:text-purple-300 text-[10px] font-bold">
                 {filteredConversations.length}
@@ -651,31 +879,64 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
-
             </div>
           </div>
 
-          {/* Clean Search Bar */}
+          {/* Search Bar */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search by name, phone, message..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-hidden focus:bg-white dark:focus:bg-neutral-800 focus:ring-1.5 focus:ring-[#7F22FE]/40 transition-all"
             />
           </div>
 
-          {/* Single Sleek Channel Tabs Row */}
+          {/* Categories Filter (All | Orders | Delivered | New) */}
+          <div className="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`px-2 py-0.5 rounded-lg whitespace-nowrap cursor-pointer transition-colors ${
+                selectedCategory === 'all'
+                  ? 'bg-[#7F22FE] text-white shadow-2xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              All ({categoryCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('orders')}
+              className={`px-2 py-0.5 rounded-lg whitespace-nowrap cursor-pointer transition-colors ${
+                selectedCategory === 'orders'
+                  ? 'bg-purple-600 text-white shadow-2xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              Orders ({categoryCounts.orders})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('delivered')}
+              className={`px-2 py-0.5 rounded-lg whitespace-nowrap cursor-pointer transition-colors ${
+                selectedCategory === 'delivered'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              Delivered ({categoryCounts.delivered})
+            </button>
+          </div>
+
+          {/* Platform Tabs: All | WhatsApp | Messenger | Instagram */}
           <div className="grid grid-cols-4 gap-1 p-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-xl text-[11px] font-bold">
             <button
-              onClick={() => {
-                setFilterPlatform('all');
-                setSelectedCategory('all');
-              }}
+              onClick={() => setFilterPlatform('all')}
               className={`py-1 px-1 rounded-lg text-center transition-all cursor-pointer ${
-                filterPlatform === 'all' && selectedCategory === 'all'
+                filterPlatform === 'all'
                   ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs'
                   : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
               }`}
@@ -730,7 +991,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               </div>
               <p className="font-semibold text-neutral-700 dark:text-neutral-300">No conversations found</p>
               <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                Incoming messages from your connected channels will appear here automatically.
+                Incoming messages from your WhatsApp, Messenger &amp; Instagram channels will appear here automatically.
               </p>
             </div>
           ) : (
@@ -755,7 +1016,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       : 'border-l-transparent hover:bg-neutral-100/60 dark:hover:bg-neutral-800/40'
                   }`}
                 >
-                  {/* Clean Avatar */}
                   <CustomerAvatar
                     customerName={c.customerName}
                     customerAvatar={c.customerAvatar}
@@ -764,7 +1024,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     isSelected={isSelected}
                   />
 
-                  {/* Clean Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <span
@@ -777,7 +1036,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         {c.customerName}
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
-                        {starredConvs[c.customerId] && (
+                        {c.isStarred && (
                           <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
                         )}
                         <span className="text-[10px] text-neutral-400 font-medium">
@@ -791,11 +1050,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         {c.lastMessage.is_ai_reply && (
                           <span className="text-[#7F22FE] font-bold mr-1">AI:</span>
                         )}
-                        {c.lastMessage.message_text || (c.lastMessage.has_voice ? '🎤 Voice message' : '📷 Photo')}
+                        {c.lastMessage.message_text || (c.lastMessage.has_voice ? '🎤 Voice note' : '📷 Photo')}
                       </p>
-                      {/* At most ONE subtle badge if special status */}
                       {c.requiresHumanAttention ? (
-                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Needs Review" />
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Needs Attention" />
                       ) : c.orderCategory === 'orders' ? (
                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-[#7F22FE] shrink-0">
                           Order
@@ -820,15 +1078,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       >
         {selectedConv ? (
           <>
-            {/* Thread Header: Clean LazyChat Style with 1 single 3-dot (···) button */}
-            <div className="px-4 py-2.5 border-b border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shrink-0 flex items-center justify-between gap-3">
-              {/* Left: Avatar + Name + Subtitle */}
+            {/* Header: Customer Info + Real-Time Quick Action Tools */}
+            <div className="px-4 py-2.5 border-b border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shrink-0 flex items-center justify-between gap-2 flex-wrap">
+              {/* Left: Avatar + Customer Name + Channel */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
                   onClick={() => setMobileShowThread(false)}
                   className="md:hidden p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
-                  title="Back to conversation list"
+                  title="Back"
                 >
                   ←
                 </button>
@@ -852,19 +1110,46 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                     {getPlatformIcon(selectedConv.platform, 'w-3 h-3 shrink-0')}
                     <span className="capitalize">{selectedConv.platform}</span>
-                    {selectedConv.customerId && (
-                      <>
-                        <span>•</span>
-                        <span className="font-mono text-[10px] truncate max-w-[140px]">{selectedConv.customerId}</span>
-                      </>
-                    )}
+                    <span>•</span>
+                    <span className="font-mono text-[10px] truncate max-w-[140px]">
+                      {selectedConv.customerPhone || selectedConv.customerId}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Right: AI Mode Pill + Single 3-Dot Dropdown (···) */}
-              <div className="flex items-center gap-2 shrink-0 relative">
-                {/* AI / Human Mode Toggle Pill */}
+              {/* Right: Quick Action Buttons & Mode Pill */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* 1. Quick Order Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickOrderCustomer({
+                      name: selectedConv.customerName,
+                      phone: selectedConv.customerPhone || selectedConv.customerId,
+                      address: selectedConv.customerAddress || ''
+                    });
+                    setShowQuickOrderModal(true);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-[#7F22FE] hover:bg-[#6D28D9] text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                  title="Create Order directly from chat"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Quick Order</span>
+                </button>
+
+                {/* 2. Send Catalog Product */}
+                <button
+                  type="button"
+                  onClick={() => setShowProductPickerModal(true)}
+                  className="px-2.5 py-1 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Pick and send a product card"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#7F22FE]" />
+                  <span className="hidden sm:inline">Send Product</span>
+                </button>
+
+                {/* 3. AI Mode Toggle Pill */}
                 <button
                   type="button"
                   onClick={() =>
@@ -896,13 +1181,27 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   </span>
                 </button>
 
-                {/* Single 3-Dot (···) More Menu with all actions */}
+                {/* 4. Toggle Customer CRM Sidebar */}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomerDetails((prev) => !prev)}
+                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                    showCustomerDetails
+                      ? 'bg-violet-50 dark:bg-violet-950 border-[#7F22FE] text-[#7F22FE]'
+                      : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100'
+                  }`}
+                  title="Toggle Customer CRM Panel"
+                >
+                  <PanelRight className="w-4 h-4" />
+                </button>
+
+                {/* 5. More Actions (···) */}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowHeaderActionsMenu((prev) => !prev)}
                     className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                    title="More actions"
+                    title="More options"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
@@ -914,53 +1213,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         onClick={() => setShowHeaderActionsMenu(false)}
                       />
                       <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
-                        {/* 1. Toggle Customer Details CRM Panel */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowHeaderActionsMenu(false);
-                            setShowCustomerDetails((prev) => !prev);
-                          }}
-                          className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
-                        >
-                          <PanelRight className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
-                          <span>{showCustomerDetails ? 'Hide Customer Panel' : 'Show Customer Panel'}</span>
-                        </button>
-
-                        {/* 2. Copy Customer ID */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowHeaderActionsMenu(false);
-                            handleCopyCustomerId(selectedConv.customerId);
-                          }}
-                          className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
-                        >
-                          {copiedId ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
-                          )}
-                          <span>Copy Customer ID</span>
-                        </button>
-
-                        {/* 3. Star Customer */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowHeaderActionsMenu(false);
-                            setStarredConvs((prev) => ({
-                              ...prev,
-                              [selectedConv.customerId]: !prev[selectedConv.customerId]
-                            }));
-                          }}
-                          className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
-                        >
-                          <Star className={`w-3.5 h-3.5 shrink-0 ${starredConvs[selectedConv.customerId] ? 'fill-amber-400 text-amber-500' : 'text-neutral-500'}`} />
-                          <span>{starredConvs[selectedConv.customerId] ? 'Starred Client' : 'Mark as Starred'}</span>
-                        </button>
-
-                        {/* 4. AI Summary */}
                         <button
                           type="button"
                           onClick={() => {
@@ -973,7 +1225,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           <span>AI Conversation Summary</span>
                         </button>
 
-                        {/* 5. Clear / Delete thread */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowHeaderActionsMenu(false);
+                            handleCopyCustomerId(selectedConv.customerId);
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                          <span>Copy Customer ID</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => {
@@ -992,215 +1255,43 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               </div>
             </div>
 
-            {/* Needs Review: Sleek inline hint without loud banner */}
-            {selectedConv.requiresHumanAttention && !pausedCustomers.includes(selectedConv.customerId) && (
-              <div className="bg-amber-50/80 dark:bg-amber-950/40 border-b border-amber-200/50 dark:border-amber-800/40 px-4 py-1.5 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shrink-0">
-                <span className="text-[11px] font-semibold flex items-center gap-1.5 truncate">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  <span>Customer inquiry needs human takeover</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleCustomerControl(selectedConv.customerId, 'pause_ai')}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer shrink-0"
-                >
-                  Take Over
-                </button>
-              </div>
-            )}
-
-            {/* Collapsible Conversation Summary & Stage Analysis Banner */}
+            {/* AI Summary Banner if expanded */}
             {showSummaryPanel && (
-              <div className="border-b border-violet-200/80 dark:border-violet-900/60 bg-gradient-to-br from-violet-50/90 via-white to-purple-50/60 dark:from-violet-950/40 dark:via-neutral-900 dark:to-neutral-900 px-4 sm:px-5 py-3.5 space-y-3 max-h-[52vh] overflow-y-auto">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center shadow-xs shadow-[#7F22FE]/25 shrink-0">
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
-                        <span>AI Conversation Summary &amp; Stage</span>
-                        {conversationSummary && (
-                          <span
-                            className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                              conversationSummary.stageKey === 'delivered'
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/60'
-                                : conversationSummary.stageKey === 'order_confirmed'
-                                ? 'bg-purple-100 text-[#7F22FE] dark:bg-purple-950/70 dark:text-purple-300 border border-purple-300/60'
-                                : conversationSummary.stageKey === 'awaiting_order_details'
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/60'
-                                : 'bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300/60'
-                            }`}
-                          >
-                            {conversationSummary.stageLabel}
-                          </span>
-                        )}
-                      </h4>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        Detailed report of what was discussed with the customer and the current stage of the chat
-                      </p>
-                    </div>
+              <div className="border-b border-violet-200 dark:border-violet-900 bg-violet-50/90 dark:bg-neutral-900 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
+                    <Sparkles className="w-4 h-4 text-[#7F22FE]" />
+                    <span>AI Conversation Summary &amp; Intent</span>
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleSummarizeConversation}
-                      disabled={summarizing}
-                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold text-neutral-700 dark:text-neutral-200 hover:border-[#7F22FE] hover:text-[#7F22FE] transition-colors flex items-center gap-1 cursor-pointer"
-                      title="Re-generate Summary"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${summarizing ? 'animate-spin' : ''}`} />
-                      <span className="hidden sm:inline">Refresh</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowSummaryPanel(false)}
-                      className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
-                      title="Close Summary"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSummaryPanel(false)}
+                    className="p-1 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-
-                {summarizing && !conversationSummary ? (
-                  <div className="py-5 flex items-center justify-center gap-2.5 text-xs font-bold text-[#7F22FE] dark:text-purple-300">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Analyzing full customer conversation and generating stage summary...</span>
-                  </div>
+                {summarizing ? (
+                  <p className="text-xs text-[#7F22FE] flex items-center gap-1.5">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>Analyzing full customer conversation...</span>
+                  </p>
                 ) : conversationSummary ? (
-                  <div className="space-y-3">
-                    {/* 4-Step Conversation Stage Progress Bar */}
-                    <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span className="text-neutral-500 dark:text-neutral-400">
-                          Current Conversation Stage:
-                        </span>
-                        <span className="text-[#7F22FE] dark:text-purple-300">
-                          Step {conversationSummary.stageStep}/4 — {conversationSummary.stageLabel}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold">
-                        {[
-                          { step: 1, label: '1. New Inquiry' },
-                          { step: 2, label: '2. Price & Details' },
-                          { step: 3, label: '3. Awaiting Info' },
-                          {
-                            step: 4,
-                            label:
-                              conversationSummary.stageKey === 'delivered'
-                                ? '4. Delivered'
-                                : '4. Order Confirmed'
-                          }
-                        ].map((item) => {
-                          const isDone = conversationSummary.stageStep >= item.step;
-                          const isCurrent = conversationSummary.stageStep === item.step;
-                          return (
-                            <div
-                              key={item.step}
-                              className={`px-2 py-1.5 rounded-lg text-center border transition-all ${
-                                isCurrent
-                                  ? 'bg-[#7F22FE] text-white border-[#7F22FE] shadow-2xs'
-                                  : isDone
-                                  ? 'bg-violet-100/80 dark:bg-violet-950/60 text-[#7F22FE] dark:text-purple-300 border-violet-200 dark:border-violet-800'
-                                  : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-400 border-neutral-200/60 dark:border-neutral-800'
-                              }`}
-                            >
-                              {item.label}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                        {conversationSummary.stageDescription}
-                      </p>
-                    </div>
-
-                    {/* Main Conversation Summary & Key Points */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-                      <div className="lg:col-span-2 p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2">
-                        <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                          <MessageSquare className="w-3.5 h-3.5 text-[#7F22FE]" />
-                          <span>Conversation Summary:</span>
-                        </div>
-                        <p className="text-xs text-neutral-700 dark:text-neutral-200 leading-relaxed">
-                          {conversationSummary.summaryText}
-                        </p>
-                        {conversationSummary.keyPoints.length > 0 && (
-                          <ul className="space-y-1 pt-1 border-t border-neutral-100 dark:border-neutral-700/60">
-                            {conversationSummary.keyPoints.map((pt, idx) => (
-                              <li
-                                key={idx}
-                                className="text-[11px] text-neutral-600 dark:text-neutral-300 flex items-start gap-1.5"
-                              >
-                                <span className="text-[#7F22FE] font-bold mt-0.5">•</span>
-                                <span>{pt}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Extracted Details & Recommended Next Action */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2 flex flex-col justify-between">
-                        <div className="space-y-1.5">
-                          <div className="text-[11px] font-extrabold text-neutral-800 dark:text-neutral-200">
-                            Detected Customer Info:
-                          </div>
-                          <div className="text-[11px] text-neutral-600 dark:text-neutral-300 space-y-1">
-                            <div>
-                              <span className="font-bold text-neutral-500">Topic / Intent: </span>
-                              <span className="font-semibold text-neutral-900 dark:text-white">
-                                {conversationSummary.customerIntent}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-bold text-neutral-500">Phone Number: </span>
-                              <span className="font-mono font-semibold text-neutral-900 dark:text-white">
-                                {conversationSummary.extractedPhone || 'Not provided yet'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-bold text-neutral-500">Address: </span>
-                              <span className="text-neutral-800 dark:text-neutral-200">
-                                {conversationSummary.extractedAddress || 'Not provided yet'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-bold text-neutral-500">Message Count: </span>
-                              <span>
-                                Total {conversationSummary.stats.totalMessages} (Customer:{' '}
-                                {conversationSummary.stats.customerMessages}, AI:{' '}
-                                {conversationSummary.stats.aiReplies})
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-neutral-100 dark:border-neutral-700/60">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-0.5">
-                            Recommended Next Action:
-                          </span>
-                          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
-                            {conversationSummary.nextAction}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="text-xs space-y-1.5 text-neutral-700 dark:text-neutral-300">
+                    <p className="font-semibold">{conversationSummary.summaryText}</p>
+                    <p className="text-[11px] text-neutral-500">
+                      <strong>Next Action:</strong> {conversationSummary.nextAction}
+                    </p>
                   </div>
                 ) : null}
               </div>
             )}
 
-            {/* Messages Thread Container */}
+            {/* Messages Thread Stream */}
             <div
               ref={threadContainerRef}
               className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-3.5 bg-neutral-50/50 dark:bg-neutral-950/40"
             >
-              {/* Clean Date Divider */}
               <div className="flex justify-center my-2">
                 <span className="text-[10px] font-semibold tracking-wider uppercase text-neutral-400 bg-white/80 dark:bg-neutral-900/80 px-2.5 py-1 rounded-full border border-neutral-200/60 dark:border-neutral-800 shadow-2xs">
                   Chat History
@@ -1219,7 +1310,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     key={m.id}
                     className={`flex items-end gap-2.5 ${isOutbound ? 'justify-end' : 'justify-start'}`}
                   >
-                    {/* Customer Avatar for Inbound */}
                     {!isOutbound && (
                       <div className="mb-4 shrink-0">
                         <CustomerAvatar
@@ -1242,7 +1332,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                             : 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-bl-xs border border-neutral-200/80 dark:border-neutral-700/80 shadow-2xs'
                         }`}
                       >
-                        {/* Sender Header inside Outbound Bubble */}
+                        {/* Header for Outbound Bubble */}
                         {isOutbound && (
                           <div className="flex items-center justify-between gap-3 text-[10px] font-bold opacity-90 mb-1 pb-1 border-b border-white/15 dark:border-neutral-700/30">
                             <span className="flex items-center gap-1">
@@ -1254,27 +1344,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                               ) : (
                                 <>
                                   <User className="w-3 h-3" />
-                                  <span>Merchant Agent</span>
+                                  <span>Merchant Moderator</span>
                                 </>
                               )}
                             </span>
                             {m.is_ai_reply && (
-                              <span className="flex items-center gap-1.5 opacity-90 font-normal">
-                                {m.requires_human_attention && (
-                                  <span className="text-amber-300 font-bold flex items-center gap-0.5">
-                                    <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
-                                    Hold / Needs Review
-                                  </span>
-                                )}
-                                <span className="opacity-75">Auto-Replied</span>
-                              </span>
+                              <span className="opacity-75">Auto-Replied</span>
                             )}
                           </div>
                         )}
 
-                        {/* Attached Product Photo or Sent Image */}
+                        {/* Image Attachment */}
                         {(m.has_image || m.image_url || m.image_base64) && (
-                          <div className="mb-2.5">
+                          <div className="mb-2">
                             <div
                               onClick={() =>
                                 setPreviewImageUrl(
@@ -1284,7 +1366,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                                       : null)
                                 )
                               }
-                              className="relative group rounded-xl overflow-hidden cursor-pointer border border-white/20 dark:border-neutral-700 shadow-xs max-w-xs"
+                              className="relative group rounded-xl overflow-hidden cursor-pointer border border-white/20 dark:border-neutral-700 max-w-xs"
                             >
                               <img
                                 src={
@@ -1294,90 +1376,36 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                                     : '')
                                 }
                                 alt="Attachment"
-                                className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300"
+                                className="w-full h-44 object-cover group-hover:scale-105 transition-transform"
                               />
-                              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                                <ImageIcon className="w-4 h-4" />
-                                Click to Enlarge
-                              </div>
                             </div>
-                            <span className="text-[10px] opacity-80 block mt-1">
-                              {isOutbound
-                                ? m.is_ai_reply
-                                  ? 'Official Product Photo Attached by AI'
-                                  : 'Sent Photo'
-                                : 'Customer Sent Product Picture'}
-                            </span>
-
-                            {/* Additional Attached Product Photos (if multiple products sent) */}
-                            {m.attached_images && m.attached_images.length > 1 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2 max-w-xs">
-                                {m.attached_images.slice(1, 5).map((extraImg, idx) => (
-                                  <div
-                                    key={idx}
-                                    onClick={() => setPreviewImageUrl(extraImg)}
-                                    className="relative group rounded-lg overflow-hidden cursor-pointer border border-white/20 dark:border-neutral-700 w-14 h-14 shrink-0 shadow-2xs"
-                                  >
-                                    <img
-                                      src={extraImg}
-                                      alt={`Attachment ${idx + 2}`}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                    />
-                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
-                                      View
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         )}
 
-                        {/* Attached Video */}
+                        {/* Video Attachment */}
                         {m.has_video && m.video_base64 && (
-                          <div className="mb-2.5">
+                          <div className="mb-2">
                             <video
                               controls
-                              className="w-full max-w-xs max-h-56 rounded-xl border border-white/20 dark:border-neutral-700 bg-black"
+                              className="w-full max-w-xs max-h-56 rounded-xl border border-white/20 bg-black"
                               src={`data:${m.video_mime_type || 'video/mp4'};base64,${m.video_base64}`}
                             />
-                            <span className="text-[10px] opacity-80 block mt-1">
-                              {isOutbound ? 'Sent Video' : 'Customer Sent Video'}
-                            </span>
                           </div>
                         )}
 
-                        {/* Voice Message & Audio Player (Both Inbound and Outbound) */}
-                        {m.has_voice && (
-                          <div className="mb-2">
-                            <div
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                                isOutbound
-                                  ? 'bg-white/15 dark:bg-neutral-800/30 text-current'
-                                  : 'bg-[#7F22FE]/10 text-[#7F22FE]'
-                              }`}
-                            >
-                              <Mic className="w-3.5 h-3.5 animate-pulse" />
-                              <span>Voice Message</span>
-                            </div>
-
-                            {m.audio_base64 && (
-                              <div className="mt-2 mb-1">
-                                <audio
-                                  controls
-                                  className="h-8 w-56 sm:w-64 max-w-full rounded-md"
-                                  src={`data:${m.audio_mime_type || 'audio/ogg'};base64,${m.audio_base64}`}
-                                />
-                              </div>
-                            )}
-                          </div>
+                        {/* Modern Voice Message Player */}
+                        {m.has_voice && m.audio_base64 && (
+                          <VoiceWaveformPlayer
+                            audioSrc={`data:${m.audio_mime_type || 'audio/ogg'};base64,${m.audio_base64}`}
+                            isOutbound={isOutbound}
+                          />
                         )}
 
-                        {/* Audio Transcription Block */}
+                        {/* Voice Transcription */}
                         {!isOutbound && m.transcription && (
-                          <div className="text-[11px] bg-neutral-100 dark:bg-neutral-700/60 p-2.5 rounded-xl text-neutral-700 dark:text-neutral-200 mb-2 border-l-2 border-[#7F22FE]">
-                            <span className="font-bold text-neutral-500 dark:text-neutral-400 block text-[10px] mb-0.5">
-                              AI Voice Transcript:
+                          <div className="text-[11px] bg-neutral-100 dark:bg-neutral-700/60 p-2 rounded-xl mb-1.5 border-l-2 border-[#7F22FE]">
+                            <span className="font-bold block text-[10px] text-neutral-500">
+                              Voice Transcript:
                             </span>
                             <span>"{m.transcription}"</span>
                           </div>
@@ -1385,115 +1413,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
                         {/* Message Text */}
                         <p className="whitespace-pre-wrap">{m.message_text}</p>
-
-                        {/* Interactive List Button (☰ পছন্দ করুন) & Interactive Action Buttons (Order Now, আরও দেখুন, হোম পেজ) — Only for E-Commerce messages with interactive_options */}
-                        {isOutbound && m.interactive_options && (
-                          <div className="mt-3 pt-2.5 border-t border-white/20 space-y-2">
-                            {(m.interactive_options.listItems || m.interactive_options.items) &&
-                              (m.interactive_options.listItems || m.interactive_options.items)!.length > 0 && (
-                                <div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const listArr =
-                                        m.interactive_options?.listItems ||
-                                        m.interactive_options?.items ||
-                                        [];
-                                      if (openInteractiveMsgId === m.id) {
-                                        setOpenInteractiveMsgId(null);
-                                      } else {
-                                        setOpenInteractiveMsgId(m.id);
-                                        setSelectedInteractiveItem(listArr[0]?.title || '');
-                                      }
-                                    }}
-                                    className="w-full py-2 px-3 rounded-xl bg-black/25 hover:bg-black/35 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/15"
-                                  >
-                                    <span className="text-sm leading-none">☰</span>
-                                    <span>
-                                      {m.interactive_options.listButtonTitle ||
-                                        m.interactive_options.listButtonLabel ||
-                                        'পছন্দ করুন'}
-                                    </span>
-                                  </button>
-
-                                  {openInteractiveMsgId === m.id && (
-                                    <div className="mt-2 rounded-xl bg-[#182229] text-white border border-emerald-500/40 overflow-hidden shadow-xl">
-                                      <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-xs font-bold">
-                                        <button
-                                          type="button"
-                                          onClick={() => setOpenInteractiveMsgId(null)}
-                                          className="text-neutral-400 hover:text-white cursor-pointer"
-                                        >
-                                          ✕
-                                        </button>
-                                        <span>{m.interactive_options.listSectionTitle || 'পছন্দ করুন'}</span>
-                                        <span className="w-3" />
-                                      </div>
-                                      <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
-                                        {(
-                                          m.interactive_options.listItems ||
-                                          m.interactive_options.items ||
-                                          []
-                                        ).map((item, idx) => {
-                                          const isSel = selectedInteractiveItem === item.title;
-                                          return (
-                                            <label
-                                              key={item.id || idx}
-                                              onClick={() => setSelectedInteractiveItem(item.title)}
-                                              className="px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-white/5 cursor-pointer"
-                                            >
-                                              <div>
-                                                <div className="text-xs font-bold text-white">{item.title}</div>
-                                                {item.description && (
-                                                  <div className="text-[10px] text-neutral-400">{item.description}</div>
-                                                )}
-                                              </div>
-                                              <span
-                                                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                                  isSel ? 'border-[#00A884]' : 'border-neutral-500'
-                                                }`}
-                                              >
-                                                {isSel && <span className="w-2 h-2 rounded-full bg-[#00A884]" />}
-                                              </span>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                      <div className="px-3 py-2 bg-[#202C33] border-t border-white/10 flex items-center justify-between">
-                                        <span className="text-[11px] text-neutral-300 truncate">
-                                          {selectedInteractiveItem}
-                                        </span>
-                                        
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                            {m.interactive_options.buttons && m.interactive_options.buttons.length > 0 && (
-                              <div className="flex flex-col gap-1.5">
-                                {m.interactive_options.buttons.map((btn, idx) => {
-                                  const cleanLabel = String(btn.label || '').replace(/^[🛒↩️🏠☰📞\s]+/u, '');
-                                  return (
-                                    <div
-                                      key={btn.id || idx}
-                                      className="w-full py-1.5 px-3 rounded-xl bg-black/25 text-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 select-none"
-                                    >
-                                      {btn.icon === 'back' && <span>↩️</span>}
-                                      {btn.icon === 'home' && <span>🏠</span>}
-                                      {btn.icon === 'order' && <span>🛒</span>}
-                                      {btn.icon === 'list' && <span>☰</span>}
-                                      <span>{cleanLabel}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
 
-                      {/* Timestamp & Delivery Status */}
                       <div className="flex items-center gap-1 text-[10px] text-neutral-400 mt-1 px-1">
                         <span>{timeStr}</span>
                         {isOutbound && <CheckCheck className="w-3 h-3 text-[#7F22FE]" />}
@@ -1505,23 +1426,57 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Composer Footer (Pinned at bottom, direct Picture/Video upload + WhatsApp-style Voice send) */}
-            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2.5 space-y-2 shrink-0">
-              {/* Toast notification inside composer if needed */}
+            {/* =====================================================================
+                BOTTOM COMPOSER: CANNED PILLS + MEDIA/VOICE + SEND
+            ===================================================================== */}
+            <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 sm:px-4 py-2 space-y-2 shrink-0">
+              {/* Toast inside composer */}
               {inboxToast && (
-                <div className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] font-semibold text-rose-700 dark:text-rose-300 flex items-center justify-between">
+                <div className="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800 text-[11px] font-semibold text-[#7F22FE] dark:text-purple-300 flex items-center justify-between">
                   <span>{inboxToast}</span>
                   <button
                     type="button"
                     onClick={() => setInboxToast(null)}
-                    className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                    className="text-violet-400 hover:text-violet-700 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
 
-              {/* Selected Device Picture / Video Preview Strip */}
+              {/* Canned Responses Pills Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                <span className="text-[10px] font-bold text-neutral-400 flex items-center gap-0.5 shrink-0 mr-1">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  Quick:
+                </span>
+                {cannedTemplates.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setReplyText(item.text);
+                      setInboxToast(`⚡ ${item.label} ইনপুট করা হয়েছে!`);
+                      setTimeout(() => setInboxToast(null), 2000);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer shrink-0"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleGenerateAiSmartReply}
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                  title="Generate AI Polish reply"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>AI Smart Reply</span>
+                </button>
+              </div>
+
+              {/* Selected Picture / Video Preview Strip */}
               {replyMedia && (
                 <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-violet-50/80 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/60">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -1556,7 +1511,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 </div>
               )}
 
-              {/* Hidden file input for direct Device Storage Picture or Video selection */}
+              {/* Hidden file input for direct media upload */}
               <input
                 ref={replyMediaInputRef}
                 type="file"
@@ -1566,8 +1521,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               />
 
               {isReplyRecording ? (
-                /* WhatsApp-Style Live Voice Recording Bar */
-                <div className="flex items-center justify-between gap-2 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 px-3 py-2 rounded-xl">
+                /* Live Voice Recording Bar */
+                <div className="flex items-center justify-between gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-3 py-2 rounded-xl">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
                     <Mic className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
@@ -1576,7 +1531,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       {String(replyRecordingSeconds % 60).padStart(2, '0')}
                     </span>
                     <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 truncate">
-                      Recording voice for {selectedConv.platform}...
+                      Recording voice note...
                     </span>
                   </div>
 
@@ -1584,8 +1539,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <button
                       type="button"
                       onClick={handleCancelReplyVoice}
-                      className="p-2 rounded-xl bg-white dark:bg-neutral-800 text-neutral-500 hover:text-rose-600 border border-neutral-200 dark:border-neutral-700 transition-colors cursor-pointer"
-                      title="Cancel voice recording"
+                      className="p-2 rounded-xl bg-white dark:bg-neutral-800 text-neutral-500 hover:text-rose-600 border border-neutral-200 dark:border-neutral-700 cursor-pointer"
+                      title="Cancel"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1593,8 +1548,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       type="button"
                       onClick={handleSendReplyVoice}
                       disabled={sendingReply}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Send Voice Message"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>Send Voice</span>
@@ -1602,32 +1556,38 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   </div>
                 </div>
               ) : (
-                /* Standard Reply Form with Direct Device Picture/Video Picker & Voice Button */
+                /* Composer Form */
                 <form onSubmit={handleSendReply} className="flex gap-1.5 sm:gap-2 items-center">
                   <button
-                    id="direct-media-upload-btn"
                     type="button"
                     onClick={() => replyMediaInputRef.current?.click()}
                     disabled={sendingReply}
                     className="p-2 sm:p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] hover:border-[#7F22FE]/40 hover:bg-violet-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
-                    title="Send Picture or Video from device storage"
+                    title="Send Picture or Video"
                   >
                     <ImageIcon className="w-4 h-4" />
                   </button>
 
                   <button
-                    id="direct-voice-record-btn"
                     type="button"
                     onClick={handleStartReplyVoice}
                     disabled={sendingReply}
                     className="p-2 sm:p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-emerald-600 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
-                    title="Record & send voice message (WhatsApp / Messenger / Instagram)"
+                    title="Record voice note"
                   >
                     <Mic className="w-4 h-4" />
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => setShowProductPickerModal(true)}
+                    className="p-2 sm:p-2.5 rounded-xl border border-neutral-200/90 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-[#7F22FE] hover:bg-violet-50/60 transition-colors cursor-pointer shrink-0"
+                    title="Pick and send product"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                  </button>
+
                   <input
-                    id="manual-reply-input"
                     type="text"
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
@@ -1640,7 +1600,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   />
 
                   <button
-                    id="manual-reply-send-btn"
                     type="submit"
                     disabled={(!replyText.trim() && !replyMedia) || sendingReply}
                     className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#7F22FE]/25 shrink-0"
@@ -1668,7 +1627,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       </div>
 
       {/* =====================================================================
-          PANE 3: RIGHT CUSTOMER DETAILS & ORDER ACTIONS PANEL (Screenshot Match)
+          PANE 3: RIGHT CUSTOMER DETAILS & ORDER ACTIONS CRM PANEL
       ===================================================================== */}
       {selectedConv && showCustomerDetails && (
         <div className="hidden lg:flex shrink-0 h-full min-h-0 border-l border-neutral-200/80 dark:border-neutral-800/80">
@@ -1676,7 +1635,309 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             conversation={selectedConv}
             onNavigate={onNavigate}
             onClose={() => setShowCustomerDetails(false)}
+            onOpenCreateOrder={(customerInfo) => {
+              if (customerInfo) {
+                setQuickOrderCustomer(customerInfo);
+              }
+              setShowQuickOrderModal(true);
+            }}
+            onOpenProductPicker={() => setShowProductPickerModal(true)}
+            onToggleAi={(action) => handleToggleCustomerControl(selectedConv.customerId, action)}
+            isAiPaused={pausedCustomers.includes(selectedConv.customerId)}
+            onCustomerUpdated={loadInbox}
           />
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 1: QUICK ORDER CREATOR MODAL
+      ===================================================================== */}
+      {showQuickOrderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#0E0922] w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-900/50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#7F22FE] text-white flex items-center justify-center font-bold">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900 dark:text-white">
+                    Quick Create &amp; Confirm Order
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Saves to database and sends confirmation message to chat
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickOrderModal(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateQuickOrder} className="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs">
+              {/* Customer Details */}
+              <div className="space-y-2 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800">
+                <h4 className="font-bold text-neutral-700 dark:text-neutral-300 text-[11px] uppercase tracking-wider">
+                  Customer Info
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={quickOrderCustomer.name}
+                      onChange={(e) => setQuickOrderCustomer({ ...quickOrderCustomer, name: e.target.value })}
+                      className="w-full p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Phone Number</label>
+                    <input
+                      type="text"
+                      required
+                      value={quickOrderCustomer.phone}
+                      onChange={(e) => setQuickOrderCustomer({ ...quickOrderCustomer, phone: e.target.value })}
+                      className="w-full p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-neutral-500 block mb-0.5">Delivery Address</label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="House, Road, Area, District..."
+                    value={quickOrderCustomer.address}
+                    onChange={(e) => setQuickOrderCustomer({ ...quickOrderCustomer, address: e.target.value })}
+                    className="w-full p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Product Selection */}
+              <div className="space-y-2">
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block">
+                  Select Product / Item
+                </label>
+                {products.length > 0 ? (
+                  <select
+                    value={quickOrderProduct}
+                    onChange={(e) => {
+                      const sel = products.find((p) => p.name === e.target.value);
+                      setQuickOrderProduct(e.target.value);
+                      if (sel) setQuickOrderPrice(sel.price);
+                    }}
+                    className="w-full p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-semibold cursor-pointer"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} — ৳{p.price} BDT
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter item name..."
+                    value={quickOrderProduct}
+                    onChange={(e) => setQuickOrderProduct(e.target.value)}
+                    className="w-full p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Quantity</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={quickOrderQty}
+                      onChange={(e) => setQuickOrderQty(Number(e.target.value) || 1)}
+                      className="w-full p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Unit Price (BDT)</label>
+                    <input
+                      type="number"
+                      value={quickOrderPrice}
+                      onChange={(e) => setQuickOrderPrice(Number(e.target.value) || 0)}
+                      className="w-full p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Zone & Courier Charge */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block">
+                  Delivery Zone &amp; Courier Charge
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setQuickOrderZone('inside_dhaka')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      quickOrderZone === 'inside_dhaka'
+                        ? 'border-[#7F22FE] bg-violet-50 dark:bg-violet-950/60 text-[#7F22FE] font-black'
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    <span>Dhaka</span>
+                    <span className="block text-[10px] font-bold">+৳60</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickOrderZone('outside_dhaka')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      quickOrderZone === 'outside_dhaka'
+                        ? 'border-[#7F22FE] bg-violet-50 dark:bg-violet-950/60 text-[#7F22FE] font-black'
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    <span>Outside Dhaka</span>
+                    <span className="block text-[10px] font-bold">+৳120</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickOrderZone('free')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      quickOrderZone === 'free'
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-black'
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    <span>Free Delivery</span>
+                    <span className="block text-[10px] font-bold">+৳0</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Method & Total Calculation */}
+              <div className="p-3 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                  <span>Subtotal:</span>
+                  <span>৳{(quickOrderPrice * quickOrderQty).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                  <span>Delivery Charge:</span>
+                  <span>+৳{quickOrderZone === 'inside_dhaka' ? 60 : quickOrderZone === 'outside_dhaka' ? 120 : 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-black text-[#7F22FE] pt-1 border-t border-purple-200 dark:border-purple-800">
+                  <span>Total Payable:</span>
+                  <span>
+                    ৳{((quickOrderPrice * quickOrderQty) + (quickOrderZone === 'inside_dhaka' ? 60 : quickOrderZone === 'outside_dhaka' ? 120 : 0)).toLocaleString()} BDT
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickOrderModal(false)}
+                  className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold hover:bg-neutral-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOrder}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#7F22FE] to-[#9333EA] hover:from-[#6D28D9] text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  {submittingOrder ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Confirm &amp; Send Order</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 2: PRODUCT PICKER MODAL
+      ===================================================================== */}
+      {showProductPickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#0E0922] w-full max-w-lg rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-5 py-3.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-[#7F22FE]" />
+                <h3 className="text-sm font-black text-neutral-900 dark:text-white">
+                  Send Product Card to Chat
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProductPickerModal(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search products by name or category..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Product List */}
+            <div className="p-3 space-y-2 overflow-y-auto flex-1 divide-y divide-neutral-100 dark:divide-neutral-800">
+              {products
+                .filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                .map((prod) => (
+                  <div
+                    key={prod.id}
+                    className="pt-2 first:pt-0 flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={prod.image_url}
+                        alt={prod.name}
+                        className="w-12 h-12 object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                          {prod.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs font-black text-[#7F22FE]">
+                            ৳{prod.price.toLocaleString()} BDT
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-bold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950">
+                            In Stock
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSendProduct(prod)}
+                      className="px-3 py-1.5 rounded-xl bg-[#7F22FE] hover:bg-[#6D28D9] text-white text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0 shadow-xs"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>Send Card</span>
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1701,8 +1962,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           </div>
         </div>
       )}
-
-      
     </div>
   );
 };
