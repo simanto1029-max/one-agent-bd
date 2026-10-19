@@ -42,7 +42,6 @@ import { Hero } from './components/landing/Hero';
 import { HowItWorksVideo } from './components/landing/HowItWorksVideo';
 import { LiveDemoPage } from './components/landing/LiveDemoPage';
 import { Features } from './components/landing/Features';
-import { CostComparison } from './components/landing/CostComparison';
 import { PricingTable } from './components/landing/PricingTable';
 import { Testimonials } from './components/landing/Testimonials';
 import { FAQ } from './components/landing/FAQ';
@@ -304,6 +303,9 @@ export default function App() {
       }
     }
     updateUrl(view, tabToUse, replace);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   };
 
   // User & Subscription state
@@ -444,6 +446,9 @@ export default function App() {
     if (plan) setSelectedPlan(plan);
     setCurrentViewRaw('auth');
     updateUrl('auth', activeTab, false, mode);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   };
 
   const handleAuthSuccess = async (user: UserProfile, status: SubscriptionStatusInfo) => {
@@ -459,6 +464,9 @@ export default function App() {
         setIsLockBypassedForBilling(true);
         setPendingPlanAction(null);
       }
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
   };
 
@@ -482,6 +490,9 @@ export default function App() {
         setActiveTab('billing');
         setIsLockBypassedForBilling(true);
       }
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
   };
 
@@ -631,7 +642,7 @@ export default function App() {
 
       {/* 1. PUBLIC MARKETING LANDING PAGE */}
       {currentView === 'landing' && (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen bg-white dark:bg-[#090518] text-slate-900 dark:text-white transition-colors">
           <Navbar
             isDark={isDark}
             onToggleTheme={handleToggleTheme}
@@ -662,17 +673,6 @@ export default function App() {
             />
             {/* Features (Phone UI with live auto-scrolling chat) */}
             <Features />
-
-            {/* Smart Business ROI: Why Pay 20,000 TK for a Moderator */}
-            <CostComparison
-              onStartTrial={() => {
-                if (currentUser) {
-                  setCurrentView('dashboard');
-                } else {
-                  handleOpenAuth('signup');
-                }
-              }}
-            />
 
             <PricingTable onSelectPlan={handleSelectPlanFromLanding} />
             <FAQ />

@@ -58,11 +58,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
   return (
     <footer ref={rootRef} className="ft" id="ft">
       <style>{`
-        @property --a {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
         .ft {
           position: relative;
           overflow: hidden;
@@ -71,6 +66,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           color: #0e1629;
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
           padding: clamp(40px, 5vw, 72px) clamp(14px, 4vw, 56px) clamp(18px, 2.5vw, 30px);
+          transform: translateZ(0);
+          transition: background 0.3s ease, color 0.3s ease;
+        }
+        .dark .ft {
+          background: #080417;
+          color: #f8fafc;
         }
         .ft a {
           color: inherit;
@@ -86,6 +87,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           -webkit-mask-image: linear-gradient(180deg, #000, transparent);
           mask-image: linear-gradient(180deg, #000, transparent);
         }
+        .dark .ft .beams {
+          background: repeating-linear-gradient(90deg, rgba(168, 85, 247, 0.08) 0 clamp(60px, 8vw, 130px), transparent 0 clamp(72px, 9.4vw, 152px));
+        }
         .ft .glow {
           position: absolute;
           inset: 0 0 auto 0;
@@ -96,6 +100,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           -webkit-mask-image: linear-gradient(180deg, transparent, #000 65%, transparent);
           mask-image: linear-gradient(180deg, transparent, #000 65%, transparent);
           animation: driftFt 9s ease-in-out infinite alternate;
+        }
+        .dark .ft .glow {
+          background: linear-gradient(90deg, rgba(168, 85, 247, 0.28), rgba(124, 58, 237, 0.15) 45%, transparent 72%);
         }
         @keyframes driftFt {
           from { transform: translateX(-6%); opacity: 0.7; }
@@ -112,6 +119,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           background: radial-gradient(closest-side, rgba(124, 58, 237, 0.14), transparent);
           z-index: -1;
         }
+        .dark .ft::after {
+          background: radial-gradient(closest-side, rgba(168, 85, 247, 0.2), transparent);
+        }
         .ft .wrap {
           max-width: 1240px;
           margin: 0 auto;
@@ -126,6 +136,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           backdrop-filter: blur(8px);
           padding: clamp(24px, 3.6vw, 48px) clamp(20px, 3.6vw, 52px) 0;
           overflow: hidden;
+          transition: background 0.3s, border-color 0.3s;
+        }
+        .dark .ft .box {
+          background: rgba(18, 12, 42, 0.88);
+          border-color: rgba(168, 85, 247, 0.25);
+          box-shadow: 0 50px 100px -56px rgba(0, 0, 0, 0.75);
         }
         .ft .spot {
           position: absolute;
@@ -229,23 +245,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           padding: 22px;
           border-radius: 24px;
           background: #fff;
-          box-shadow: 0 26px 50px -30px rgba(91, 33, 182, 0.5);
-        }
-        .ft .sup::before {
-          content: "";
-          position: absolute;
-          inset: -1px;
-          border-radius: 25px;
-          padding: 1.5px;
-          pointer-events: none;
-          background: conic-gradient(from var(--a), #7c3aed, #e0cfff, #6366f1, #c026d3, #7c3aed);
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-          animation: spinFt 6s linear infinite;
-        }
-        @keyframes spinFt {
-          to { --a: 360deg; }
+          border: 1px solid rgba(124, 58, 237, 0.22);
+          box-shadow: 0 10px 30px -15px rgba(91, 33, 182, 0.25);
         }
         .ft .live {
           display: inline-flex;

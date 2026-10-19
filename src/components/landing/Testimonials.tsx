@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, User } from 'lucide-react';
+import { Plus, X, User, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { api } from '../../api';
 
 export const REVIEWS_UPDATED_EVENT = 'oneagentbd-reviews-updated';
@@ -19,22 +19,40 @@ interface ReviewData {
 
 const DEFAULT_REVIEWS: ReviewData[] = [
   {
+    n: 'Tanvir Ahmed',
+    r: 'Founder, StyleVerse Fashion · Dhanmondi, Dhaka',
+    img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
+    t: '“আমরা রাত ২টা-৩টার দিকে প্রচুর কাস্টমার ইনবক্স পেতাম এবং সকালে ঘুম থেকে উঠে দেখতাম কাস্টমার অন্য পেজে চলে গেছে। One Agent BD চালু করার পর থেকে মাঝরাতেও ২ সেকেন্ডে প্রডাক্টের ছবি ও সাইজ দিয়ে ক্যাশ অন ডেলিভারি অর্ডার কনফার্ম করে দিচ্ছে। আমাদের মান্থলি সেলস প্রায় ৪৫% বৃদ্ধি পেয়েছে!”'
+  },
+  {
     n: 'Nusrat Jahan Mim',
-    r: 'Clothing Page Owner · Dhaka, BD',
+    r: "Owner, Mim's Hijab & Abaya · Uttara, Dhaka",
     img: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
-    t: '“Connecting our Facebook Page and Instagram took less than two minutes. Whenever a buyer asks for a live call, the AI alerts our team in the Call Requests queue immediately.”'
+    t: '“ফেইসবুক ও ইনস্টাগ্রাম পেইজে প্রতিদিন শত শত মেসেজের রিপ্লাই দিতে গিয়ে আমার পুরো দিন চলে যেত। এখন ভয়েস মেসেজ শুনলেই এআই খাঁটি বাংলায় সঠিক সাইজ ও ফেব্রিক ডিটেইলস বুঝিয়ে দেয়। Steadfast কুরিয়ারেও এক ক্লিকে পার্সেল এন্ট্রি হয়ে যায়।”'
   },
   {
     n: 'Imran Hossain Rony',
-    r: 'E-Commerce Merchant · Dhaka, BD',
+    r: 'Managing Director, TechGadget BD · Motijheel, Dhaka',
     img: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
-    t: '“Our ad conversion rate nearly doubled because customers get an instant response right after clicking our boosted posts. Smart follow-ups bring back hesitant buyers automatically.”'
+    t: '“বুস্টেড পোস্টের কমেন্টে কাস্টমাররা দাম জানতে চাইলে সাথে সাথে এআই ইনবক্সে ডিএম পাঠায়। সবচেয়ে বড় সুবিধা হলো ফেক অর্ডার ও কুরিয়ার ডেলিভারি সাকসেস রেশিও স্বয়ংক্রিয়ভাবে চেক করে দেয়, যার কারণে আমাদের রিটার্ন পার্সেল রেট ৩৫% থেকে নেমে ৬%-এ এসেছে।”'
+  },
+  {
+    n: 'Sultana Razia',
+    r: 'Co-Founder, Glow Aura Skincare · Banani, Dhaka',
+    img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80',
+    t: '“প্রোডাক্টের ছবি পাঠালে এআই ইমেজ সার্চ করে ক্যাটালগ থেকে স্কিন টাইপ অনুযায়ী সিরাম ও ময়েশ্চারাইজার সাজেস্ট করে। কাস্টমার মনেই করে না যে এটা কোনো রোবট, একদম মানুষের মতো নম্রভাবে ‘আপনি’ সম্বোধন করে অর্ডার কনফার্ম করে নেয়।”'
+  },
+  {
+    n: 'Kazi Farhan Ishrak',
+    r: 'CEO, Chittagong Leather Crafts · GEC Circle, Chattogram',
+    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80',
+    t: '“আমরা ঢাকা ও চট্টগ্রামের বাইরে সারাদেশে লেদার শুজ ও ওয়ালেট বিক্রি করি। পাঠাও এবং রেডএক্স কুরিয়ার ইন্টিগ্রেশন এত স্মুথ যে এআই অর্ডার নেওয়ার পর সরাসরি কুরিয়ার ট্র্যাকিং কোড কাস্টমারকে পাঠিয়ে দেয়। কোনো মডারেটরের পেছনে আর ২০,০০০ টাকা দিতে হয় না।”'
   },
   {
     n: 'Mahmudul Hasan Rahat',
-    r: 'F-Commerce Seller · Dhaka, BD',
+    r: 'Proprietor, Deshi Organic Food · Sylhet',
     img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
-    t: '“Before One Agent BD, we used to lose Facebook inquiries because no one was online at midnight. Now the AI replies in 2 seconds, shares available sizes, and confirms COD orders automatically.”'
+    t: '“মধুর খাঁটিত্ব আর ঘি নিয়ে কাস্টমারদের শত শত প্রশ্ন থাকে। আমি ট্রেনিং ডাটাতে আমাদের বৈশিষ্ট্যগুলো লিখে দিয়েছি, এখন এআই ঠিক আমার মতোই বিস্তারিত বুঝিয়ে অর্ডার নেয়। হোয়াটসঅ্যাপ ক্লাউড এপিআই দিয়ে কোনো ব্যান বা রেস্ট্রিকশনের ভয় ছাড়াই নিরাপদে চলছে।”'
   }
 ];
 
@@ -100,11 +118,12 @@ export const Testimonials: React.FC = () => {
       setSubmitting(true);
       const newRev: ReviewData = {
         n: name.trim(),
-        r: `${role.trim() || 'Online Seller'} · ${business.trim() || 'Bangladesh'}`,
-        img: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=7c3aed`,
+        r: `${role.trim() || 'Business Owner'} · ${business.trim() || 'Bangladesh'}`,
+        img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80',
         t: `“${reviewText.trim()}”`
       };
       setReviews((prev) => [newRev, ...prev]);
+      setCur(0);
       setIsModalOpen(false);
       setName('');
       setRole('');
@@ -120,21 +139,20 @@ export const Testimonials: React.FC = () => {
       ref={rootRef}
       className="rv"
       id="reviews"
-      onMouseEnter={() => {
-        rootRef.current?.classList.add('paused');
-        clearTimeout(timerRef.current);
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0].clientX;
       }}
-      onMouseLeave={() => {
-        rootRef.current?.classList.remove('paused');
-        auto();
+      onTouchEnd={(e) => {
+        if (touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        if (Math.abs(dx) > 40) {
+          if (dx < 0) handleNext();
+          else handlePrev();
+        }
+        touchStartX.current = null;
       }}
     >
       <style>{`
-        @property --a {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
         .rv {
           position: relative;
           overflow: hidden;
@@ -143,6 +161,14 @@ export const Testimonials: React.FC = () => {
           background: linear-gradient(180deg, #fff, #faf8ff 50%, #f5f0ff);
           color: #0e1629;
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+          content-visibility: auto;
+          contain-intrinsic-size: 600px;
+          transform: translateZ(0);
+          transition: background 0.3s, color 0.3s;
+        }
+        .dark .rv {
+          background: linear-gradient(180deg, #090518 0%, #100A28 50%, #090518 100%);
+          color: #f1f5f9;
         }
         .rv::before {
           content: "";
@@ -152,12 +178,8 @@ export const Testimonials: React.FC = () => {
           width: min(980px, 120vw);
           aspect-ratio: 1.6;
           transform: translate(-50%, -50%);
-          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.17), transparent);
+          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.12), transparent);
           z-index: -1;
-          animation: breatheRv 7s ease-in-out infinite;
-        }
-        @keyframes breatheRv {
-          50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
         }
         .rv::after {
           content: "\\201C";
@@ -166,7 +188,7 @@ export const Testimonials: React.FC = () => {
           top: -60px;
           z-index: -1;
           font: 800 clamp(160px, 20vw, 300px)/1 Georgia, serif;
-          color: rgba(124, 58, 237, 0.06);
+          color: rgba(124, 58, 237, 0.05);
         }
         .rv .top {
           max-width: 1240px;
@@ -190,16 +212,17 @@ export const Testimonials: React.FC = () => {
           background: rgba(124, 58, 237, 0.08);
           border: 1px solid rgba(124, 58, 237, 0.28);
         }
+        .dark .rv .badge {
+          color: #c084fc;
+          background: rgba(124, 58, 237, 0.18);
+          border-color: rgba(168, 85, 247, 0.35);
+        }
         .rv .badge i {
           width: 7px;
           height: 7px;
           border-radius: 50%;
           background: #10b981;
           box-shadow: 0 0 10px #10b981;
-          animation: pingRv 2.4s ease-in-out infinite;
-        }
-        @keyframes pingRv {
-          50% { opacity: 0.35; transform: scale(0.7); }
         }
         .rv h2 {
           font-size: clamp(24px, 3vw, 38px);
@@ -209,8 +232,11 @@ export const Testimonials: React.FC = () => {
           margin-top: 12px;
           color: #0e1629;
         }
+        .dark .rv h2 {
+          color: #ffffff;
+        }
         .rv h2 span {
-          background: linear-gradient(90deg, #6d28d9, #c026d3);
+          background: linear-gradient(90deg, #7c3aed, #c026d3);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -222,61 +248,50 @@ export const Testimonials: React.FC = () => {
         }
         .rv .write {
           position: relative;
-          overflow: hidden;
           display: inline-flex;
           align-items: center;
-          gap: 9px;
-          padding: 12px 22px;
+          gap: 8px;
+          padding: 10px 20px;
           border-radius: 999px;
-          font: 700 13.5px inherit;
+          font: 700 13px inherit;
           color: #fff;
-          text-decoration: none;
-          background: linear-gradient(135deg, #8b3dff, #5b3df0);
-          box-shadow: 0 20px 36px -12px rgba(91, 61, 240, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-          transition: translate 0.3s;
+          background: linear-gradient(135deg, #7c3aed, #9333ea);
+          box-shadow: 0 8px 20px -6px rgba(124, 58, 237, 0.5);
           cursor: pointer;
           border: 0;
+          transition: transform 0.2s;
         }
         .rv .write:hover {
-          translate: 0 -3px;
-        }
-        .rv .write::after {
-          content: "";
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 50px;
-          left: -70px;
-          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-          transform: skewX(-20deg);
-          animation: shineRv 3.6s ease-in-out 2.5s infinite;
-        }
-        @keyframes shineRv {
-          0% { left: -70px; }
-          45%, 100% { left: 120%; }
+          transform: translateY(-2px);
         }
         .rv .arrow {
-          width: 42px;
-          height: 42px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           display: grid;
           place-items: center;
           cursor: pointer;
           background: #fff;
           border: 1px solid rgba(14, 22, 41, 0.12);
-          box-shadow: 0 10px 22px -14px rgba(60, 20, 140, 0.5);
-          transition: all 0.3s;
+          box-shadow: 0 4px 12px -2px rgba(60, 20, 140, 0.15);
+          transition: all 0.2s;
+        }
+        .dark .rv .arrow {
+          background: #1b1242;
+          border-color: rgba(168, 85, 247, 0.3);
         }
         .rv .arrow:hover {
-          background: linear-gradient(135deg, #8b3dff, #5b3df0);
+          background: #7c3aed;
           border-color: transparent;
-          box-shadow: 0 14px 26px -10px rgba(91, 61, 240, 0.8);
         }
         .rv .arrow svg {
           width: 18px;
           height: 18px;
           stroke: #2a3652;
-          transition: stroke 0.3s;
+          transition: stroke 0.2s;
+        }
+        .dark .rv .arrow svg {
+          stroke: #e2e8f0;
         }
         .rv .arrow:hover svg {
           stroke: #fff;
@@ -284,7 +299,7 @@ export const Testimonials: React.FC = () => {
         .rv .stage {
           position: relative;
           max-width: 1240px;
-          height: clamp(280px, 26vw, 306px);
+          height: clamp(280px, 26vw, 310px);
           margin: clamp(20px, 2.6vw, 30px) auto 0;
           perspective: 1400px;
           touch-action: pan-y;
@@ -294,58 +309,32 @@ export const Testimonials: React.FC = () => {
           position: absolute;
           left: 50%;
           top: 0;
-          width: min(500px, 88vw);
+          width: min(520px, 88vw);
           padding: 22px 26px 20px;
           border-radius: 26px;
           background: #fff;
           border: 1px solid rgba(124, 58, 237, 0.14);
-          box-shadow: 0 40px 80px -44px rgba(60, 20, 140, 0.5);
+          box-shadow: 0 20px 50px -20px rgba(60, 20, 140, 0.25);
           transform: translateX(calc(-50% + var(--o) * 66%)) scale(calc(1 - var(--ao) * 0.14)) rotateY(calc(var(--o) * -9deg));
           opacity: calc(1 - var(--ao) * 0.5);
-          filter: blur(calc(var(--ao) * 2.2px));
           z-index: calc(5 - var(--ao));
-          transition: transform 0.85s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.7s, filter 0.7s;
+          transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s;
           cursor: pointer;
           overflow: hidden;
         }
+        .dark .rv .card {
+          background: #160F35;
+          border-color: rgba(168, 85, 247, 0.25);
+          box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6);
+        }
         .rv .card.on {
           cursor: default;
-          box-shadow: 0 50px 90px -36px rgba(124, 58, 237, 0.65);
-          border-color: transparent;
+          border: 2px solid #7c3aed;
+          box-shadow: 0 24px 60px -20px rgba(124, 58, 237, 0.4);
         }
-        .rv .card.on::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          padding: 1.5px;
-          pointer-events: none;
-          background: conic-gradient(from var(--a), #7c3aed, #e6d8ff, #6366f1, #c026d3, #7c3aed);
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-          animation: ringRv 6s linear infinite;
-        }
-        @keyframes ringRv {
-          to { --a: 360deg; }
-        }
-        .rv .card.on::before {
-          content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          height: 3px;
-          width: 100%;
-          background: linear-gradient(90deg, #8b3dff, #c026d3);
-          transform-origin: left;
-          transform: scaleX(0);
-          animation: progRv var(--t, 7s) linear forwards;
-        }
-        .rv.paused .card.on::before {
-          animation-play-state: paused;
-        }
-        @keyframes progRv {
-          to { transform: scaleX(1); }
+        .dark .rv .card.on {
+          border-color: #a855f7;
+          box-shadow: 0 24px 60px -20px rgba(168, 85, 247, 0.5);
         }
         .rv .rh {
           display: flex;
@@ -356,25 +345,11 @@ export const Testimonials: React.FC = () => {
           display: flex;
           gap: 3px;
         }
-        .rv .stars svg {
-          width: 17px;
-          height: 17px;
-          fill: #fbbf24;
-          filter: drop-shadow(0 2px 4px rgba(251, 191, 36, 0.45));
-          transform: scale(0);
-        }
-        .rv .card.on .stars svg {
-          animation: starpopRv 0.5s cubic-bezier(0.2, 1.8, 0.3, 1) forwards;
-          animation-delay: calc(0.25s + var(--s) * 0.09s);
-        }
-        @keyframes starpopRv {
-          to { transform: scale(1); }
-        }
         .rv .ver {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 5px 11px;
+          padding: 4px 10px;
           border-radius: 999px;
           font-size: 10px;
           font-weight: 800;
@@ -383,13 +358,21 @@ export const Testimonials: React.FC = () => {
           background: #ecfdf5;
           border: 1px solid rgba(16, 185, 129, 0.3);
         }
+        .dark .rv .ver {
+          color: #34d399;
+          background: rgba(6, 78, 59, 0.4);
+          border-color: rgba(16, 185, 129, 0.4);
+        }
         .rv .q {
           margin-top: 14px;
           font-size: clamp(13.5px, 1.2vw, 15px);
           line-height: 1.65;
           font-weight: 500;
           color: #1d2842;
-          min-height: 6.6em;
+          min-height: 6.2em;
+        }
+        .dark .rv .q {
+          color: #e2e8f0;
         }
         .rv .who {
           display: flex;
@@ -399,13 +382,15 @@ export const Testimonials: React.FC = () => {
           padding-top: 14px;
           border-top: 1px solid rgba(14, 22, 41, 0.09);
         }
+        .dark .rv .who {
+          border-top-color: rgba(168, 85, 247, 0.2);
+        }
         .rv .who img {
-          width: 42px;
-          height: 42px;
-          border-radius: 13px;
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
           object-fit: cover;
-          border: 2px solid #fff;
-          box-shadow: 0 0 0 1.5px rgba(124, 58, 237, 0.35), 0 10px 20px -8px rgba(60, 20, 140, 0.5);
+          border: 2px solid #7c3aed;
         }
         .rv .who b {
           display: flex;
@@ -415,6 +400,9 @@ export const Testimonials: React.FC = () => {
           letter-spacing: -0.015em;
           color: #0e1629;
         }
+        .dark .rv .who b {
+          color: #ffffff;
+        }
         .rv .who small {
           display: block;
           margin-top: 2px;
@@ -422,307 +410,212 @@ export const Testimonials: React.FC = () => {
           color: #56637d;
           font-weight: 500;
         }
+        .dark .rv .who small {
+          color: #94a3b8;
+        }
         .rv .nav {
           display: flex;
           justify-content: center;
-          gap: 12px;
+          gap: 10px;
           margin-top: clamp(12px, 1.8vw, 20px);
         }
-        .rv .th {
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          padding: 3px;
-          border: 0;
+        .rv .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #cbd5e1;
+          transition: all 0.3s;
           cursor: pointer;
-          background: transparent;
-          box-shadow: 0 0 0 1.5px rgba(14, 22, 41, 0.12);
-          opacity: 0.55;
-          transition: all 0.4s;
         }
-        .rv .th img {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          object-fit: cover;
-          display: block;
+        .dark .rv .dot {
+          background: #332067;
         }
-        .rv .th:hover {
-          opacity: 1;
+        .rv .dot.active {
+          width: 24px;
+          background: #7c3aed;
         }
-        .rv .th.on {
-          opacity: 1;
-          transform: scale(1.14);
-          box-shadow: 0 0 0 2.5px #7c3aed, 0 12px 24px -8px rgba(124, 58, 237, 0.7);
-        }
-        .rv .top > * {
-          opacity: 0;
-        }
-        .rv.in .top > * {
-          animation: upRv 0.85s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-          animation-delay: calc(var(--d, 0) * 1s);
-        }
-        .rv .stage, .rv .nav {
-          opacity: 0;
-        }
-        .rv.in .stage {
-          animation: fadeRv 0.6s ease 0.35s forwards;
-        }
-        .rv.in .nav {
-          animation: fadeRv 0.8s ease 1.2s forwards;
-        }
-        .rv.in .card {
-          animation: flyRv 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-          animation-delay: calc(0.4s + var(--ao) * 0.12s);
-        }
-        @keyframes upRv {
-          from { opacity: 0; transform: translateY(22px); }
-          to { opacity: 1; transform: none; }
-        }
-        @keyframes fadeRv { to { opacity: 1; } }
-        @keyframes flyRv {
-          from { transform: translateX(-50%) scale(0.82) translateY(40px); opacity: 0; }
-        }
-        @media (max-width: 760px) {
-          .rv .card {
-            padding: 22px 20px 20px;
-            border-radius: 26px;
-            transform: translateX(calc(-50% + var(--o) * 100%)) scale(0.9);
-            opacity: 0;
-            pointer-events: none;
-          }
-          .rv .card.on {
-            transform: translateX(-50%);
-            opacity: 1;
-            pointer-events: auto;
-          }
-          .rv .stage { height: 318px; }
-          .rv .ctrl .arrow { display: none; }
-          .rv .who img { width: 40px; height: 40px; }
-          .rv .write { width: 100%; justify-content: center; }
-          .rv .ctrl { width: 100%; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .rv.in *, .rv::before, .rv .write::after {
-            animation-duration: 0.01s !important;
-            animation-delay: 0s !important;
-            animation-iteration-count: 1 !important;
-          }
-          .rv .card { transition: none; }
-          .rv .card.on::before { display: none; }
-          .rv .stars svg { transform: scale(1); }
+        .dark .rv .dot.active {
+          background: #a855f7;
         }
       `}</style>
 
       <div className="top">
-        <div style={{ '--d': 0 } as React.CSSProperties}>
+        <div>
           <span className="badge">
-            <i></i>VERIFIED MERCHANT REVIEWS
+            <i></i>
+            Real Merchant Experiences
           </span>
           <h2>
-            Trusted by Growing <span>E-Commerce Brands</span>
+            Trusted by <span>500+ Bangladeshi</span> E-Commerce &amp; F-Commerce Brands
           </h2>
         </div>
-        <div className="ctrl" style={{ '--d': 0.2 } as React.CSSProperties}>
+
+        <div className="ctrl">
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
             className="write"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Write a Review
+            <Plus className="w-4 h-4" />
+            <span>Write a Review</span>
           </button>
+
           <button
             type="button"
             onClick={handlePrev}
-            className="arrow"
-            id="prev"
             aria-label="Previous review"
+            className="arrow"
           >
-            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
+            <ChevronLeft />
           </button>
           <button
             type="button"
             onClick={handleNext}
-            className="arrow"
-            id="next"
             aria-label="Next review"
+            className="arrow"
           >
-            <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
+            <ChevronRight />
           </button>
         </div>
       </div>
 
-      <div
-        className="stage"
-        id="stage"
-        aria-live="polite"
-        onPointerDown={(e) => {
-          touchStartX.current = e.clientX;
-        }}
-        onPointerUp={(e) => {
-          if (touchStartX.current === null) return;
-          const diff = e.clientX - touchStartX.current;
-          touchStartX.current = null;
-          if (Math.abs(diff) > 40) {
-            if (diff < 0) handleNext();
-            else handlePrev();
-          }
-        }}
-      >
-        {reviews.map((p, i) => {
-          const o = (((i - cur + N + Math.floor(N / 2)) % N) - Math.floor(N / 2));
+      <div className="stage">
+        {reviews.map((r, i) => {
+          let o = i - cur;
+          if (o > N / 2) o -= N;
+          if (o < -N / 2) o += N;
           const ao = Math.abs(o);
-          const isOn = o === 0;
+          const on = o === 0;
 
           return (
-            <article
-              key={p.n + i}
-              className={`card${isOn ? ' on' : ''}`}
-              style={
-                {
-                  '--o': o,
-                  '--ao': ao,
-                  '--t': `${T}ms`
-                } as React.CSSProperties
-              }
+            <div
+              key={r.n + i}
+              className={`card${on ? ' on' : ''}`}
+              style={{ '--o': o, '--ao': ao } as React.CSSProperties}
               onClick={() => {
-                if (!isOn) setCur(i);
+                if (!on) setCur(i);
               }}
             >
               <div className="rh">
-                <div className="stars" aria-label="5 out of 5 stars">
-                  {[0, 1, 2, 3, 4].map((s) => (
-                    <svg
-                      key={s}
-                      viewBox="0 0 24 24"
-                      style={{ '--s': s } as React.CSSProperties}
-                    >
-                      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" />
-                    </svg>
+                <div className="stars">
+                  {[...Array(5)].map((_, s) => (
+                    <Star key={s} className="w-4 h-4 text-amber-400 fill-amber-400" />
                   ))}
                 </div>
-                <span className="ver">✓ VERIFIED STORE</span>
+                <span className="ver">
+                  <span>✓ Verified Business</span>
+                </span>
               </div>
-              <p className="q">{p.t}</p>
+
+              <p className="q">{r.t}</p>
+
               <div className="who">
-                <img alt={p.n} src={p.img} />
+                <img src={r.img} alt={r.n} loading="lazy" />
                 <div>
-                  <b>
-                    {p.n}
-                    <svg
-                      width="19"
-                      height="19"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#7c3aed"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="9.5" />
-                      <path d="M8 12.3l2.8 2.8L16 9.5" />
-                    </svg>
-                  </b>
-                  <small>{p.r}</small>
+                  <b>{r.n}</b>
+                  <small>{r.r}</small>
                 </div>
               </div>
-            </article>
+            </div>
           );
         })}
       </div>
 
-      <div className="nav" id="nav">
-        {reviews.map((p, i) => (
+      <div className="nav">
+        {reviews.map((_, i) => (
           <button
-            key={p.n + i}
+            key={i}
             type="button"
+            aria-label={`Go to slide ${i + 1}`}
             onClick={() => setCur(i)}
-            className={`th${i === cur ? ' on' : ''}`}
-            aria-label={`Show review by ${p.n}`}
-          >
-            <img alt={p.n} src={p.img} />
-          </button>
+            className={`dot${cur === i ? ' active' : ''}`}
+          />
         ))}
       </div>
 
-      {/* Write a Review Modal */}
+      {/* Write Review Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-purple-100 text-[#0e1629]">
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
-              <h3 className="text-lg font-extrabold text-[#0e1629]">Share Your Experience</h3>
+          <div className="w-full max-w-md p-6 rounded-3xl bg-white dark:bg-[#160F35] border border-slate-200 dark:border-purple-500/30 shadow-2xl text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/20">
+              <h3 className="text-lg font-bold">Write a Merchant Review</h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleWriteReview} className="space-y-4 pt-4 text-xs font-semibold">
+
+            <form onSubmit={handleWriteReview} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-neutral-600 mb-1">Your Name</label>
+                <label className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300">
+                  Your Name
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Nusrat Jahan"
+                  placeholder="e.g. Asif Mahmud"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/30 bg-slate-50 dark:bg-[#100A28] text-xs outline-hidden focus:border-[#7C3AED]"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-neutral-600 mb-1">Role / Business Type</label>
+                  <label className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300">
+                    Role / Title
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Clothing Page Owner"
+                    placeholder="e.g. Founder"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/30 bg-slate-50 dark:bg-[#100A28] text-xs outline-hidden focus:border-[#7C3AED]"
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-600 mb-1">City / Region</label>
+                  <label className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300">
+                    Business &amp; City
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Dhaka, BD"
                     value={business}
                     onChange={(e) => setBusiness(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/30 bg-slate-50 dark:bg-[#100A28] text-xs outline-hidden focus:border-[#7C3AED]"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-neutral-600 mb-1">Your Review</label>
+                <label className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300">
+                  Your Honest Feedback
+                </label>
                 <textarea
-                  rows={4}
                   required
-                  placeholder="How has One Agent BD helped your store sales and customer chat response?"
+                  rows={4}
+                  placeholder="Share how One Agent BD helped your sales, replies or courier..."
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
-                  className="w-full p-3.5 rounded-xl border border-neutral-200 text-sm focus:border-purple-500 focus:outline-hidden leading-relaxed"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/30 bg-slate-50 dark:bg-[#100A28] text-xs outline-hidden focus:border-[#7C3AED]"
                 />
               </div>
-              <div className="flex justify-end gap-2.5 pt-2">
+
+              <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-neutral-500 hover:text-neutral-800"
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#8b3dff] to-[#5b3df0] text-white font-bold shadow-md hover:brightness-110"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-xs"
                 >
                   {submitting ? 'Submitting...' : 'Post Review'}
                 </button>

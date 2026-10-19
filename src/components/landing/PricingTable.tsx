@@ -1,6 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Check, Lock, Calendar, Sparkles, Zap, ArrowRight } from 'lucide-react';
 import { Plan } from '../../types';
-import { OFFICIAL_THREE_PLANS } from '../../utils/pricingPlans';
+import {
+  OFFICIAL_THREE_PLANS,
+  PLAN_DURATION_OPTIONS,
+  PlanDurationOption,
+  calculateCustomPlanPrice,
+  buildCustomizedPlan
+} from '../../utils/pricingPlans';
 
 interface PricingTableProps {
   onSelectPlan: (plan: Plan, action?: 'buy' | 'trial') => void;
@@ -8,106 +15,35 @@ interface PricingTableProps {
 
 export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   const rootRef = useRef<HTMLElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
 
-  const PLANS = [
-    {
-      id: 'basic_trial',
-      n: 'Basic',
-      tag: '2 Days Free',
-      p: 0,
-      u: '/ 2 days',
-      s: 'Build One Business Agent',
-      b: 'Start 2-day free trial',
-      c: 'b-light',
-      isTrial: true,
-      f: [
-        'Facebook Unlimited conversations',
-        'Instagram Unlimited conversations',
-        '!WhatsApp Unlimited conversations (Locked in 2-day trial)',
-        '1 AI business agent',
-        'Bangla voice note & photo AI',
-        'Auto comment & inbox reply',
-        '1-Click courier booking (Steadfast & Pathao)',
-        'Unified team inbox',
-        'Standard AI reply speed'
-      ]
-    },
-    {
-      id: 'starter_plan',
-      n: 'Starter AI Plan',
-      pop: 1,
-      p: 1250,
-      u: '/ month',
-      s: 'Manage Multiple Business',
-      b: 'Choose Starter AI Plan',
-      c: 'b-violet',
-      isTrial: false,
-      f: [
-        '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)',
-        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-        'AI Auto Delivery Tracking & Customer Live Status Update',
-        'VIP Customer Retargeting & Smart Follow-Up Message',
-        'WhatsApp, Facebook Messenger & Instagram Auto-Reply',
-        'Voice Note AI Listening & Product Photo Recognition',
-        'Auto Post Comment Reply + Direct Inbox (DM) Automation',
-        'Unlimited Product Catalog & Autonomous Chat Order Capture',
-        'Unlimited Customer Conversations (0 TK per-msg fee)'
-      ]
-    },
-    {
-      id: 'pro_plan',
-      n: 'Pro Business Plan',
-      p: 1950,
-      u: '/ month',
-      s: 'Scale Your Client Base',
-      b: 'Choose Pro Business Plan',
-      c: 'b-dark',
-      isTrial: false,
-      f: [
-        'Everything in Starter Plan + Connect up to 10 Channels',
-        'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)',
-        'AI Appointments & Google Calendar Auto-Slot Booking',
-        'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
-        'AI Auto Delivery Tracking & Customer Live Status Update',
-        'VIP Customer Retargeting Message & AI Email Marketing',
-        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-        'Customer Callback Queue, Human Handover & CSV/Text Export',
-        '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support'
-      ]
+  // Available duration options for landing page selector (1 Month to 2 Years)
+  const durations: PlanDurationOption[] = [
+    PLAN_DURATION_OPTIONS[0], // 1 Month (0% off)
+    PLAN_DURATION_OPTIONS[2], // 3 Months (5% off)
+    PLAN_DURATION_OPTIONS[3], // 6 Months (10% off)
+    PLAN_DURATION_OPTIONS[4], // 1 Year (15% off)
+    PLAN_DURATION_OPTIONS[5] || {
+      id: '2y',
+      label: '2 Years',
+      shortLabel: '2Y',
+      type: 'yearly',
+      months: 24,
+      days: 730,
+      discountPercent: 20,
+      badge: 'Save 20%'
     }
   ];
+
+  const [selectedDuration, setSelectedDuration] = useState<PlanDurationOption>(durations[0]);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
-    const count = () => {
-      const els = root.querySelectorAll('[data-to]');
-      els.forEach((el, i) => {
-        const to = +(el.getAttribute('data-to') || '0');
-        const t0 = performance.now() + 700 + i * 140;
-        const d = 1500;
-        const s = (n: number) => {
-          const p = Math.min(Math.max((n - t0) / d, 0), 1);
-          el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US');
-          if (p < 1) requestAnimationFrame(s);
-        };
-        requestAnimationFrame(s);
-      });
-    };
-
-    const go = () => {
-      root.classList.add('in');
-      count();
-    };
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          go();
+          root.classList.add('in');
           observer.disconnect();
         }
       },
@@ -115,497 +51,349 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
     );
 
     observer.observe(root);
-
     return () => observer.disconnect();
   }, []);
 
-  const handleSelect = (p: (typeof PLANS)[0]) => {
-    const matched =
-      OFFICIAL_THREE_PLANS.find(
-        (pl) =>
-          pl.name.toLowerCase().includes(p.n.toLowerCase().split(' ')[0]) ||
-          (p.isTrial && (pl.trial_days > 0 || pl.price === 0))
-      ) || OFFICIAL_THREE_PLANS[0];
-
-    onSelectPlan(matched, p.isTrial ? 'trial' : 'buy');
+  const handleSelect = (planType: 'trial' | 'starter' | 'pro') => {
+    if (planType === 'trial') {
+      const trialPlan = OFFICIAL_THREE_PLANS[0];
+      onSelectPlan(trialPlan, 'trial');
+    } else if (planType === 'starter') {
+      const baseStarter = OFFICIAL_THREE_PLANS[1];
+      const customized = buildCustomizedPlan(baseStarter, selectedDuration);
+      onSelectPlan(customized, 'buy');
+    } else {
+      const basePro = OFFICIAL_THREE_PLANS[2];
+      const customized = buildCustomizedPlan(basePro, selectedDuration);
+      onSelectPlan(customized, 'buy');
+    }
   };
 
+  // Pricing calculations based on selected duration
+  const starterBasePrice = 1250;
+  const proBasePrice = 1950;
+
+  const starterTotalPrice = calculateCustomPlanPrice(starterBasePrice, selectedDuration);
+  const starterMonthlyEffective = Math.round(starterTotalPrice / selectedDuration.months);
+
+  const proTotalPrice = calculateCustomPlanPrice(proBasePrice, selectedDuration);
+  const proMonthlyEffective = Math.round(proTotalPrice / selectedDuration.months);
+
   return (
-    <section ref={rootRef} className="pr" id="pricing">
-      <style>{`
-        @property --a {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
-        .pr {
-          position: relative;
-          overflow: hidden;
-          isolation: isolate;
-          padding: clamp(48px, 6vw, 90px) clamp(16px, 4vw, 56px);
-          background: linear-gradient(180deg, #fff, #faf8ff 40%, #f6f2ff);
-          color: #0e1629;
-          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-        }
-        .pr::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: -120px;
-          width: min(900px, 120vw);
-          aspect-ratio: 1;
-          transform: translateX(-50%);
-          background: radial-gradient(closest-side, rgba(124, 58, 237, 0.16), transparent);
-          z-index: -1;
-        }
-        .pr::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          z-index: -1;
-          background-image: radial-gradient(rgba(124, 58, 237, 0.13) 1px, transparent 1px);
-          background-size: 28px 28px;
-          -webkit-mask-image: radial-gradient(ellipse 60% 45% at 50% 20%, #000, transparent 80%);
-          mask-image: radial-gradient(ellipse 60% 45% at 50% 20%, #000, transparent 80%);
-        }
-        .pr .head {
-          text-align: center;
-          max-width: 720px;
-          margin: 0 auto;
-        }
-        .pr .badge {
-          display: inline-block;
-          padding: 6px 14px;
-          border-radius: 999px;
-          font-size: 12.5px;
-          font-weight: 700;
-          color: #6d28d9;
-          background: rgba(124, 58, 237, 0.07);
-          border: 1px solid rgba(124, 58, 237, 0.22);
-        }
-        .pr h2 {
-          font-size: clamp(28px, 3.6vw, 46px);
-          font-weight: 800;
-          letter-spacing: -0.035em;
-          line-height: 1.1;
-          margin: 16px 0 12px;
-          color: #0e1629;
-        }
-        .pr .head p {
-          font-size: clamp(14px, 1.3vw, 16px);
-          line-height: 1.65;
-          color: #5a6781;
-        }
-        .pr .head small {
-          display: block;
-          margin-top: 10px;
-          font-size: 12px;
-          color: #8b94ad;
-        }
-        .pr .bill {
-          display: flex;
-          justify-content: center;
-          margin: 26px 0 42px;
-        }
-        .pr .bill div {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 10px 8px 16px;
-          border-radius: 999px;
-          background: #fff;
-          border: 1px solid rgba(124, 58, 237, 0.2);
-          box-shadow: 0 10px 26px -14px rgba(76, 29, 149, 0.4);
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #5a6781;
-        }
-        .pr .bill b {
-          padding: 5px 12px;
-          border-radius: 999px;
-          color: #fff;
-          font-size: 12px;
-          background: linear-gradient(135deg, #8b3dff, #6d28d9);
-        }
-        .pr .grid {
-          max-width: 1120px;
-          margin: 0 auto;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: clamp(16px, 2vw, 28px);
-          align-items: stretch;
-        }
-        .pr .card {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          padding: 28px 26px 26px;
-          border-radius: 30px;
-          background: #fff;
-          border: 1px solid rgba(14, 22, 41, 0.08);
-          box-shadow: 0 30px 60px -36px rgba(60, 20, 140, 0.35);
-          opacity: 0;
-          transform: translateY(46px) scale(0.97);
-          transition: box-shadow 0.35s, translate 0.35s;
-        }
-        .pr .card:hover {
-          translate: 0 -8px;
-          box-shadow: 0 44px 80px -34px rgba(91, 33, 182, 0.5);
-        }
-        .pr .spot {
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.3s;
-          background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), rgba(124, 58, 237, 0.12), transparent 70%);
-        }
-        .pr .card:hover .spot {
-          opacity: 1;
-        }
-        .pr .pop {
-          background: linear-gradient(180deg, #fff, #fbf8ff);
-          box-shadow: 0 40px 90px -34px rgba(124, 58, 237, 0.65);
-          z-index: 1;
-        }
-        .pr .pop::before {
-          content: "";
-          position: absolute;
-          inset: -1.5px;
-          border-radius: 31px;
-          padding: 2px;
-          pointer-events: none;
-          background: conic-gradient(from var(--a), #7c3aed, #d8c2ff, #6366f1, #a855f7, #7c3aed);
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-          animation: spinPr 5s linear infinite;
-        }
-        @keyframes spinPr {
-          to { --a: 360deg; }
-        }
-        .pr .tag {
-          position: absolute;
-          left: 50%;
-          top: 0;
-          translate: -50% -50%;
-          padding: 6px 16px;
-          border-radius: 999px;
-          font-size: 11.5px;
-          font-weight: 800;
-          color: #fff;
-          background: linear-gradient(135deg, #8b3dff, #5b3df0);
-          box-shadow: 0 10px 22px -6px rgba(91, 61, 240, 0.7);
-          overflow: hidden;
-          white-space: nowrap;
-        }
-        .pr .tag::after {
-          content: "";
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 30px;
-          left: -40px;
-          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.7), transparent);
-          transform: skewX(-20deg);
-          animation: shinePr 3s ease-in-out 2s infinite;
-        }
-        @keyframes shinePr {
-          0% { left: -40px; }
-          50%, 100% { left: 130%; }
-        }
-        .pr .top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .pr .top h3 {
-          font-size: 20px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-        }
-        .pr .free {
-          padding: 4px 10px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-          color: #475069;
-          background: #eef0f6;
-        }
-        .pr .price {
-          display: flex;
-          align-items: baseline;
-          gap: 6px;
-          margin-top: 16px;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-        .pr .price strong {
-          font-size: clamp(38px, 4vw, 48px);
-          line-height: 1;
-        }
-        .pr .price em {
-          font-style: normal;
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0;
-          color: #8b94ad;
-        }
-        .pr .sub {
-          margin-top: 8px;
-          font-size: 13px;
-          color: #5a6781;
-          font-weight: 500;
-        }
-        .pr .btn {
-          position: relative;
-          overflow: hidden;
-          display: block;
-          margin-top: 20px;
-          padding: 14px;
-          border-radius: 14px;
-          text-align: center;
-          font: 700 14px inherit;
-          text-decoration: none;
-          transition: transform 0.25s, box-shadow 0.25s;
-          cursor: pointer;
-        }
-        .pr .btn:hover {
-          transform: translateY(-2px);
-        }
-        .pr .btn::after {
-          content: "";
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 50px;
-          left: -70px;
-          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
-          transform: skewX(-20deg);
-        }
-        .pr .btn:hover::after {
-          left: 120%;
-          transition: left 0.7s;
-        }
-        .pr .b-light {
-          color: #0e1629;
-          background: #f1f3f8;
-          border: 1px solid rgba(14, 22, 41, 0.08);
-        }
-        .pr .b-violet {
-          color: #fff;
-          background: linear-gradient(135deg, #8b3dff, #6d28d9);
-          box-shadow: 0 18px 34px -12px rgba(109, 40, 217, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-        }
-        .pr .b-dark {
-          color: #fff;
-          background: linear-gradient(135deg, #1a2540, #0b1121);
-          box-shadow: 0 18px 34px -12px rgba(11, 17, 33, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-        }
-        .pr .fl {
-          margin: 22px 0 14px;
-          padding-top: 16px;
-          border-top: 1px solid rgba(14, 22, 41, 0.08);
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.1em;
-          color: #97a0b8;
-        }
-        .pr ul {
-          list-style: none;
-          display: grid;
-          gap: 12px;
-          padding: 0;
-          margin: 0;
-        }
-        .pr li {
-          display: flex;
-          gap: 11px;
-          align-items: flex-start;
-          font-size: 13px;
-          line-height: 1.5;
-          font-weight: 500;
-          color: #2a3652;
-          opacity: 0;
-          transform: translateX(-12px);
-        }
-        .pr li svg {
-          flex: none;
-          width: 18px;
-          height: 18px;
-          margin-top: 1px;
-        }
-        .pr li.lock {
-          color: #a2aabf;
-          text-decoration: line-through;
-        }
-        .pr .ck circle {
-          fill: rgba(16, 185, 129, 0.14);
-        }
-        .pr .ck path {
-          fill: none;
-          stroke: #10b981;
-          stroke-width: 2.2;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          stroke-dasharray: 14;
-          stroke-dashoffset: 14;
-        }
-        .pr.in .head > *, .pr.in .bill {
-          animation: upPr 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-          animation-delay: calc(var(--d, 0) * 1s);
-        }
-        .pr .head > *, .pr .bill {
-          opacity: 0;
-        }
-        .pr.in .head > *, .pr.in .bill {
-          opacity: 1;
-        }
-        .pr.in .card {
-          animation: risePr 0.95s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-          animation-delay: calc(0.45s + var(--i) * 0.14s);
-        }
-        .pr.in li {
-          animation: slidePr 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-          animation-delay: calc(0.9s + var(--i) * 0.14s + var(--k) * 0.06s);
-        }
-        .pr.in .ck path {
-          animation: tickPr 0.5s ease forwards;
-          animation-delay: calc(1s + var(--i) * 0.14s + var(--k) * 0.06s);
-        }
-        .pr.in .pop {
-          animation: risePr 0.95s cubic-bezier(0.2, 0.8, 0.2, 1) forwards, glowPr 4s ease-in-out 2s infinite;
-          animation-delay: calc(0.45s + var(--i) * 0.14s), 2s;
-        }
-        @keyframes upPr {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: none; }
-        }
-        @keyframes risePr {
-          to { opacity: 1; transform: none; }
-        }
-        @keyframes slidePr {
-          to { opacity: 1; transform: none; }
-        }
-        @keyframes tickPr {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes glowPr {
-          50% { box-shadow: 0 44px 110px -30px rgba(124, 58, 237, 0.9); }
-        }
-        @media (min-width: 901px) {
-          .pr .pop {
-            margin-top: -14px;
-            margin-bottom: -14px;
-            padding-top: 34px;
-          }
-        }
-        @media (max-width: 900px) {
-          .pr .grid {
-            grid-template-columns: 1fr;
-            max-width: 460px;
-          }
-          .pr .pop {
-            order: -1;
-            margin-top: 14px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .pr.in * {
-            animation-duration: 0.01s !important;
-            animation-delay: 0s !important;
-            animation-iteration-count: 1 !important;
-          }
-        }
-      `}</style>
+    <section
+      ref={rootRef}
+      id="pricing"
+      className="relative py-14 sm:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-[#FAF8FF] to-[#F5F0FF] dark:from-[#090518] dark:via-[#100A28] dark:to-[#090518] text-slate-900 dark:text-white transition-colors overflow-hidden scroll-mt-24"
+    >
+      {/* Background ambient radial glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[360px] opacity-60 dark:opacity-40"
+        style={{
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.15) 0%, transparent 70%)'
+        }}
+      />
 
-      <div className="head">
-        <span className="badge" style={{ '--d': 0 } as React.CSSProperties}>
-          Pricing
-        </span>
-        <h2 style={{ '--d': 0.1 } as React.CSSProperties}>Simple plans that grow with your business</h2>
-        <p style={{ '--d': 0.2 } as React.CSSProperties}>
-          Start small, then add channels and automation as you need them. Every plan includes autonomous AI replies.
-        </p>
-        <small style={{ '--d': 0.3 } as React.CSSProperties}>
-          Facebook &amp; Instagram conversations: 100% Unlimited • WhatsApp Cloud API: Direct Meta billing
-        </small>
-      </div>
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* Header */}
+        <div className="text-center max-w-3xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-purple-100/80 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200/80 dark:border-purple-500/30 shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400" />
+            <span>Transparent Pricing Plans</span>
+          </div>
 
-      <div className="bill" style={{ '--d': 0.4 } as React.CSSProperties}>
-        <div>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round">
-            <rect x="3" y="5" width="18" height="16" rx="3" />
-            <path d="M8 3v4M16 3v4M3 10h18" />
-          </svg>
-          Billing Duration: <b>1 Month</b>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b94ad" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+            Simple plans that grow with your business
+          </h2>
+
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+            Start small with a 2-day free trial, then pick a plan that fits your growth. Every plan includes autonomous AI replies and 0% ban risk.
+          </p>
+
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Facebook &amp; Instagram: <span className="text-emerald-600 dark:text-emerald-400 font-bold">100% Unlimited</span> • Official Meta Cloud API
+          </div>
         </div>
-      </div>
 
-      <div ref={gridRef} className="grid" id="grid">
-        {PLANS.map((P, i) => (
-          <article
-            key={P.id}
-            className={`card${P.pop ? ' pop' : ''}`}
-            style={{ '--i': i } as React.CSSProperties}
-            onPointerMove={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
-              e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
-            }}
-          >
-            <div className="spot"></div>
-            {P.pop && <span className="tag">Most popular</span>}
-            <div className="top">
-              <h3>{P.n}</h3>
-              {P.tag && <span className="free">{P.tag}</span>}
+        {/* INTERACTIVE BILLING DURATION SELECTOR TABS (Works on Desktop & Phone) */}
+        <div className="mt-8 mb-10 flex flex-col items-center justify-center gap-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <Calendar className="w-4 h-4 text-[#7C3AED] dark:text-purple-400" />
+            <span>Select Billing Duration:</span>
+          </div>
+
+          <div className="inline-flex p-1.5 rounded-2xl bg-white dark:bg-[#160F35] border border-purple-200/80 dark:border-purple-500/30 shadow-md flex-wrap justify-center gap-1">
+            {durations.map((dur) => {
+              const isSelected = selectedDuration.id === dur.id;
+              return (
+                <button
+                  key={dur.id}
+                  type="button"
+                  onClick={() => setSelectedDuration(dur)}
+                  className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#7C3AED] text-white shadow-sm scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                  }`}
+                >
+                  <span>{dur.label}</span>
+                  {dur.discountPercent > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40'
+                      }`}
+                    >
+                      Save {dur.discountPercent}%
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedDuration.discountPercent > 0 && (
+            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <span>✓ You are saving {selectedDuration.discountPercent}% with {selectedDuration.label} billing!</span>
             </div>
-            <div className="price">
-              <strong>
-                &#2547;<span data-to={P.p}>0</span>
-              </strong>
-              <em>{P.u}</em>
-            </div>
-            <div className="sub">{P.s}</div>
-            <button
-              type="button"
-              onClick={() => handleSelect(P)}
-              className={`btn ${P.c} w-full`}
-            >
-              {P.b}
-            </button>
-            <div className="fl">FEATURES</div>
-            <ul>
-              {P.f.map((t, k) => {
-                const l = t[0] === '!';
-                return (
-                  <li
-                    key={k}
-                    className={l ? 'lock' : ''}
-                    style={{ '--k': k } as React.CSSProperties}
-                  >
-                    {l ? (
-                      <svg viewBox="0 0 18 18" fill="none" stroke="#a2aabf" strokeWidth="1.6" strokeLinecap="round">
-                        <rect x="4" y="8" width="10" height="7" rx="2" />
-                        <path d="M6.5 8V6a2.5 2.5 0 015 0v2" />
-                      </svg>
-                    ) : (
-                      <svg className="ck" viewBox="0 0 18 18">
-                        <circle cx="9" cy="9" r="9" />
-                        <path d="M5.2 9.3l2.5 2.5 5-5.2" />
-                      </svg>
-                    )}
-                    <span>{l ? t.slice(1) : t}</span>
+          )}
+        </div>
+
+        {/* 3 PRICING CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+          
+          {/* 1. BASIC TRIAL CARD */}
+          <div className="flex flex-col justify-between p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#160F35] border border-slate-200 dark:border-purple-500/20 shadow-md hover:shadow-xl transition-all relative">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Basic</h3>
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-purple-900/40 text-slate-700 dark:text-purple-300 border border-slate-200 dark:border-purple-500/30">
+                  2 Days Free
+                </span>
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white">
+                  ৳0
+                </span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  / 2 days free trial
+                </span>
+              </div>
+
+              <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Build One Business Agent &amp; test all core features with zero advance payment.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => handleSelect('trial')}
+                className="mt-6 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-100 dark:bg-[#251852] hover:bg-slate-200 dark:hover:bg-[#32206B] text-slate-900 dark:text-white border border-slate-300 dark:border-purple-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
+              >
+                <span>Start 2-Day Free Trial</span>
+                <ArrowRight className="w-4 h-4 text-[#7C3AED] dark:text-purple-400" />
+              </button>
+
+              <div className="mt-6 pt-5 border-t border-slate-100 dark:border-purple-500/15">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-purple-300/60 mb-3">
+                  Included Features
+                </div>
+                <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Facebook Unlimited Conversations</span>
                   </li>
-                );
-              })}
-            </ul>
-          </article>
-        ))}
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Instagram Unlimited Conversations</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-slate-400 dark:text-slate-500">
+                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <span>WhatsApp Unlimited (Locked in 2-Day Trial)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>1 Autonomous AI Sales Agent</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Bangla Voice Note &amp; Product Photo AI</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Auto Post Comment &amp; Instant Inbox DM</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>1-Click Steadfast &amp; Pathao Courier Booking</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. STARTER AI PLAN (MOST POPULAR) */}
+          <div className="flex flex-col justify-between p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#1D1245] border-2 border-[#7C3AED] dark:border-[#A855F7] shadow-xl hover:shadow-2xl transition-all relative transform md:-translate-y-2">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-[#7C3AED] to-[#C026D3] text-white shadow-md">
+              Most Popular
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Starter AI Plan</h3>
+                {selectedDuration.discountPercent > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    {selectedDuration.discountPercent}% OFF
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white">
+                  ৳{starterMonthlyEffective.toLocaleString('en-US')}
+                </span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  / month
+                </span>
+              </div>
+
+              {selectedDuration.months > 1 && (
+                <div className="mt-1 text-xs font-bold text-[#7C3AED] dark:text-purple-300">
+                  Billed ৳{starterTotalPrice.toLocaleString('en-US')} for {selectedDuration.label}
+                </div>
+              )}
+
+              <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Manage your fast-growing Facebook, Instagram &amp; WhatsApp business 24/7.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => handleSelect('starter')}
+                className="mt-6 w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+              >
+                <span>Choose Starter AI Plan</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="mt-6 pt-5 border-t border-purple-100 dark:border-purple-500/20">
+                <div className="text-[11px] font-black uppercase tracking-wider text-[#7C3AED] dark:text-purple-300 mb-3">
+                  Everything in Basic, plus:
+                </div>
+                <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>24/7 Active AI Sales &amp; Auto-Reply Agent</b> (Up to 3 Channels)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>WhatsApp Cloud API</b>, Messenger &amp; Instagram Full Sync</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>AI Auto Customer Fraud &amp; Courier Delivery Ratio Check</b></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>1-Click Steadfast, Pathao &amp; RedX Courier Dispatch</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>AI Auto Delivery Tracking &amp; Customer Live Status Update</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>VIP Customer Retargeting &amp; Smart Follow-Up Message</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Unlimited Product Catalog &amp; Unlimited Conversations (0 TK Fee)</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. PRO BUSINESS PLAN */}
+          <div className="flex flex-col justify-between p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#160F35] border border-slate-200 dark:border-purple-500/20 shadow-md hover:shadow-xl transition-all relative">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Pro Business Plan</h3>
+                {selectedDuration.discountPercent > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    {selectedDuration.discountPercent}% OFF
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white">
+                  ৳{proMonthlyEffective.toLocaleString('en-US')}
+                </span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  / month
+                </span>
+              </div>
+
+              {selectedDuration.months > 1 && (
+                <div className="mt-1 text-xs font-bold text-[#7C3AED] dark:text-purple-300">
+                  Billed ৳{proTotalPrice.toLocaleString('en-US')} for {selectedDuration.label}
+                </div>
+              )}
+
+              <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                Full-scale multi-brand automation with Accounts ERP &amp; Store Sync.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => handleSelect('pro')}
+                className="mt-6 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-900 dark:bg-[#7C3AED] hover:bg-slate-800 dark:hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+              >
+                <span>Choose Pro Business Plan</span>
+                <ArrowRight className="w-4 h-4 text-purple-300" />
+              </button>
+
+              <div className="mt-6 pt-5 border-t border-slate-100 dark:border-purple-500/15">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-purple-300/60 mb-3">
+                  Everything in Starter, plus:
+                </div>
+                <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>Connect up to 10 Channels</b> (Multi-Page &amp; Numbers)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>Accounts, Stock &amp; Profit ERP</b> (Sales, Purchase, Due &amp; Cashbook)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><b>Website, WooCommerce &amp; Shopify Store Sync</b> + Live Chat Widget</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>AI Appointments &amp; Google Calendar Auto-Slot Booking</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>VIP Customer Retargeting Message &amp; AI Email Marketing</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Customer Callback Queue, Human Handover &amp; CSV/Text Export</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>3 Autonomous AI Sales Agents &amp; 24/7 VIP Priority Support</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
   );

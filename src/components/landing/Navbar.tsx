@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="fixed top-2 sm:top-2.5 left-0 right-0 z-50 flex justify-center px-3 sm:px-6 pointer-events-none">
         <header className="pointer-events-auto w-full max-w-6xl rounded-[10px] bg-white/90 dark:bg-[#0D0826]/90 backdrop-blur-xl border border-slate-200/90 dark:border-purple-500/25 shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)] px-4 sm:px-7 py-3.5 sm:py-4 flex items-center justify-between gap-4 transition-all">
           
-          {/* Brand Wordmark (Logo icon removed as requested, clean typography) */}
+          {/* Brand Wordmark (Clean typography, logo removed as requested) */}
           <button
             type="button"
             onClick={() => {
@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 scrollToSection();
               }
             }}
-            className="group focus:outline-hidden shrink-0 cursor-pointer text-left"
+            className="group focus:outline-hidden shrink-0 cursor-pointer text-left flex items-center"
           >
             <span className="font-black text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white leading-none whitespace-nowrap">
               One Agent <span className="text-[#7C3AED] dark:text-[#A855F7]">BD</span>

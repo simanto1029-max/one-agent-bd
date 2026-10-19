@@ -21,9 +21,19 @@ export const Hero: React.FC<HeroProps> = ({
 }) => {
   return (
     <section className="relative pt-4 pb-10 sm:pt-8 sm:pb-14 bg-white dark:bg-gradient-to-br dark:from-[#0B0720] dark:via-[#130B32] dark:to-[#090518] overflow-hidden transition-colors">
-      {/* Ambient Radial Glows */}
-      <div className="absolute -top-24 -left-24 w-[320px] sm:w-[560px] h-[280px] sm:h-[420px] bg-[#7F22FE]/8 dark:bg-[#5B21B6]/30 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute top-10 -right-24 w-[300px] sm:w-[500px] h-[260px] sm:h-[400px] bg-purple-400/8 dark:bg-[#9333EA]/22 blur-[120px] rounded-full pointer-events-none" />
+      {/* Ambient Radial Glows (GPU-friendly radial gradients with zero blur cost) */}
+      <div
+        className="absolute -top-24 -left-24 w-[320px] sm:w-[560px] h-[280px] sm:h-[420px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(127, 34, 254, 0.08) 0%, transparent 70%)'
+        }}
+      />
+      <div
+        className="absolute top-10 -right-24 w-[300px] sm:w-[500px] h-[260px] sm:h-[400px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(147, 51, 234, 0.07) 0%, transparent 70%)'
+        }}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Centered Hero Copy & CTAs */}
@@ -50,8 +60,10 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Supported Channels — Separate Compact Cards with Prominent Sleek Shadow, Zero Outer Card */}
           <div className="mt-3 sm:mt-3.5 mb-3 sm:mb-3.5 flex items-center justify-center gap-2 sm:gap-3">
             {/* 1. Facebook */}
-            <div
-              title="Facebook Messenger"
+            <button
+              type="button"
+              title="Facebook Messenger (Click to view channel integrations)"
+              onClick={() => document.getElementById('channels')?.scrollIntoView({ behavior: 'smooth' })}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-[#181138] border border-slate-200/90 dark:border-purple-500/25 shadow-[0_4px_14px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.45)] hover:border-[#1877F2]/70 dark:hover:border-[#1877F2]/70 hover:shadow-[0_6px_20px_rgba(24,119,242,0.25)] hover:-translate-y-0.5 transition-all flex items-center justify-center cursor-pointer shrink-0"
             >
               <svg className="w-5.5 h-5.5 sm:w-6 sm:h-6" viewBox="0 0 48 48" fill="none">
@@ -61,11 +73,13 @@ export const Hero: React.FC<HeroProps> = ({
                   fill="white"
                 />
               </svg>
-            </div>
+            </button>
 
             {/* 2. Instagram */}
-            <div
-              title="Instagram Direct"
+            <button
+              type="button"
+              title="Instagram Direct (Click to view channel integrations)"
+              onClick={() => document.getElementById('channels')?.scrollIntoView({ behavior: 'smooth' })}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-[#181138] border border-slate-200/90 dark:border-purple-500/25 shadow-[0_4px_14px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.45)] hover:border-[#E1306C]/70 dark:hover:border-[#E1306C]/70 hover:shadow-[0_6px_20px_rgba(225,48,108,0.25)] hover:-translate-y-0.5 transition-all flex items-center justify-center cursor-pointer shrink-0"
             >
               <svg className="w-5.5 h-5.5 sm:w-6 sm:h-6" viewBox="0 0 48 48" fill="none">
@@ -82,11 +96,13 @@ export const Hero: React.FC<HeroProps> = ({
                 <circle cx="24" cy="24" r="5.8" stroke="white" strokeWidth="2.8" fill="none" />
                 <circle cx="31.2" cy="16.8" r="1.6" fill="white" />
               </svg>
-            </div>
+            </button>
 
             {/* 3. WhatsApp */}
-            <div
-              title="WhatsApp Cloud API"
+            <button
+              type="button"
+              title="WhatsApp Cloud API (Click to view channel integrations)"
+              onClick={() => document.getElementById('channels')?.scrollIntoView({ behavior: 'smooth' })}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-[#181138] border border-slate-200/90 dark:border-purple-500/25 shadow-[0_4px_14px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.45)] hover:border-[#25D366]/70 dark:hover:border-[#25D366]/70 hover:shadow-[0_6px_20px_rgba(37,211,102,0.25)] hover:-translate-y-0.5 transition-all flex items-center justify-center cursor-pointer shrink-0"
             >
               <svg className="w-5.5 h-5.5 sm:w-6 sm:h-6" viewBox="0 0 48 48" fill="none">
@@ -96,11 +112,13 @@ export const Hero: React.FC<HeroProps> = ({
                   fill="white"
                 />
               </svg>
-            </div>
+            </button>
 
             {/* 4. Website */}
-            <div
-              title="Website Live Chat"
+            <button
+              type="button"
+              title="Website Live Chat (Click to view channel integrations)"
+              onClick={() => document.getElementById('channels')?.scrollIntoView({ behavior: 'smooth' })}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white dark:bg-[#181138] border border-slate-200/90 dark:border-purple-500/25 shadow-[0_4px_14px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.45)] hover:border-[#7C3AED]/70 dark:hover:border-[#7C3AED]/70 hover:shadow-[0_6px_20px_rgba(124,58,237,0.25)] hover:-translate-y-0.5 transition-all flex items-center justify-center cursor-pointer shrink-0"
             >
               <svg className="w-5.5 h-5.5 sm:w-6 sm:h-6" viewBox="0 0 48 48" fill="none">
@@ -119,7 +137,7 @@ export const Hero: React.FC<HeroProps> = ({
                   strokeLinecap="round"
                 />
               </svg>
-            </div>
+            </button>
           </div>
 
           {/* Primary CTAs */}

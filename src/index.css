@@ -14,8 +14,26 @@
     overflow-x: clip;
     width: 100%;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
-    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+  }
+
+  html {
+    background-color: #ffffff;
+    color: #0f172a;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark {
+    background-color: #0B0720;
+    color: #f8fafc;
+  }
+
+  /* GPU-accelerated smooth rendering */
+  section, article, main {
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
   button, a {

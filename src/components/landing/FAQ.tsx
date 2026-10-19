@@ -58,11 +58,6 @@ export const FAQ: React.FC = () => {
   return (
     <section ref={rootRef} className="faq" id="faq">
       <style>{`
-        @property --a {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
         .faq {
           position: relative;
           overflow: hidden;
@@ -71,6 +66,14 @@ export const FAQ: React.FC = () => {
           background: linear-gradient(180deg, #f6f2ff, #fbf9ff 45%, #fff);
           color: #0e1629;
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+          content-visibility: auto;
+          contain-intrinsic-size: 600px;
+          transform: translateZ(0);
+          transition: background 0.3s, color 0.3s;
+        }
+        .dark .faq {
+          background: linear-gradient(180deg, #090518 0%, #100A28 50%, #090518 100%);
+          color: #f8fafc;
         }
         .faq::before {
           content: "";
@@ -102,6 +105,11 @@ export const FAQ: React.FC = () => {
           border: 1px solid rgba(124, 58, 237, 0.3);
           box-shadow: 0 8px 20px -10px rgba(124, 58, 237, 0.5);
         }
+        .dark .faq .badge {
+          color: #c084fc;
+          background: rgba(124, 58, 237, 0.2);
+          border-color: rgba(168, 85, 247, 0.35);
+        }
         .faq h2 {
           font-size: clamp(28px, 3.8vw, 46px);
           font-weight: 800;
@@ -109,6 +117,9 @@ export const FAQ: React.FC = () => {
           line-height: 1.1;
           margin: 16px 0 10px;
           color: #0e1629;
+        }
+        .dark .faq h2 {
+          color: #ffffff;
         }
         .faq h2 span {
           background: linear-gradient(90deg, #7c3aed, #c026d3 85%);
@@ -120,17 +131,24 @@ export const FAQ: React.FC = () => {
           font-size: clamp(14px, 1.3vw, 16px);
           color: #5a6781;
         }
+        .dark .faq .head p {
+          color: #94a3b8;
+        }
         .faq .wrap {
           position: relative;
           max-width: 780px;
           margin: clamp(28px, 4vw, 46px) auto 0;
           padding: clamp(12px, 2vw, 20px);
           border-radius: 32px;
-          background: rgba(255, 255, 255, 0.55);
+          background: rgba(255, 255, 255, 0.65);
           border: 1px solid rgba(124, 58, 237, 0.14);
-          box-shadow: 0 50px 90px -50px rgba(91, 33, 182, 0.55);
-          -webkit-backdrop-filter: blur(6px);
+          box-shadow: 0 50px 90px -50px rgba(91, 33, 182, 0.35);
           backdrop-filter: blur(6px);
+        }
+        .dark .faq .wrap {
+          background: rgba(22, 15, 53, 0.7);
+          border-color: rgba(168, 85, 247, 0.25);
+          box-shadow: 0 50px 90px -50px rgba(0, 0, 0, 0.7);
         }
         .faq .wrap::before {
           content: "";
@@ -155,32 +173,28 @@ export const FAQ: React.FC = () => {
           box-shadow: 0 10px 24px -18px rgba(60, 20, 140, 0.4);
           opacity: 0;
           transform: translateY(30px);
-          transition: box-shadow 0.3s, translate 0.3s, border-color 0.3s;
+          transition: box-shadow 0.3s, translate 0.3s, border-color 0.3s, background 0.3s;
+        }
+        .dark .faq .item {
+          background: #160F35;
+          border-color: rgba(168, 85, 247, 0.2);
+          box-shadow: 0 10px 24px -18px rgba(0, 0, 0, 0.6);
         }
         .faq .item:hover {
           translate: 0 -2px;
           box-shadow: 0 18px 36px -16px rgba(91, 33, 182, 0.4);
           border-color: rgba(124, 58, 237, 0.3);
         }
+        .dark .faq .item:hover {
+          border-color: rgba(168, 85, 247, 0.4);
+        }
         .faq .item.open {
-          border-color: transparent;
-          box-shadow: 0 26px 50px -20px rgba(124, 58, 237, 0.55);
+          border-color: #7c3aed;
+          box-shadow: 0 10px 28px -12px rgba(124, 58, 237, 0.35);
         }
-        .faq .item.open::before {
-          content: "";
-          position: absolute;
-          inset: -1px;
-          border-radius: 19px;
-          padding: 1.5px;
-          pointer-events: none;
-          background: conic-gradient(from var(--a), #7c3aed, #e0cfff, #6366f1, #c026d3, #7c3aed);
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-          animation: spinFaq 5s linear infinite;
-        }
-        @keyframes spinFaq {
-          to { --a: 360deg; }
+        .dark .faq .item.open {
+          border-color: #a855f7;
+          box-shadow: 0 10px 28px -12px rgba(168, 85, 247, 0.5);
         }
         .faq .q {
           width: 100%;
@@ -214,6 +228,11 @@ export const FAQ: React.FC = () => {
           border: 1px solid rgba(124, 58, 237, 0.2);
           transition: all 0.35s;
         }
+        .dark .faq .num {
+          color: #c084fc;
+          background: #23164d;
+          border-color: rgba(168, 85, 247, 0.3);
+        }
         .faq .item.open .num {
           color: #fff;
           background: linear-gradient(135deg, #8b3dff, #5b3df0);
@@ -225,6 +244,10 @@ export const FAQ: React.FC = () => {
           font-size: clamp(13px, 1.3vw, 14.5px);
           font-weight: 700;
           line-height: 1.4;
+          color: #0e1629;
+        }
+        .dark .faq .qt {
+          color: #ffffff;
         }
         .faq .pill {
           flex: none;
@@ -237,6 +260,11 @@ export const FAQ: React.FC = () => {
           border: 1px solid rgba(124, 58, 237, 0.22);
           white-space: nowrap;
         }
+        .dark .faq .pill {
+          color: #c084fc;
+          background: #23164d;
+          border-color: rgba(168, 85, 247, 0.3);
+        }
         .faq .chev {
           flex: none;
           width: 30px;
@@ -247,11 +275,17 @@ export const FAQ: React.FC = () => {
           background: #eef0f6;
           transition: all 0.35s;
         }
+        .dark .faq .chev {
+          background: #23164d;
+        }
         .faq .chev svg {
           width: 14px;
           height: 14px;
           stroke: #64708a;
           transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.3s;
+        }
+        .dark .faq .chev svg {
+          stroke: #cbd5e1;
         }
         .faq .item.open .chev {
           background: #7c3aed;
@@ -259,6 +293,14 @@ export const FAQ: React.FC = () => {
         .faq .item.open .chev svg {
           transform: rotate(180deg);
           stroke: #fff;
+        }
+        .faq .ai {
+          color: #4b5870;
+          font-size: clamp(13px, 1.15vw, 14px);
+          line-height: 1.65;
+        }
+        .dark .faq .ai {
+          color: #cbd5e1;
         }
         .faq .a {
           display: grid;

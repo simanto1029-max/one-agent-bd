@@ -50,11 +50,13 @@ export const Features: React.FC = () => {
   const [chatStep, setChatStep] = useState<number>(6);
   const [isTyping, setIsTyping] = useState<boolean>(false);
 
+  const sectionRef = useRef<HTMLElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isVisibleRef = useRef<boolean>(true);
 
   // Auto-scroll inside the phone UI whenever chatStep or isTyping changes
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    if (scrollContainerRef.current && isVisibleRef.current) {
       scrollContainerRef.current.scrollTo({
         top: scrollContainerRef.current.scrollHeight,
         behavior: 'smooth'
@@ -62,18 +64,34 @@ export const Features: React.FC = () => {
     }
   }, [chatStep, isTyping]);
 
-  // Autonomous animation loop without any buttons
+  // Observer to pause animation loop when scrolled out of view (saves massive CPU/battery)
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisibleRef.current = entries[0].isIntersecting;
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Autonomous animation loop: only advances when section is visible
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     const runStep = () => {
+      if (!isVisibleRef.current) return;
       setChatStep((prev) => {
         if (prev >= 6) {
           // Pause at the final completed state, then loop back to start smoothly
           timeoutId = setTimeout(() => {
+            if (!isVisibleRef.current) return;
             setChatStep(0);
             setActiveFeatureId('sales');
             timeoutId = setTimeout(() => {
+              if (!isVisibleRef.current) return;
               setIsTyping(true);
               timeoutId = setTimeout(() => {
                 setIsTyping(false);
@@ -107,7 +125,7 @@ export const Features: React.FC = () => {
       });
     };
 
-    const intervalId = setInterval(runStep, 3800);
+    const intervalId = setInterval(runStep, 4000);
 
     return () => {
       clearInterval(intervalId);
@@ -128,17 +146,25 @@ export const Features: React.FC = () => {
 
   return (
     <section
+      ref={sectionRef}
       id="features"
       className="py-10 sm:py-14 bg-white dark:bg-[#0B0720] text-slate-900 dark:text-white relative overflow-hidden select-none border-y border-slate-100 dark:border-purple-500/15 transition-colors"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '650px' }}
     >
-      {/* Subtle ambient lighting */}
+      {/* Subtle ambient lighting with zero blur cost */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-purple-500/5 dark:bg-purple-900/15 rounded-full blur-[140px]"
+        className="pointer-events-none absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(168, 85, 247, 0.05) 0%, transparent 70%)'
+        }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-1/4 right-1/4 w-[450px] h-[450px] bg-emerald-500/5 dark:bg-emerald-900/10 rounded-full blur-[130px]"
+        className="pointer-events-none absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%)'
+        }}
       />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
