@@ -25,11 +25,7 @@ import {
   Send,
   PackageCheck,
   CheckCircle2,
-  Share2,
-  Users,
-  Building,
-  Mail,
-  ChevronRight
+  Share2
 } from 'lucide-react';
 import { Conversation, Order } from '../../types';
 import { api } from '../../api';
@@ -56,100 +52,35 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   onOpenProductPicker,
   onToggleAi,
   isAiPaused = false,
-  onCustomerUpdated,
-  allAgents = [{ id: '1', name: 'Dhruba' }, { id: '2', name: 'Anan' }, { id: '3', name: 'Alif' }, { id: '4', name: 'Rumman' }],
-  onAssignAgent,
-  onSelectTag
+  onCustomerUpdated
 }) => {
-  const [copiedPhone, setCopiedPhone] = useState(false);
-  const [copiedAddress, setCopiedAddress] = useState(false);
-  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
-
-  // Accordion open/close states (all open or selective as in Picture 2)
-  const [contactDetailsOpen, setContactDetailsOpen] = useState(true);
-  const [tagsOpen, setTagsOpen] = useState(true);
-  const [notesOpen, setNotesOpen] = useState(true);
-  const [summaryOpen, setSummaryOpen] = useState(true);
-
-  // Editable customer info
-  const [customerName, setCustomerName] = useState('');
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState('');
-
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [tempPhone, setTempPhone] = useState('');
-
-  const [customerAddress, setCustomerAddress] = useState('');
+  const [activeTab, setActiveTab] = useState<'details' | 'orders' | 'notes'>('details');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [customerAddress, setCustomerAddress] = useState('');
   const [tempAddress, setTempAddress] = useState('');
 
-  // Tags & Notes
-  const [tags, setTags] = useState<string[]>(['Priority', 'Top Client', 'High Prospect']);
-  const [newTagInput, setNewTagInput] = useState('');
-  const [showAddTag, setShowAddTag] = useState(false);
-
-  const [notes, setNotes] = useState<string>('Sajal, 01894927244, house 11/b road 30 gulshan-2, Dhaka. Interested in premium white half zip.');
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [tempNotes, setTempNotes] = useState('');
-  const [savingNotes, setSavingNotes] = useState(false);
-  const [notesSavedSuccess, setNotesSavedSuccess] = useState(false);
-
-  // Orders
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [showManageOrdersModal, setShowManageOrdersModal] = useState(false);
 
-  // Assigned Agent state
-  const [assignedAgents, setAssignedAgents] = useState<string[]>(['@Dhruba', '@Anan']);
-  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+  const [tags, setTags] = useState<string[]>(['Repeat Buyer']);
+  const [showAddTagInput, setShowAddTagInput] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
 
-  // Preset tag colors (matching Picture 2 colorful tags)
-  const getTagBadgeStyle = (tag: string) => {
-    const t = tag.toLowerCase();
-    if (t.includes('priority')) {
-      return 'bg-[#2E1A47] text-[#BF7AF0] border-[#5E2B97]';
-    }
-    if (t.includes('top client') || t.includes('client') || t.includes('prospect') && !t.includes('low')) {
-      return 'bg-[#142B3B] text-[#38BDF8] border-[#0284C7]/50';
-    }
-    if (t.includes('high prospect') || t.includes('attention')) {
-      return 'bg-[#3A220F] text-[#FB923C] border-[#C2410C]/50';
-    }
-    if (t.includes('risky') || t.includes('fraud') || t.includes('low')) {
-      return 'bg-[#3E161D] text-[#FB7185] border-[#BE123C]/50';
-    }
-    if (t.includes('successful') || t.includes('paid') || t.includes('order')) {
-      return 'bg-[#113222] text-[#34D399] border-[#059669]/50';
-    }
-    return 'bg-[#1E293B] text-[#94A3B8] border-[#334155]';
-  };
+  const [notes, setNotes] = useState<string>('');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [tempNotes, setTempNotes] = useState('');
 
   useEffect(() => {
     if (!conversation) return;
-
-    const msgCombined = conversation.messages.map((m) => m.message_text || '').join(' ');
-    const detectedPhone =
-      conversation.customerPhone ||
-      msgCombined.match(/(?:\+?88)?(01[3-9]\d{8})/)?.[1] ||
-      (/^01[3-9]\d{8}$/.test(conversation.customerId) ? conversation.customerId : '');
-
-    const detectedAddress = conversation.customerAddress || '';
-
-    setCustomerName(conversation.customerName || conversation.customerId);
-    setCustomerPhone(detectedPhone);
-    setCustomerAddress(detectedAddress);
+    setCustomerAddress(conversation.customerAddress || '');
+    setTempAddress(conversation.customerAddress || '');
     if (conversation.tags && conversation.tags.length > 0) {
       setTags(conversation.tags);
     } else {
-      setTags(['Priority', 'Top Client', 'High Prospect']);
+      setTags(['Repeat Buyer']);
     }
-    if (conversation.notes) setNotes(conversation.notes);
-
-    setIsEditingName(false);
-    setIsEditingPhone(false);
-    setIsEditingAddress(false);
-    setIsEditingNotes(false);
+    setNotes(conversation.notes || '');
+    setTempNotes(conversation.notes || '');
 
     loadCustomerData(conversation.customerId);
   }, [conversation?.customerId, conversation?.platform]);
@@ -159,11 +90,17 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
       setLoadingOrders(true);
       const res = await api.getCustomerDetails(customerId);
       if (res.metadata) {
-        if (res.metadata.customer_name) setCustomerName(res.metadata.customer_name);
-        if (res.metadata.customer_phone) setCustomerPhone(res.metadata.customer_phone);
-        if (res.metadata.customer_address) setCustomerAddress(res.metadata.customer_address);
-        if (Array.isArray(res.metadata.tags) && res.metadata.tags.length > 0) setTags(res.metadata.tags);
-        if (typeof res.metadata.notes === 'string') setNotes(res.metadata.notes);
+        if (res.metadata.customer_address) {
+          setCustomerAddress(res.metadata.customer_address);
+          setTempAddress(res.metadata.customer_address);
+        }
+        if (Array.isArray(res.metadata.tags) && res.metadata.tags.length > 0) {
+          setTags(res.metadata.tags);
+        }
+        if (typeof res.metadata.notes === 'string') {
+          setNotes(res.metadata.notes);
+          setTempNotes(res.metadata.notes);
+        }
       }
       if (Array.isArray(res.orders)) {
         setCustomerOrders(res.orders);
@@ -175,63 +112,30 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
     }
   };
 
-  if (!conversation) {
-    return (
-      <aside className="w-80 shrink-0 border-l border-[#1E2433] bg-[#0E121B] p-6 flex flex-col items-center justify-center text-center text-neutral-400">
-        <User className="w-8 h-8 mb-2 opacity-40 text-neutral-500" />
-        <p className="text-xs font-semibold text-neutral-400">Select a conversation to view customer details</p>
-      </aside>
-    );
-  }
-
-  const handleSaveProfile = async (field: 'name' | 'phone' | 'address', value: string) => {
+  const handleSaveAddress = async () => {
+    if (!conversation) return;
     try {
-      const payload: any = {};
-      if (field === 'name') {
-        payload.customerName = value.trim();
-        setCustomerName(value.trim());
-        setIsEditingName(false);
-      } else if (field === 'phone') {
-        payload.customerPhone = value.trim();
-        setCustomerPhone(value.trim());
-        setIsEditingPhone(false);
-      } else if (field === 'address') {
-        payload.customerAddress = value.trim();
-        setCustomerAddress(value.trim());
-        setIsEditingAddress(false);
-      }
-
-      await api.updateCustomerDetails(conversation.customerId, payload);
+      setCustomerAddress(tempAddress.trim());
+      setIsEditingAddress(false);
+      await api.updateCustomerDetails(conversation.customerId, {
+        customerAddress: tempAddress.trim()
+      });
       onCustomerUpdated?.();
     } catch (err) {
-      console.error('Failed to update customer info:', err);
+      console.error('Failed to update address:', err);
     }
   };
 
-  const handleCopyPhone = () => {
-    const textToCopy = customerPhone || conversation.customerId;
-    navigator.clipboard.writeText(textToCopy);
-    setCopiedPhone(true);
-    setTimeout(() => setCopiedPhone(false), 2000);
-  };
-
-  const handleCopyAddress = () => {
-    const courierText = `Name: ${customerName}\nPhone: ${customerPhone || conversation.customerId}\nAddress: ${customerAddress || 'Not provided'}`;
-    navigator.clipboard.writeText(courierText);
-    setCopiedAddress(true);
-    setTimeout(() => setCopiedAddress(false), 2200);
-  };
-
   const handleAddTag = async (tagName: string) => {
-    const cleanTag = tagName.trim();
-    if (!cleanTag || tags.includes(cleanTag)) return;
-    const updatedTags = [...tags, cleanTag];
-    setTags(updatedTags);
+    if (!conversation) return;
+    const clean = tagName.trim();
+    if (!clean || tags.includes(clean)) return;
+    const updated = [...tags, clean];
+    setTags(updated);
     setNewTagInput('');
-    setShowAddTag(false);
-
+    setShowAddTagInput(false);
     try {
-      await api.updateCustomerDetails(conversation.customerId, { tags: updatedTags });
+      await api.updateCustomerDetails(conversation.customerId, { tags: updated });
       onCustomerUpdated?.();
     } catch (err) {
       console.error('Failed to add tag:', err);
@@ -239,10 +143,11 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
-    const updatedTags = tags.filter((t) => t !== tagToRemove);
-    setTags(updatedTags);
+    if (!conversation) return;
+    const updated = tags.filter((t) => t !== tagToRemove);
+    setTags(updated);
     try {
-      await api.updateCustomerDetails(conversation.customerId, { tags: updatedTags });
+      await api.updateCustomerDetails(conversation.customerId, { tags: updated });
       onCustomerUpdated?.();
     } catch (err) {
       console.error('Failed to remove tag:', err);
@@ -250,572 +155,429 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
   };
 
   const handleSaveNotes = async () => {
+    if (!conversation) return;
     try {
-      setSavingNotes(true);
-      await api.updateCustomerDetails(conversation.customerId, { notes: tempNotes });
       setNotes(tempNotes);
       setIsEditingNotes(false);
-      setNotesSavedSuccess(true);
-      setTimeout(() => setNotesSavedSuccess(false), 2000);
+      await api.updateCustomerDetails(conversation.customerId, { notes: tempNotes });
       onCustomerUpdated?.();
     } catch (err) {
-      console.error('Failed to save customer notes:', err);
-    } finally {
-      setSavingNotes(false);
+      console.error('Failed to save notes:', err);
     }
   };
 
-  // Shared media from conversation
-  const sharedImages = conversation.messages
-    .filter((m) => m.image_url || m.image_base64)
-    .map((m) => m.image_url || `data:${m.image_mime_type || 'image/jpeg'};base64,${m.image_base64}`);
+  if (!conversation) {
+    return (
+      <aside className="w-full md:w-80 lg:w-[340px] shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] p-6 flex flex-col items-center justify-center text-center text-slate-400">
+        <User className="w-8 h-8 mb-2 opacity-40 text-slate-400" />
+        <p className="text-xs font-semibold">Select a conversation to view customer details</p>
+      </aside>
+    );
+  }
+
+  const detectedPhone = conversation.customerPhone || conversation.customerId;
 
   return (
-    <aside className="w-full md:w-80 lg:w-[340px] shrink-0 h-full min-h-0 flex flex-col border-l border-[#1A202C] bg-[#0B0E14] text-neutral-200 overflow-y-auto select-none font-sans">
-      {/* 1. Header: Order Actions Title + Manage Orders & Create Orders buttons (Picture 2 Exact Match) */}
-      <div className="p-4 border-b border-[#1A202C] space-y-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-extrabold text-white tracking-wide">
-            Order Actions
-          </h3>
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-white/5 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+    <aside className="w-full md:w-80 lg:w-[340px] shrink-0 h-full min-h-0 flex flex-col border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111625] text-slate-800 dark:text-slate-100 overflow-y-auto select-none font-sans">
+      {/* 1. Header: CUSTOMER CRM PROFILE ● with close X */}
+      <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-black tracking-wide text-slate-900 dark:text-white uppercase">
+            Customer CRM Profile
+          </span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
-
-        {/* 2 Wide Buttons: Manage Orders & Create Orders (Picture 2 exact) */}
-        <div className="grid grid-cols-2 gap-2.5">
+        {onClose && (
           <button
             type="button"
-            onClick={() => {
-              if (onNavigate) onNavigate('orders');
-              else setShowManageOrdersModal(true);
-            }}
-            className="py-2 px-3 rounded-lg bg-[#141923] hover:bg-[#1C2230] border border-[#232B3E] text-white text-xs font-bold transition-all text-center cursor-pointer shadow-xs"
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Close CRM Profile"
           >
-            Manage Orders
+            <X className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              onOpenCreateOrder?.({
-                name: customerName,
-                phone: customerPhone || conversation.customerId,
-                address: customerAddress
-              })
-            }
-            className="py-2 px-3 rounded-lg bg-[#141923] hover:bg-[#1C2230] border border-[#232B3E] text-white text-xs font-bold transition-all text-center cursor-pointer shadow-xs hover:border-[#7F22FE]"
-          >
-            Create Orders
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* Accordion Sections Stack */}
-      <div className="divide-y divide-[#1A202C] flex-1 overflow-y-auto">
-        {/* =====================================================================
-            ACCORDION 1: Contact Details ⌄
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => setContactDetailsOpen(!contactDetailsOpen)}
-            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-neutral-400" />
-              <span>Contact Details</span>
-            </div>
-            {contactDetailsOpen ? (
-              <ChevronUp className="w-4 h-4 text-neutral-400" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-neutral-400" />
-            )}
-          </button>
+      {/* 2. Tabs Row: Details | Orders | Notes */}
+      <div className="flex items-center border-b border-slate-100 dark:border-slate-800 px-5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('details')}
+          className={`py-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === 'details'
+              ? 'border-purple-600 text-purple-700 dark:text-purple-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          Details
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('orders')}
+          className={`py-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === 'orders'
+              ? 'border-purple-600 text-purple-700 dark:text-purple-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          Orders ({customerOrders.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('notes')}
+          className={`py-3 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === 'notes'
+              ? 'border-purple-600 text-purple-700 dark:text-purple-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          Notes
+        </button>
+      </div>
 
-          {contactDetailsOpen && (
-            <div className="space-y-2.5 pt-1 text-xs">
-              {/* Full Name */}
-              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                  <span>Customer Name:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempName(customerName);
-                      setIsEditingName(!isEditingName);
-                    }}
-                    className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
-                  >
-                    <Edit2 className="w-2.5 h-2.5" />
-                    <span>{isEditingName ? 'Cancel' : 'Edit'}</span>
-                  </button>
-                </div>
-                {isEditingName ? (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <input
-                      type="text"
-                      value={tempName}
-                      onChange={(e) => setTempName(e.target.value)}
-                      className="flex-1 text-xs px-2 py-1 rounded bg-[#0B0E14] border border-[#A855F7] text-white"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSaveProfile('name', tempName)}
-                      className="px-2 py-1 rounded bg-[#A855F7] text-white text-xs font-bold cursor-pointer"
-                    >
-                      Save
-                    </button>
-                  </div>
-                ) : (
-                  <p className="font-bold text-white text-xs">{customerName}</p>
-                )}
-              </div>
-
-              {/* Phone / WhatsApp */}
-              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-emerald-400" />
-                    Phone / WhatsApp:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCopyPhone}
-                      className="text-neutral-400 hover:text-white cursor-pointer"
-                      title="Copy phone"
-                    >
-                      {copiedPhone ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTempPhone(customerPhone || conversation.customerId);
-                        setIsEditingPhone(!isEditingPhone);
-                      }}
-                      className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Edit2 className="w-2.5 h-2.5" />
-                      <span>{isEditingPhone ? 'Cancel' : 'Edit'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {isEditingPhone ? (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <input
-                      type="text"
-                      value={tempPhone}
-                      onChange={(e) => setTempPhone(e.target.value)}
-                      className="flex-1 text-xs px-2 py-1 rounded bg-[#0B0E14] border border-[#A855F7] text-white font-mono"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSaveProfile('phone', tempPhone)}
-                      className="px-2 py-1 rounded bg-[#A855F7] text-white text-xs font-bold cursor-pointer"
-                    >
-                      Save
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between pt-0.5">
-                    <span className="font-mono font-bold text-white">
-                      {customerPhone || conversation.customerId}
-                    </span>
-                    <a
-                      href={`tel:${customerPhone || conversation.customerId}`}
-                      className="text-[10px] font-bold text-emerald-400 hover:underline flex items-center gap-1"
-                    >
-                      Call Now
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {/* Delivery Address */}
-              <div className="p-2.5 rounded-xl bg-[#121620] border border-[#1E2536] space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-[#A855F7]" />
-                    Address:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {customerAddress && (
-                      <button
-                        type="button"
-                        onClick={handleCopyAddress}
-                        className="text-neutral-400 hover:text-white cursor-pointer"
-                        title="Copy Address"
-                      >
-                        {copiedAddress ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTempAddress(customerAddress);
-                        setIsEditingAddress(!isEditingAddress);
-                      }}
-                      className="text-[#A855F7] hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Edit2 className="w-2.5 h-2.5" />
-                      <span>{isEditingAddress ? 'Cancel' : 'Edit'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {isEditingAddress ? (
-                  <div className="space-y-1.5 pt-1">
-                    <textarea
-                      rows={2}
-                      value={tempAddress}
-                      onChange={(e) => setTempAddress(e.target.value)}
-                      placeholder="Enter full shipping address..."
-                      className="w-full text-xs p-2 rounded bg-[#0B0E14] border border-[#A855F7] text-white"
-                      autoFocus
-                    />
-                    <div className="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingAddress(false)}
-                        className="px-2 py-0.5 rounded text-[11px] text-neutral-400 hover:text-white"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveProfile('address', tempAddress)}
-                        className="px-2.5 py-0.5 rounded bg-[#A855F7] text-white text-[11px] font-bold cursor-pointer"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-neutral-300 text-xs leading-relaxed">
-                    {customerAddress || <span className="text-neutral-500 italic">No address saved</span>}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* =====================================================================
-            ACCORDION 2: Tags with "+ Add New" button (Picture 2 Exact Match)
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold text-neutral-300">
-            <button
-              type="button"
-              onClick={() => setTagsOpen(!tagsOpen)}
-              className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
-            >
-              <Tag className="w-4 h-4 text-neutral-400" />
-              <span>Tags</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddTag(!showAddTag)}
-              className="text-xs font-bold text-[#A855F7] hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add New</span>
-            </button>
-          </div>
-
-          {tagsOpen && (
-            <div className="space-y-2 pt-1">
-              {/* Colorful Tag Badges (Picture 2 style) */}
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((t) => (
-                  <span
-                    key={t}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${getTagBadgeStyle(
-                      t
-                    )}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelectTag?.(t)}
-                      className="hover:underline cursor-pointer"
-                      title={`Click to filter inbox conversations by tag: ${t}`}
-                    >
-                      {t}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(t)}
-                      className="hover:text-white cursor-pointer opacity-70 hover:opacity-100 ml-0.5"
-                      title="Remove tag"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              {/* Quick Preset Tags to add with 1-click */}
-              <div className="pt-1">
-                <span className="text-[10px] text-neutral-400 font-semibold block mb-1">
-                  Quick Add Presets:
+      {/* 3. Tab Content */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {activeTab === 'details' && (
+          <>
+            {/* Delivery Address Block */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
+                  <MapPin className="w-3.5 h-3.5 text-purple-600" />
+                  Delivery Address:
                 </span>
-                <div className="flex flex-wrap gap-1">
-                  {['Priority', 'Top Client', 'VIP Client', 'High Prospect', 'Risky', 'Follow Up', 'Attention']
-                    .filter((pt) => !tags.includes(pt))
-                    .map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => handleAddTag(preset)}
-                        className="text-[10px] px-2 py-0.5 rounded bg-[#141923] hover:bg-[#1E2536] border border-[#232B3E] hover:border-neutral-500 text-neutral-300 hover:text-white transition-all cursor-pointer"
-                      >
-                        + {preset}
-                      </button>
-                    ))}
+                <button
+                  type="button"
+                  onClick={() => setIsEditingAddress(!isEditingAddress)}
+                  className="text-purple-600 hover:text-purple-700 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit
+                </button>
+              </div>
+
+              {isEditingAddress ? (
+                <div className="space-y-2 pt-1">
+                  <textarea
+                    value={tempAddress}
+                    onChange={(e) => setTempAddress(e.target.value)}
+                    placeholder="Enter customer delivery address..."
+                    rows={2}
+                    className="w-full text-xs p-2.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-950/20 text-slate-800 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-purple-500"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAddress(false)}
+                      className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveAddress}
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 dark:text-slate-500 italic pl-5">
+                  {customerAddress || 'No delivery address saved yet'}
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons: + Create Order & Send Product (stacked / grid matching screenshot) */}
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenCreateOrder?.({
+                    name: conversation.customerName,
+                    phone: detectedPhone,
+                    address: customerAddress
+                  })
+                }
+                className="w-full py-2.5 px-4 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-[0.98] cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Create Order</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenProductPicker}
+                className="w-full py-2.5 px-4 rounded-xl border border-purple-300 dark:border-purple-800/80 hover:bg-purple-50 dark:hover:bg-purple-950/30 bg-white dark:bg-[#161D2B] text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-purple-600" />
+                <span>Send Product</span>
+              </button>
+            </div>
+
+            {/* Card: AI Auto-Sales Agent with orange Take Over button */}
+            <div className="p-3.5 rounded-2xl bg-[#F0FDF4] dark:bg-emerald-950/30 border border-[#DCFCE7] dark:border-emerald-900/50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                    AI Auto-Sales Agent
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {isAiPaused ? 'Paused by moderator' : 'AI auto-replies 24/7 to chats'}
+                  </p>
                 </div>
               </div>
 
-              {/* Add Custom Tag Input */}
-              {showAddTag && (
-                <div className="flex items-center gap-1.5 pt-2">
+              <button
+                type="button"
+                onClick={() => onToggleAi?.(isAiPaused ? 'resume_ai' : 'pause_ai')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-transform active:scale-95 cursor-pointer shadow-xs ${
+                  isAiPaused
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-[#F59E0B] hover:bg-[#D97706] text-white'
+                }`}
+              >
+                {isAiPaused ? 'Activate AI' : 'Take Over'}
+              </button>
+            </div>
+
+            {/* Card: Courier & Fraud Intelligence with Safe Buyer badge */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#161D2B] border border-slate-200/80 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Courier &amp; Fraud Intelligence</span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Safe Buyer
+                </span>
+              </div>
+
+              {/* 3 Metric boxes */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                  <span className="block text-[10px] font-semibold text-slate-400">Orders</span>
+                  <span className="block text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                    {customerOrders.length || conversation.totalOrdersCount || 0}
+                  </span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                  <span className="block text-[10px] font-semibold text-slate-400">Total Spent</span>
+                  <span className="block text-sm font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                    &#2547;{(conversation.totalSpent || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                  <span className="block text-[10px] font-semibold text-slate-400">Success</span>
+                  <span className="block text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    100%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card: Tags (1) + Add Tag */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100">
+                  <Tag className="w-3.5 h-3.5 text-purple-600" />
+                  Tags ({tags.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddTagInput(!showAddTagInput)}
+                  className="text-purple-600 hover:text-purple-700 font-bold text-xs flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Tag
+                </button>
+              </div>
+
+              {showAddTagInput && (
+                <div className="flex items-center gap-1.5 pt-1">
                   <input
                     type="text"
-                    placeholder="Tag name (e.g. VIP, Urgent, Wholesale)..."
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag(newTagInput)}
-                    className="flex-1 text-xs px-2.5 py-1 rounded-lg bg-[#141923] border border-[#2B354D] text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-[#A855F7]"
-                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddTag(newTagInput);
+                    }}
+                    placeholder="New tag..."
+                    className="flex-1 text-xs px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800 bg-white dark:bg-[#141A26] text-slate-800 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={() => handleAddTag(newTagInput)}
-                    className="px-3 py-1 rounded-lg bg-[#A855F7] hover:bg-[#9333EA] text-white text-xs font-bold cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-xs font-bold"
                   >
                     Add
                   </button>
                 </div>
               )}
 
-              <p className="text-[10px] text-neutral-500 italic pt-1">
-                💡 Tip: Click any tag to filter conversations instantly. You can also search or filter tags from the inbox Search bar.
-              </p>
-            </div>
-          )}
-        </div>
+              {/* Suggestions chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {['VIP Client', 'Dhaka COD', 'Urgent'].map((suggested) => (
+                  <button
+                    key={suggested}
+                    type="button"
+                    onClick={() => handleAddTag(suggested)}
+                    className="px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:border-purple-400 hover:text-purple-600 cursor-pointer transition-colors"
+                  >
+                    + {suggested}
+                  </button>
+                ))}
+              </div>
 
-        {/* =====================================================================
-            ACCORDION 3: Notes for the customer [69] ⌄ (Picture 2 Exact Match)
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => setNotesOpen(!notesOpen)}
-            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-neutral-400" />
-              <span>Notes for the customer</span>
+              {/* Selected tags */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <span>{tag}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-200 cursor-pointer"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-[#2E1A47] text-[#BF7AF0] text-[10px] font-black border border-[#5E2B97]">
-                69
-              </span>
-              {notesOpen ? (
-                <ChevronUp className="w-4 h-4 text-neutral-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-neutral-400" />
+          </>
+        )}
+
+        {/* Orders Tab */}
+        {activeTab === 'orders' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500">Order History</span>
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenCreateOrder?.({
+                    name: conversation.customerName,
+                    phone: detectedPhone,
+                    address: customerAddress
+                  })
+                }
+                className="text-purple-600 hover:text-purple-700 text-xs font-bold flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Order
+              </button>
+            </div>
+
+            {loadingOrders ? (
+              <div className="text-center py-8 text-xs text-slate-400">Loading orders...</div>
+            ) : customerOrders.length === 0 ? (
+              <div className="text-center py-8 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500">No orders recorded yet</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenCreateOrder?.({
+                      name: conversation.customerName,
+                      phone: detectedPhone,
+                      address: customerAddress
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-bold"
+                >
+                  Create First Order
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {customerOrders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#161D2B] space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-extrabold text-slate-900 dark:text-white">
+                        #{ord.id.substring(0, 10)}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                        {ord.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 truncate">{ord.items}</p>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Total: &#2547;{Number(ord.total_amount).toLocaleString()}</span>
+                      <span>{new Date(ord.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Notes Tab */}
+        {activeTab === 'notes' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500">Internal Merchant Notes</span>
+              {!isEditingNotes && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingNotes(true)}
+                  className="text-purple-600 hover:text-purple-700 text-xs font-bold flex items-center gap-1"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit
+                </button>
               )}
             </div>
-          </button>
 
-          {notesOpen && (
-            <div className="space-y-2 pt-1 text-xs">
-              <textarea
-                rows={4}
-                value={isEditingNotes ? tempNotes : notes}
-                onFocus={() => {
-                  setTempNotes(notes);
-                  setIsEditingNotes(true);
-                }}
-                onChange={(e) => setTempNotes(e.target.value)}
-                placeholder="Write customer notes..."
-                className="w-full text-xs p-3 rounded-xl bg-[#121620] border border-[#1E2536] text-white focus:outline-hidden focus:border-[#A855F7] leading-relaxed"
-              />
-
-              {isEditingNotes && (
-                <div className="flex justify-end gap-1.5">
+            {isEditingNotes ? (
+              <div className="space-y-2">
+                <textarea
+                  value={tempNotes}
+                  onChange={(e) => setTempNotes(e.target.value)}
+                  placeholder="Write internal notes about this customer..."
+                  rows={4}
+                  className="w-full text-xs p-3 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/20 dark:bg-purple-950/20 text-slate-800 dark:text-white focus:outline-hidden"
+                />
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsEditingNotes(false)}
-                    className="px-3 py-1 rounded-lg text-neutral-400 hover:text-white text-xs cursor-pointer"
+                    onClick={() => {
+                      setTempNotes(notes);
+                      setIsEditingNotes(false);
+                    }}
+                    className="px-2.5 py-1 text-xs text-slate-500"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveNotes}
-                    disabled={savingNotes}
-                    className="px-3 py-1 rounded-lg bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold text-xs cursor-pointer shadow-xs flex items-center gap-1"
+                    className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold"
                   >
-                    {savingNotes && <RefreshCw className="w-3 h-3 animate-spin" />}
-                    <span>Save Note</span>
+                    Save Notes
                   </button>
                 </div>
-              )}
-
-              {notesSavedSuccess && (
-                <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
-                  <Check className="w-3 h-3" />
-                  Note saved to database!
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* =====================================================================
-            ACCORDION 4: Conversation Summary ⌄ (Picture 2 Exact Match)
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => setSummaryOpen(!summaryOpen)}
-            className="w-full flex items-center justify-between text-xs font-bold text-neutral-300 hover:text-white transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#A855F7]" />
-              <span>Conversation Summary</span>
-            </div>
-            {summaryOpen ? (
-              <ChevronUp className="w-4 h-4 text-neutral-400" />
+              </div>
             ) : (
-              <ChevronDown className="w-4 h-4 text-neutral-400" />
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                {notes || 'No notes added yet for this customer.'}
+              </div>
             )}
-          </button>
-
-          {summaryOpen && (
-            <div className="p-3 rounded-xl bg-[#121620] border border-[#1E2536] text-xs text-neutral-300 space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-white">
-                Customer inquired about White Half Zip &amp; Coffee Pant. Shared product picture and confirmed interest.
-              </p>
-              <div className="text-[11px] text-neutral-400 space-y-0.5 pt-1 border-t border-white/5">
-                <p><span className="text-neutral-500">Intent:</span> Order Placement</p>
-                <p><span className="text-neutral-500">Stage:</span> Awaiting delivery info confirmation</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* =====================================================================
-            ACCORDION 5: Activity List with "See all" (Picture 2 Exact Match)
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-white flex items-center gap-2">
-              <PackageCheck className="w-4 h-4 text-neutral-400" />
-              Activity List
-            </span>
-            <button
-              type="button"
-              className="text-[11px] text-[#A855F7] hover:underline cursor-pointer"
-            >
-              See all
-            </button>
           </div>
-
-          {/* Vertical Checklist Timeline (Picture 2 Exact Match) */}
-          <div className="relative pl-6 space-y-3 text-xs pt-1">
-            {/* Timeline line */}
-            <div className="absolute left-2.5 top-2.5 bottom-2 w-0.5 bg-[#2E1A47]" />
-
-            {/* Step 1 */}
-            <div className="relative flex items-start gap-2.5">
-              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
-                <Check className="w-2.5 h-2.5 stroke-[3]" />
-              </div>
-              <div>
-                <p className="font-bold text-white text-xs">Your details</p>
-                <p className="text-[11px] text-neutral-400">Please provide your name and email</p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative flex items-start gap-2.5">
-              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
-                <Check className="w-2.5 h-2.5 stroke-[3]" />
-              </div>
-              <div>
-                <p className="font-bold text-white text-xs">Company details</p>
-                <p className="text-[11px] text-neutral-400">A few details about your company</p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative flex items-start gap-2.5">
-              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#7F22FE] text-white flex items-center justify-center ring-2 ring-[#0B0E14]">
-                <Check className="w-2.5 h-2.5 stroke-[3]" />
-              </div>
-              <div>
-                <p className="font-bold text-white text-xs">Invite your team</p>
-                <p className="text-[11px] text-neutral-400">Start collaborating with your team</p>
-              </div>
-            </div>
-
-            {/* Step 4 (Active/Incomplete) */}
-            <div className="relative flex items-start gap-2.5">
-              <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#1A202C] border-2 border-[#7F22FE] flex items-center justify-center ring-2 ring-[#0B0E14]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#7F22FE]" />
-              </div>
-              <div>
-                <p className="font-bold text-white text-xs">Add your socials</p>
-                <p className="text-[11px] text-neutral-400">Share posts to your social accounts</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* =====================================================================
-            ACCORDION 6: Shared Files with "See all" (Picture 2 Exact Match)
-        ===================================================================== */}
-        <div className="p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-white flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-neutral-400" />
-              Shared Files
-            </span>
-            <button
-              type="button"
-              className="text-[11px] text-[#A855F7] hover:underline cursor-pointer"
-            >
-              See all
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <img
-              src="https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=400&auto=format&fit=crop&q=80"
-              alt="Shared product"
-              className="w-full h-24 object-cover rounded-xl border border-[#1E2536] hover:opacity-90 transition-opacity cursor-pointer"
-            />
-            <img
-              src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&auto=format&fit=crop&q=80"
-              alt="Shared product 2"
-              className="w-full h-24 object-cover rounded-xl border border-[#1E2536] hover:opacity-90 transition-opacity cursor-pointer"
-            />
-          </div>
-        </div>
+        )}
       </div>
     </aside>
   );
