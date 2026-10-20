@@ -28,7 +28,7 @@ const DEFAULT_REVIEWS: ReviewData[] = [
     n: 'Nusrat Jahan Mim',
     r: "Owner, Mim's Hijab & Abaya · Uttara, Dhaka",
     img: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
-    t: '“ফেইসবুক ও ইনস্টাগ্রাম পেইজে প্রতিদিন শত শত মেসেজের রিপ্লাই দিতে গিয়ে আমার পুরো দিন চলে যেত। এখন ভয়েস মেসেজ শুনলেই এআই খাঁটি বাংলায় সঠিক সাইজ ও ফেব্রিক ডিটেইলস বুঝিয়ে দেয়। Steadfast কুরিয়ারেও এক ক্লিকে পার্সেল এন্ট্রি হয়ে যায়।”'
+    t: '“ফেইসবুক ও ইনস্টাগ্রাম পেইজে প্রতিদিন শত শত মেসেজের রিপ্লাই দিতে গিয়ে আমার পুরো দিন চলে যেত। এখন কাস্টমার ভয়েস মেসেজ পাঠালে এআই খাঁটি বাংলায় সঠিক সাইজ ও ফেব্রিক ডিটেইলস বুঝিয়ে দেয়। Steadfast কুরিয়ারেও এক ক্লিকে পার্সেল এন্ট্রি হয়ে যায়।”'
   },
   {
     n: 'Imran Hossain Rony',
@@ -46,13 +46,25 @@ const DEFAULT_REVIEWS: ReviewData[] = [
     n: 'Kazi Farhan Ishrak',
     r: 'CEO, Chittagong Leather Crafts · GEC Circle, Chattogram',
     img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80',
-    t: '“আমরা ঢাকা ও চট্টগ্রামের বাইরে সারাদেশে লেদার শুজ ও ওয়ালেট বিক্রি করি। পাঠাও এবং রেডএক্স কুরিয়ার ইন্টিগ্রেশন এত স্মুথ যে এআই অর্ডার নেওয়ার পর সরাসরি কুরিয়ার ট্র্যাকিং কোড কাস্টমারকে পাঠিয়ে দেয়। কোনো মডারেটরের পেছনে আর ২০,০০০ টাকা দিতে হয় না।”'
+    t: '“আমরা ঢাকা ও চট্টগ্রামের বাইরে সারাদেশে লেদার শুজ ও ওয়ালেট বিক্রি করি। পাঠাও এবং রেডএক্স কুরিয়ার ইন্টিগ্রেশন এত স্মুথ যে এআই অর্ডার নেওয়ার পর সরাসরি কুরিয়ার ট্র্যাকিং কোড কাস্টমারকে পাঠিয়ে দেয়। কাজের স্পিড আর একিউরেসি দেখে আমরা মুগ্ধ।”'
   },
   {
     n: 'Mahmudul Hasan Rahat',
-    r: 'Proprietor, Deshi Organic Food · Sylhet',
+    r: 'Proprietor, Deshi Organic Food · Zindabazar, Sylhet',
     img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
     t: '“মধুর খাঁটিত্ব আর ঘি নিয়ে কাস্টমারদের শত শত প্রশ্ন থাকে। আমি ট্রেনিং ডাটাতে আমাদের বৈশিষ্ট্যগুলো লিখে দিয়েছি, এখন এআই ঠিক আমার মতোই বিস্তারিত বুঝিয়ে অর্ডার নেয়। হোয়াটসঅ্যাপ ক্লাউড এপিআই দিয়ে কোনো ব্যান বা রেস্ট্রিকশনের ভয় ছাড়াই নিরাপদে চলছে।”'
+  },
+  {
+    n: 'Afsana Haque Chowdhury',
+    r: 'Managing Partner, BabyLand BD · Mirpur DOHS, Dhaka',
+    img: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80',
+    t: '“মেটা বিজ্ঞাপনে প্রতিদিন শত শত লিড আসত। আগে ৩-৪ জন মডারেটর রেখেও অর্ধেকের বেশি কাস্টমারকে সময়মতো উত্তর দেওয়া যেত না। One Agent BD আসার পর কোনো লিড মিস হয় না, স্বয়ংক্রিয়ভাবে অ্যাড্রেস ও ফোন নম্বর ভেরিফাই করে অর্ডার শিট তৈরি করে দেয়।”'
+  },
+  {
+    n: 'Engr. Mahfuzur Rahman',
+    r: 'Founder, SneakerStreet Bangladesh · Chawkbazar, Rajshahi',
+    img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=160&auto=format&fit=crop&q=80',
+    t: '“আমাদের স্টোরের সাইজ ও কালার ভ্যারিয়েন্ট স্টক প্রতিনিয়ত পরিবর্তন হয়। এআই রিয়েল-টাইম ইনভেন্টরি চেক করে উত্তর দেয়, যার কারণে আউট-অফ-স্টক প্রোডাক্টের ভুল অর্ডার পড়ার কোনো চান্স থাকে না। মাসে কমপক্ষে ৩০,০০০ টাকা ওভারহেড খরচ বেঁচে গেছে।”'
   }
 ];
 
@@ -161,8 +173,7 @@ export const Testimonials: React.FC = () => {
           background: linear-gradient(180deg, #fff, #faf8ff 50%, #f5f0ff);
           color: #0e1629;
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-          content-visibility: auto;
-          contain-intrinsic-size: 600px;
+          scroll-margin-top: 6rem;
           transform: translateZ(0);
           transition: background 0.3s, color 0.3s;
         }

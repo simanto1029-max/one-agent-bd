@@ -59,9 +59,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   useEffect(() => {
     setMode(initialMode);
+    if (selectedPlan?.id) {
+      setChosenPlanId(selectedPlan.id);
+    }
     setError(null);
     setSuccessNotice(null);
-  }, [initialMode]);
+  }, [initialMode, selectedPlan]);
 
   const switchTab = (newMode: 'login' | 'signup') => {
     setMode(newMode);

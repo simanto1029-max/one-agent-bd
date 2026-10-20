@@ -66,8 +66,7 @@ export const FAQ: React.FC = () => {
           background: linear-gradient(180deg, #f6f2ff, #fbf9ff 45%, #fff);
           color: #0e1629;
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-          content-visibility: auto;
-          contain-intrinsic-size: 600px;
+          scroll-margin-top: 6rem;
           transform: translateZ(0);
           transition: background 0.3s, color 0.3s;
         }

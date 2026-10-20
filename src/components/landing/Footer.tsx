@@ -164,12 +164,18 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           max-width: 300px;
           color: #0e1629;
         }
+        .dark .ft .lead {
+          color: #ffffff;
+        }
         .ft .follow {
           margin-top: 26px;
           font-size: 12px;
           font-weight: 800;
           letter-spacing: 0.12em;
           color: #97a0b8;
+        }
+        .dark .ft .follow {
+          color: #a78bfa;
         }
         .ft .soc {
           display: flex;
@@ -205,6 +211,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           color: #97a0b8;
           margin-bottom: 18px;
         }
+        .dark .ft .col h4 {
+          color: #a78bfa;
+        }
         .ft .col ul {
           list-style: none;
           display: grid;
@@ -212,7 +221,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           padding: 0;
           margin: 0;
         }
-        .ft .col a {
+        .ft .col a, .ft .col button {
           position: relative;
           display: inline-block;
           font-size: 14.5px;
@@ -220,7 +229,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           color: #2a3652;
           transition: color 0.25s, transform 0.25s;
         }
-        .ft .col a::after {
+        .dark .ft .col a, .dark .ft .col button {
+          color: #cbd5e1;
+        }
+        .ft .col a::after, .ft .col button::after {
           content: "";
           position: absolute;
           left: 0;
@@ -233,11 +245,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           transform-origin: left;
           transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .ft .col a:hover {
+        .ft .col a:hover, .ft .col button:hover {
           color: #7c3aed;
           transform: translateX(3px);
         }
-        .ft .col a:hover::after {
+        .dark .ft .col a:hover, .dark .ft .col button:hover {
+          color: #c084fc;
+        }
+        .ft .col a:hover::after, .ft .col button:hover::after {
           transform: scaleX(1);
         }
         .ft .sup {
@@ -247,6 +262,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           background: #fff;
           border: 1px solid rgba(124, 58, 237, 0.22);
           box-shadow: 0 10px 30px -15px rgba(91, 33, 182, 0.25);
+        }
+        .dark .ft .sup {
+          background: #150E34;
+          border-color: rgba(168, 85, 247, 0.3);
+          box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.6);
         }
         .ft .live {
           display: inline-flex;
@@ -260,6 +280,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           color: #6d28d9;
           background: rgba(124, 58, 237, 0.08);
           border: 1px solid rgba(124, 58, 237, 0.22);
+        }
+        .dark .ft .live {
+          color: #c084fc;
+          background: rgba(124, 58, 237, 0.2);
+          border-color: rgba(168, 85, 247, 0.35);
         }
         .ft .live i {
           width: 7px;
@@ -279,10 +304,16 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           letter-spacing: -0.02em;
           color: #0e1629;
         }
+        .dark .ft .sup h5 {
+          color: #ffffff;
+        }
         .ft .sup p {
           margin-top: 3px;
           font-size: 13.5px;
           color: #5a6781;
+        }
+        .dark .ft .sup p {
+          color: #94a3b8;
         }
         .ft .cta {
           position: relative;
@@ -326,6 +357,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
           text-align: center;
           font-size: 13.5px;
           color: #5a6781;
+        }
+        .dark .ft .bar {
+          border-top-color: rgba(168, 85, 247, 0.15);
+          color: #94a3b8;
         }
         .ft .word {
           margin: 0 -8px;
@@ -438,13 +473,31 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
               <h4>PRODUCT</h4>
               <ul>
                 <li>
-                  <a href="#channels">Channels</a>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('channels')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="cursor-pointer text-left"
+                  >
+                    Channels
+                  </button>
                 </li>
                 <li>
-                  <a href="#features">Features</a>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="cursor-pointer text-left"
+                  >
+                    Features
+                  </button>
                 </li>
                 <li>
-                  <a href="#pricing">Pricing</a>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="cursor-pointer text-left"
+                  >
+                    Pricing
+                  </button>
                 </li>
               </ul>
             </nav>
@@ -453,10 +506,22 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAuth }) => {
               <h4>COMPANY</h4>
               <ul>
                 <li>
-                  <a href="#reviews">Reviews</a>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="cursor-pointer text-left"
+                  >
+                    Reviews
+                  </button>
                 </li>
                 <li>
-                  <a href="#faq">FAQ</a>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('faq')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="cursor-pointer text-left"
+                  >
+                    FAQ
+                  </button>
                 </li>
                 <li>
                   <a href={EMAIL_URL}>Contact</a>

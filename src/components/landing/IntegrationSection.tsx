@@ -192,8 +192,6 @@ export const IntegrationSection: React.FC = () => {
           margin: 16px 0;
           border: 1px solid rgba(124, 58, 237, 0.12);
           box-shadow: 0 10px 30px -10px rgba(91, 33, 182, 0.08);
-          content-visibility: auto;
-          contain-intrinsic-size: 520px;
           transform: translateZ(0);
           transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
