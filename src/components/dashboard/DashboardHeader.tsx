@@ -23,6 +23,7 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   user,
+  subStatus,
   isDark,
   onToggleTheme,
   onGoToLanding,
@@ -34,6 +35,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onToggleSidebar,
   activeTabLabel
 }) => {
+  const creditsRemaining = subStatus?.whatsappCreditsRemaining ?? 2088;
+  const creditsTotal = subStatus?.whatsappCreditsTotal ?? 2500;
+  const creditsUsed = subStatus?.whatsappCreditsUsed ?? 412;
+  const isLowCredits = creditsRemaining <= 200;
   return (
     <>
       <div className="h-14 sm:h-16 shrink-0" aria-hidden="true" />
@@ -77,6 +82,35 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
           {/* Right: Clean Actions (Never overlaps Brand Name on Mobile) */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Live WhatsApp AI Credit Quota Pill */}
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all ${
+                isLowCredits
+                  ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                  : 'bg-purple-50 dark:bg-purple-950/60 border-purple-200/80 dark:border-purple-800/40 text-purple-900 dark:text-purple-200'
+              }`}
+              title={`WhatsApp Monthly Credits: ${creditsUsed.toLocaleString()} used of ${creditsTotal.toLocaleString()} (${creditsRemaining.toLocaleString()} remaining). Facebook & Instagram are 100% UNLIMITED.`}
+            >
+              <span className="flex h-2 w-2 relative">
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    isLowCredits ? 'bg-rose-400' : 'bg-emerald-400'
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    isLowCredits ? 'bg-rose-500' : 'bg-emerald-500'
+                  }`}
+                />
+              </span>
+              <span className="font-mono text-[11px] font-black">
+                {creditsRemaining.toLocaleString()}
+              </span>
+              <span className="hidden sm:inline text-[10px] text-slate-400 font-medium">
+                / {creditsTotal.toLocaleString()} WA
+              </span>
+            </div>
+
             {/* Website Link */}
             <button
               onClick={onGoToLanding}

@@ -520,6 +520,62 @@ export const api = {
     });
   },
 
+  // Instant FAQ & Cost-Saver Rules
+  async getInstantRules(): Promise<{
+    rules: any[];
+    cost_saver_active: boolean;
+    triggered_count: number;
+  }> {
+    return fetchJson('/api/settings/instant-rules');
+  },
+
+  async updateInstantRules(data: {
+    rules?: any[];
+    cost_saver_active?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    rules: any[];
+    cost_saver_active: boolean;
+  }> {
+    return fetchJson('/api/settings/instant-rules', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async getCreditsUsage(): Promise<{
+    whatsapp: {
+      total_quota: number;
+      used: number;
+      remaining: number;
+      percent_used: number;
+    };
+    facebook: {
+      is_unlimited: boolean;
+      total_sent: number;
+    };
+    instagram: {
+      is_unlimited: boolean;
+      total_sent: number;
+    };
+    instant_rules: {
+      triggered_count: number;
+      credits_saved: number;
+      estimated_savings_bdt: number;
+    };
+    plan: {
+      id: string;
+      name: string;
+      price: number;
+      days_remaining: number;
+      is_trial: boolean;
+      is_expired: boolean;
+    };
+  }> {
+    return fetchJson('/api/settings/credits');
+  },
+
   // Meta Auto Connect & OAuth
   async getMetaConfig(): Promise<{
     configured: boolean;

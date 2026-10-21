@@ -62,6 +62,9 @@ export interface SubscriptionStatusInfo {
   canAccessDashboard: boolean;
   isTrialActive?: boolean;
   canConnectWhatsApp?: boolean;
+  whatsappCreditsTotal?: number;
+  whatsappCreditsUsed?: number;
+  whatsappCreditsRemaining?: number;
 }
 
 export interface Payment {

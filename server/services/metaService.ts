@@ -384,32 +384,109 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
   let interactiveOptions: InteractiveMessageConfig | undefined = undefined;
   let generatedAiResult: any = null;
 
-  try {
-    const aiResult = await generateAIReply({
-      userId: channel.user_id,
-      incomingMessage: event.messageText,
-      customerId: event.customerId,
-      customerName: event.customerName,
-      platform: event.platform,
-      channelName: channel.name,
-      history: conversationHistory,
-      audioBase64,
-      audioMimeType,
-      imageBase64,
-      imageMimeType,
-      imageUrl: event.imageUrl,
-      overrideSystemPrompt: event.overrideSystemPrompt
-    });
+  // 5.8 Cost-Saver / Instant FAQ Rule Check (Saves LLM tokens & WhatsApp credits!)
+  const merchantProfile = db.getProfileById(channel.user_id);
+  const costSaverEnabled = (merchantProfile as any)?.instant_rules_active !== false;
+  const instantRules: any[] = (merchantProfile as any)?.instant_faq_rules || [
+    {
+      id: 'rule_delivery',
+      name: 'ডেলিভারি চার্জ ও সময়',
+      keywords: ['delivery', 'ডেলিভারি', 'চার্জ', 'ডেলিভারি চার্জ', 'খরচ', 'khoroch', 'delivery fee', 'koto tk', 'কত টাকা', 'কতো', 'delivery koto'],
+      reply_text: 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে মাত্র ৳৮০, এবং ঢাকার বাইরে সারাদেশে ৳১৫০। ২-৩ কার্যদিবসের মধ্যে দ্রুততম হোম ডেলিভারি পৌঁছে যাবে ইনশাআল্লাহ।',
+      is_active: true
+    },
+    {
+      id: 'rule_payment',
+      name: 'পেমেন্ট ও বিকাশ/নগদ',
+      keywords: ['bkash', 'বিকাশ', 'nagad', 'নগদ', 'payment', 'পেমেন্ট', 'টাকা পাঠাবো'],
+      reply_text: 'আপনি ক্যাশ অন ডেলিভারিতে পণ্য হাতে পেয়ে মূল্য পরিশোধ করতে পারবেন। অথবা আমাদের bKash/Nagad মার্চেন্ট নম্বরে অগ্রিম পে করতে পারেন।',
+      is_active: true
+    }
+  ];
 
-    generatedAiResult = aiResult;
-    aiReplyText = aiResult.replyText;
-    attachedImageUrl = aiResult.attachedImageUrl;
-    interactiveOptions = aiResult.interactiveOptions;
+  let matchedInstantRule: any = null;
+  if (costSaverEnabled && event.messageText && !hasVoice && !hasImage) {
+    const rawLower = event.messageText.toLowerCase().trim();
+    for (const rule of instantRules) {
+      if (rule.is_active && Array.isArray(rule.keywords)) {
+        const hasMatch = rule.keywords.some((kw: string) => {
+          const clean = kw.toLowerCase().trim();
+          return clean && rawLower.includes(clean);
+        });
+        if (hasMatch) {
+          matchedInstantRule = rule;
+          break;
+        }
+      }
+    }
+  }
+
+  try {
+    if (matchedInstantRule) {
+      aiReplyText = matchedInstantRule.reply_text;
+      const curCount = (merchantProfile as any)?.instant_rules_triggered_count || 0;
+      db.updateProfile(channel.user_id, {
+        instant_rules_triggered_count: curCount + 1
+      } as any);
+      console.log(`[Cost-Saver Rule Matched] Triggered rule "${matchedInstantRule.name}" for customer ${event.customerId}. Saved 1 AI credit!`);
+    } else if (event.platform === 'whatsapp') {
+      const subStatus = getUserSubscriptionStatus(channel.user_id);
+      if (subStatus.whatsappCreditsRemaining <= 0) {
+        console.warn(`[Quota Exceeded] User ${channel.user_id} has exhausted monthly WhatsApp credits (${subStatus.whatsappCreditsUsed}/${subStatus.whatsappCreditsTotal}).`);
+        aiReplyText = `আসসালামু আলাইকুম! আপনার মেসেজটি পেয়েছি। আমাদের লাইভ সাপোর্ট টিম কিছুক্ষণের মধ্যেই আপনার সাথে সরাসরি যুক্ত হয়ে উত্তর দিচ্ছেন। ধন্যবাদ।`;
+        inbound.requires_human_attention = true;
+        inbound.attention_reason = 'Monthly WhatsApp AI reply credit quota reached';
+        db.updateMessage(inbound);
+      } else {
+        const aiResult = await generateAIReply({
+          userId: channel.user_id,
+          incomingMessage: event.messageText,
+          customerId: event.customerId,
+          customerName: event.customerName,
+          platform: event.platform,
+          channelName: channel.name,
+          history: conversationHistory,
+          audioBase64,
+          audioMimeType,
+          imageBase64,
+          imageMimeType,
+          imageUrl: event.imageUrl,
+          overrideSystemPrompt: event.overrideSystemPrompt
+        });
+
+        generatedAiResult = aiResult;
+        aiReplyText = aiResult.replyText;
+        attachedImageUrl = aiResult.attachedImageUrl;
+        interactiveOptions = aiResult.interactiveOptions;
+      }
+    } else {
+      // Messenger / Instagram: 100% UNLIMITED conversations!
+      const aiResult = await generateAIReply({
+        userId: channel.user_id,
+        incomingMessage: event.messageText,
+        customerId: event.customerId,
+        customerName: event.customerName,
+        platform: event.platform,
+        channelName: channel.name,
+        history: conversationHistory,
+        audioBase64,
+        audioMimeType,
+        imageBase64,
+        imageMimeType,
+        imageUrl: event.imageUrl,
+        overrideSystemPrompt: event.overrideSystemPrompt
+      });
+
+      generatedAiResult = aiResult;
+      aiReplyText = aiResult.replyText;
+      attachedImageUrl = aiResult.attachedImageUrl;
+      interactiveOptions = aiResult.interactiveOptions;
+    }
 
     // If customer question required human attention / unscripted hold, mark inbound and notify admin
-    if (aiResult.requiresHumanAttention) {
+    if (generatedAiResult?.requiresHumanAttention) {
       inbound.requires_human_attention = true;
-      inbound.attention_reason = aiResult.attentionReason;
+      inbound.attention_reason = generatedAiResult.attentionReason;
       db.updateMessage(inbound);
 
       db.createNotification({
@@ -426,9 +503,9 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
     }
 
     // If voice was transcribed, update inbound message with the actual words spoken
-    if (aiResult.transcript) {
-      inbound.transcription = aiResult.transcript;
-      inbound.message_text = `🎙️ Voice Message: "${aiResult.transcript}"`;
+    if (generatedAiResult?.transcript) {
+      inbound.transcription = generatedAiResult.transcript;
+      inbound.message_text = `🎙️ Voice Message: "${generatedAiResult.transcript}"`;
       db.updateMessage(inbound);
     }
   } catch (err) {

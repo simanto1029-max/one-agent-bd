@@ -22,16 +22,6 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
     discountPercent: 0
   },
   {
-    id: '2m',
-    label: '2 Months',
-    shortLabel: '2M',
-    type: 'monthly',
-    months: 2,
-    days: 60,
-    discountPercent: 3,
-    badge: 'Save 3%'
-  },
-  {
     id: '3m',
     label: '3 Months',
     shortLabel: '3M',
@@ -53,7 +43,7 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
   },
   {
     id: '1y',
-    label: '1 Year',
+    label: '1 Year (12 Months)',
     shortLabel: '1Y',
     type: 'yearly',
     months: 12,
@@ -63,94 +53,41 @@ export const PLAN_DURATION_OPTIONS: PlanDurationOption[] = [
   },
   {
     id: '2y',
-    label: '2 Years',
+    label: '2 Years (24 Months)',
     shortLabel: '2Y',
     type: 'yearly',
     months: 24,
     days: 730,
     discountPercent: 20,
     badge: 'Save 20%'
-  },
-  {
-    id: '3y',
-    label: '3 Years',
-    shortLabel: '3Y',
-    type: 'yearly',
-    months: 36,
-    days: 1095,
-    discountPercent: 25,
-    badge: 'Save 25%'
-  },
-  {
-    id: '6y',
-    label: '6 Years',
-    shortLabel: '6Y',
-    type: 'yearly',
-    months: 72,
-    days: 2190,
-    discountPercent: 30,
-    badge: 'Save 30%'
   }
 ];
 
 export const OFFICIAL_THREE_PLANS: Plan[] = [
   {
-    id: 'plan_trial',
-    name: 'Basic',
-    price: 0,
-    currency: 'BDT',
-    duration_days: 2,
-    trial_days: 2,
-    is_active: true,
-    subtitle: 'Build One Business Agent',
-    badge: 'Free Trial',
-    features: [
-      'Facebook Unlimited conversations',
-      'Instagram Unlimited conversations',
-      'WhatsApp Unlimited conversations (Locked in 2-day trial)',
-      '1 AI business agent',
-      'Bangla voice note & photo AI',
-      'Auto comment & inbox reply',
-      '1-Click courier booking (Steadfast & Pathao)',
-      'Unified team inbox',
-      'Standard AI reply speed'
-    ],
-    feature_config: {
-      website_stores: true,
-      call_requests: true,
-      vip_broadcast: false,
-      courier_dispatch: true,
-      csv_export: false,
-      max_channels: 2
-    },
-    created_at: '',
-    updated_at: ''
-  },
-  {
     id: 'plan_starter',
-    name: 'Advanced',
-    price: 1250,
+    name: 'Advance AI Plan',
+    price: 2499,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
     is_active: true,
-    subtitle: 'Manage Multiple Business',
-    badge: 'Most popular',
+    subtitle: 'Grow Your E-Commerce Business',
+    badge: 'Starter Growth',
     features: [
-      'Facebook Unlimited conversations',
-      'Instagram Unlimited conversations',
-      'WhatsApp Unlimited conversations (Direct Meta billing)',
-      '3 AI business agents',
-      'All 3 channels (FB, IG, WhatsApp)',
-      'Bangla voice note & photo AI',
-      'Auto comment & instant inbox DM',
-      '1-Click courier booking (Steadfast & Pathao)',
-      'Fake order & courier delivery ratio check',
-      'Unified team inbox',
-      'Standard 24/7 technical support'
+      'Facebook Messenger: 100% Unlimited Conversations',
+      'Instagram DM: 100% Unlimited Conversations',
+      'WhatsApp: 2,500 Messages & Replies Included',
+      '250 Comment Auto-Replies & Instant Inbox DM',
+      '500 Instant FAQ & Delivery Charge Auto-Replies',
+      '100 Products Catalog & Auto Order Capture',
+      'Bangla Voice Note AI Listening & Photo Recognition',
+      '1-Click Courier Booking (Steadfast, Pathao & RedX)',
+      'VIP Customer Retargeting & Smart Follow-Up',
+      'System Message Credits (No user card needed!)'
     ],
     feature_config: {
-      website_stores: true,
+      website_stores: false,
       call_requests: true,
       vip_broadcast: true,
       courier_dispatch: true,
@@ -162,28 +99,27 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
   },
   {
     id: 'plan_pro',
-    name: 'Agency package',
-    price: 1950,
+    name: 'Business AI Plan',
+    price: 4499,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
     is_active: true,
-    subtitle: 'Scale Your Client Base',
-    badge: 'Best value',
+    subtitle: 'Scale Multichannel Operations',
+    badge: 'Most Popular',
     features: [
-      'Facebook Unlimited conversations',
-      'Instagram Unlimited conversations',
-      'WhatsApp Unlimited conversations (Direct Meta billing)',
-      '10 AI business agents',
-      'All 10 channels (Multi-Page & Numbers)',
-      'Bangla voice note & photo AI',
-      'Turbo AI response queue (Zero-wait time)',
-      'Advanced sales persona & voice auto-reply',
-      'Multi-store website & WooCommerce real-time sync',
-      'AI appointments & calendar booking hub',
-      'VIP customer retargeting broadcast',
-      '10 Team member accounts',
-      'Dedicated VIP account manager (24/7 WhatsApp)'
+      'Facebook Messenger: 100% Unlimited Conversations',
+      'Instagram DM: 100% Unlimited Conversations',
+      'WhatsApp: 6,500 Messages & Replies Included',
+      '1,000 Comment Auto-Replies & Instant Inbox DM',
+      '1,500 Instant FAQ & Custom Business Rules',
+      'Unlimited Products Catalog & Auto Order Capture',
+      'Everything in Advance Plan +',
+      'Accounts, Stock & Profit ERP (Sales, Due, Cashbook)',
+      'Website Live Chat & WooCommerce/Shopify Store Sync',
+      'AI Delivery Tracking & Courier Fraud Intelligence Check',
+      'Up to 10 Connected Channels & Multi-Agent Collaboration',
+      'System Message Credits (No user card needed!)'
     ],
     feature_config: {
       website_stores: true,
@@ -195,166 +131,181 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
     },
     created_at: '',
     updated_at: ''
+  },
+  {
+    id: 'plan_enterprise',
+    name: 'Enterprise Agency Plan',
+    price: 8999,
+    currency: 'BDT',
+    duration_days: 30,
+    trial_days: 2,
+    is_active: true,
+    subtitle: 'Mega Volume & Agency Automation',
+    badge: 'Maximum Power',
+    features: [
+      'Facebook Messenger: 100% Unlimited Conversations',
+      'Instagram DM: 100% Unlimited Conversations',
+      'WhatsApp: 15,000 Messages & Replies Included',
+      'Unlimited Comment Auto-Replies & Instant Inbox DM',
+      'Unlimited Instant FAQ & Custom Business Knowledge Base',
+      'Unlimited Products Catalog & Multi-Store Management',
+      'Everything in Business Plan +',
+      'Connect Unlimited Channels (Multi-Page & Multi-Number)',
+      'Dedicated VIP Account Manager (24/7 Priority WhatsApp)',
+      'Team Collaboration & Multi-Staff Handover Queue',
+      'Custom AI Sales Closer Persona & Webhook Integrations',
+      'System Message Credits (No user card needed!)'
+    ],
+    feature_config: {
+      website_stores: true,
+      call_requests: true,
+      vip_broadcast: true,
+      courier_dispatch: true,
+      csv_export: true,
+      max_channels: 99
+    },
+    created_at: '',
+    updated_at: ''
   }
 ];
 
-export const OFFICIAL_TWO_PLANS: Plan[] = OFFICIAL_THREE_PLANS.slice(1);
+export const TRIAL_PLAN: Plan = {
+  id: 'plan_trial',
+  name: 'Basic Free Trial',
+  price: 0,
+  currency: 'BDT',
+  duration_days: 2,
+  trial_days: 2,
+  is_active: true,
+  subtitle: 'Test 100% Risk-Free For 2 Days',
+  badge: 'Free Trial',
+  features: [
+    'Facebook Unlimited Conversations',
+    'Instagram Unlimited Conversations',
+    '100 Test WhatsApp AI Replies Included',
+    '1 AI Business Agent',
+    'Bangla Voice Note & Photo AI',
+    'Auto Comment & Inbox DM Reply',
+    '1-Click Courier Booking (Steadfast & Pathao)',
+    'Unified Team Inbox',
+    'Standard AI Reply Speed'
+  ],
+  feature_config: {
+    website_stores: true,
+    call_requests: true,
+    vip_broadcast: false,
+    courier_dispatch: true,
+    csv_export: false,
+    max_channels: 2
+  },
+  created_at: '',
+  updated_at: ''
+};
+
+export const OFFICIAL_ALL_PLANS: Plan[] = [TRIAL_PLAN, ...OFFICIAL_THREE_PLANS];
+export const OFFICIAL_TWO_PLANS: Plan[] = OFFICIAL_THREE_PLANS;
 
 export interface PlanComparisonRow {
   category: string;
   feature: string;
   starterValue: string | boolean;
   proValue: string | boolean;
+  enterpriseValue?: string | boolean;
 }
 
 export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
   {
     category: 'Core AI & Channels',
     feature: 'Base Monthly Rate',
-    starterValue: '1,250 TK / month',
-    proValue: '1,950 TK / month'
+    starterValue: '2,499 TK / month',
+    proValue: '4,499 TK / month',
+    enterpriseValue: '8,999 TK / month'
   },
   {
     category: 'Core AI & Channels',
-    feature: '1 Year Subscription (15% Discount)',
-    starterValue: '12,750 TK / year (Save 2,250 TK)',
-    proValue: '19,890 TK / year (Save 3,510 TK)'
+    feature: 'WhatsApp Messages Included',
+    starterValue: '2,500 Messages',
+    proValue: '6,500 Messages',
+    enterpriseValue: '15,000 Messages'
   },
   {
     category: 'Core AI & Channels',
-    feature: '2 Years Subscription (20% Discount)',
-    starterValue: '24,000 TK / 2 yrs (Save 6,000 TK)',
-    proValue: '37,440 TK / 2 yrs (Save 9,360 TK)'
+    feature: 'Facebook & Instagram Conversations',
+    starterValue: '100% Unlimited',
+    proValue: '100% Unlimited',
+    enterpriseValue: '100% Unlimited'
+  },
+  {
+    category: 'Core AI & Channels',
+    feature: 'Foreign Credit Card Required for Meta',
+    starterValue: 'No (Covered by One Agent BD)',
+    proValue: 'No (Covered by One Agent BD)',
+    enterpriseValue: 'No (Covered by One Agent BD)'
   },
   {
     category: 'Core AI & Channels',
     feature: 'Autonomous AI Agents',
-    starterValue: '1 AI Agent (All Features)',
-    proValue: '3 AI Agents (Multi-Brand)'
+    starterValue: '1 AI Agent',
+    proValue: '3 AI Agents (Multi-Brand)',
+    enterpriseValue: 'Unlimited AI Agents'
   },
   {
     category: 'Core AI & Channels',
     feature: 'Connected Meta & WhatsApp Channels',
-    starterValue: 'Up to 3 Channels + Website',
-    proValue: 'Up to 10 Channels (Multi-Page)'
+    starterValue: 'Up to 3 Channels',
+    proValue: 'Up to 10 Channels',
+    enterpriseValue: 'Unlimited Channels'
   },
   {
     category: 'Core AI & Channels',
     feature: 'Website, WooCommerce & Shopify Store Sync',
-    starterValue: '1 Connected Store',
-    proValue: 'Unlimited Stores'
+    starterValue: false,
+    proValue: true,
+    enterpriseValue: true
+  },
+  {
+    category: 'ERP & Finance',
+    feature: 'Accounts, Stock & Profit Due ERP',
+    starterValue: false,
+    proValue: true,
+    enterpriseValue: true
   },
   {
     category: 'AI Intelligence & Media',
     feature: 'Voice Note AI & Product Image Recognition AI',
     starterValue: true,
-    proValue: true
+    proValue: true,
+    enterpriseValue: true
   },
   {
-    category: 'AI Intelligence & Media',
-    feature: 'Auto Comment Reply + Direct Inbox DM',
+    category: 'Courier & Logistics',
+    feature: '1-Click Steadfast, Pathao & RedX Booking',
     starterValue: true,
-    proValue: true
+    proValue: true,
+    enterpriseValue: true
   },
   {
-    category: 'AI Intelligence & Media',
-    feature: 'Product Catalog & Visual Photo Search',
-    starterValue: 'Unlimited Products',
-    proValue: 'Unlimited Products'
-  },
-  {
-    category: 'Orders, Store & Logistics',
-    feature: 'Autonomous Chat Order Confirmation & Courier Booking',
-    starterValue: true,
-    proValue: true
-  },
-  {
-    category: 'Orders, Store & Logistics',
-    feature: 'Multi-Page Routing, Priority AI Queue & 24/7 VIP Support',
-    starterValue: 'Standard Support',
-    proValue: 'VIP Priority + Dedicated Onboarding'
+    category: 'VIP Support',
+    feature: 'Dedicated VIP Account Manager Hotline',
+    starterValue: false,
+    proValue: false,
+    enterpriseValue: '24/7 WhatsApp Hotline'
   }
 ];
 
-export function normalizeToThreePlans(apiPlans: Plan[]): Plan[] {
-  let effectivePlans = apiPlans;
-  if (!effectivePlans || effectivePlans.length === 0) {
-    try {
-      const cached = localStorage.getItem('oneagent_custom_plans');
-      if (cached) {
-        effectivePlans = JSON.parse(cached);
-      }
-    } catch {}
-  } else {
-    try {
-      localStorage.setItem('oneagent_custom_plans', JSON.stringify(effectivePlans));
-    } catch {}
-  }
-
-  const list = effectivePlans || [];
-  const trialFromApi = list.find((p) => p.id === 'plan_trial' || p.price === 0);
-  const starterFromApi = list.find(
-    (p) =>
-      p.id === 'plan_starter' ||
-      p.name?.toLowerCase().includes('starter') ||
-      p.name?.toLowerCase().includes('advanced')
-  );
-  const proFromApi = list.find(
-    (p) =>
-      p.id === 'plan_pro' ||
-      p.name?.toLowerCase().includes('agency') ||
-      p.name?.toLowerCase().includes('pro')
-  );
-
-  return [
-    trialFromApi
-      ? {
-          ...OFFICIAL_THREE_PLANS[0],
-          ...trialFromApi,
-          name: trialFromApi.name || OFFICIAL_THREE_PLANS[0].name,
-          price: trialFromApi.price ?? 0,
-          features: trialFromApi.features?.length ? trialFromApi.features : OFFICIAL_THREE_PLANS[0].features,
-          feature_config: trialFromApi.feature_config || OFFICIAL_THREE_PLANS[0].feature_config
-        }
-      : OFFICIAL_THREE_PLANS[0],
-    starterFromApi
-      ? {
-          ...OFFICIAL_THREE_PLANS[1],
-          ...starterFromApi,
-          name: starterFromApi.name || OFFICIAL_THREE_PLANS[1].name,
-          price: typeof starterFromApi.price === 'number' && !isNaN(starterFromApi.price) ? starterFromApi.price : 1250,
-          features: starterFromApi.features?.length ? starterFromApi.features : OFFICIAL_THREE_PLANS[1].features,
-          feature_config: starterFromApi.feature_config || OFFICIAL_THREE_PLANS[1].feature_config
-        }
-      : OFFICIAL_THREE_PLANS[1],
-    proFromApi
-      ? {
-          ...OFFICIAL_THREE_PLANS[2],
-          ...proFromApi,
-          name: proFromApi.name || OFFICIAL_THREE_PLANS[2].name,
-          price: typeof proFromApi.price === 'number' && !isNaN(proFromApi.price) ? proFromApi.price : 1950,
-          features: proFromApi.features?.length ? proFromApi.features : OFFICIAL_THREE_PLANS[2].features,
-          feature_config: proFromApi.feature_config || OFFICIAL_THREE_PLANS[2].feature_config
-        }
-      : OFFICIAL_THREE_PLANS[2]
-  ];
+export function normalizeToThreePlans(list: Plan[]): Plan[] {
+  if (!list || list.length === 0) return OFFICIAL_THREE_PLANS;
+  const starter = list.find((p) => p.id === 'plan_starter' || p.price === 2499) || OFFICIAL_THREE_PLANS[0];
+  const pro = list.find((p) => p.id === 'plan_pro' || p.price === 4499) || OFFICIAL_THREE_PLANS[1];
+  const enterprise = list.find((p) => p.id === 'plan_enterprise' || p.price === 8999) || OFFICIAL_THREE_PLANS[2];
+  return [starter, pro, enterprise];
 }
-
-export function normalizeToTwoPlans(apiPlans: Plan[]): Plan[] {
-  const three = normalizeToThreePlans(apiPlans);
-  return [three[1], three[2]];
-}
-
-export const OFFICIAL_PLANS: Plan[] = OFFICIAL_THREE_PLANS;
 
 export function getDurationDiscountPercent(months: number): number {
-  if (months >= 72) return 30;
-  if (months >= 36) return 25;
   if (months >= 24) return 20;
   if (months >= 12) return 15;
   if (months >= 6) return 10;
   if (months >= 3) return 5;
-  if (months >= 2) return 3;
   return 0;
 }
 
@@ -381,7 +332,7 @@ export function calculateCustomPlanPrice(
 }
 
 export function buildCustomizedPlan(basePlan: Plan, duration: PlanDurationOption): Plan {
-  const totalPrice = calculateCustomPlanPrice(basePlan.price, duration.months);
+  const totalPrice = calculateCustomPlanPrice(basePlan.price, duration);
   return {
     ...basePlan,
     price: totalPrice,
@@ -389,5 +340,3 @@ export function buildCustomizedPlan(basePlan: Plan, duration: PlanDurationOption
     name: `${basePlan.name} (${duration.label})`
   };
 }
-
-

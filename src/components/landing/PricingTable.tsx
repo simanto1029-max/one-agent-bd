@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plan } from '../../types';
 import {
   OFFICIAL_THREE_PLANS,
+  TRIAL_PLAN,
   PLAN_DURATION_OPTIONS,
   PlanDurationOption,
   calculateCustomPlanPrice,
@@ -17,16 +18,11 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Billing duration options matching user request (Month & Year selection)
-  const durations: PlanDurationOption[] = [
-    PLAN_DURATION_OPTIONS[0], // 1 Month
-    PLAN_DURATION_OPTIONS[2] || { id: '3m', label: '3 Months', shortLabel: '3M', type: 'monthly' as const, months: 3, days: 90, discountPercent: 5, badge: 'Save 5%' },
-    PLAN_DURATION_OPTIONS[3] || { id: '6m', label: '6 Months', shortLabel: '6M', type: 'monthly' as const, months: 6, days: 180, discountPercent: 10, badge: 'Save 10%' },
-    PLAN_DURATION_OPTIONS[4] || { id: '1y', label: '1 Year (12 Months)', shortLabel: '1Y', type: 'yearly' as const, months: 12, days: 365, discountPercent: 15, badge: 'Save 15%' },
-    PLAN_DURATION_OPTIONS[5] || { id: '2y', label: '2 Years (24 Months)', shortLabel: '2Y', type: 'yearly' as const, months: 24, days: 730, discountPercent: 20, badge: 'Save 20%' }
-  ];
+  const durations: PlanDurationOption[] = PLAN_DURATION_OPTIONS;
 
   const [selectedDuration, setSelectedDuration] = useState<PlanDurationOption>(durations[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [priceMode, setPriceMode] = useState<'package' | 'monthly'>('package');
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -54,81 +50,43 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
     card.style.setProperty('--my', `${e.clientY - r.top}px`);
   };
 
-  const handleSelect = (planType: 'trial' | 'starter' | 'pro') => {
+  const handleSelect = (planType: 'trial' | 'advance' | 'business' | 'enterprise') => {
     if (planType === 'trial') {
-      const trialPlan = OFFICIAL_THREE_PLANS[0];
-      onSelectPlan(trialPlan, 'trial');
-    } else if (planType === 'starter') {
-      const baseStarter = OFFICIAL_THREE_PLANS[1];
-      const customized = buildCustomizedPlan(baseStarter, selectedDuration);
+      onSelectPlan(TRIAL_PLAN, 'trial');
+    } else if (planType === 'advance') {
+      const basePlan = OFFICIAL_THREE_PLANS[0];
+      const customized = buildCustomizedPlan(basePlan, selectedDuration);
+      onSelectPlan(customized, 'buy');
+    } else if (planType === 'business') {
+      const basePlan = OFFICIAL_THREE_PLANS[1];
+      const customized = buildCustomizedPlan(basePlan, selectedDuration);
       onSelectPlan(customized, 'buy');
     } else {
-      const basePro = OFFICIAL_THREE_PLANS[2];
-      const customized = buildCustomizedPlan(basePro, selectedDuration);
+      const basePlan = OFFICIAL_THREE_PLANS[2];
+      const customized = buildCustomizedPlan(basePlan, selectedDuration);
       onSelectPlan(customized, 'buy');
     }
   };
 
-  // Pricing calculations
-  const starterBasePrice = 1250;
-  const proBasePrice = 1950;
+  // Base plan prices
+  const advanceBasePrice = 2499;
+  const businessBasePrice = 4499;
+  const enterpriseBasePrice = 8999;
 
-  const starterTotalPrice = calculateCustomPlanPrice(starterBasePrice, selectedDuration);
-  const starterMonthlyEffective = Math.round(starterTotalPrice / selectedDuration.months);
+  // Total and effective monthly prices for selected duration
+  const advanceTotal = calculateCustomPlanPrice(advanceBasePrice, selectedDuration);
+  const advanceMonthlyEffective = Math.round(advanceTotal / selectedDuration.months);
 
-  const proTotalPrice = calculateCustomPlanPrice(proBasePrice, selectedDuration);
-  const proMonthlyEffective = Math.round(proTotalPrice / selectedDuration.months);
+  const businessTotal = calculateCustomPlanPrice(businessBasePrice, selectedDuration);
+  const businessMonthlyEffective = Math.round(businessTotal / selectedDuration.months);
 
-  // Features list matching HTML exactly
-  const basicFeatures = [
-    { text: 'Facebook Unlimited conversations', lock: false },
-    { text: 'Instagram Unlimited conversations', lock: false },
-    { text: 'WhatsApp Unlimited conversations (Locked in 2-day trial)', lock: true },
-    { text: '1 AI business agent', lock: false },
-    { text: 'Bangla voice note & photo AI', lock: false },
-    { text: 'Auto comment & inbox reply', lock: false },
-    { text: '1-Click courier booking (Steadfast & Pathao)', lock: false },
-    { text: 'Unified team inbox', lock: false },
-    { text: 'Standard AI reply speed', lock: false }
-  ];
-
-  const starterFeatures = [
-    { text: '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)', lock: false },
-    { text: '1-Click Steadfast, Pathao & RedX Courier Dispatch', lock: false },
-    { text: 'AI Auto Customer Fraud & Courier Delivery Ratio Check', lock: false },
-    { text: 'AI Auto Delivery Tracking & Customer Live Status Update', lock: false },
-    { text: 'VIP Customer Retargeting & Smart Follow-Up Message', lock: false },
-    { text: 'WhatsApp, Facebook Messenger & Instagram Auto-Reply', lock: false },
-    { text: 'Voice Note AI Listening & Product Photo Recognition', lock: false },
-    { text: 'Auto Post Comment Reply + Direct Inbox (DM) Automation', lock: false },
-    { text: 'Unlimited Product Catalog & Autonomous Chat Order Capture', lock: false },
-    { text: 'Unlimited Customer Conversations (0 TK per-msg fee)', lock: false }
-  ];
-
-  const proFeatures = [
-    { text: 'Everything in Starter Plan + Connect up to 10 Channels', lock: false },
-    { text: 'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)', lock: false },
-    { text: 'AI Appointments & Google Calendar Auto-Slot Booking', lock: false },
-    { text: 'Website, WooCommerce & Shopify Store Sync + Live Chat Widget', lock: false },
-    { text: 'AI Auto Delivery Tracking & Customer Live Status Update', lock: false },
-    { text: 'VIP Customer Retargeting Message & AI Email Marketing', lock: false },
-    { text: '1-Click Steadfast, Pathao & RedX Courier Dispatch', lock: false },
-    { text: 'AI Auto Customer Fraud & Courier Delivery Ratio Check', lock: false },
-    { text: 'Customer Callback Queue, Human Handover & CSV/Text Export', lock: false },
-    { text: '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support', lock: false }
-  ];
+  const enterpriseTotal = calculateCustomPlanPrice(enterpriseBasePrice, selectedDuration);
+  const enterpriseMonthlyEffective = Math.round(enterpriseTotal / selectedDuration.months);
 
   const CK_ICON = (
     <svg className="ck" viewBox="0 0 18 18">
       <circle cx="9" cy="9" r="9" />
       <path d="M5.2 9.3l2.5 2.5 5-5.2" />
-    </svg>
-  );
-
-  const LK_ICON = (
-    <svg viewBox="0 0 18 18" fill="none" stroke="#a2aabf" strokeWidth="1.6" strokeLinecap="round">
-      <rect x="4" y="8" width="10" height="7" rx="2" />
-      <path d="M6.5 8V6a2.5 2.5 0 015 0v2" />
     </svg>
   );
 
@@ -188,7 +146,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
         }
         .pr .head {
           text-align: center;
-          max-width: 720px;
+          max-width: 760px;
           margin: 0 auto;
         }
         .pr .badge {
@@ -222,8 +180,9 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
         .pr .head small {
           display: block;
           margin-top: 10px;
-          font-size: 12px;
-          color: #8b94ad;
+          font-size: 12.5px;
+          color: #7c3aed;
+          font-weight: 700;
         }
         .dark .pr .head small {
           color: #a78bfa;
@@ -243,12 +202,12 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           display: inline-flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 12px 8px 16px;
+          padding: 9px 16px;
           border-radius: 999px;
           background: #fff;
-          border: 1px solid rgba(124, 58, 237, 0.2);
+          border: 1px solid rgba(124, 58, 237, 0.25);
           box-shadow: 0 10px 26px -14px rgba(76, 29, 149, 0.4);
-          font-size: 12.5px;
+          font-size: 13px;
           font-weight: 600;
           color: var(--muted);
           cursor: pointer;
@@ -266,7 +225,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           transform: translateY(-1px);
         }
         .pr .bill-btn b {
-          padding: 5px 12px;
+          padding: 5px 14px;
           border-radius: 999px;
           color: #fff;
           font-size: 12px;
@@ -279,7 +238,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           top: calc(100% + 8px);
           left: 50%;
           transform: translateX(-50%);
-          width: 270px;
+          width: 280px;
           background: #ffffff;
           border: 1px solid rgba(124, 58, 237, 0.22);
           border-radius: 18px;
@@ -294,7 +253,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
         }
         .pr .dropdown-item {
           width: 100%;
-          padding: 9px 14px;
+          padding: 10px 14px;
           border-radius: 12px;
           text-align: left;
           font-size: 13px;
@@ -324,7 +283,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           color: #ffffff;
         }
         .pr .grid {
-          max-width: 1120px;
+          max-width: 1160px;
           margin: 0 auto;
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -335,7 +294,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           position: relative;
           display: flex;
           flex-direction: column;
-          padding: 28px 26px 26px;
+          padding: 30px 26px 26px;
           border-radius: 30px;
           background: #fff;
           border: 1px solid rgba(14, 22, 41, 0.08);
@@ -428,7 +387,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           align-items: center;
         }
         .pr .top h3 {
-          font-size: 20px;
+          font-size: 21px;
           font-weight: 800;
           letter-spacing: -0.02em;
           color: inherit;
@@ -449,7 +408,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           display: flex;
           align-items: baseline;
           gap: 6px;
-          margin-top: 16px;
+          margin-top: 14px;
           font-weight: 800;
           letter-spacing: -0.04em;
           color: inherit;
@@ -476,7 +435,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
         }
         .pr .total-billed {
           margin-top: 6px;
-          font-size: 11.5px;
+          font-size: 12px;
           font-weight: 700;
           color: #7c3aed;
         }
@@ -518,14 +477,9 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           transition: left 0.7s;
         }
         .pr .b-light {
-          color: var(--ink);
-          background: #f1f3f8;
-          border: 1px solid rgba(14, 22, 41, 0.08);
-        }
-        .dark .pr .b-light {
           color: #fff;
-          background: #251B4D;
-          border-color: rgba(168, 85, 247, 0.25);
+          background: linear-gradient(135deg, #4f46e5, #4338ca);
+          box-shadow: 0 14px 28px -10px rgba(79, 70, 229, 0.5);
         }
         .pr .b-violet {
           color: #fff;
@@ -579,13 +533,6 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           height: 18px;
           margin-top: 1px;
         }
-        .pr li.lock {
-          color: #a2aabf;
-          text-decoration: line-through;
-        }
-        .dark .pr li.lock {
-          color: #64748b;
-        }
         .pr .ck circle {
           fill: rgba(16, 185, 129, 0.14);
         }
@@ -608,7 +555,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
         @media (max-width: 900px) {
           .pr .grid {
             grid-template-columns: 1fr;
-            max-width: 460px;
+            max-width: 480px;
           }
           .pr .pop {
             order: -1;
@@ -619,202 +566,330 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
       {/* Head section */}
       <div className="head">
-        <span className="badge">Pricing</span>
-        <h2>Simple plans that grow with your business</h2>
+        <span className="badge">Transparent Credit Pricing</span>
+        <h2>Flexible packages for every business size. Start small, scale big.</h2>
         <p>
-          Start small, then add channels and automation as you need them. Every plan includes autonomous AI replies.
+          Every plan includes <strong>100% Unlimited Facebook &amp; Instagram</strong> conversations. WhatsApp replies are covered by our built-in system credits—<strong>no foreign card required</strong>!
         </p>
         <small>
-          Facebook &amp; Instagram conversations: 100% Unlimited &bull; WhatsApp Cloud API: Direct Meta billing
+          Meta Cloud API direct connection &bull; 0% foreign card hassle &bull; 100% Autonomous AI Sales Agent
         </small>
       </div>
 
-      {/* Billing Duration Dropdown Selector matching exact HTML pill */}
+      {/* Billing Duration Dropdown Selector & Price Display Mode Switcher */}
       <div className="bill">
-        <div ref={dropdownRef} className="bill-wrapper">
-          <button
-            type="button"
-            className="bill-btn"
-            onClick={() => setIsDropdownOpen((prev) => !prev)}
-            aria-expanded={isDropdownOpen}
-            aria-label="Select billing duration"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round">
-              <rect x="3" y="5" width="18" height="16" rx="3" />
-              <path d="M8 3v4M16 3v4M3 10h18" />
-            </svg>
-            <span>Billing Duration:</span>
-            <b>{selectedDuration.label}</b>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#8b94ad"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-xl mx-auto">
+          {/* Duration Dropdown Pill */}
+          <div ref={dropdownRef} className="bill-wrapper">
+            <button
+              type="button"
+              className="bill-btn"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              aria-expanded={isDropdownOpen}
+              aria-label="Select billing duration"
             >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="5" width="18" height="16" rx="3" />
+                <path d="M8 3v4M16 3v4M3 10h18" />
+              </svg>
+              <span>Duration:</span>
+              <b>{selectedDuration.label}</b>
+              {selectedDuration.discountPercent > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  Save {selectedDuration.discountPercent}%
+                </span>
+              )}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#8b94ad"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
 
-          {/* Interactive Dropdown Menu for Month / Year selection */}
-          {isDropdownOpen && (
-            <div className="dropdown-menu">
-              {durations.map((dur) => (
-                <button
-                  key={dur.id}
-                  type="button"
-                  className={`dropdown-item ${selectedDuration.id === dur.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedDuration(dur);
-                    setIsDropdownOpen(false);
-                  }}
-                >
-                  <span>{dur.label}</span>
-                  {dur.discountPercent > 0 && (
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontWeight: 800,
-                        backgroundColor: selectedDuration.id === dur.id ? 'rgba(255,255,255,0.25)' : '#dcfce7',
-                        color: selectedDuration.id === dur.id ? '#ffffff' : '#15803d'
-                      }}
-                    >
-                      Save {dur.discountPercent}%
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Interactive Dropdown Menu for Month / Year selection */}
+            {isDropdownOpen && (
+              <div className="dropdown-menu">
+                {durations.map((dur) => (
+                  <button
+                    key={dur.id}
+                    type="button"
+                    className={`dropdown-item ${selectedDuration.id === dur.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedDuration(dur);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    <span>{dur.label}</span>
+                    {dur.discountPercent > 0 && (
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          fontWeight: 800,
+                          backgroundColor: selectedDuration.id === dur.id ? 'rgba(255,255,255,0.25)' : '#dcfce7',
+                          color: selectedDuration.id === dur.id ? '#ffffff' : '#15803d'
+                        }}
+                      >
+                        Save {dur.discountPercent}%
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Price View Mode Switcher */}
+          <div className="inline-flex items-center p-1 rounded-full bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setPriceMode('package')}
+              className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                priceMode === 'package'
+                  ? 'bg-[#7c3aed] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-purple-600'
+              }`}
+            >
+              📦 Total Package Price
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriceMode('monthly')}
+              className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                priceMode === 'monthly'
+                  ? 'bg-[#7c3aed] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-purple-600'
+              }`}
+            >
+              🗓️ Monthly Equivalent
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Grid of 3 Cards */}
+      {/* Grid of 3 Main Paid Plans matching user request */}
       <div className="grid" id="grid">
         
-        {/* 1. BASIC TRIAL CARD */}
+        {/* 1. ADVANCE AI PLAN (৳2,499) */}
         <article
           className="card"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
           <div className="top">
-            <h3>Basic</h3>
-            <span className="free">2 Days Free</span>
+            <h3>Advance</h3>
+            <span className="free">2,500 WA Messages</span>
           </div>
+
           <div className="price">
-            <strong>&#2547;0</strong>
-            <em>/ 2 days</em>
+            {priceMode === 'package' ? (
+              <>
+                <strong>&#2547;{advanceTotal.toLocaleString('en-US')}</strong>
+                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">
+                    &#2547;{(advanceBasePrice * selectedDuration.months).toLocaleString('en-US')}
+                  </del>
+                )}
+              </>
+            ) : (
+              <>
+                <strong>&#2547;{selectedDuration.months === 1 ? advanceBasePrice.toLocaleString('en-US') : advanceMonthlyEffective.toLocaleString('en-US')}</strong>
+                <em>/ month</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{advanceBasePrice.toLocaleString('en-US')}</del>
+                )}
+              </>
+            )}
           </div>
-          <div className="sub">Build One Business Agent</div>
+
+          <div className="sub">Grow Your E-Commerce Business</div>
+          {selectedDuration.months > 1 && (
+            <div className="total-billed">
+              {priceMode === 'package'
+                ? `৳${advanceMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(advanceBasePrice * selectedDuration.months - advanceTotal).toLocaleString('en-US')} saved)`
+                : `Billed ৳${advanceTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={() => handleSelect('trial')}
+            onClick={() => handleSelect('advance')}
             className="btn b-light"
           >
-            Start 2-day free trial
+            Choose Advance Plan
           </button>
-          <div className="fl">FEATURES</div>
+          
+          <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {basicFeatures.map((f, k) => (
-              <li
-                key={k}
-                className={f.lock ? 'lock' : ''}
-              >
-                {f.lock ? LK_ICON : CK_ICON}
-                <span>{f.text}</span>
+            {OFFICIAL_THREE_PLANS[0].features.map((f, k) => (
+              <li key={k}>
+                {CK_ICON}
+                <span>{f}</span>
               </li>
             ))}
           </ul>
         </article>
 
-        {/* 2. STARTER AI PLAN CARD (POPULAR) */}
+        {/* 2. BUSINESS AI PLAN (৳4,499) - MOST POPULAR */}
         <article
           className="card pop"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
-          <span className="tag">Most popular</span>
+          <span className="tag">⭐ Most Popular</span>
           <div className="top">
-            <h3>Starter AI Plan</h3>
+            <h3>Business</h3>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+              6,500 WA Messages
+            </span>
           </div>
+
           <div className="price">
-            <strong>&#2547;{starterMonthlyEffective.toLocaleString('en-US')}</strong>
-            <em>/ month</em>
+            {priceMode === 'package' ? (
+              <>
+                <strong>&#2547;{businessTotal.toLocaleString('en-US')}</strong>
+                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">
+                    &#2547;{(businessBasePrice * selectedDuration.months).toLocaleString('en-US')}
+                  </del>
+                )}
+              </>
+            ) : (
+              <>
+                <strong>&#2547;{selectedDuration.months === 1 ? businessBasePrice.toLocaleString('en-US') : businessMonthlyEffective.toLocaleString('en-US')}</strong>
+                <em>/ month</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{businessBasePrice.toLocaleString('en-US')}</del>
+                )}
+              </>
+            )}
           </div>
-          <div className="sub">Manage Multiple Business</div>
+
+          <div className="sub">Scale Multichannel Operations</div>
           {selectedDuration.months > 1 && (
             <div className="total-billed">
-              Billed &#2547;{starterTotalPrice.toLocaleString('en-US')} for {selectedDuration.label}
+              {priceMode === 'package'
+                ? `৳${businessMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(businessBasePrice * selectedDuration.months - businessTotal).toLocaleString('en-US')} saved)`
+                : `Billed ৳${businessTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
             </div>
           )}
+
           <button
             type="button"
-            onClick={() => handleSelect('starter')}
+            onClick={() => handleSelect('business')}
             className="btn b-violet"
           >
-            Choose Starter AI Plan
+            Choose Business Plan
           </button>
-          <div className="fl">FEATURES</div>
+
+          <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {starterFeatures.map((f, k) => (
-              <li
-                key={k}
-                className={f.lock ? 'lock' : ''}
-              >
-                {f.lock ? LK_ICON : CK_ICON}
-                <span>{f.text}</span>
+            {OFFICIAL_THREE_PLANS[1].features.map((f, k) => (
+              <li key={k}>
+                {CK_ICON}
+                <span>{f}</span>
               </li>
             ))}
           </ul>
         </article>
 
-        {/* 3. PRO BUSINESS PLAN CARD */}
+        {/* 3. ENTERPRISE AGENCY PLAN (৳8,999) */}
         <article
           className="card"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
           <div className="top">
-            <h3>Pro Business Plan</h3>
+            <h3>Enterprise</h3>
+            <span className="free">15,000 WA Messages</span>
           </div>
+
           <div className="price">
-            <strong>&#2547;{proMonthlyEffective.toLocaleString('en-US')}</strong>
-            <em>/ month</em>
+            {priceMode === 'package' ? (
+              <>
+                <strong>&#2547;{enterpriseTotal.toLocaleString('en-US')}</strong>
+                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">
+                    &#2547;{(enterpriseBasePrice * selectedDuration.months).toLocaleString('en-US')}
+                  </del>
+                )}
+              </>
+            ) : (
+              <>
+                <strong>&#2547;{selectedDuration.months === 1 ? enterpriseBasePrice.toLocaleString('en-US') : enterpriseMonthlyEffective.toLocaleString('en-US')}</strong>
+                <em>/ month</em>
+                {selectedDuration.discountPercent > 0 && (
+                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{enterpriseBasePrice.toLocaleString('en-US')}</del>
+                )}
+              </>
+            )}
           </div>
-          <div className="sub">Scale Your Client Base</div>
+
+          <div className="sub">Mega Volume &amp; Agency Automation</div>
           {selectedDuration.months > 1 && (
             <div className="total-billed">
-              Billed &#2547;{proTotalPrice.toLocaleString('en-US')} for {selectedDuration.label}
+              {priceMode === 'package'
+                ? `৳${enterpriseMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(enterpriseBasePrice * selectedDuration.months - enterpriseTotal).toLocaleString('en-US')} saved)`
+                : `Billed ৳${enterpriseTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
             </div>
           )}
+
           <button
             type="button"
-            onClick={() => handleSelect('pro')}
+            onClick={() => handleSelect('enterprise')}
             className="btn b-dark"
           >
-            Choose Pro Business Plan
+            Choose Enterprise Plan
           </button>
-          <div className="fl">FEATURES</div>
+
+
+          <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {proFeatures.map((f, k) => (
-              <li
-                key={k}
-                className={f.lock ? 'lock' : ''}
-              >
-                {f.lock ? LK_ICON : CK_ICON}
-                <span>{f.text}</span>
+            {OFFICIAL_THREE_PLANS[2].features.map((f, k) => (
+              <li key={k}>
+                {CK_ICON}
+                <span>{f}</span>
               </li>
             ))}
           </ul>
         </article>
 
       </div>
+
+      {/* Free Trial Banner below cards */}
+      <div className="max-w-3xl mx-auto mt-12 p-5 rounded-2xl bg-white dark:bg-[#150E36] border border-purple-200 dark:border-purple-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🚀 Want to test everything risk-free first?</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+              2 Days Free Trial
+            </span>
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Experience autonomous sales AI, 100 test WhatsApp replies, and unlimited Facebook &amp; Instagram with 0 credit card needed.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleSelect('trial')}
+          className="px-5 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-800 font-bold text-xs shrink-0 cursor-pointer transition-colors"
+        >
+          Start 2-Day Free Trial &rarr;
+        </button>
+      </div>
+
     </section>
   );
 };

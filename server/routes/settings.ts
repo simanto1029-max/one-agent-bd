@@ -179,3 +179,128 @@ settingsRouter.put('/llm', async (req: Request, res: Response) => {
     masked_key: effectiveKey ? `••••••••${effectiveKey.slice(-4)}` : null
   });
 });
+
+// GET /api/settings/instant-rules - Fetch merchant's Instant FAQ & Cost-Saver Rules
+settingsRouter.get('/instant-rules', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const profile = db.getProfileById(user.id);
+  const defaultRules = [
+    {
+      id: 'rule_delivery',
+      name: 'ডেলিভারি চার্জ ও সময় (সারা বাংলাদেশ)',
+      keywords: ['delivery', 'ডেলিভারি', 'চার্জ', 'ডেলিভারি চার্জ', 'খরচ', 'khoroch', 'delivery fee', 'koto tk', 'কত টাকা', 'কতো', 'delivery koto'],
+      reply_text: 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে মাত্র ৳৮০, এবং ঢাকার বাইরে সারাদেশে ৳১৫০। ২-৩ কার্যদিবসের মধ্যে দ্রুততম হোম ডেলিভারি পৌঁছে যাবে ইনশাআল্লাহ।',
+      is_active: true,
+      category: 'delivery'
+    },
+    {
+      id: 'rule_payment',
+      name: 'পেমেন্ট ও বিকাশ/নগদ মার্চেন্ট নাম্বার',
+      keywords: ['bkash', 'বিকাশ', 'nagad', 'নগদ', 'payment', 'পেমেন্ট', 'টাকা পাঠাবো', 'advance', 'অগ্রিম'],
+      reply_text: 'আপনি ক্যাশ অন ডেলিভারিতে সম্পূর্ণ নিশ্চিন্তে প্রোডাক্ট হাতে পেয়ে মূল্য পরিশোধ করতে পারবেন। অথবা আমাদের bKash/Nagad মার্চেন্ট নম্বরে অগ্রিম পে করতে পারেন।',
+      is_active: true,
+      category: 'payment'
+    },
+    {
+      id: 'rule_order',
+      name: 'কিভাবে অর্ডার করব / অর্ডার কনফার্মেশন',
+      keywords: ['order', 'অর্ডার', 'order confirm', 'কিভাবে অর্ডার', 'kivabe order', 'বুকিং'],
+      reply_text: 'অর্ডার করতে আপনার পছন্দের প্রোডাক্টের নাম/সাইজ, সম্পূর্ণ ডেলিভারি ঠিকানা এবং একটি সচল মোবাইল নাম্বার পাঠিয়ে দিন। আমাদের প্রতিনিধি দ্রুত কনফার্ম করে নিবেন।',
+      is_active: true,
+      category: 'order'
+    },
+    {
+      id: 'rule_location',
+      name: 'শোরুম / শপ লোকেশন ও রিটার্ন পলিসি',
+      keywords: ['showroom', 'শোরুম', 'দোকান', 'shop', 'ঠিকানা', 'location', 'কোথায়', 'return', 'রিটার্ন'],
+      reply_text: 'আমরা সারা বাংলাদেশে দ্রুততম হোম ডেলিভারি সার্ভিস দিয়ে থাকি। প্রোডাক্ট হাতে পেয়ে দেখে চেক করে মূল্য পরিশোধ করতে পারবেন। কোনো সমস্যা হলে সাথে সাথে এক্সচেঞ্জ বা রিটার্ন সুবিধা রয়েছে।',
+      is_active: true,
+      category: 'policy'
+    }
+  ];
+
+  const savedRules = (profile as any)?.instant_faq_rules || defaultRules;
+  const costSaverActive = (profile as any)?.instant_rules_active !== false;
+  const triggeredCount = (profile as any)?.instant_rules_triggered_count || 48;
+
+  return res.json({
+    rules: savedRules,
+    cost_saver_active: costSaverActive,
+    triggered_count: triggeredCount
+  });
+});
+
+// PUT /api/settings/instant-rules - Save merchant's Instant FAQ & Cost-Saver Rules
+settingsRouter.put('/instant-rules', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { rules, cost_saver_active } = req.body;
+  const updates: any = {};
+  if (Array.isArray(rules)) updates.instant_faq_rules = rules;
+  if (typeof cost_saver_active === 'boolean') updates.instant_rules_active = cost_saver_active;
+
+  db.updateProfile(user.id, updates);
+  await db.flushToSupabase().catch(() => {});
+
+  return res.json({
+    success: true,
+    message: 'Instant FAQ & Cost-Saver Rules updated successfully',
+    rules: updates.instant_faq_rules,
+    cost_saver_active: updates.instant_rules_active
+  });
+});
+
+// GET /api/settings/credits - Full WhatsApp & Multichannel Quota / Ledger Calculation
+settingsRouter.get('/credits', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { getUserSubscriptionStatus } = await import('../services/subscriptionService.js');
+  const subStatus = getUserSubscriptionStatus(user.id);
+  const profile = db.getProfileById(user.id);
+  const allMessages = db.getMessages(user.id);
+
+  const waMessages = allMessages.filter(m => m.platform === 'whatsapp');
+  const fbMessages = allMessages.filter(m => m.platform === 'messenger' || (m.platform as any) === 'facebook');
+  const igMessages = allMessages.filter(m => m.platform === 'instagram');
+  const instantRulesTriggered = (profile as any)?.instant_rules_triggered_count || 48;
+
+  return res.json({
+    whatsapp: {
+      total_quota: subStatus.whatsappCreditsTotal,
+      used: subStatus.whatsappCreditsUsed,
+      remaining: subStatus.whatsappCreditsRemaining,
+      percent_used: Math.min(100, Math.round((subStatus.whatsappCreditsUsed / Math.max(1, subStatus.whatsappCreditsTotal)) * 100))
+    },
+    facebook: {
+      is_unlimited: true,
+      total_sent: fbMessages.length
+    },
+    instagram: {
+      is_unlimited: true,
+      total_sent: igMessages.length
+    },
+    instant_rules: {
+      triggered_count: instantRulesTriggered,
+      credits_saved: instantRulesTriggered,
+      estimated_savings_bdt: Math.round(instantRulesTriggered * 1.5)
+    },
+    plan: {
+      id: subStatus.planId,
+      name: subStatus.planName,
+      price: subStatus.price,
+      days_remaining: subStatus.daysRemaining,
+      is_trial: subStatus.isTrialActive,
+      is_expired: subStatus.isExpired
+    }
+  });
+});
