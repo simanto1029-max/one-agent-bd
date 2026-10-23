@@ -34,10 +34,11 @@ import {
   ShieldCheck,
   Printer,
   MoreHorizontal,
-  ChevronDown
+  ChevronDown,
+  Store
 } from 'lucide-react';
 import { api } from '../../api';
-import { Order, OrderMetrics } from '../../types';
+import { Order, OrderMetrics, Agent } from '../../types';
 import { AIOrderSettingsModal } from './AIOrderSettingsModal';
 import { CourierModal } from './CourierModal';
 import { DeliveryCourierListView } from './DeliveryCourierListView';
@@ -74,8 +75,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedPlatform, setSelectedPlatform] = useState<'all' | 'whatsapp' | 'messenger' | 'instagram'>('all');
+  const [selectedPlatform, setSelectedPlatform] = useState<
+    'all' | 'whatsapp' | 'messenger' | 'instagram' | 'website' | 'manual'
+  >('all');
   const [selectedSourceType, setSelectedSourceType] = useState<'all' | 'website' | 'manual_ai'>('all');
+  const [agentsList, setAgentsList] = useState<Agent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('all');
 
   // Modal states
   const [activeOrderDetails, setActiveOrderDetails] = useState<Order | null>(null);
@@ -114,8 +119,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [newNotes, setNewNotes] = useState('');
 
   useEffect(() => {
+    api.getAgents().then((res) => {
+      if (res?.agents) setAgentsList(res.agents);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     loadOrders();
-  }, [selectedStatus, selectedPlatform, selectedSourceType]);
+  }, [selectedStatus, selectedPlatform, selectedSourceType, selectedAgentId]);
 
   const loadOrders = async () => {
     try {
@@ -124,6 +135,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         status: selectedStatus,
         platform: selectedPlatform,
         sourceType: selectedSourceType,
+        agentId: selectedAgentId !== 'all' ? selectedAgentId : undefined,
         search: searchQuery
       });
       setOrders(res.orders || []);
@@ -537,6 +549,13 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     );
   };
 
+  // Real channel order counts
+  const waCount = orders.filter((o) => o.platform === 'whatsapp').length;
+  const fbCount = orders.filter((o) => o.platform === 'messenger' || (o.platform as any) === 'facebook').length;
+  const igCount = orders.filter((o) => o.platform === 'instagram').length;
+  const webCount = orders.filter((o) => o.order_source === 'website' || o.platform === 'shopify' || o.platform === 'woocommerce' || o.platform === 'website').length;
+  const manualCount = orders.filter((o) => o.order_source === 'manual').length;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Header & Quick Actions */}
@@ -890,39 +909,99 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-xl p-1 shrink-0">
-            <button
-              onClick={() => setSelectedPlatform('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedPlatform === 'all'
-                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
-            >
-              All Channels
-            </button>
-            <button
-              onClick={() => setSelectedPlatform('whatsapp')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                selectedPlatform === 'whatsapp'
-                  ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              WhatsApp
-            </button>
-            <button
-              onClick={() => setSelectedPlatform('messenger')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                selectedPlatform === 'messenger'
-                  ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-              }`}
-            >
-              <Facebook className="w-3.5 h-3.5" />
-              Messenger
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Multi-business Agent selector */}
+            {agentsList.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                <Store className="w-3.5 h-3.5 text-[#7F22FE]" />
+                <select
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                >
+                  <option value="all">All Businesses</option>
+                  {agentsList.map((ag) => (
+                    <option key={ag.id} value={ag.id}>
+                      {ag.business_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-xl p-1 shrink-0 overflow-x-auto scrollbar-none max-w-full">
+              <button
+                onClick={() => setSelectedPlatform('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                  selectedPlatform === 'all'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <span>All</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 dark:bg-neutral-600 font-extrabold">{orders.length}</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('whatsapp')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                  selectedPlatform === 'whatsapp'
+                    ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-extrabold">{waCount}</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('messenger')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                  selectedPlatform === 'messenger'
+                    ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Facebook className="w-3.5 h-3.5" />
+                <span>Messenger</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-extrabold">{fbCount}</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('instagram')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                  selectedPlatform === 'instagram'
+                    ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>Instagram</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300 font-extrabold">{igCount}</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('website')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                  selectedPlatform === 'website'
+                    ? 'bg-white dark:bg-neutral-700 text-purple-600 dark:text-purple-400 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Website</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 font-extrabold">{webCount}</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('manual')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                  selectedPlatform === 'manual'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Manual</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-extrabold">{manualCount}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1061,6 +1140,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                      {getSourceBadge(order)}
                       {getPaymentBadge(order.payment_method, order.payment_status, order)}
                     </div>
 
@@ -1213,6 +1293,21 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           <Smartphone className="w-3 h-3" />
                           WhatsApp
+                        </span>
+                      ) : order.platform === 'instagram' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                          <Instagram className="w-3 h-3" />
+                          Instagram
+                        </span>
+                      ) : order.platform === 'shopify' || order.platform === 'woocommerce' || order.platform === 'website' || order.order_source === 'website' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          <Globe className="w-3 h-3" />
+                          {order.source_details?.store_name || (order.platform === 'shopify' ? 'Shopify' : order.platform === 'woocommerce' ? 'WooCommerce' : 'Website')}
+                        </span>
+                      ) : order.order_source === 'manual' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-neutral-500/10 text-neutral-700 dark:text-neutral-300 border border-neutral-500/20">
+                          <Edit3 className="w-3 h-3" />
+                          Manual
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">

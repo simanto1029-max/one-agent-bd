@@ -38,8 +38,23 @@ ordersRouter.get('/', (req, res) => {
       orders = orders.filter((o) => o.status === status);
     }
 
+    const { agentId, business } = req.query;
+
     if (platform && typeof platform === 'string' && platform !== 'all') {
-      orders = orders.filter((o) => o.platform === platform);
+      if (platform === 'website') {
+        orders = orders.filter((o) => o.order_source === 'website' || (o.platform as string) === 'website' || o.platform === 'shopify' || o.platform === 'woocommerce');
+      } else if (platform === 'manual') {
+        orders = orders.filter((o) => o.order_source === 'manual');
+      } else {
+        orders = orders.filter((o) => o.platform === platform);
+      }
+    }
+
+    if (agentId && typeof agentId === 'string' && agentId !== 'all') {
+      const targetAgent = db.getAgentById(agentId);
+      if (targetAgent && Array.isArray(targetAgent.assigned_channels) && targetAgent.assigned_channels.length > 0) {
+        orders = orders.filter((o) => o.channel_id && targetAgent.assigned_channels.includes(o.channel_id));
+      }
     }
 
     if (customerId && typeof customerId === 'string') {

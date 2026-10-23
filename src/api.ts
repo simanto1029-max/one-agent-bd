@@ -1298,6 +1298,7 @@ export const api = {
     search?: string;
     customerId?: string;
     sourceType?: 'website' | 'manual_ai' | 'all';
+    agentId?: string;
   }): Promise<{ orders: Order[]; totalCount: number; metrics: OrderMetrics }> {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
@@ -1305,6 +1306,7 @@ export const api = {
     if (params?.search) query.set('search', params.search);
     if (params?.customerId) query.set('customerId', params.customerId);
     if (params?.sourceType) query.set('sourceType', params.sourceType);
+    if (params?.agentId) query.set('agentId', params.agentId);
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return fetchJson<{ orders: Order[]; totalCount: number; metrics: OrderMetrics }>(`/api/orders${queryString}`);
   },

@@ -26,7 +26,8 @@ import {
   ArrowUpRight,
   BarChart3,
   Activity,
-  Info
+  Info,
+  Globe
 } from 'lucide-react';
 import {
   UserProfile,
@@ -85,6 +86,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     instant_rules?: { triggered_count: number; credits_saved: number; estimated_savings_bdt: number };
     plan?: { id: string; name: string; price: number; days_remaining: number; is_trial: boolean; is_expired: boolean };
   } | null>(null);
+  const [storesCount, setStoresCount] = useState<number>(0);
   const [dailyChartData, setDailyChartData] = useState<
     Array<{
       date: string;
@@ -103,11 +105,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [ordersRes, agentsRes, inboxRes, creditsRes] = await Promise.all([
+      const [ordersRes, agentsRes, inboxRes, creditsRes, storesRes] = await Promise.all([
         api.getOrders().catch(() => ({ orders: [], metrics: null })),
         api.getAgents().catch(() => ({ agents: [] })),
         api.getInbox().catch(() => ({ conversations: [], totalCount: 0 })),
-        api.getCreditsUsage().catch(() => null)
+        api.getCreditsUsage().catch(() => null),
+        api.getStores().catch(() => ({ stores: [] }))
       ]);
 
       if (creditsRes) {
@@ -121,6 +124,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       }
       if (agentsRes.agents) {
         setAgentsList(agentsRes.agents);
+      }
+      if (storesRes?.stores) {
+        setStoresCount(storesRes.stores.length);
       }
 
       // Compute Daily Message Consumption for the current month
@@ -319,27 +325,94 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     return null;
   };
 
+  const currentHour = new Date().getHours();
+  const greetingTime =
+    currentHour < 12
+      ? 'Good morning'
+      : currentHour < 17
+      ? 'Good afternoon'
+      : 'Good evening';
+
+  const waChannelsCount = channels.filter((c) => c.platform === 'whatsapp' && c.is_active).length;
+  const fbChannelsCount = channels.filter((c) => (c.platform === 'messenger' || (c.platform as any) === 'facebook') && c.is_active).length;
+  const igChannelsCount = channels.filter((c) => c.platform === 'instagram' && c.is_active).length;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-6xl mx-auto">
-      {/* Top Welcome & Business Filter Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Autonomous Sales Operation Center
-            </span>
+      {/* ULTRA-PREMIUM EXECUTIVE WELCOME COMMAND CENTER */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white via-purple-50/40 to-white dark:from-[#170E3B] dark:via-[#120B2E] dark:to-[#0D0722] border border-purple-200/80 dark:border-purple-500/25 shadow-sm space-y-6">
+        {/* Ambient subtle glow blob */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-purple-500/10 dark:bg-purple-600/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-indigo-500/10 dark:bg-indigo-600/15 blur-3xl pointer-events-none" />
+
+        {/* Top Operational Status & Date Bar */}
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 w-fit">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>AI Sales Autopilot · 24/7 Live &amp; Operational</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {user.full_name || 'Merchant'} E-Commerce Command Hub
+
+          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-purple-300/70 font-semibold">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#7C3AED]" />
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            <span>•</span>
+            <span className="text-slate-400 dark:text-purple-400">Dhaka GMT+6</span>
+          </div>
+        </div>
+
+        {/* Main Executive Welcome Greeting */}
+        <div className="relative z-10 space-y-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+            {greetingTime}, {user.full_name || 'Business Leader'} ✨
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Real-time sales revenue, parcel bookings, multi-business AI agents, and order conversions.
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+            Welcome back to your unified e-commerce command headquarters. Your AI agents are actively converting buyers on WhatsApp, Messenger, and Instagram while synchronizing catalog orders with your website.
           </p>
         </div>
 
-        {/* Business Brand Filter + Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        {/* Quick Launchpad Buttons & Multi-Business Filter */}
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-purple-100 dark:border-purple-500/15">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate('orders')}
+              className="px-4 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold shadow-md shadow-[#7F22FE]/25 flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Order</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('delivery-courier')}
+              className="px-3.5 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-[#7F22FE] dark:text-purple-300 border border-purple-200 dark:border-purple-500/25 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>1-Click Courier Dispatch</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('inbox')}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#1A123B] hover:bg-slate-200 dark:hover:bg-[#251A4F] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-purple-500/20 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-pink-500" />
+              <span>Live Omnichannel Inbox</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('channels')}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#1A123B] hover:bg-slate-200 dark:hover:bg-[#251A4F] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-purple-500/20 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Globe className="w-3.5 h-3.5 text-[#7F22FE]" />
+              <span>Connect Channels &amp; Website</span>
+            </button>
+          </div>
+
+          {/* Multi-business brand selector */}
           {agentsList.length > 1 && (
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-[#1A123B] border border-slate-200 dark:border-purple-500/20">
               <Store className="w-3.5 h-3.5 text-[#7C3AED] ml-2" />
@@ -357,24 +430,85 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </select>
             </div>
           )}
+        </div>
+      </div>
 
-          <button
-            type="button"
-            onClick={() => onNavigate('orders')}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] hover:from-[#6D28D9] hover:to-[#7E22CE] text-white text-xs font-bold shadow-sm shadow-purple-500/25 flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Order</span>
-          </button>
+      {/* CHANNEL & WEBSITE LIVE STATUS MATRIX */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* WhatsApp Channel Status */}
+        <div
+          onClick={() => onNavigate('channels')}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-emerald-500/40 shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+              <WhatsAppLogo className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">WhatsApp</span>
+              <span className="text-[11px] text-slate-400">
+                {waChannelsCount > 0 ? `${waChannelsCount} Active` : 'Cloud API'}
+              </span>
+            </div>
+          </div>
+          <span className={`w-2 h-2 rounded-full ${waChannelsCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}`} />
+        </div>
 
-          <button
-            type="button"
-            onClick={() => onNavigate('agents')}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-[#191138] hover:bg-slate-200 dark:hover:bg-[#251A4F] text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-purple-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Bot className="w-3.5 h-3.5 text-[#7C3AED]" />
-            <span>AI Agents ({agentsList.length})</span>
-          </button>
+        {/* Facebook Messenger Status */}
+        <div
+          onClick={() => onNavigate('channels')}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-blue-500/40 shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+              <FacebookLogo className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">Messenger</span>
+              <span className="text-[11px] text-slate-400">
+                {fbChannelsCount > 0 ? `${fbChannelsCount} Active` : 'Free Auto-DM'}
+              </span>
+            </div>
+          </div>
+          <span className={`w-2 h-2 rounded-full ${fbChannelsCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}`} />
+        </div>
+
+        {/* Instagram Direct Status */}
+        <div
+          onClick={() => onNavigate('channels')}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-pink-500/40 shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 flex items-center justify-center shrink-0">
+              <InstagramLogo className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">Instagram</span>
+              <span className="text-[11px] text-slate-400">
+                {igChannelsCount > 0 ? `${igChannelsCount} Active` : 'Free Auto-DM'}
+              </span>
+            </div>
+          </div>
+          <span className={`w-2 h-2 rounded-full ${igChannelsCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}`} />
+        </div>
+
+        {/* Website & Store Status */}
+        <div
+          onClick={() => onNavigate('channels')}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 hover:border-[#7F22FE]/40 shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-[#7F22FE] flex items-center justify-center shrink-0">
+              <Globe className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">Website / Store</span>
+              <span className="text-[11px] text-slate-400">
+                {storesCount > 0 ? `${storesCount} Connected` : 'Connect Webhook'}
+              </span>
+            </div>
+          </div>
+          <span className={`w-2 h-2 rounded-full ${storesCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-700'}`} />
         </div>
       </div>
 
@@ -1032,11 +1166,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                             <WhatsAppLogo className="w-3.5 h-3.5" />
                           ) : order.platform === 'messenger' ? (
                             <FacebookLogo className="w-3.5 h-3.5" />
-                          ) : (
+                          ) : order.platform === 'instagram' ? (
                             <InstagramLogo className="w-3.5 h-3.5" />
+                          ) : (
+                            <Globe className="w-3.5 h-3.5 text-purple-500" />
                           )}
                           <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[110px]">
-                            {ch?.name || (order.platform === 'whatsapp' ? 'WhatsApp' : 'Facebook')}
+                            {order.source_details?.store_name || ch?.name || (order.platform === 'whatsapp' ? 'WhatsApp' : order.platform === 'instagram' ? 'Instagram' : order.order_source === 'website' ? 'Website Store' : 'Facebook')}
                           </span>
                         </div>
                         {order.order_source === 'ai_detected' && (

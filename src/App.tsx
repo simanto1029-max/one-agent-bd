@@ -565,13 +565,12 @@ export default function App() {
     },
     {
       groupId: 'catalog-hub',
-      label: 'Products & Store',
+      label: 'Products & Catalog',
       defaultTab: 'products',
       icon: Package,
       tabs: [
         { id: 'products', label: 'Product Catalog', icon: Package, desc: 'Inventory, pricing & visual AI catalog' },
-        { id: 'business-erp', label: 'Accounts & Stock ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook', isProOnly: true },
-        { id: 'stores', label: 'Website & Stores', icon: Globe, desc: 'WooCommerce & external store sync', isProOnly: true }
+        { id: 'business-erp', label: 'Accounts & Stock ERP', icon: BarChart3, desc: 'Sales, Purchase, Stock, Due & Cashbook', isProOnly: true }
       ]
     },
     {
@@ -1221,25 +1220,25 @@ export default function App() {
               )}
 
               {activeTab === 'stores' && (
-                <ProFeatureBlurWrapper
-                  isProPlan={isProPlan}
-                  featureTitle="Website, WooCommerce & Shopify Store Sync"
-                  featureSubtitleBn="আপনার ওয়েবসাইট, WooCommerce বা Shopify স্টোরের অর্ডার ও প্রোডাক্ট সিঙ্ক করার সুবিধাটি শুধুমাত্র Pro Business Plan-এ রয়েছে।"
-                  highlights={[
-                    'Unlimited Website, WooCommerce & Shopify Store Sync',
-                    'Real-Time Website Order Webhook & Catalog Sync',
-                    'Unified Order Management Across Social & Web'
-                  ]}
-                  onUpgradeToPro={handleNavigateToProUpgrade}
-                >
-                  <StoresView
-                    subStatus={subStatus}
-                    onUpgradeToPro={handleNavigateToProUpgrade}
-                    onNavigateToOrders={() => {
-                      setActiveTab('orders');
-                    }}
-                  />
-                </ProFeatureBlurWrapper>
+                <div className="p-8 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200 dark:border-purple-500/20 text-center max-w-lg mx-auto space-y-4 my-8 animate-in fade-in">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/70 text-[#7C3AED] flex items-center justify-center mx-auto">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    Website &amp; Store Sync is Now in Channels
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    You can connect your WooCommerce, Shopify, or Custom Website directly under Connect Channels alongside WhatsApp, Messenger, and Instagram.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('channels')}
+                    className="px-5 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <span>Open Connect Channels</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               )}
 
               {activeTab === 'website-widget' && (

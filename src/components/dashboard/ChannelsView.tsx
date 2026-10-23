@@ -24,10 +24,15 @@ import {
   Info,
   Lock,
   ArrowRight,
-  Bot
+  Bot,
+  Globe,
+  ShoppingBag,
+  Store,
+  TrendingUp,
+  X
 } from 'lucide-react';
 import { api } from '../../api';
-import { Channel, UserProfile, SubscriptionStatusInfo, Agent } from '../../types';
+import { Channel, UserProfile, SubscriptionStatusInfo, Agent, StoreIntegration } from '../../types';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { MetaAutoConnectModal } from './MetaAutoConnectModal';
 import { FacebookLogo, InstagramLogo, WhatsAppLogo, MessengerLogo } from '../common/BrandLogos';
@@ -105,6 +110,95 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       if (res.agents) setAvailableAgents(res.agents);
     }).catch(() => {});
   }, []);
+
+  // Website & Store connection state
+  const [stores, setStores] = useState<StoreIntegration[]>([]);
+  const [loadingStores, setLoadingStores] = useState(false);
+  const [showConnectStoreModal, setShowConnectStoreModal] = useState(false);
+  const [storePlatform, setStorePlatform] = useState<'shopify' | 'woocommerce' | 'custom_website'>('woocommerce');
+  const [storeName, setStoreName] = useState('');
+  const [storeUrl, setStoreUrl] = useState('');
+  const [storeApiKey, setStoreApiKey] = useState('');
+  const [submittingStore, setSubmittingStore] = useState(false);
+  const [testingStoreSyncId, setTestingStoreSyncId] = useState<string | null>(null);
+  const [storeToDelete, setStoreToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingStore, setIsDeletingStore] = useState(false);
+
+  const loadStores = async () => {
+    try {
+      setLoadingStores(true);
+      const res = await api.getStores();
+      if (res?.stores) {
+        setStores(res.stores);
+      }
+    } catch (err) {
+      console.error('Failed to load stores:', err);
+    } finally {
+      setLoadingStores(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStores();
+  }, []);
+
+  const handleConnectStoreSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!storeName.trim()) {
+      setError('Please provide a store name');
+      return;
+    }
+    try {
+      setSubmittingStore(true);
+      setError(null);
+      const res = await api.connectStore({
+        platform: storePlatform,
+        store_name: storeName.trim(),
+        store_url: storeUrl.trim(),
+        api_key: storeApiKey.trim()
+      });
+      setShowConnectStoreModal(false);
+      setStoreName('');
+      setStoreUrl('');
+      setStoreApiKey('');
+      setSuccessMessage(res.message || 'Website / Store connected successfully!');
+      await loadStores();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to connect store');
+    } finally {
+      setSubmittingStore(false);
+    }
+  };
+
+  const handleTestStoreSync = async (storeId: string) => {
+    try {
+      setTestingStoreSyncId(storeId);
+      setError(null);
+      const res = await api.testStoreSync(storeId);
+      setSuccessMessage(`Store Synced! New order captured: #${res.order?.id?.slice(-6).toUpperCase() || 'ORD'} (৳${res.order?.total_amount || 0})`);
+      await loadStores();
+      onRefresh();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sync store orders');
+    } finally {
+      setTestingStoreSyncId(null);
+    }
+  };
+
+  const handleConfirmDeleteStore = async () => {
+    if (!storeToDelete) return;
+    try {
+      setIsDeletingStore(true);
+      await api.deleteStore(storeToDelete.id);
+      setSuccessMessage(`Store "${storeToDelete.name}" disconnected.`);
+      setStoreToDelete(null);
+      await loadStores();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to delete store');
+    } finally {
+      setIsDeletingStore(false);
+    }
+  };
 
   const handleAssignAgentToChannel = async (channelId: string, agentId: string) => {
     try {
@@ -568,8 +662,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             )}
           </div>
 
-          {/* 3 HIGH-DENSITY CHANNEL CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* 4 HIGH-DENSITY CHANNEL CARDS: WhatsApp, Website Store, Facebook & Instagram */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* BOX 1: FACEBOOK */}
             <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#1877F2]/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
               <div className="space-y-3">
@@ -1123,6 +1217,120 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 </div>
               )}
             </div>
+
+            {/* BOX 4: WEBSITE & STORE INTEGRATION (WooCommerce, Shopify & Custom Website) */}
+            <div className="bg-white dark:bg-[#120B2E] rounded-2xl border border-slate-200/80 dark:border-purple-500/20 shadow-xs hover:border-[#7F22FE]/40 transition-all duration-200 p-4 sm:p-5 flex flex-col justify-between space-y-3.5">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-[#7F22FE] dark:text-purple-400 flex items-center justify-center shadow-xs shrink-0">
+                      <Globe className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        Website &amp; Store
+                      </h3>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                        WooCommerce &amp; Shopify
+                      </p>
+                    </div>
+                  </div>
+
+                  {stores.length > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Connected ({stores.length})
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                      Not Connected
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
+                {stores.length > 0 ? (
+                  <div className="space-y-2 max-h-[290px] overflow-y-auto pr-0.5 scrollbar-thin">
+                    {stores.map((st) => (
+                      <div
+                        key={st.id}
+                        className="p-3 rounded-xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                              {st.store_name}
+                            </h4>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider block">
+                              {st.platform === 'woocommerce' ? 'WooCommerce' : st.platform === 'shopify' ? 'Shopify' : 'Custom Website'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleTestStoreSync(st.id)}
+                              disabled={testingStoreSyncId === st.id}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Sync latest store orders"
+                            >
+                              <RefreshCw
+                                className={`w-3.5 h-3.5 ${
+                                  testingStoreSyncId === st.id ? 'animate-spin text-[#7F22FE]' : ''
+                                }`}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStoreToDelete({ id: st.id, name: st.store_name })}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="Disconnect store"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-1.5 border-t border-slate-200/60 dark:border-purple-500/10 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                          <span>Synced: <strong className="text-slate-700 dark:text-slate-200">{st.synced_orders_count || 0} orders</strong></span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(`${effectiveOrigin}/api/webhooks/stores/${st.id}/orders`, `webhook_${st.id}`)}
+                            className="font-semibold text-[#7F22FE] dark:text-purple-400 hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>{copiedText === `webhook_${st.id}` ? 'Copied URL!' : 'Copy Webhook'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2 py-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Connect your WooCommerce, Shopify, or Custom Website. AI synchronizes catalog products and automatically captures online orders.
+                    </p>
+                    <div className="flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-[#7F22FE]">✓ WooCommerce &amp; Shopify</span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">✓ Real-time Order Webhook</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConnectStoreModal(true)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{stores.length > 0 ? 'Connect Another Website' : 'Connect Website / Store'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1608,6 +1816,180 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         onConfirm={handleConfirmDelete}
         onCancel={() => setChannelToDelete(null)}
       />
+
+      {/* Disconnect Store Modal */}
+      <ConfirmModal
+        isOpen={Boolean(storeToDelete)}
+        title="Disconnect Website Store"
+        message={`Are you sure you want to disconnect "${storeToDelete?.name}"? Orders will no longer sync from this store.`}
+        confirmText="Disconnect Store"
+        cancelText="Cancel"
+        isLoading={isDeletingStore}
+        onConfirm={handleConfirmDeleteStore}
+        onCancel={() => setStoreToDelete(null)}
+      />
+
+      {/* Connect Website / Store Modal */}
+      {showConnectStoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200 dark:border-purple-500/25 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-purple-500/15">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-[#7F22FE] dark:text-purple-400 flex items-center justify-center">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Connect Website / Store
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Sync products and capture real-time orders directly to One Agent BD
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConnectStoreModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-purple-950/40 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConnectStoreSubmit} className="space-y-4">
+              {/* Platform Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Platform
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStorePlatform('woocommerce')}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      storePlatform === 'woocommerce'
+                        ? 'border-[#7F22FE] bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300'
+                        : 'border-slate-200 dark:border-purple-500/20 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18103A]'
+                    }`}
+                  >
+                    <span>WooCommerce</span>
+                    <span className="text-[10px] font-normal opacity-75">WordPress</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStorePlatform('shopify')}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      storePlatform === 'shopify'
+                        ? 'border-[#7F22FE] bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300'
+                        : 'border-slate-200 dark:border-purple-500/20 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18103A]'
+                    }`}
+                  >
+                    <span>Shopify</span>
+                    <span className="text-[10px] font-normal opacity-75">Cloud Store</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStorePlatform('custom_website')}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      storePlatform === 'custom_website'
+                        ? 'border-[#7F22FE] bg-purple-50 dark:bg-purple-950/60 text-[#7F22FE] dark:text-purple-300'
+                        : 'border-slate-200 dark:border-purple-500/20 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#18103A]'
+                    }`}
+                  >
+                    <span>Custom Web</span>
+                    <span className="text-[10px] font-normal opacity-75">Webhook API</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Store Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Website / Store Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  placeholder="e.g. Luxury Fashion BD"
+                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#18103A] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
+                />
+              </div>
+
+              {/* Store URL */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Website Domain / Store URL
+                </label>
+                <input
+                  type="url"
+                  value={storeUrl}
+                  onChange={(e) => setStoreUrl(e.target.value)}
+                  placeholder="https://yourstore.com"
+                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#18103A] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
+                />
+              </div>
+
+              {/* API Key (Optional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  API Key / Secret Token (Optional)
+                </label>
+                <input
+                  type="password"
+                  value={storeApiKey}
+                  onChange={(e) => setStoreApiKey(e.target.value)}
+                  placeholder="Consumer Key or Webhook Secret"
+                  className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-purple-500/25 bg-slate-50 dark:bg-[#18103A] text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-[#7F22FE]"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Used to authenticate incoming order webhooks and synchronize inventory products automatically.
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-900/40 text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                <div className="font-bold text-[#7F22FE] dark:text-purple-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>How Webhook Sync Works</span>
+                </div>
+                <p>
+                  Once connected, One Agent BD creates an active Webhook listener for your website. When a buyer checks out on your website, the order instantly streams into All Orders!
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-purple-500/15">
+                <button
+                  type="button"
+                  onClick={() => setShowConnectStoreModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingStore}
+                  className="px-5 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white text-xs font-bold shadow-md shadow-[#7F22FE]/25 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingStore ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Connect Website</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
