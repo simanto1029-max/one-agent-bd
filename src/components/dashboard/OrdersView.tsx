@@ -831,177 +831,203 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             </div>
           </div>
 
-      {/* Order Source Tabs & Search */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
-        {/* Source Selector (Website vs Manual/AI) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-800">
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 w-fit flex-wrap">
+      {/* FILTER & DISCOVERY COMMAND CENTER (Part-by-Part Clean Architecture) */}
+      <div className="rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-xs divide-y divide-neutral-100 dark:divide-neutral-800/80 overflow-hidden">
+        {/* PART 1: Channels & Sources Filter + Search & Business Select */}
+        <div className="p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* Channel Tabs with Live Counts */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800/80 overflow-x-auto scrollbar-none w-full xl:w-fit shrink-0">
             <button
-              onClick={() => setSelectedSourceType('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedSourceType === 'all'
+              type="button"
+              onClick={() => setSelectedPlatform('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'all'
                   ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
               }`}
             >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              All Orders
+              <ShoppingBag className="w-3.5 h-3.5 text-neutral-400" />
+              <span>All Channels</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${selectedPlatform === 'all' ? 'bg-[#7F22FE]/10 text-[#7F22FE] dark:text-purple-300' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'}`}>
+                {orders.length}
+              </span>
             </button>
+
             <button
-              onClick={() => setSelectedSourceType('website')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedSourceType === 'website'
+              type="button"
+              onClick={() => setSelectedPlatform('whatsapp')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'whatsapp'
+                  ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+              <span>WhatsApp</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-extrabold">
+                {waCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedPlatform('messenger')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'messenger'
+                  ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+              }`}
+            >
+              <Facebook className="w-3.5 h-3.5 text-blue-500" />
+              <span>Messenger</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-extrabold">
+                {fbCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedPlatform('instagram')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'instagram'
+                  ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+              }`}
+            >
+              <Instagram className="w-3.5 h-3.5 text-pink-500" />
+              <span>Instagram</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300 font-extrabold">
+                {igCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedPlatform('website')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'website'
                   ? 'bg-white dark:bg-neutral-700 text-purple-600 dark:text-purple-400 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
               }`}
             >
               <Globe className="w-3.5 h-3.5 text-purple-500" />
-              <span>Website Orders</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-extrabold">PRO</span>
+              <span>Website</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 font-extrabold">
+                {webCount}
+              </span>
             </button>
+
             <button
-              onClick={() => setSelectedSourceType('manual_ai')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedSourceType === 'manual_ai'
-                  ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+              type="button"
+              onClick={() => setSelectedPlatform('manual')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                selectedPlatform === 'manual'
+                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
               }`}
             >
-              <Bot className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Manual & AI Orders</span>
+              <Edit3 className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Manual</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-extrabold">
+                {manualCount}
+              </span>
             </button>
           </div>
 
-          <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search customer, phone, order..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </form>
+          {/* Right: Business Brand Selector + Real-time Search Box */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto shrink-0">
+            {/* Multi-business Agent selector */}
+            {agentsList.length > 0 && (
+              <div className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700/60 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all shrink-0">
+                <Store className="w-3.5 h-3.5 text-[#7F22FE] shrink-0" />
+                <select
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer pr-5 appearance-none"
+                >
+                  <option value="all">All Businesses &amp; Brands</option>
+                  {agentsList.map((ag) => (
+                    <option key={ag.id} value={ag.id}>
+                      {ag.business_name} ({ag.name})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2 pointer-events-none" />
+              </div>
+            )}
+
+            {/* Search Input */}
+            <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:w-64">
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search customer, phone, order #..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700/60 focus:border-[#7F22FE] focus:ring-1 focus:ring-[#7F22FE] text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none transition-all"
+              />
+            </form>
+          </div>
         </div>
 
-        {/* Status Tabs and Platform filter */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+        {/* PART 2: Status Pipeline Tabs & Live Filter Status */}
+        <div className="px-4 py-3 sm:px-5 bg-neutral-50/60 dark:bg-neutral-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+            <span className="text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mr-1 hidden md:inline">
+              Status:
+            </span>
             {[
-              { id: 'all', label: 'All Status' },
-              { id: 'confirmed', label: 'Confirmed' },
-              { id: 'processing', label: 'Processing' },
-              { id: 'shipped', label: 'Shipped' },
-              { id: 'delivered', label: 'Delivered' },
-              { id: 'cancelled', label: 'Cancelled' }
-            ].map(tab => (
+              { id: 'all', label: 'All Status', count: orders.length },
+              { id: 'confirmed', label: 'Confirmed', count: metrics.confirmedCount },
+              { id: 'processing', label: 'Processing', count: metrics.processingCount },
+              { id: 'shipped', label: 'Shipped', count: orders.filter((o) => o.status === 'shipped').length },
+              { id: 'delivered', label: 'Delivered', count: metrics.deliveredCount },
+              { id: 'cancelled', label: 'Cancelled', count: metrics.cancelledCount }
+            ].map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setSelectedStatus(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   selectedStatus === tab.id
-                    ? 'bg-violet-600 text-white shadow-xs'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                    ? 'bg-[#7F22FE] text-white shadow-xs'
+                    : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 border border-neutral-200/60 dark:border-neutral-700/50'
                 }`}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {typeof tab.count === 'number' && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                      selectedStatus === tab.id
+                        ? 'bg-white/20 text-white'
+                        : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Multi-business Agent selector */}
-            {agentsList.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                <Store className="w-3.5 h-3.5 text-[#7F22FE]" />
-                <select
-                  value={selectedAgentId}
-                  onChange={(e) => setSelectedAgentId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer max-w-[140px] truncate"
-                >
-                  <option value="all">All Businesses</option>
-                  {agentsList.map((ag) => (
-                    <option key={ag.id} value={ag.id}>
-                      {ag.business_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex items-center gap-3 shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
+            <span>
+              Showing <strong className="text-neutral-900 dark:text-white">{orders.length}</strong> orders
+            </span>
+            {(selectedPlatform !== 'all' || selectedStatus !== 'all' || selectedAgentId !== 'all' || searchQuery) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlatform('all');
+                  setSelectedStatus('all');
+                  setSelectedAgentId('all');
+                  setSearchQuery('');
+                }}
+                className="text-xs text-[#7F22FE] dark:text-purple-400 font-bold hover:underline cursor-pointer"
+              >
+                Reset Filters
+              </button>
             )}
-
-            <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-xl p-1 shrink-0 overflow-x-auto scrollbar-none max-w-full">
-              <button
-                onClick={() => setSelectedPlatform('all')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
-                  selectedPlatform === 'all'
-                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <span>All</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 dark:bg-neutral-600 font-extrabold">{orders.length}</span>
-              </button>
-              <button
-                onClick={() => setSelectedPlatform('whatsapp')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                  selectedPlatform === 'whatsapp'
-                    ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>WhatsApp</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-extrabold">{waCount}</span>
-              </button>
-              <button
-                onClick={() => setSelectedPlatform('messenger')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                  selectedPlatform === 'messenger'
-                    ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <Facebook className="w-3.5 h-3.5" />
-                <span>Messenger</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-extrabold">{fbCount}</span>
-              </button>
-              <button
-                onClick={() => setSelectedPlatform('instagram')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                  selectedPlatform === 'instagram'
-                    ? 'bg-white dark:bg-neutral-700 text-pink-600 dark:text-pink-400 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <Instagram className="w-3.5 h-3.5" />
-                <span>Instagram</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300 font-extrabold">{igCount}</span>
-              </button>
-              <button
-                onClick={() => setSelectedPlatform('website')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                  selectedPlatform === 'website'
-                    ? 'bg-white dark:bg-neutral-700 text-purple-600 dark:text-purple-400 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>Website</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 font-extrabold">{webCount}</span>
-              </button>
-              <button
-                onClick={() => setSelectedPlatform('manual')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                  selectedPlatform === 'manual'
-                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
-                }`}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Manual</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-extrabold">{manualCount}</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
