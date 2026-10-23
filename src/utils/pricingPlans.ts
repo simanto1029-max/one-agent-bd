@@ -295,6 +295,8 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
 
 export function normalizeToThreePlans(list: Plan[]): Plan[] {
   if (!list || list.length === 0) return OFFICIAL_THREE_PLANS;
+  const activePlans = list.filter((p) => p.is_active);
+  if (activePlans.length >= 3) return activePlans;
   const starter = list.find((p) => p.id === 'plan_starter' || p.price === 2499) || OFFICIAL_THREE_PLANS[0];
   const pro = list.find((p) => p.id === 'plan_pro' || p.price === 4499) || OFFICIAL_THREE_PLANS[1];
   const enterprise = list.find((p) => p.id === 'plan_enterprise' || p.price === 8999) || OFFICIAL_THREE_PLANS[2];

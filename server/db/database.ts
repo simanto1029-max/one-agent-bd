@@ -190,6 +190,7 @@ export interface PlanFeaturesConfig {
   courier_dispatch?: boolean;
   csv_export?: boolean;
   max_channels?: number;
+  whatsapp_credits?: number;
 }
 
 export interface Plan {
@@ -202,6 +203,8 @@ export interface Plan {
   is_active: boolean;
   features: string[];
   feature_config?: PlanFeaturesConfig;
+  subtitle?: string;
+  badge?: string;
   created_at: string;
   updated_at: string;
 }
@@ -818,54 +821,61 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   plans: [
     {
       id: 'plan_starter',
-      name: 'Starter AI Plan',
-      price: 1250,
+      name: 'Advance AI Plan',
+      price: 2499,
       currency: 'BDT',
       duration_days: 30,
       trial_days: 2,
       is_active: true,
+      badge: 'Starter Growth',
+      subtitle: 'Grow Your E-Commerce Business',
       features: [
-        '24/7 Active AI Sales & Auto-Reply Agent (Up to 3 Channels)',
-        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-        'AI Auto Delivery Tracking & Customer Live Status Update',
-        'VIP Customer Retargeting & Smart Follow-Up Message',
-        'WhatsApp, Facebook Messenger & Instagram Auto-Reply',
-        'Voice Note AI Listening & Product Photo Recognition',
-        'Auto Post Comment Reply + Direct Inbox (DM) Automation',
-        'Unlimited Product Catalog & Autonomous Chat Order Capture',
-        'Unlimited Customer Conversations (0 TK per-msg fee)'
+        'Facebook Messenger: 100% Unlimited Conversations',
+        'Instagram DM: 100% Unlimited Conversations',
+        'WhatsApp: 2,500 Messages & Replies Included',
+        '250 Comment Auto-Replies & Instant Inbox DM',
+        '500 Instant FAQ & Delivery Charge Auto-Replies',
+        '100 Products Catalog & Auto Order Capture',
+        'Bangla Voice Note AI Listening & Photo Recognition',
+        '1-Click Courier Booking (Steadfast, Pathao & RedX)',
+        'VIP Customer Retargeting & Smart Follow-Up',
+        'System Message Credits (No user card needed!)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
       feature_config: {
         website_stores: false,
-        call_requests: false,
+        call_requests: true,
         vip_broadcast: true,
         courier_dispatch: true,
         csv_export: false,
-        max_channels: 3
+        max_channels: 3,
+        whatsapp_credits: 2500
       }
     },
     {
       id: 'plan_pro',
-      name: 'Pro Business Plan',
-      price: 1950,
+      name: 'Business AI Plan',
+      price: 4499,
       currency: 'BDT',
       duration_days: 30,
       trial_days: 2,
       is_active: true,
+      badge: 'Most Popular',
+      subtitle: 'Scale Multichannel Operations',
       features: [
-        'Everything in Starter Plan + Connect up to 10 Channels',
-        'Accounts, Stock & Profit ERP (Sales, Purchase, Due & Cashbook)',
-        'AI Appointments & Google Calendar Auto-Slot Booking',
-        'Website, WooCommerce & Shopify Store Sync + Live Chat Widget',
-        'AI Auto Delivery Tracking & Customer Live Status Update',
-        'VIP Customer Retargeting Message & AI Email Marketing',
-        '1-Click Steadfast, Pathao & RedX Courier Dispatch',
-        'AI Auto Customer Fraud & Courier Delivery Ratio Check',
-        'Customer Callback Queue, Human Handover & CSV/Text Export',
-        '3 Autonomous AI Sales Agents & 24/7 VIP Priority Support'
+        'Facebook Messenger: 100% Unlimited Conversations',
+        'Instagram DM: 100% Unlimited Conversations',
+        'WhatsApp: 6,500 Messages & Replies Included',
+        '1,000 Comment Auto-Replies & Instant Inbox DM',
+        '1,500 Instant FAQ & Custom Business Rules',
+        'Unlimited Products Catalog & Auto Order Capture',
+        'Everything in Advance Plan +',
+        'Accounts, Stock & Profit ERP (Sales, Due, Cashbook)',
+        'Website Live Chat & WooCommerce/Shopify Store Sync',
+        'AI Delivery Tracking & Courier Fraud Intelligence Check',
+        'Up to 10 Connected Channels & Multi-Agent Collaboration',
+        'System Message Credits (No user card needed!)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -875,7 +885,44 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         vip_broadcast: true,
         courier_dispatch: true,
         csv_export: true,
-        max_channels: 10
+        max_channels: 10,
+        whatsapp_credits: 6500
+      }
+    },
+    {
+      id: 'plan_enterprise',
+      name: 'Enterprise Agency Plan',
+      price: 8999,
+      currency: 'BDT',
+      duration_days: 30,
+      trial_days: 2,
+      is_active: true,
+      badge: 'Agency Power',
+      subtitle: 'Mega Volume & Agency Automation',
+      features: [
+        'Facebook Messenger: 100% Unlimited Conversations',
+        'Instagram DM: 100% Unlimited Conversations',
+        'WhatsApp: 15,000 Messages & Replies Included',
+        'Unlimited Comment Auto-Replies & Instant Inbox DM',
+        'Unlimited Instant FAQ & Custom Business Knowledge Base',
+        'Unlimited Products Catalog & Multi-Store Management',
+        'Everything in Business Plan +',
+        'Connect Unlimited Channels (Multi-Page & Multi-Number)',
+        'Dedicated VIP Account Manager (24/7 Priority WhatsApp)',
+        'Team Collaboration & Multi-Staff Handover Queue',
+        'Custom AI Sales Closer Persona & Webhook Integrations',
+        'System Message Credits (No user card needed!)'
+      ],
+      created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
+      updated_at: new Date().toISOString(),
+      feature_config: {
+        website_stores: true,
+        call_requests: true,
+        vip_broadcast: true,
+        courier_dispatch: true,
+        csv_export: true,
+        max_channels: 99,
+        whatsapp_credits: 15000
       }
     }
   ],
@@ -1097,17 +1144,23 @@ class Database {
       parsed.plans = initialData.plans;
     } else {
       parsed.plans = parsed.plans.map((p: Plan) => {
-        const defaultMatch = initialData.plans.find((ip) => ip.id === p.id) || initialData.plans[0];
+        const defaultMatch = initialData.plans.find((ip) => ip.id === p.id);
+        const base = defaultMatch || p;
         return {
-          ...defaultMatch,
+          ...base,
           ...p,
-          name: p.name?.trim() || defaultMatch.name,
-          price: typeof p.price === 'number' && !isNaN(p.price) ? p.price : defaultMatch.price,
-          currency: p.currency || defaultMatch.currency || 'BDT',
-          duration_days: typeof p.duration_days === 'number' ? p.duration_days : defaultMatch.duration_days,
-          trial_days: typeof p.trial_days === 'number' ? p.trial_days : defaultMatch.trial_days,
-          features: Array.isArray(p.features) && p.features.length ? p.features : defaultMatch.features,
-          feature_config: p.feature_config || defaultMatch.feature_config
+          name: p.name?.trim() || base.name,
+          price: typeof p.price === 'number' && !isNaN(p.price) ? p.price : base.price,
+          currency: p.currency || base.currency || 'BDT',
+          duration_days: typeof p.duration_days === 'number' ? p.duration_days : base.duration_days,
+          trial_days: typeof p.trial_days === 'number' ? p.trial_days : base.trial_days,
+          features: Array.isArray(p.features) && p.features.length ? p.features : base.features,
+          feature_config: {
+            ...(base.feature_config || {}),
+            ...(p.feature_config || {})
+          },
+          subtitle: p.subtitle || base.subtitle,
+          badge: p.badge || base.badge
         };
       });
     }

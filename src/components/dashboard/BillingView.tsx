@@ -11,8 +11,13 @@ import {
   Zap,
   Crown,
   Tag,
-  ChevronDown
+  ChevronDown,
+  Smartphone,
+  Truck,
+  Bot,
+  MessageSquare
 } from 'lucide-react';
+import { FacebookLogo, InstagramLogo, WhatsAppLogo } from '../common/BrandLogos';
 import { CountdownTimer } from '../common/CountdownTimer';
 import {
   OneAgentPayGatewayModal,
@@ -55,6 +60,14 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const [paymentNotification, setPaymentNotification] = useState<{
     type: 'success' | 'cancelled';
     message: string;
+  } | null>(null);
+
+  const [creditsData, setCreditsData] = useState<{
+    whatsapp?: { total_quota: number; used: number; remaining: number; percent_used: number };
+    facebook?: { is_unlimited: boolean; total_sent: number };
+    instagram?: { is_unlimited: boolean; total_sent: number };
+    instant_rules?: { triggered_count: number; credits_saved: number; estimated_savings_bdt: number };
+    plan?: { id: string; name: string; price: number; days_remaining: number; is_trial: boolean; is_expired: boolean };
   } | null>(null);
 
   // Starter to Pro Upgrade Quote State
@@ -104,11 +117,15 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const loadBillingData = async () => {
     try {
       setLoading(true);
-      const [myPayments, availablePlans] = await Promise.all([
+      const [myPayments, availablePlans, creditsRes] = await Promise.all([
         api.getMyPayments().catch(() => []),
-        api.getPlans().catch(() => [])
+        api.getPlans().catch(() => []),
+        api.getCreditsUsage().catch(() => null)
       ]);
       setPayments(myPayments);
+      if (creditsRes) {
+        setCreditsData(creditsRes);
+      }
 
       const active = availablePlans.filter((p) => p.is_active);
       const merged = active.length >= 2 ? normalizeToThreePlans(active) : OFFICIAL_THREE_PLANS;
@@ -119,7 +136,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
           merged.find(
             (p) =>
               p.id === initialSelectedPlan.id ||
-              (initialSelectedPlan.id?.includes('pro') && p.id === 'plan_pro')
+              (initialSelectedPlan.name && p.name.toLowerCase().includes(initialSelectedPlan.name.toLowerCase().split(' ')[0]))
           ) || merged[0];
         setSelectedPlan(matchedPlan);
 
@@ -208,9 +225,18 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const isExpired = subStatus?.isExpired;
   const endDate = subStatus?.subscription?.end_date;
 
+  const activePlanName = creditsData?.plan?.name || subStatus?.planName || 'Advance AI Plan';
+  const totalWaQuota = creditsData?.whatsapp?.total_quota || subStatus?.whatsappCreditsTotal || 2500;
+  const usedWaCredits = creditsData?.whatsapp?.used ?? subStatus?.whatsappCreditsUsed ?? 0;
+  const remainingWaCredits = creditsData?.whatsapp?.remaining ?? subStatus?.whatsappCreditsRemaining ?? Math.max(0, totalWaQuota - usedWaCredits);
+  const waPercentUsed = totalWaQuota > 0 ? Math.min(100, Math.round((usedWaCredits / totalWaQuota) * 100)) : 0;
+  const fbSent = creditsData?.facebook?.total_sent ?? 0;
+  const igSent = creditsData?.instagram?.total_sent ?? 0;
+  const instantRulesSaved = creditsData?.instant_rules?.triggered_count ?? 0;
+
   const selectedCustomAmount = selectedPlan
     ? calculateCustomPlanPrice(selectedPlan.price, activeDuration.months)
-    : 1250;
+    : 2499;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -240,62 +266,207 @@ export const BillingView: React.FC<BillingViewProps> = ({
         </div>
       )}
 
-      {/* Compact Subscription Status Bar */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                isActive && !isExpired
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  : isTrial && !isExpired
-                  ? 'bg-violet-50 dark:bg-violet-950/60 text-[#7C3AED] dark:text-violet-300 border border-violet-200 dark:border-violet-800'
-                  : isPending
-                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-              }`}
-            >
+      {/* 1. PROFESSIONAL ACTIVE SUBSCRIPTION & MESSAGE QUOTA COMMAND CENTER */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/90 dark:border-purple-500/25 shadow-xs space-y-6">
+        {/* Top Header Row: Plan Name, Active Badge, Countdown */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-purple-500/15">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black ${
                   isActive && !isExpired
-                    ? 'bg-emerald-500'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                     : isTrial && !isExpired
-                    ? 'bg-[#7C3AED] animate-pulse'
+                    ? 'bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200 dark:border-purple-800'
                     : isPending
-                    ? 'bg-amber-500 animate-pulse'
-                    : 'bg-rose-500'
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                 }`}
-              />
-              {isActive && !isExpired
-                ? 'Active Subscription'
-                : isTrial && !isExpired
-                ? '2-Day Free Trial Active'
-                : isPending
-                ? 'Verification Pending'
-                : 'Subscription Expired'}
-            </span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">
-              {subStatus?.planName || 'Starter AI Plan'}
-            </span>
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isActive && !isExpired
+                      ? 'bg-emerald-500'
+                      : isTrial && !isExpired
+                      ? 'bg-[#7C3AED] animate-pulse'
+                      : isPending
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-rose-500'
+                  }`}
+                />
+                {isActive && !isExpired
+                  ? 'Active Subscription'
+                  : isTrial && !isExpired
+                  ? '2-Day Free Trial Active'
+                  : isPending
+                  ? 'Verification Pending'
+                  : 'Subscription Expired'}
+              </span>
+
+              <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-purple-950/50 text-slate-700 dark:text-purple-200 border border-slate-200 dark:border-purple-500/20">
+                {subStatus?.isProPlan ? '⭐ Pro Unlocked' : 'Advance Tier'}
+              </span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <span>{activePlanName}</span>
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {isExpired
+                ? 'Your message automation is currently paused. Select a plan below to resume 24/7 autonomous replies.'
+                : 'Meta Cloud API direct connection active • All customer messages, courier bookings, and AI sales tools are live.'}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {isExpired
-              ? 'Your access is currently paused. Activate a plan or start a 2-day free trial below.'
-              : 'All AI auto-reply channels, website integration, and courier tools are active.'}
-          </p>
+
+          {/* Time Remaining & Expiry Countdown */}
+          {endDate && !isExpired && (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-[#1A123B] border border-slate-200/80 dark:border-purple-500/20">
+              <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/70 text-[#7C3AED] flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  Subscription Validity:
+                </span>
+                <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                  <CountdownTimer
+                    targetDate={endDate}
+                    serverTime={subStatus?.serverTime}
+                    onExpire={onRefresh}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {endDate && !isExpired && (
-          <div className="flex items-center gap-3 self-start sm:self-auto">
-            <span className="text-[11px] font-semibold text-slate-400">Time Remaining:</span>
-            <CountdownTimer
-              targetDate={endDate}
-              serverTime={subStatus?.serverTime}
-              onExpire={onRefresh}
-              variant="badge"
-            />
+        {/* 4 Interactive Usage & Quota Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: WhatsApp Messages Quota Progress */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <WhatsAppLogo className="w-3.5 h-3.5" />
+                <span>WhatsApp Messages</span>
+              </span>
+              <span className={`tabular-nums font-black ${waPercentUsed > 90 ? 'text-rose-500' : waPercentUsed > 70 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                {waPercentUsed}% Used
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
+                {usedWaCredits.toLocaleString()} <span className="text-xs font-semibold text-slate-400">/ {totalWaQuota.toLocaleString()}</span>
+              </span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
+                {remainingWaCredits.toLocaleString()} left
+              </span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700/60 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  waPercentUsed > 90
+                    ? 'bg-rose-500'
+                    : waPercentUsed > 70
+                    ? 'bg-amber-500'
+                    : 'bg-gradient-to-r from-emerald-500 to-[#7C3AED]'
+                }`}
+                style={{ width: `${Math.min(waPercentUsed, 100)}%` }}
+              />
+            </div>
+            <span className="block text-[10px] text-slate-400">
+              No foreign card needed • Covered by One Agent BD
+            </span>
           </div>
-        )}
+
+          {/* Card 2: Facebook Messenger */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <FacebookLogo className="w-3.5 h-3.5" />
+                <span>Facebook Messenger</span>
+              </span>
+              <span className="text-blue-600 dark:text-blue-400 font-extrabold text-[10px] uppercase">
+                Unlimited ♾️
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-black text-blue-600 dark:text-blue-400 tabular-nums">
+                {fbSent.toLocaleString()}
+              </span>
+              <span className="text-[11px] font-bold text-slate-400">msgs handled</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+              100% Free unlimited conversations with 0 Meta fee
+            </p>
+          </div>
+
+          {/* Card 3: Instagram Direct */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <InstagramLogo className="w-3.5 h-3.5" />
+                <span>Instagram Direct</span>
+              </span>
+              <span className="text-pink-600 dark:text-pink-400 font-extrabold text-[10px] uppercase">
+                Unlimited ♾️
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-black text-pink-600 dark:text-pink-400 tabular-nums">
+                {igSent.toLocaleString()}
+              </span>
+              <span className="text-[11px] font-bold text-slate-400">msgs handled</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+              DM &amp; post comment replies automated 24/7
+            </p>
+          </div>
+
+          {/* Card 4: Cost-Saver Instant Rules */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-purple-500" />
+                <span>Instant Rules Saved</span>
+              </span>
+              <span className="text-purple-600 dark:text-purple-400 font-extrabold text-[10px]">
+                {instantRulesSaved} Saved
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-black text-[#7C3AED] dark:text-purple-300 tabular-nums">
+                0 Tokens
+              </span>
+              <span className="text-[11px] font-bold text-emerald-500">Free Quota</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+              Delivery charge &amp; FAQs answered with 0 deduction
+            </p>
+          </div>
+        </div>
+
+        {/* Feature Permissions Pill Row */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-purple-500/15 text-xs">
+          <span className="text-slate-400 font-semibold mr-1">Plan Permissions:</span>
+          <span className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-[#7C3AED] dark:text-purple-300 font-bold border border-purple-200/60 dark:border-purple-500/20 flex items-center gap-1.5">
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Up to {subStatus?.featureConfig?.max_channels || 3} Connected Channels</span>
+          </span>
+          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200/60 dark:border-emerald-500/20 flex items-center gap-1.5">
+            <Truck className="w-3.5 h-3.5" />
+            <span>1-Click Courier Dispatch (Steadfast, Pathao &amp; RedX)</span>
+          </span>
+          <span className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold border border-blue-200/60 dark:border-blue-500/20 flex items-center gap-1.5">
+            <Bot className="w-3.5 h-3.5" />
+            <span>{subStatus?.isProPlan ? '3 Autonomous AI Agents' : '1 AI Agent'}</span>
+          </span>
+          {subStatus?.isProPlan && (
+            <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-bold border border-amber-200/60 dark:border-amber-500/20 flex items-center gap-1.5">
+              <Crown className="w-3.5 h-3.5" />
+              <span>Accounts ERP &amp; Due Cashbook</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Starter to Pro Upgrade Card (Baki Fee / Difference Upgrade) */}
@@ -491,21 +662,23 @@ export const BillingView: React.FC<BillingViewProps> = ({
                       {plan.name}
                     </span>
 
-                    {isPopular && (
+                    {plan.badge ? (
+                      <span className="px-3 py-1 rounded-full bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+                        {plan.badge}
+                      </span>
+                    ) : isPopular ? (
                       <span className="px-3 py-1 rounded-full bg-[#7C3AED] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
                         Popular
                       </span>
-                    )}
-                    {isTrial && (
+                    ) : isTrial ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-purple-950/70 text-slate-700 dark:text-purple-300 text-[10px] font-bold border border-slate-200 dark:border-purple-500/20">
                         2 Days Free
                       </span>
-                    )}
-                    {isPro && (
+                    ) : isPro ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold border border-amber-500/20">
                         Advanced
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Price */}

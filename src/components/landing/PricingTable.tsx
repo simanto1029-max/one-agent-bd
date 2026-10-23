@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plan } from '../../types';
+import { api } from '../../api';
 import {
   OFFICIAL_THREE_PLANS,
   TRIAL_PLAN,
@@ -22,7 +23,23 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
   const [selectedDuration, setSelectedDuration] = useState<PlanDurationOption>(durations[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [priceMode, setPriceMode] = useState<'package' | 'monthly'>('package');
+  const [livePlans, setLivePlans] = useState<Plan[]>(OFFICIAL_THREE_PLANS);
+
+  // Load live plans from database / API
+  useEffect(() => {
+    let isMounted = true;
+    api.getPlans().then((data) => {
+      if (isMounted && Array.isArray(data) && data.length > 0) {
+        const active = data.filter((p) => p.is_active);
+        if (active.length > 0) {
+          setLivePlans(active);
+        }
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -50,38 +67,46 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
     card.style.setProperty('--my', `${e.clientY - r.top}px`);
   };
 
+  // Find corresponding plan from live database or fallback
+  const advancePlan =
+    livePlans.find((p) => p.id === 'plan_starter' || p.price === 2499 || p.name.toLowerCase().includes('advance')) ||
+    livePlans[0] ||
+    OFFICIAL_THREE_PLANS[0];
+
+  const businessPlan =
+    livePlans.find((p) => p.id === 'plan_pro' || p.price === 4499 || p.name.toLowerCase().includes('business')) ||
+    livePlans[1] ||
+    OFFICIAL_THREE_PLANS[1];
+
+  const enterprisePlan =
+    livePlans.find((p) => p.id === 'plan_enterprise' || p.price === 8999 || p.name.toLowerCase().includes('enterprise')) ||
+    livePlans[2] ||
+    OFFICIAL_THREE_PLANS[2];
+
   const handleSelect = (planType: 'trial' | 'advance' | 'business' | 'enterprise') => {
     if (planType === 'trial') {
       onSelectPlan(TRIAL_PLAN, 'trial');
     } else if (planType === 'advance') {
-      const basePlan = OFFICIAL_THREE_PLANS[0];
-      const customized = buildCustomizedPlan(basePlan, selectedDuration);
+      const customized = buildCustomizedPlan(advancePlan, selectedDuration);
       onSelectPlan(customized, 'buy');
     } else if (planType === 'business') {
-      const basePlan = OFFICIAL_THREE_PLANS[1];
-      const customized = buildCustomizedPlan(basePlan, selectedDuration);
+      const customized = buildCustomizedPlan(businessPlan, selectedDuration);
       onSelectPlan(customized, 'buy');
     } else {
-      const basePlan = OFFICIAL_THREE_PLANS[2];
-      const customized = buildCustomizedPlan(basePlan, selectedDuration);
+      const customized = buildCustomizedPlan(enterprisePlan, selectedDuration);
       onSelectPlan(customized, 'buy');
     }
   };
 
-  // Base plan prices
-  const advanceBasePrice = 2499;
-  const businessBasePrice = 4499;
-  const enterpriseBasePrice = 8999;
+  // Base plan prices from live database
+  const advanceBasePrice = advancePlan.price || 2499;
+  const businessBasePrice = businessPlan.price || 4499;
+  const enterpriseBasePrice = enterprisePlan.price || 8999;
 
-  // Total and effective monthly prices for selected duration
+  // Total prices for selected duration
   const advanceTotal = calculateCustomPlanPrice(advanceBasePrice, selectedDuration);
-  const advanceMonthlyEffective = Math.round(advanceTotal / selectedDuration.months);
-
   const businessTotal = calculateCustomPlanPrice(businessBasePrice, selectedDuration);
-  const businessMonthlyEffective = Math.round(businessTotal / selectedDuration.months);
-
   const enterpriseTotal = calculateCustomPlanPrice(enterpriseBasePrice, selectedDuration);
-  const enterpriseMonthlyEffective = Math.round(enterpriseTotal / selectedDuration.months);
 
   const CK_ICON = (
     <svg className="ck" viewBox="0 0 18 18">
@@ -647,76 +672,39 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             )}
           </div>
 
-          {/* Price View Mode Switcher */}
-          <div className="inline-flex items-center p-1 rounded-full bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setPriceMode('package')}
-              className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                priceMode === 'package'
-                  ? 'bg-[#7c3aed] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-purple-600'
-              }`}
-            >
-              📦 Total Package Price
-            </button>
-            <button
-              type="button"
-              onClick={() => setPriceMode('monthly')}
-              className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
-                priceMode === 'monthly'
-                  ? 'bg-[#7c3aed] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-purple-600'
-              }`}
-            >
-              🗓️ Monthly Equivalent
-            </button>
-          </div>
         </div>
       </div>
 
       {/* Grid of 3 Main Paid Plans matching user request */}
       <div className="grid" id="grid">
         
-        {/* 1. ADVANCE AI PLAN (৳2,499) */}
+        {/* 1. ADVANCE AI PLAN */}
         <article
           className="card"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
           <div className="top">
-            <h3>Advance</h3>
-            <span className="free">2,500 WA Messages</span>
+            <h3>{advancePlan.name.replace(/ Plan| AI Plan/gi, '') || 'Advance'}</h3>
+            <span className="free">
+              {(advancePlan.feature_config?.whatsapp_credits || 2500).toLocaleString('en-US')} WA Messages
+            </span>
           </div>
 
           <div className="price">
-            {priceMode === 'package' ? (
-              <>
-                <strong>&#2547;{advanceTotal.toLocaleString('en-US')}</strong>
-                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">
-                    &#2547;{(advanceBasePrice * selectedDuration.months).toLocaleString('en-US')}
-                  </del>
-                )}
-              </>
-            ) : (
-              <>
-                <strong>&#2547;{selectedDuration.months === 1 ? advanceBasePrice.toLocaleString('en-US') : advanceMonthlyEffective.toLocaleString('en-US')}</strong>
-                <em>/ month</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{advanceBasePrice.toLocaleString('en-US')}</del>
-                )}
-              </>
+            <strong>&#2547;{advanceTotal.toLocaleString('en-US')}</strong>
+            <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+            {selectedDuration.discountPercent > 0 && (
+              <del className="text-xs text-slate-400 font-bold ml-1.5">
+                &#2547;{(advanceBasePrice * selectedDuration.months).toLocaleString('en-US')}
+              </del>
             )}
           </div>
 
-          <div className="sub">Grow Your E-Commerce Business</div>
-          {selectedDuration.months > 1 && (
+          <div className="sub">{advancePlan.subtitle || 'Grow Your E-Commerce Business'}</div>
+          {selectedDuration.months > 1 && selectedDuration.discountPercent > 0 && (
             <div className="total-billed">
-              {priceMode === 'package'
-                ? `৳${advanceMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(advanceBasePrice * selectedDuration.months - advanceTotal).toLocaleString('en-US')} saved)`
-                : `Billed ৳${advanceTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
+              Save {selectedDuration.discountPercent}% (৳{(advanceBasePrice * selectedDuration.months - advanceTotal).toLocaleString('en-US')} Discount for {selectedDuration.label})
             </div>
           )}
 
@@ -725,12 +713,12 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             onClick={() => handleSelect('advance')}
             className="btn b-light"
           >
-            Choose Advance Plan
+            Choose {advancePlan.name.replace(/ Plan/gi, '') || 'Advance'} Plan
           </button>
           
           <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {OFFICIAL_THREE_PLANS[0].features.map((f, k) => (
+            {(advancePlan.features && advancePlan.features.length > 0 ? advancePlan.features : OFFICIAL_THREE_PLANS[0].features).map((f, k) => (
               <li key={k}>
                 {CK_ICON}
                 <span>{f}</span>
@@ -739,48 +727,34 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           </ul>
         </article>
 
-        {/* 2. BUSINESS AI PLAN (৳4,499) - MOST POPULAR */}
+        {/* 2. BUSINESS AI PLAN - MOST POPULAR */}
         <article
           className="card pop"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
-          <span className="tag">⭐ Most Popular</span>
+          <span className="tag">⭐ {businessPlan.badge || 'Most Popular'}</span>
           <div className="top">
-            <h3>Business</h3>
+            <h3>{businessPlan.name.replace(/ Plan| AI Plan/gi, '') || 'Business'}</h3>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-              6,500 WA Messages
+              {(businessPlan.feature_config?.whatsapp_credits || 6500).toLocaleString('en-US')} WA Messages
             </span>
           </div>
 
           <div className="price">
-            {priceMode === 'package' ? (
-              <>
-                <strong>&#2547;{businessTotal.toLocaleString('en-US')}</strong>
-                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">
-                    &#2547;{(businessBasePrice * selectedDuration.months).toLocaleString('en-US')}
-                  </del>
-                )}
-              </>
-            ) : (
-              <>
-                <strong>&#2547;{selectedDuration.months === 1 ? businessBasePrice.toLocaleString('en-US') : businessMonthlyEffective.toLocaleString('en-US')}</strong>
-                <em>/ month</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{businessBasePrice.toLocaleString('en-US')}</del>
-                )}
-              </>
+            <strong>&#2547;{businessTotal.toLocaleString('en-US')}</strong>
+            <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+            {selectedDuration.discountPercent > 0 && (
+              <del className="text-xs text-slate-400 font-bold ml-1.5">
+                &#2547;{(businessBasePrice * selectedDuration.months).toLocaleString('en-US')}
+              </del>
             )}
           </div>
 
-          <div className="sub">Scale Multichannel Operations</div>
-          {selectedDuration.months > 1 && (
+          <div className="sub">{businessPlan.subtitle || 'Scale Multichannel Operations'}</div>
+          {selectedDuration.months > 1 && selectedDuration.discountPercent > 0 && (
             <div className="total-billed">
-              {priceMode === 'package'
-                ? `৳${businessMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(businessBasePrice * selectedDuration.months - businessTotal).toLocaleString('en-US')} saved)`
-                : `Billed ৳${businessTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
+              Save {selectedDuration.discountPercent}% (৳{(businessBasePrice * selectedDuration.months - businessTotal).toLocaleString('en-US')} Discount for {selectedDuration.label})
             </div>
           )}
 
@@ -789,12 +763,12 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             onClick={() => handleSelect('business')}
             className="btn b-violet"
           >
-            Choose Business Plan
+            Choose {businessPlan.name.replace(/ Plan/gi, '') || 'Business'} Plan
           </button>
 
           <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {OFFICIAL_THREE_PLANS[1].features.map((f, k) => (
+            {(businessPlan.features && businessPlan.features.length > 0 ? businessPlan.features : OFFICIAL_THREE_PLANS[1].features).map((f, k) => (
               <li key={k}>
                 {CK_ICON}
                 <span>{f}</span>
@@ -803,45 +777,33 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           </ul>
         </article>
 
-        {/* 3. ENTERPRISE AGENCY PLAN (৳8,999) */}
+        {/* 3. ENTERPRISE AGENCY PLAN */}
         <article
           className="card"
           onMouseMove={handleCardMouseMove}
         >
           <div className="spot" />
           <div className="top">
-            <h3>Enterprise</h3>
-            <span className="free">15,000 WA Messages</span>
+            <h3>{enterprisePlan.name.replace(/ Plan| AI Plan/gi, '') || 'Enterprise'}</h3>
+            <span className="free">
+              {(enterprisePlan.feature_config?.whatsapp_credits || 15000).toLocaleString('en-US')} WA Messages
+            </span>
           </div>
 
           <div className="price">
-            {priceMode === 'package' ? (
-              <>
-                <strong>&#2547;{enterpriseTotal.toLocaleString('en-US')}</strong>
-                <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">
-                    &#2547;{(enterpriseBasePrice * selectedDuration.months).toLocaleString('en-US')}
-                  </del>
-                )}
-              </>
-            ) : (
-              <>
-                <strong>&#2547;{selectedDuration.months === 1 ? enterpriseBasePrice.toLocaleString('en-US') : enterpriseMonthlyEffective.toLocaleString('en-US')}</strong>
-                <em>/ month</em>
-                {selectedDuration.discountPercent > 0 && (
-                  <del className="text-xs text-slate-400 font-bold ml-1.5">&#2547;{enterpriseBasePrice.toLocaleString('en-US')}</del>
-                )}
-              </>
+            <strong>&#2547;{enterpriseTotal.toLocaleString('en-US')}</strong>
+            <em>{selectedDuration.months === 1 ? '/ 30 days' : ` / ${selectedDuration.label}`}</em>
+            {selectedDuration.discountPercent > 0 && (
+              <del className="text-xs text-slate-400 font-bold ml-1.5">
+                &#2547;{(enterpriseBasePrice * selectedDuration.months).toLocaleString('en-US')}
+              </del>
             )}
           </div>
 
-          <div className="sub">Mega Volume &amp; Agency Automation</div>
-          {selectedDuration.months > 1 && (
+          <div className="sub">{enterprisePlan.subtitle || 'Mega Volume & Agency Automation'}</div>
+          {selectedDuration.months > 1 && selectedDuration.discountPercent > 0 && (
             <div className="total-billed">
-              {priceMode === 'package'
-                ? `৳${enterpriseMonthlyEffective.toLocaleString('en-US')}/mo equivalent • Save ${selectedDuration.discountPercent}% (৳${(enterpriseBasePrice * selectedDuration.months - enterpriseTotal).toLocaleString('en-US')} saved)`
-                : `Billed ৳${enterpriseTotal.toLocaleString('en-US')} for ${selectedDuration.label} • Save ${selectedDuration.discountPercent}%`}
+              Save {selectedDuration.discountPercent}% (৳{(enterpriseBasePrice * selectedDuration.months - enterpriseTotal).toLocaleString('en-US')} Discount for {selectedDuration.label})
             </div>
           )}
 
@@ -850,13 +812,12 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             onClick={() => handleSelect('enterprise')}
             className="btn b-dark"
           >
-            Choose Enterprise Plan
+            Choose {enterprisePlan.name.replace(/ Plan/gi, '') || 'Enterprise'} Plan
           </button>
-
 
           <div className="fl">INCLUDED FEATURES</div>
           <ul>
-            {OFFICIAL_THREE_PLANS[2].features.map((f, k) => (
+            {(enterprisePlan.features && enterprisePlan.features.length > 0 ? enterprisePlan.features : OFFICIAL_THREE_PLANS[2].features).map((f, k) => (
               <li key={k}>
                 {CK_ICON}
                 <span>{f}</span>

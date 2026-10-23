@@ -19,6 +19,7 @@ export interface PlanFeaturesConfig {
   courier_dispatch?: boolean;
   csv_export?: boolean;
   max_channels?: number;
+  whatsapp_credits?: number;
 }
 
 export interface Plan {

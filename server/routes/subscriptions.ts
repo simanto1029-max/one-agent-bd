@@ -27,8 +27,8 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
   const currentPlanId = status.planId || 'plan_starter';
   const targetPlanId = (req.query.targetPlanId as string) || 'plan_pro';
 
-  const currentPlan = db.getPlanById(currentPlanId) || { id: 'plan_starter', price: 1250, name: 'Starter AI Plan' };
-  const targetPlan = db.getPlanById(targetPlanId) || { id: 'plan_pro', price: 1950, name: 'Pro Business Plan' };
+  const currentPlan = db.getPlanById(currentPlanId) || { id: 'plan_starter', price: 2499, name: 'Advance AI Plan' };
+  const targetPlan = db.getPlanById(targetPlanId) || { id: 'plan_pro', price: 4499, name: 'Business AI Plan' };
 
   const currentSub = db.getSubscriptionByUserId(user.id);
   const now = new Date();
@@ -40,10 +40,10 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
 
   const isCurrentStarter =
     currentPlanId === 'plan_starter' ||
-    ((!status.isProPlan || status.planName?.toLowerCase().includes('starter')) && !status.isExpired);
-  const baseStarterPrice = currentPlan.price || 1250;
-  const baseProPrice = targetPlan.price || 1950;
-  const flatDifference = Math.max(0, baseProPrice - baseStarterPrice); // 700 BDT flat monthly difference
+    ((!status.isProPlan || status.planName?.toLowerCase().includes('starter') || status.planName?.toLowerCase().includes('advance')) && !status.isExpired);
+  const baseStarterPrice = currentPlan.price || 2499;
+  const baseProPrice = targetPlan.price || 4499;
+  const flatDifference = Math.max(0, baseProPrice - baseStarterPrice); // 2,000 BDT flat difference
 
   // Prorated difference based on remaining days of the current 30-day billing cycle:
   // e.g. If 20 days remaining out of 30: (20 / 30) * 700 = ~467 BDT
