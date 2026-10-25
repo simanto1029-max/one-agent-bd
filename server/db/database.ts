@@ -316,9 +316,11 @@ export interface CustomerMetadata {
   customer_name?: string;
   customer_phone?: string;
   customer_address?: string;
+  customer_avatar?: string;
   tags?: string[];
   notes?: string;
   is_starred?: boolean;
+  is_deleted?: boolean;
   assigned_agent_id?: string;
   created_at: string;
   updated_at: string;
@@ -2226,9 +2228,11 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         customer_name: updates.customer_name,
         customer_phone: updates.customer_phone,
         customer_address: updates.customer_address,
+        customer_avatar: updates.customer_avatar,
         tags: updates.tags || [],
         notes: updates.notes || '',
         is_starred: updates.is_starred || false,
+        is_deleted: updates.is_deleted || false,
         assigned_agent_id: updates.assigned_agent_id,
         created_at: nowIso,
         updated_at: nowIso
@@ -2242,6 +2246,24 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   getAllCustomerMetadata(userId: string): CustomerMetadata[] {
     if (!this.data.customer_metadata) this.data.customer_metadata = [];
     return this.data.customer_metadata.filter((m) => m.user_id === userId);
+  }
+
+  deleteCustomerPermanently(userId: string, customerId: string): boolean {
+    if (this.data.customer_metadata) {
+      const metaIdx = this.data.customer_metadata.findIndex(
+        (m) => (m.user_id === userId && m.customer_id === customerId) || m.id === `${userId}_${customerId}`
+      );
+      if (metaIdx !== -1) {
+        this.data.customer_metadata.splice(metaIdx, 1);
+      }
+    }
+    if (this.data.messages) {
+      this.data.messages = this.data.messages.filter(
+        (m) => !(m.user_id === userId && m.customer_id === customerId)
+      );
+    }
+    this.persist();
+    return true;
   }
 
   // --- Orders ---

@@ -1054,14 +1054,34 @@ export const api = {
     customerName?: string;
     customerPhone?: string;
     customerAddress?: string;
+    customerAvatar?: string;
     tags?: string[];
     notes?: string;
     isStarred?: boolean;
+    isDeleted?: boolean;
     assignedAgentId?: string;
   }): Promise<{ success: boolean; metadata: any }> {
     return fetchJson(`/api/inbox/customer-details/${encodeURIComponent(customerId)}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  },
+
+  async deleteConversation(customerId: string): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/inbox/conversations/${encodeURIComponent(customerId)}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async restoreConversation(customerId: string): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/inbox/conversations/${encodeURIComponent(customerId)}/restore`, {
+      method: 'POST'
+    });
+  },
+
+  async permanentDeleteConversation(customerId: string): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/inbox/conversations/${encodeURIComponent(customerId)}/permanent`, {
+      method: 'DELETE'
     });
   },
 

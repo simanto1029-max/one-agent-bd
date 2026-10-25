@@ -249,6 +249,7 @@ export interface Conversation {
   tags?: string[];
   notes?: string;
   isStarred?: boolean;
+  isDeleted?: boolean;
   assignedAgentId?: string;
   totalSpent?: number;
   platform: 'whatsapp' | 'messenger' | 'instagram';

@@ -54,6 +54,7 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     tags?: string[];
     notes?: string;
     isStarred?: boolean;
+    isDeleted?: boolean;
     assignedAgentId?: string;
     totalSpent?: number;
     platform: 'whatsapp' | 'messenger' | 'instagram';
@@ -116,12 +117,13 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
       conversationsMap.set(key, {
         customerId: msg.customer_id,
         customerName: resolvedName,
-        customerAvatar: msg.customer_avatar,
+        customerAvatar: custMeta?.customer_avatar || msg.customer_avatar,
         customerPhone: resolvedPhone,
         customerAddress: resolvedAddress,
         tags: custMeta?.tags || (matchingOrders.length > 0 ? ['Order Client'] : []),
         notes: custMeta?.notes || '',
         isStarred: Boolean(custMeta?.is_starred),
+        isDeleted: Boolean(custMeta?.is_deleted),
         assignedAgentId: custMeta?.assigned_agent_id,
         totalSpent,
         platform: msg.platform,
@@ -156,23 +158,34 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     }
   }
 
-  let conversations = Array.from(conversationsMap.values()).sort(
+  const allConversations = Array.from(conversationsMap.values()).sort(
     (a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime()
   );
 
+  const activeConversations = allConversations.filter((c) => !c.isDeleted);
+  const trashConversations = allConversations.filter((c) => c.isDeleted);
+
   const categoryCounts = {
-    all: conversations.length,
-    orders: conversations.filter((c) => c.orderCategory === 'orders').length,
-    delivered: conversations.filter((c) => c.orderCategory === 'delivered').length,
-    new_customer: conversations.filter((c) => c.orderCategory === 'new_customer').length
+    all: activeConversations.length,
+    orders: activeConversations.filter((c) => c.orderCategory === 'orders').length,
+    delivered: activeConversations.filter((c) => c.orderCategory === 'delivered').length,
+    new_customer: activeConversations.filter((c) => c.orderCategory === 'new_customer').length,
+    starred: activeConversations.filter((c) => c.isStarred).length,
+    trash: trashConversations.length
   };
 
-  if (category && category !== 'all') {
-    conversations = conversations.filter((c) => c.orderCategory === category);
+  let conversations = activeConversations;
+  if (category === 'trash') {
+    conversations = trashConversations;
+  } else if (category === 'starred') {
+    conversations = activeConversations.filter((c) => c.isStarred);
+  } else if (category && category !== 'all') {
+    conversations = activeConversations.filter((c) => c.orderCategory === category);
   }
 
   return res.json({
     conversations,
+    allConversations,
     allMessages: messages,
     categoryCounts
   });
@@ -505,7 +518,7 @@ inboxRouter.get('/customer-details/:customerId', (req: Request, res: Response) =
   });
 });
 
-// PUT /api/inbox/customer-details/:customerId - Update customer metadata (name, phone, address, tags, notes, starred, agent)
+// PUT /api/inbox/customer-details/:customerId - Update customer metadata
 inboxRouter.put('/customer-details/:customerId', (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
@@ -513,19 +526,64 @@ inboxRouter.put('/customer-details/:customerId', (req: Request, res: Response) =
   }
 
   const { customerId } = req.params;
-  const { customerName, customerPhone, customerAddress, tags, notes, isStarred, assignedAgentId } = req.body || {};
+  const { customerName, customerPhone, customerAddress, customerAvatar, tags, notes, isStarred, isDeleted, assignedAgentId } = req.body || {};
 
   const updated = db.upsertCustomerMetadata(user.id, customerId, {
     customer_name: customerName,
     customer_phone: customerPhone,
     customer_address: customerAddress,
+    customer_avatar: customerAvatar,
     tags: Array.isArray(tags) ? tags : undefined,
     notes: typeof notes === 'string' ? notes : undefined,
     is_starred: typeof isStarred === 'boolean' ? isStarred : undefined,
+    is_deleted: typeof isDeleted === 'boolean' ? isDeleted : undefined,
     assigned_agent_id: assignedAgentId
   });
 
   return res.json({ success: true, metadata: updated });
+});
+
+// DELETE /api/inbox/conversations/:customerId - Move conversation to Trash
+inboxRouter.delete('/conversations/:customerId', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId } = req.params;
+  const updated = db.upsertCustomerMetadata(user.id, customerId, {
+    is_deleted: true
+  });
+
+  return res.json({ success: true, message: 'Conversation moved to trash', metadata: updated });
+});
+
+// POST /api/inbox/conversations/:customerId/restore - Restore conversation from Trash
+inboxRouter.post('/conversations/:customerId/restore', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId } = req.params;
+  const updated = db.upsertCustomerMetadata(user.id, customerId, {
+    is_deleted: false
+  });
+
+  return res.json({ success: true, message: 'Conversation restored', metadata: updated });
+});
+
+// DELETE /api/inbox/conversations/:customerId/permanent - Permanently delete conversation
+inboxRouter.delete('/conversations/:customerId/permanent', (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { customerId } = req.params;
+  db.deleteCustomerPermanently(user.id, customerId);
+
+  return res.json({ success: true, message: 'Conversation permanently deleted' });
 });
 
 // Helper to compute WhatsApp & VIP Broadcast Quota per 24 hours
