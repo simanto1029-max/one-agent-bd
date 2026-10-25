@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bot,
   Plus,
@@ -24,13 +24,29 @@ import {
   Sliders,
   DollarSign,
   Truck,
-  Check
+  Check,
+  Camera,
+  Upload,
+  Image as ImageIcon,
+  ExternalLink,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Agent, Channel, UserProfile, SubscriptionStatusInfo } from '../../types';
 import { api } from '../../api';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { FacebookLogo, InstagramLogo, WhatsAppLogo } from '../common/BrandLogos';
+
+export const AGENT_AVATAR_PRESETS = [
+  { id: 'av_1', label: 'Tania (Sales Executive)', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_2', label: 'Arif (Tech & Gadgets)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_3', label: 'Farhana (Customer Support)', url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_4', label: 'Tanvir (Urgent Dispatch)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_5', label: 'Nusrat (Fashion Specialist)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_6', label: 'Sabrina (Product Consultant)', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_7', label: 'Kamal (Senior Advisor)', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=256&auto=format&fit=crop&q=80' },
+  { id: 'av_8', label: 'Sadia (Brand Ambassador)', url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=256&auto=format&fit=crop&q=80' },
+];
 
 interface AgentsViewProps {
   currentUser: UserProfile;
@@ -72,6 +88,9 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
   // Form state
   const [formName, setFormName] = useState('');
   const [formBusiness, setFormBusiness] = useState('');
+  const [formAvatar, setFormAvatar] = useState(AGENT_AVATAR_PRESETS[0].url);
+  const [customAvatarInput, setCustomAvatarInput] = useState('');
+  const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
   const [formTone, setFormTone] = useState<'sales_closer' | 'friendly' | 'urgent' | 'professional'>('sales_closer');
   const [formLanguage, setFormLanguage] = useState<'bangla' | 'english' | 'banglish'>('bangla');
   const [formChannels, setFormChannels] = useState<string[]>([]);
@@ -82,6 +101,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Quick avatar selector modal for existing agent
+  const [agentForAvatarChange, setAgentForAvatarChange] = useState<Agent | null>(null);
+  const [quickAvatarSaving, setQuickAvatarSaving] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const quickFileInputRef = useRef<HTMLInputElement>(null);
 
   // Simulator chat state
   const [testInput, setTestInput] = useState('');
@@ -109,6 +135,8 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     setEditingAgent(null);
     setFormName('');
     setFormBusiness(currentUser.full_name || 'My New Business');
+    setFormAvatar(AGENT_AVATAR_PRESETS[0].url);
+    setCustomAvatarInput('');
     setFormTone('sales_closer');
     setFormLanguage('bangla');
     setFormChannels([]);
@@ -128,6 +156,8 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     setEditingAgent(agent);
     setFormName(agent.name);
     setFormBusiness(agent.business_name);
+    setFormAvatar(agent.avatar_url || AGENT_AVATAR_PRESETS[0].url);
+    setCustomAvatarInput(agent.avatar_url || '');
     setFormTone(agent.tone);
     setFormLanguage(agent.language);
     setFormChannels(agent.assigned_channels || []);
@@ -137,6 +167,53 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     setFormOutsideDelivery(agent.delivery_charge_outside_dhaka ?? 120);
     setErrorMsg(null);
     setShowCreateModal(true);
+  };
+
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isQuickModal = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      setErrorMsg('Image size exceeds 4MB limit. Please upload a smaller photo.');
+      return;
+    }
+
+    setAvatarUploadLoading(true);
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      const dataUrl = loadEvt.target?.result as string;
+      if (dataUrl) {
+        if (isQuickModal && agentForAvatarChange) {
+          handleSaveQuickAvatar(agentForAvatarChange, dataUrl);
+        } else {
+          setFormAvatar(dataUrl);
+        }
+      }
+      setAvatarUploadLoading(false);
+    };
+    reader.onerror = () => {
+      setErrorMsg('Failed to process image file.');
+      setAvatarUploadLoading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveQuickAvatar = async (agent: Agent, newAvatarUrl: string) => {
+    try {
+      setQuickAvatarSaving(true);
+      await api.updateAgent(agent.id, {
+        avatar_url: newAvatarUrl
+      });
+      setAgents((prev) =>
+        prev.map((a) => (a.id === agent.id ? { ...a, avatar_url: newAvatarUrl } : a))
+      );
+      setSuccessMsg(`Profile picture updated for AI Agent "${agent.name}"!`);
+      setAgentForAvatarChange(null);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update agent profile picture.');
+    } finally {
+      setQuickAvatarSaving(false);
+    }
   };
 
   const handleToggleChannelAssignment = (chId: string) => {
@@ -156,10 +233,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
       setSubmitting(true);
       setErrorMsg(null);
 
+      const avatarToSave = (formAvatar || customAvatarInput || AGENT_AVATAR_PRESETS[0].url).trim();
+
       if (editingAgent) {
         await api.updateAgent(editingAgent.id, {
           name: formName.trim(),
           business_name: formBusiness.trim(),
+          avatar_url: avatarToSave,
           tone: formTone,
           language: formLanguage,
           assigned_channels: formChannels,
@@ -173,6 +253,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
         await api.createAgent({
           name: formName.trim(),
           business_name: formBusiness.trim(),
+          avatar_url: avatarToSave,
           tone: formTone,
           language: formLanguage,
           assigned_channels: formChannels,
@@ -414,11 +495,25 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   {/* Top Bar: Avatar, Name, Status Toggle */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={agent.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80'}
-                        alt={agent.name}
-                        className="w-11 h-11 rounded-2xl object-cover border border-purple-200/80 dark:border-purple-500/30 shadow-xs shrink-0"
-                      />
+                      {/* Avatar with Interactive Change Hover */}
+                      <div className="relative group/avatar shrink-0">
+                        <img
+                          src={agent.avatar_url || AGENT_AVATAR_PRESETS[0].url}
+                          alt={agent.name}
+                          className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-200/80 dark:border-purple-500/30 shadow-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAgentForAvatarChange(agent)}
+                          className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold cursor-pointer"
+                          title="Change Profile Picture"
+                        >
+                          <Camera className="w-3.5 h-3.5 mb-0.5" />
+                          <span>Change</span>
+                        </button>
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#120B2E] ${agent.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                      </div>
+
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
@@ -503,23 +598,37 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   </div>
                 </div>
 
-                {/* Bottom Actions */}
-                <div className="pt-3 border-t border-slate-100 dark:border-purple-500/15 flex items-center justify-between gap-2">
+                {/* Bottom Actions: Test Simulator + Train Persona & Rules + Edit + Delete */}
+                <div className="pt-3 border-t border-slate-100 dark:border-purple-500/15 flex items-center justify-between gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('oneagentbd_target_agent_id', agent.id);
+                      onNavigate('settings');
+                    }}
+                    className="flex-1 py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Train Persona, Prompts & Rules specifically for this business"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#7C3AED] shrink-0" />
+                    <span>Train Persona</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => openTestPlayground(agent)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
+                    title="Test In Simulator"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Test Simulator</span>
+                    <span className="hidden sm:inline">Test</span>
                   </button>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button
                       type="button"
                       onClick={() => openEditModal(agent)}
                       className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A123B] transition-colors cursor-pointer"
-                      title="Edit Agent & Knowledge Base"
+                      title="Edit Agent & Picture"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -576,6 +685,115 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   {errorMsg}
                 </div>
               )}
+
+              {/* Agent Profile Picture / Avatar Section */}
+              <div className="p-4 rounded-2xl bg-purple-50/60 dark:bg-[#18103A] border border-purple-200/70 dark:border-purple-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-[#7C3AED]" />
+                    <label className="text-xs font-bold text-slate-800 dark:text-white">
+                      Agent Profile Picture / Avatar *
+                    </label>
+                  </div>
+                  <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold">
+                    Visible to customers in chat &amp; cards
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Current Selected Avatar Preview */}
+                  <div className="relative shrink-0">
+                    <img
+                      src={formAvatar || AGENT_AVATAR_PRESETS[0].url}
+                      alt="Selected Avatar Preview"
+                      className="w-16 h-16 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-sm"
+                    />
+                    <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-[#7C3AED] text-white text-[9px] font-black uppercase tracking-wider shadow-xs">
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="flex-1 space-y-2 w-full">
+                    <div className="flex items-center gap-2">
+                      {/* Hidden File Input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAvatarFileUpload(e, false)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploadLoading}
+                        className="px-3.5 py-2 rounded-xl bg-white dark:bg-[#120B2E] border border-purple-200 dark:border-purple-500/30 hover:border-[#7C3AED] text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        {avatarUploadLoading ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#7C3AED]" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5 text-[#7C3AED]" />
+                        )}
+                        <span>{avatarUploadLoading ? 'Reading File...' : 'Upload Photo'}</span>
+                      </button>
+
+                      <span className="text-xs text-slate-400">or enter image link below</span>
+                    </div>
+
+                    <input
+                      type="url"
+                      value={customAvatarInput}
+                      onChange={(e) => {
+                        setCustomAvatarInput(e.target.value);
+                        if (e.target.value.trim().startsWith('http')) {
+                          setFormAvatar(e.target.value.trim());
+                        }
+                      }}
+                      placeholder="Paste direct image link (https://...)"
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-purple-500/25 bg-white dark:bg-[#120B2E] text-slate-900 dark:text-white focus:outline-none focus:border-[#7C3AED]"
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Avatar Gallery Grid */}
+                <div className="pt-2 border-t border-purple-200/50 dark:border-purple-500/15">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                    Or select from verified professional presets:
+                  </span>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                    {AGENT_AVATAR_PRESETS.map((p) => {
+                      const isSelected = formAvatar === p.url;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setFormAvatar(p.url);
+                            setCustomAvatarInput(p.url);
+                          }}
+                          className={`relative p-0.5 rounded-xl border-2 transition-all cursor-pointer group ${
+                            isSelected
+                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30 scale-105'
+                              : 'border-transparent hover:border-purple-300 dark:hover:border-purple-500/40 opacity-75 hover:opacity-100'
+                          }`}
+                          title={p.label}
+                        >
+                          <img
+                            src={p.url}
+                            alt={p.label}
+                            className="w-full h-11 sm:h-10 rounded-lg object-cover"
+                          />
+                          {isSelected && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -874,6 +1092,108 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                 <Send className="w-4 h-4" />
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK AVATAR CHANGE MODAL */}
+      {agentForAvatarChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs">
+          <div className="relative w-full max-w-md bg-white dark:bg-[#120B2E] rounded-3xl border border-slate-200/80 dark:border-purple-500/30 shadow-2xl overflow-hidden p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-purple-500/15">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[#7C3AED]" />
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                  Change Agent Profile Picture
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAgentForAvatarChange(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/60 dark:border-purple-500/15">
+              <img
+                src={agentForAvatarChange.avatar_url || AGENT_AVATAR_PRESETS[0].url}
+                alt={agentForAvatarChange.name}
+                className="w-12 h-12 rounded-xl object-cover border-2 border-[#7C3AED]"
+              />
+              <div>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                  {agentForAvatarChange.name}
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {agentForAvatarChange.business_name}
+                </p>
+              </div>
+            </div>
+
+            {/* Upload from Computer / Mobile */}
+            <div className="space-y-2">
+              <input
+                ref={quickFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleAvatarFileUpload(e, true)}
+              />
+              <button
+                type="button"
+                onClick={() => quickFileInputRef.current?.click()}
+                disabled={avatarUploadLoading || quickAvatarSaving}
+                className="w-full py-2.5 px-4 rounded-xl border border-dashed border-[#7C3AED]/50 bg-purple-50/50 hover:bg-purple-100/60 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 text-[#7C3AED] dark:text-purple-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload New Photo from Device</span>
+              </button>
+            </div>
+
+            {/* Presets Grid */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Or pick a instant preset photo:
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                {AGENT_AVATAR_PRESETS.map((p) => {
+                  const isCurrent = agentForAvatarChange.avatar_url === p.url;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={quickAvatarSaving}
+                      onClick={() => handleSaveQuickAvatar(agentForAvatarChange, p.url)}
+                      className={`relative rounded-xl border-2 overflow-hidden transition-all cursor-pointer p-0.5 group ${
+                        isCurrent
+                          ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/40'
+                          : 'border-transparent hover:border-purple-300 opacity-80 hover:opacity-100'
+                      }`}
+                      title={p.label}
+                    >
+                      <img src={p.url} alt={p.label} className="w-full h-12 rounded-lg object-cover" />
+                      {isCurrent && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAgentForAvatarChange(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

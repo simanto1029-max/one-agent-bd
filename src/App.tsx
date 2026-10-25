@@ -386,6 +386,15 @@ export default function App() {
           setActiveTabRaw(route.tab);
           setOpenGroupId(route.openGroup);
           updateUrl('dashboard', route.tab, true);
+
+          // Automatic first-time user dashboard walkthrough tour
+          const isTourCompleted = localStorage.getItem(`oneagentbd_tour_completed_${user.id}`);
+          if (!isTourCompleted && user.role !== 'admin') {
+            setTimeout(() => {
+              setTourInitialStep(1);
+              setIsTourOpen(true);
+            }, 600);
+          }
         } else if (route.view === 'admin' && user.role === 'admin') {
           setCurrentViewRaw('admin');
           updateUrl('admin', 'overview', true);
@@ -463,6 +472,15 @@ export default function App() {
         setActiveTab('billing');
         setIsLockBypassedForBilling(true);
         setPendingPlanAction(null);
+      }
+
+      // First-time user tour trigger
+      const isTourCompleted = localStorage.getItem(`oneagentbd_tour_completed_${user.id}`);
+      if (!isTourCompleted) {
+        setTimeout(() => {
+          setTourInitialStep(1);
+          setIsTourOpen(true);
+        }, 600);
       }
     }
     if (typeof window !== 'undefined') {

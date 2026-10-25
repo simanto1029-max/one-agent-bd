@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Globe, LogOut, Menu, X } from 'lucide-react';
+import { Shield, Globe, LogOut, Menu, X, Sparkles } from 'lucide-react';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { UserProfile, SubscriptionStatusInfo } from '../../types';
 
@@ -26,6 +26,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   subStatus,
   isDark,
   onToggleTheme,
+  onOpenTour,
   onGoToLanding,
   onGoToAdmin,
   onLogout,
@@ -110,6 +111,19 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 / {creditsTotal.toLocaleString()} WA
               </span>
             </div>
+
+            {/* A to Z Interactive Tour Guide Button */}
+            {onOpenTour && (
+              <button
+                type="button"
+                onClick={onOpenTour}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/60 dark:to-indigo-950/60 hover:from-purple-100 hover:to-indigo-100 text-[#7C3AED] dark:text-purple-300 border border-purple-200/80 dark:border-purple-500/30 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                title="Restart A to Z Interactive Dashboard Tour"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <span className="hidden sm:inline">Tour Guide</span>
+              </button>
+            )}
 
             {/* Website Link */}
             <button

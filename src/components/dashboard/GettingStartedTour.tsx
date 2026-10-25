@@ -187,9 +187,9 @@ Tone & Language: ${tonePrompt}
             </div>
 
             <button
-              onClick={onClose}
+              onClick={handleFinishTour}
               className="p-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded-xl hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-              title="Close tour"
+              title="Skip or close tour"
             >
               <X className="w-5 h-5" />
             </button>

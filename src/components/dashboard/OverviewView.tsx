@@ -70,7 +70,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   channels,
   totalMessagesCount,
   aiRepliesCount,
-  onNavigate
+  onNavigate,
+  onOpenTour
 }) => {
   const [orderMetrics, setOrderMetrics] = useState<OrderMetrics | null>(null);
   const [ordersList, setOrdersList] = useState<Order[]>([]);
@@ -410,6 +411,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <Globe className="w-3.5 h-3.5 text-[#7F22FE]" />
               <span>Connect Channels &amp; Website</span>
             </button>
+
+            {onOpenTour && (
+              <button
+                type="button"
+                onClick={() => onOpenTour(1)}
+                className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/60 dark:to-indigo-950/60 hover:from-purple-100 hover:to-indigo-100 text-[#7C3AED] dark:text-purple-300 border border-purple-200/80 dark:border-purple-500/25 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                title="Restart Step-by-Step Onboarding Tour"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" />
+                <span>Take Dashboard Tour</span>
+              </button>
+            )}
           </div>
 
           {/* Multi-business brand selector */}

@@ -21,11 +21,19 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Store,
+  Layers,
+  Smartphone,
+  RefreshCw,
+  ExternalLink,
+  ShieldCheck,
+  Sliders
 } from 'lucide-react';
 import { api } from '../../api';
-import { AutomationSettings } from '../../types';
+import { AutomationSettings, Agent, Channel } from '../../types';
 import { DeliverySettingsSection } from './DeliverySettingsSection';
+import { FacebookLogo, InstagramLogo, WhatsAppLogo } from '../common/BrandLogos';
 
 interface SettingsViewProps {
   onRefreshUser: () => void;
@@ -51,8 +59,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState<'ai' | 'delivery' | 'credits' | 'instant'>('credits');
+  const [activeSection, setActiveSection] = useState<'ai' | 'delivery' | 'credits' | 'instant'>('ai');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Multi-Business Agent Training Scoping State
+  const [agentsList, setAgentsList] = useState<Agent[]>([]);
+  const [channelsList, setChannelsList] = useState<Channel[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('default');
+  const [agentKnowledgeBase, setAgentKnowledgeBase] = useState('');
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [agentTone, setAgentTone] = useState<'sales_closer' | 'friendly' | 'urgent' | 'professional'>('sales_closer');
+  const [agentLanguage, setAgentLanguage] = useState<'bangla' | 'english' | 'banglish'>('bangla');
+  const [agentDhakaDelivery, setAgentDhakaDelivery] = useState<number>(60);
+  const [agentOutsideDelivery, setAgentOutsideDelivery] = useState<number>(120);
+  const [savingAgent, setSavingAgent] = useState(false);
+  const [savedAgentSuccess, setSavedAgentSuccess] = useState(false);
 
   // Instant FAQ & Cost-Saver Rules State
   const [instantRules, setInstantRules] = useState<any[]>([]);
@@ -79,6 +100,104 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [autoTrackingReply, setAutoTrackingReply] = useState(true);
   const [savingAutoBooster, setSavingAutoBooster] = useState(false);
   const [savedAutoBooster, setSavedAutoBooster] = useState(false);
+
+  const populateAgentForm = (agent: Agent) => {
+    setAgentKnowledgeBase(agent.knowledge_base || '');
+    setAgentPrompt(agent.system_prompt || '');
+    setAgentTone(agent.tone || 'sales_closer');
+    setAgentLanguage(agent.language || 'bangla');
+    setAgentDhakaDelivery(agent.delivery_charge_inside_dhaka ?? 60);
+    setAgentOutsideDelivery(agent.delivery_charge_outside_dhaka ?? 120);
+  };
+
+  const handleSelectAgent = (agentId: string) => {
+    setSelectedAgentId(agentId);
+    if (agentId === 'default') {
+      return;
+    }
+    const target = agentsList.find((a) => a.id === agentId);
+    if (target) {
+      populateAgentForm(target);
+    }
+  };
+
+  const handleSaveAgentTraining = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const currentAgent = agentsList.find((a) => a.id === selectedAgentId);
+    if (!currentAgent) return;
+
+    try {
+      setSavingAgent(true);
+      await api.updateAgent(currentAgent.id, {
+        knowledge_base: agentKnowledgeBase.trim(),
+        system_prompt: agentPrompt.trim(),
+        tone: agentTone,
+        language: agentLanguage,
+        delivery_charge_inside_dhaka: Number(agentDhakaDelivery) || 60,
+        delivery_charge_outside_dhaka: Number(agentOutsideDelivery) || 120
+      });
+
+      setAgentsList((prev) =>
+        prev.map((a) =>
+          a.id === currentAgent.id
+            ? {
+                ...a,
+                knowledge_base: agentKnowledgeBase.trim(),
+                system_prompt: agentPrompt.trim(),
+                tone: agentTone,
+                language: agentLanguage,
+                delivery_charge_inside_dhaka: Number(agentDhakaDelivery) || 60,
+                delivery_charge_outside_dhaka: Number(agentOutsideDelivery) || 120
+              }
+            : a
+        )
+      );
+
+      // Also mirror to user global prompt if this is the only agent
+      if (agentsList.length <= 1) {
+        api.updateLLMSettings({
+          system_prompt: `${agentKnowledgeBase}\n\n${agentPrompt}`
+        }).catch(() => {});
+      }
+
+      setSavedAgentSuccess(true);
+      setTimeout(() => setSavedAgentSuccess(false), 3500);
+      onRefreshUser();
+    } catch (err: any) {
+      console.error('Failed to save agent training:', err);
+    } finally {
+      setSavingAgent(false);
+    }
+  };
+
+  const loadAgentsAndChannels = async () => {
+    try {
+      const [agentsRes, chsRes] = await Promise.all([
+        api.getAgents().catch(() => ({ agents: [] })),
+        api.getChannels().catch(() => [])
+      ]);
+      const list = agentsRes.agents || [];
+      setAgentsList(list);
+      setChannelsList(chsRes || []);
+
+      const targetId = localStorage.getItem('oneagentbd_target_agent_id');
+      if (targetId) {
+        localStorage.removeItem('oneagentbd_target_agent_id');
+        setActiveSection('ai');
+        const found = list.find((a: Agent) => a.id === targetId);
+        if (found) {
+          setSelectedAgentId(found.id);
+          populateAgentForm(found);
+        }
+      } else if (list.length > 0) {
+        // Default to first agent so training is instantly active
+        setSelectedAgentId(list[0].id);
+        populateAgentForm(list[0]);
+      }
+    } catch (err) {
+      console.warn('Could not load agents in settings:', err);
+    }
+  };
 
   const loadInstantRules = async () => {
     try {
@@ -109,6 +228,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
 
   useEffect(() => {
     loadSettings();
+    loadAgentsAndChannels();
     loadInstantRules();
     loadCredits();
     api
@@ -315,18 +435,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   };
 
   const handleApplyPreset = async (presetText: string) => {
-    setSystemPrompt(presetText);
-    localStorage.setItem('oneagentbd_saved_system_prompt', presetText);
-    try {
-      await api.updateLLMSettings({
-        llm_provider: provider,
-        llm_api_key: apiKey.trim() || undefined,
-        system_prompt: presetText
-      });
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 2500);
-    } catch (e) {
-      console.error('Auto-save preset error:', e);
+    if (selectedAgentId !== 'default') {
+      setAgentKnowledgeBase(presetText);
+      const currentAgent = agentsList.find((a) => a.id === selectedAgentId);
+      if (currentAgent) {
+        try {
+          await api.updateAgent(currentAgent.id, {
+            knowledge_base: presetText
+          });
+          setSavedAgentSuccess(true);
+          setTimeout(() => setSavedAgentSuccess(false), 2500);
+        } catch (e) {
+          console.error('Auto-save preset to agent error:', e);
+        }
+      }
+    } else {
+      setSystemPrompt(presetText);
+      localStorage.setItem('oneagentbd_saved_system_prompt', presetText);
+      try {
+        await api.updateLLMSettings({
+          llm_provider: provider,
+          llm_api_key: apiKey.trim() || undefined,
+          system_prompt: presetText
+        });
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2500);
+      } catch (e) {
+        console.error('Auto-save preset error:', e);
+      }
     }
   };
 
@@ -841,97 +977,299 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
       {/* SECTION 4: AI KNOWLEDGE BASE */}
       {activeSection === 'ai' && (
         <>
-          {/* Main Clean Card: Business Details & AI Training */}
-          <form onSubmit={handleSave} className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-100 dark:border-neutral-800/60">
-              <div>
-                <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#7F22FE]" />
-                  <span>Business Knowledge Base (ব্যবসার বিবরণ)</span>
-                </h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                  আপনার ব্যবসা, প্রোডাক্ট, দাম, ডেলিভারি নিয়ম বা অফার এখানে সহজ ভাষায় লিখে দিন। এআই নিজে থেকেই এটি শিখে সাবলীলভাবে উত্তর দেবে।
+          {/* MULTI-BUSINESS AGENT TRAINING ARCHITECTURE */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-5">
+            {/* Top Selector Bar: Select which business / agent to train */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED]">
+                    <Bot className="w-4 h-4" />
+                  </span>
+                  <h2 className="text-sm sm:text-base font-extrabold text-neutral-900 dark:text-white">
+                    Select Business AI Agent to Train
+                  </h2>
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Select which business agent you want to train. Each business maintains its own isolated persona, knowledge base, delivery rates, and reply rules.
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>AI Trained & Ready</span>
-              </div>
+              {agentsList.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={selectedAgentId}
+                    onChange={(e) => handleSelectAgent(e.target.value)}
+                    className="px-3 py-2 text-xs font-bold rounded-xl border border-purple-200 dark:border-purple-500/30 bg-purple-50/50 dark:bg-[#1A123B] text-slate-900 dark:text-white focus:outline-none focus:border-[#7C3AED] cursor-pointer"
+                  >
+                    {agentsList.map((ag) => (
+                      <option key={ag.id} value={ag.id}>
+                        🤖 {ag.name} ({ag.business_name})
+                      </option>
+                    ))}
+                    <option value="default">🌐 Default Global Prompt (Fallback)</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            {/* Quick Template Chips */}
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-2">
-                দ্রুত টেমপ্লেট বেছে নিন (Quick Business Templates):
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {presets.map((p, idx) => {
-                  const Icon = p.icon;
-                  return (
+            {/* When a specific business agent is selected */}
+            {selectedAgentId !== 'default' && (() => {
+              const currentAgent = agentsList.find((a) => a.id === selectedAgentId);
+              if (!currentAgent) return null;
+
+              const assignedChs = channelsList.filter(
+                (c) =>
+                  (currentAgent.assigned_channels || []).includes(c.id) ||
+                  c.agent_id === currentAgent.id
+              );
+
+              return (
+                <form onSubmit={handleSaveAgentTraining} className="space-y-5">
+                  {/* Active Business & Assigned Channels Banner */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-indigo-50/60 dark:from-[#1A123B] dark:via-[#140D30] dark:to-[#18103A] border border-purple-200/80 dark:border-purple-500/25 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={currentAgent.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80'}
+                          alt={currentAgent.name}
+                          className="w-12 h-12 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-xs shrink-0"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                              {currentAgent.name}
+                            </h3>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                              Active Agent
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            <Store className="w-3.5 h-3.5 text-[#7C3AED]" />
+                            <span className="font-semibold">{currentAgent.business_name}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-800/40">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>100% Channel Isolated Auto-Reply</span>
+                      </div>
+                    </div>
+
+                    {/* Assigned Channels Chips */}
+                    <div className="pt-2 border-t border-purple-100 dark:border-purple-500/15 flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5 text-[#7C3AED]" />
+                        <span>Connected Channels ({assignedChs.length}):</span>
+                      </span>
+
+                      {assignedChs.length === 0 ? (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 italic">
+                          No channels assigned yet. Head to "AI Business Agents" to assign WhatsApp or Facebook Pages.
+                        </span>
+                      ) : (
+                        assignedChs.map((c) => (
+                          <span
+                            key={c.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-white dark:bg-[#201548] border border-slate-200/80 dark:border-purple-500/25 text-slate-800 dark:text-slate-200 shadow-2xs"
+                          >
+                            {c.platform === 'whatsapp' ? (
+                              <WhatsAppLogo className="w-3.5 h-3.5 shrink-0" />
+                            ) : c.platform === 'messenger' ? (
+                              <FacebookLogo className="w-3.5 h-3.5 shrink-0" />
+                            ) : (
+                              <InstagramLogo className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                            <span>{c.name}</span>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tone, Language & Delivery Charges Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/60">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Conversation Tone
+                      </label>
+                      <select
+                        value={agentTone}
+                        onChange={(e) => setAgentTone(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                      >
+                        <option value="sales_closer">🔥 Sales Closer (COD Order Focus)</option>
+                        <option value="friendly">😊 Warm &amp; Friendly</option>
+                        <option value="urgent">⚡ Fast &amp; Urgent</option>
+                        <option value="professional">💼 Professional</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Response Language
+                      </label>
+                      <select
+                        value={agentLanguage}
+                        onChange={(e) => setAgentLanguage(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                      >
+                        <option value="bangla">বাংলা (Natural Bengali)</option>
+                        <option value="english">English (Corporate)</option>
+                        <option value="banglish">Banglish (Dynamic)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Inside Dhaka Delivery (৳)
+                      </label>
+                      <input
+                        type="number"
+                        value={agentDhakaDelivery}
+                        onChange={(e) => setAgentDhakaDelivery(Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                        Outside Dhaka Delivery (৳)
+                      </label>
+                      <input
+                        type="number"
+                        value={agentOutsideDelivery}
+                        onChange={(e) => setAgentOutsideDelivery(Number(e.target.value))}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Business Templates Chips */}
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-2">
+                      দ্রুত ব্যবসার বিবরণী টেমপ্লেট নির্বাচন করুন (Quick Templates):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {presets.map((p, idx) => {
+                        const Icon = p.icon;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleApplyPreset(p.prompt)}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-neutral-100 hover:bg-[#7F22FE]/10 hover:text-[#7F22FE] hover:border-[#7F22FE]/30 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-transparent transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Icon className="w-3.5 h-3.5 text-[#7F22FE]" />
+                            <span>{p.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Business Knowledge Base Textarea */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                        {currentAgent.business_name} - Business Knowledge Base (পণ্য ও সার্ভিস তথ্য)
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        {agentKnowledgeBase.length} characters
+                      </span>
+                    </div>
+                    <textarea
+                      rows={8}
+                      required
+                      value={agentKnowledgeBase}
+                      onChange={(e) => setAgentKnowledgeBase(e.target.value)}
+                      placeholder="আপনার এই ব্যবসার প্রোডাক্ট তালিকা, দাম, ওয়ারেন্টি, ডেলিভারি নিয়ম ও পেমেন্ট নম্বর এখানে লিখে দিন..."
+                      className="w-full p-4 text-xs sm:text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/60 text-neutral-900 dark:text-white leading-relaxed focus:outline-none focus:border-[#7C3AED] font-mono"
+                    />
+                  </div>
+
+                  {/* Custom System / Closing Prompt */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 mb-1.5">
+                      Custom AI Closing &amp; Order Capture Prompt (অর্ডার কনফার্ম করার নিয়ম)
+                    </label>
+                    <textarea
+                      rows={4}
+                      required
+                      value={agentPrompt}
+                      onChange={(e) => setAgentPrompt(e.target.value)}
+                      placeholder="কাস্টমারের সাথে কীভাবে কথা বলে ডেলিভারি ঠিকানা ও ফোন নাম্বার সংগ্রহ করে অর্ডার কনফার্ম করতে হবে..."
+                      className="w-full p-3.5 text-xs sm:text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/60 text-neutral-900 dark:text-white leading-relaxed focus:outline-none focus:border-[#7C3AED] font-mono"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Changes apply instantly to all customer conversations on {currentAgent.business_name}'s channels.
+                    </div>
+
                     <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleApplyPreset(p.prompt)}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-neutral-100 hover:bg-[#7F22FE]/10 hover:text-[#7F22FE] hover:border-[#7F22FE]/30 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-transparent transition-all flex items-center gap-1.5 cursor-pointer"
+                      type="submit"
+                      disabled={savingAgent}
+                      className="px-6 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs shadow-md shadow-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <Icon className="w-3.5 h-3.5 text-[#7F22FE]" />
-                      <span>{p.label}</span>
+                      {savingAgent ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving Training...</span>
+                        </>
+                      ) : savedAgentSuccess ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Training Saved &amp; Isolated!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Save Training for {currentAgent.name}</span>
+                        </>
+                      )}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                </form>
+              );
+            })()}
 
-            {/* Clean, Spacious Textarea */}
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                আপনার ব্যবসার তথ্য (এখানে লিখুন বা পেস্ট করুন):
-              </label>
-              <textarea
-                id="settings-system-prompt"
-                rows={11}
-                required
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="যেমন:
-• আমাদের পেজের নাম: Trendly
-• আমরা কী বিক্রি করি: প্রিমিয়াম কোয়ালিটির টি-শার্ট ও পাঞ্জাবি
-• দাম: টি-শার্ট ৪৯০-৭৫০ টাকা, পাঞ্জাবি ১,২০০-২,৫০০ টাকা
-• ডেলিভারি চার্জ: ঢাকার ভেতরে ৬০ টাকা (২৪-৪৮ ঘণ্টা), ঢাকার বাইরে ১২০ টাকা (২-৩ দিন)
-• পেমেন্ট: ক্যাশ অন ডেলিভারি, বিকাশ ও নগদ
-• অর্ডার করার নিয়ম: পণ্যের নাম/সাইজ, সম্পূর্ণ ঠিকানা ও মোবাইল নাম্বার দিন"
-                className="w-full p-4 text-xs sm:text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/60 text-neutral-900 dark:text-white leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-[#7F22FE] focus:bg-white dark:focus:bg-neutral-800 transition-all font-mono"
-              />
-            </div>
+            {/* When Default Global Prompt is selected */}
+            {selectedAgentId === 'default' && (
+              <form onSubmit={handleSave} className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
+                  This default prompt serves as the fallback knowledge base for any unassigned incoming channel messages.
+                </div>
 
-            {/* Save Button Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-              <span className="text-xs text-neutral-400">
-                {systemPrompt.length} characters • Powered by ChatGPT & Gemini Intelligence
-              </span>
-              <button
-                id="save-ai-settings-btn"
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-bold text-xs shadow-md shadow-[#7F22FE]/20 transition-all flex items-center justify-center gap-2 cursor-pointer self-stretch sm:self-auto"
-              >
-                {saving ? (
-                  'Saving Details...'
-                ) : savedSuccess ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Business Details Saved!</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Save Business Details (সেভ করুন)</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                    Default Business Details &amp; Prompt:
+                  </label>
+                  <textarea
+                    id="settings-system-prompt"
+                    rows={10}
+                    required
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    className="w-full p-4 text-xs sm:text-sm rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/60 text-neutral-900 dark:text-white leading-relaxed font-mono"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-6 py-2.5 rounded-xl bg-[#7F22FE] hover:bg-[#6c1ce0] text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    {saving ? 'Saving...' : savedSuccess ? 'Saved!' : 'Save Default Prompt'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
 
           {/* Smart Sales Booster & Business Automation Controls */}
           <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-4">

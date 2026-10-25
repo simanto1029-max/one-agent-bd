@@ -440,11 +440,13 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
       } else {
         const aiResult = await generateAIReply({
           userId: channel.user_id,
+          channelId: channel.id,
+          agentId: channel.agent_id,
+          channelName: channel.business_name || channel.meta_asset_name || channel.name,
           incomingMessage: event.messageText,
           customerId: event.customerId,
           customerName: event.customerName,
           platform: event.platform,
-          channelName: channel.name,
           history: conversationHistory,
           audioBase64,
           audioMimeType,
@@ -463,11 +465,13 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
       // Messenger / Instagram: 100% UNLIMITED conversations!
       const aiResult = await generateAIReply({
         userId: channel.user_id,
+        channelId: channel.id,
+        agentId: channel.agent_id,
+        channelName: channel.business_name || channel.meta_asset_name || channel.name,
         incomingMessage: event.messageText,
         customerId: event.customerId,
         customerName: event.customerName,
         platform: event.platform,
-        channelName: channel.name,
         history: conversationHistory,
         audioBase64,
         audioMimeType,

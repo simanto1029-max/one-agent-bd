@@ -562,7 +562,9 @@ export interface GenerateReplyParams {
   customerName?: string;
   customerId: string;
   platform: 'whatsapp' | 'messenger' | 'instagram';
+  channelId?: string;
   channelName?: string;
+  agentId?: string;
   targetProductId?: string;
   history?: Message[];
   audioBase64?: string;
@@ -2186,10 +2188,31 @@ function buildSmartBanglaFallbackFromPrompt(
 
 export async function generateAIReply(params: GenerateReplyParams): Promise<GenerateReplyResult> {
   const profile = (params as any).profile || db.getProfileById(params.userId);
-  const businessName = params.channelName || profile?.full_name || 'One Agent BD';
+
+  // 1. Resolve multi-business AI agent assigned to this channel or specified by agentId
+  let assignedAgent = params.agentId ? db.getAgentById(params.agentId) : undefined;
+  if (!assignedAgent && params.channelId) {
+    const ch = db.getChannelById(params.channelId);
+    if (ch?.agent_id) {
+      assignedAgent = db.getAgentById(ch.agent_id);
+    }
+    if (!assignedAgent) {
+      const userAgents = db.getAgents(params.userId);
+      assignedAgent = userAgents.find(
+        (a) => a.is_active && (a.assigned_channels || []).includes(params.channelId!)
+      );
+    }
+  }
+
+  const businessName =
+    assignedAgent?.business_name ||
+    params.channelName ||
+    profile?.full_name ||
+    'One Agent BD';
 
   const hasCustomMerchantPrompt = Boolean(
     (params.overrideSystemPrompt && params.overrideSystemPrompt.trim().length > 10) ||
+    (assignedAgent?.system_prompt && assignedAgent.system_prompt.trim().length > 10) ||
     (profile?.system_prompt &&
       profile.system_prompt.trim().length > 10 &&
       !profile.system_prompt.includes('Starter AI Plan 1,250') &&
@@ -2199,13 +2222,28 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
   const isAdminOrOfficialSaaS =
     businessName.toLowerCase().includes('one agent') && !hasCustomMerchantPrompt;
 
-  // Resolve the best custom system_prompt (ONLY use global SaaS default_system_prompt for Admin / Official One Agent BD channels!)
+  // Resolve the best custom system_prompt
   const defaultSavedPrompt = isAdminOrOfficialSaaS
     ? ((db.getSettings() as any)?.default_system_prompt || '').trim()
     : '';
 
+  let agentCombinedPrompt = '';
+  if (assignedAgent) {
+    const toneNote =
+      assignedAgent.tone === 'sales_closer'
+        ? 'Sales Persona: Sales Closer. Proactively guide customer to confirm their Cash on Delivery (COD) order with name, phone, and address.'
+        : assignedAgent.tone === 'friendly'
+        ? 'Sales Persona: Friendly & Welcoming. Answer with warmth, courtesy, and patience.'
+        : assignedAgent.tone === 'urgent'
+        ? 'Sales Persona: Fast & Urgent. Highlight fast courier dispatch and limited stock availability.'
+        : 'Sales Persona: Executive & Professional.';
+
+    agentCombinedPrompt = `${assignedAgent.system_prompt || ''}\n\n[BUSINESS & SALES PERSONA FOR ${assignedAgent.business_name || businessName}]:\n${toneNote}\nReply Language: ${assignedAgent.language || 'Bangla'}.\nInside Dhaka Delivery Charge: ৳${assignedAgent.delivery_charge_inside_dhaka ?? 60} BDT, Outside Dhaka: ৳${assignedAgent.delivery_charge_outside_dhaka ?? 120} BDT.\n\n[BUSINESS KNOWLEDGE BASE & PRODUCTS]:\n${assignedAgent.knowledge_base || ''}`;
+  }
+
   const rawSystemPrompt =
     (params.overrideSystemPrompt && params.overrideSystemPrompt.trim()) ||
+    agentCombinedPrompt ||
     (profile?.system_prompt && profile.system_prompt.trim()) ||
     defaultSavedPrompt ||
     `আপনি "${businessName}"-এর অফিসিয়াল কাস্টমার সার্ভিস ও সেলস AI অ্যাসিস্ট্যান্ট। কাস্টমারের প্রশ্নের অর্থ বুঝে আন্তরিক ও স্বাভাবিক বাংলায় উত্তর দিন।`;
