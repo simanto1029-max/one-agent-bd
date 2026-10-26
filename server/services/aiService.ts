@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { db, Message, Product, InteractiveMessageConfig, InteractiveOptionItem } from '../db/database.js';
+import { db, Message, Product, Order, InteractiveMessageConfig, InteractiveOptionItem } from '../db/database.js';
 import { cleanAudioMimeType, convertToWav, detectAudioMimeTypeFromBuffer, mp4ToAdtsAac } from './audioDownloader.js';
 import { buildAppointmentAIContext } from './appointmentService.js';
 
@@ -574,6 +574,9 @@ export interface GenerateReplyParams {
   imageUrl?: string;
   overrideSystemPrompt?: string;
   overrideApiKey?: string;
+  systemConfirmedOrder?: Order;
+  isOrderIncomplete?: boolean;
+  missingOrderFields?: string[];
 }
 
 export interface GenerateReplyResult {
@@ -1413,18 +1416,34 @@ Assistant Reply (in concise Bangla with paragraph spacing and a follow-up questi
   return null;
 }
 
-// Call Google Gemini, OpenAI, or Groq API for Text with Reliable Multi-Model Fallback
-async function callGemini(fullPrompt: string, customApiKey?: string, systemInstruction?: string): Promise<string | null> {
+// Call Google Gemini, OpenAI GPT, or Groq API for Text with Reliable Multi-Model Fallback
+async function callGemini(
+  fullPrompt: string,
+  customApiKey?: string,
+  systemInstruction?: string,
+  structuredMessages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+): Promise<string | null> {
   const allProfiles = db.getProfiles() || [];
   const adminKey = allProfiles.find((p) => p.role === 'admin' && p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
   const anyKey = allProfiles.find((p) => p.llm_api_key?.trim() && !isDeadSeedKey(p.llm_api_key))?.llm_api_key?.trim() || '';
 
+  const openAiEnvKey =
+    (process.env.OPENAI_API_KEY && !isDeadSeedKey(process.env.OPENAI_API_KEY) ? process.env.OPENAI_API_KEY.trim() : '') ||
+    (process.env.VITE_OPENAI_API_KEY && !isDeadSeedKey(process.env.VITE_OPENAI_API_KEY) ? process.env.VITE_OPENAI_API_KEY.trim() : '');
+
   const trimmedKey =
     (customApiKey && !isDeadSeedKey(customApiKey) ? customApiKey.trim() : '') ||
+    openAiEnvKey ||
     ((db.getSettings() as any)?.default_llm_api_key || '').trim() ||
     adminKey ||
     anyKey ||
     '';
+
+  const defaultMessages = [
+    ...(systemInstruction ? [{ role: 'system' as const, content: systemInstruction }] : []),
+    { role: 'user' as const, content: fullPrompt }
+  ];
+  const chatMessages = structuredMessages && structuredMessages.length > 0 ? structuredMessages : defaultMessages;
 
   // 1. If the merchant provided a Groq API key (starts with gsk_)
   if (trimmedKey.startsWith('gsk_')) {
@@ -1438,14 +1457,11 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
           },
           body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',
-            messages: [
-              ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-              { role: 'user', content: fullPrompt }
-            ],
+            messages: chatMessages,
             temperature: 0.2
           })
         }),
-        12000
+        13000
       );
       if (groqRes.ok) {
         const json: any = await groqRes.json();
@@ -1457,7 +1473,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
     }
   }
 
-  // 2. If the merchant provided an OpenAI API key (starts with sk- and not sk-ant-)
+  // 2. If an OpenAI API key is provided (starts with sk- and not sk-ant-)
   if (trimmedKey.startsWith('sk-') && !trimmedKey.startsWith('sk-ant-') && !isDeadSeedKey(trimmedKey)) {
     try {
       const isOpenRouter = trimmedKey.startsWith('sk-or-');
@@ -1473,14 +1489,11 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
           },
           body: JSON.stringify({
             model: isOpenRouter ? 'google/gemini-2.5-flash' : 'gpt-4o-mini',
-            messages: [
-              ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-              { role: 'user', content: fullPrompt }
-            ],
+            messages: chatMessages,
             temperature: 0.2
           })
         }),
-        12000
+        13500
       );
       if (openAiRes.ok) {
         const json: any = await openAiRes.json();
@@ -1567,7 +1580,7 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
     }
   }
 
-  // 5. Built-in Zero-Key Cloud LLM Engine (ensures real AI reasoning on Vercel even if no API key is set or Gemini quota is exceeded)
+  // 5. Built-in Zero-Key Cloud OpenAI GPT Engine (ensures real AI reasoning even if no custom API key is set)
   try {
     const cloudRes = await withTimeout(
       fetch('https://text.pollinations.ai/openai', {
@@ -1575,14 +1588,11 @@ async function callGemini(fullPrompt: string, customApiKey?: string, systemInstr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'openai',
-          messages: [
-            ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-            { role: 'user', content: fullPrompt }
-          ],
+          messages: chatMessages,
           temperature: 0.2
         })
       }),
-      3200
+      8000
     );
     if (cloudRes.ok) {
       const cloudJson: any = await cloudRes.json();
@@ -2318,12 +2328,40 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
           .join('\n')
       : `(কোনো আলাদা প্রোডাক্ট ক্যাটালগ যোগ করা হয়নি — উপরের Business Knowledge Base / System Instructions অনুযায়ী উত্তর দিন)`;
 
-  // Build context history (up to last 8 messages for multi-turn conversation memory)
-  const recentHistory = (params.history || [])
-    .filter((m) => m.message_text && !m.message_text.startsWith('[Attachment]'))
-    .slice(-8)
-    .map((m) => `${m.direction === 'inbound' ? 'Customer' : 'Assistant'}: ${m.message_text}`)
+  // Build context history (up to last 20 messages for multi-turn conversation memory)
+  const historyList = (params.history || []).slice(-20);
+  const recentHistory = historyList
+    .map((m) => {
+      const role = m.direction === 'inbound' ? 'Customer' : 'Assistant';
+      const text = m.transcription ? `[Voice Note]: "${m.transcription}"` : m.message_text;
+      return text ? `${role}: ${text}` : '';
+    })
+    .filter(Boolean)
     .join('\n');
+
+  // Customer long-term memory across sessions (past orders, past address & phone on record)
+  const customerPastOrders = (db.getOrders(params.userId) || []).filter(
+    (o) => o.customer_id === params.customerId
+  );
+  const latestPastOrder = customerPastOrders[customerPastOrders.length - 1];
+  const pastPhone = latestPastOrder?.customer_phone;
+  const pastAddress =
+    latestPastOrder?.customer_address && !latestPastOrder.customer_address.includes('Details shared')
+      ? latestPastOrder.customer_address
+      : undefined;
+
+  const customerPastContext = `[CUSTOMER MEMORY & CONTEXT ACROSS SESSIONS]:
+- Customer ID: ${params.customerId}
+- Customer Name: ${params.customerName || 'Valued Customer'}
+- Phone on Record: ${pastPhone || 'Not yet provided'}
+- Delivery Address on Record: ${pastAddress || 'Not yet provided'}
+- Previous Orders: ${
+    customerPastOrders.length > 0
+      ? customerPastOrders
+          .map((o) => `#${o.id.slice(-6).toUpperCase()}: ${o.items} (৳${o.total_amount}, Status: ${o.status})`)
+          .join('; ')
+      : 'None'
+  }`;
 
   // Check if customer asked for a product photo, catalog, or details
   const imageInquiry = detectProductImageInquiry(params.incomingMessage || '');
@@ -2571,11 +2609,35 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
    - কখনোই মনগড়া কোনো ভুল দাম বা বিপরীত পলিসি বলবেন না, তবে বিজনেসের প্রাসঙ্গিক তথ্য সমন্বয় করে কাস্টমারকে চমৎকার ও আত্মবিশ্বাসী উত্তর দিন এবং প্রয়োজনে অর্ডার বা কাঙ্ক্ষিত প্রোডাক্ট বেছে নিতে উৎসাহিত করুন।
    - শুধুমাত্র কাস্টমার যদি সরাসরি মানুষের সাথে কথা বলতে চান ("ফোনে কথা বলতে চাই", "কল দিন") অথবা বড় কোনো কমপ্লেইন/টাকা ফেরতের বিষয় থাকে—তখনই কেবল সাপোর্ট টিম বা প্রতিনিধির কথা বলবেন। অন্য সব সাধারণ চ্যাট ও প্রশ্নে এআই নিজেই পূর্ণাঙ্গ ও চমৎকার উত্তর দেবে!`;
 
-  const orderSettings = db.getOrderSettings(params.userId);
-  let orderGuidance =
-    'ORDER CONFIRMATION: কাস্টমার অর্ডার করতে চাইলে বা নাম, ঠিকানা ও মোবাইল নাম্বার দিলে সংক্ষেপে অর্ডারটি কনফার্ম করুন।';
-  if (orderSettings && orderSettings.enabled && orderSettings.instructions) {
-    orderGuidance = `ORDER CONFIRMATION CRITERIA:\n${orderSettings.instructions}\nCollect name, 11-digit mobile number, and address to finalize order.`;
+  let orderGuidance = '';
+  if (params.systemConfirmedOrder) {
+    const o = params.systemConfirmedOrder;
+    orderGuidance = `[OFFICIAL SYSTEM ORDER CONFIRMATION — SUCCESSFUL]:
+The customer's order has been validated and recorded in the system database!
+- Order ID: #${o.id.slice(-6).toUpperCase()}
+- Customer Name: ${o.customer_name}
+- Mobile Number: ${o.customer_phone}
+- Delivery Address: ${o.customer_address}
+- Ordered Items: ${o.items} (Qty: ${o.quantity})
+- Total Amount: ৳${o.total_amount} BDT (${o.payment_method === 'bkash' ? 'bKash' : o.payment_method === 'nagad' ? 'Nagad' : 'Cash on Delivery (COD)'})
+CRITICAL DIRECTIVE: Warmly confirm the order to the customer! State their Order ID (#${o.id.slice(-6).toUpperCase()}), ordered item, delivery address, phone, and total payable amount. Assure them that our team is preparing it for rapid courier dispatch.`;
+  } else if (params.isOrderIncomplete && params.missingOrderFields && params.missingOrderFields.length > 0) {
+    const missingLabels = params.missingOrderFields
+      .map((f) => {
+        if (f === 'phone') return '১১ ডিজিটের সচল মোবাইল নাম্বার';
+        if (f === 'address') return 'পূর্ণাঙ্গ ডেলিভারি ঠিকানা (থানা/জেলা সহ)';
+        if (f === 'product') return 'নির্দিষ্ট প্রোডাক্টের নাম ও সাইজ';
+        return f;
+      })
+      .join(' ও ');
+    orderGuidance = `[ORDER DETAILS INCOMPLETE]:
+The customer wants to order or shared partial information, but has NOT yet provided: ${missingLabels}.
+CRITICAL DIRECTIVE: Do NOT confirm the order yet! Politely ask the customer to provide their ${missingLabels} so we can immediately confirm and dispatch their parcel. Explain that as soon as they provide this info, their order will be confirmed immediately.`;
+  } else {
+    orderGuidance = `ORDER CONFIRMATION PROTOCOL (অত্যন্ত কঠোরভাবে পালনীয়):
+১. অর্ডার কনফার্ম করতে ৪টি তথ্য আবশ্যক: কাস্টমারের নাম, ১১ ডিজিটের মোবাইল নাম্বার, পূর্ণাঙ্গ ডেলিভারি ঠিকানা এবং নির্দিষ্ট প্রোডাক্টের নাম।
+২. কাস্টমার যদি শুধু "অর্ডার করতে চাই" বলে কিন্তু ঠিকানা বা ফোন নাম্বার না দেয়: কখনোই বলবেন না যে "অর্ডার কনফার্ম করা হলো"! বরং বিনীতভাবে তার নাম, ডেলিভারি ঠিকানা ও ১১ ডিজিটের মোবাইল নাম্বার চেয়ে নিন।
+৩. কখনোই মনগড়া কোনো প্রোডাক্ট, দাম বা তথ্য বানিয়ে বলবেন না (Never invent product/order information)।`;
   }
 
   let productPhotoDirective = '';
@@ -2728,13 +2790,36 @@ ${liveTrackingDirective}
 ${smartUpsellDirective}
 ${appointmentBookingContext}
 
+${customerPastContext}
+
 Recent Conversation History:
 ${recentHistory || '(No previous messages)'}
 
 Customer's Exact Question:
 "${params.incomingMessage}"
 
-Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or polite question like "কেমন আছেন?", reply warmly in 1-2 lines in business persona; if the customer asks an unscripted question, synthesize using the business details and product catalog above to give an intelligent, helpful, and courteous answer; if asking for plans, products, or details, use serial numbers ১., ২., ৩. with 1 empty line \\n\\n between numbered points, and end with 1 short follow-up question. Do NOT shift to human support unless the customer explicitly asked for a call or human agent):`;
+Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or polite question like "কেমন আছেন?", reply warmly in 1-2 lines in business persona; if the customer asks an unscripted question, synthesize using the business details and product catalog above to give an intelligent, helpful, and courteous answer; if asking for plans, products, or details, use serial numbers ১., ২., ৩. with 1 empty line \n\n between numbered points, and end with 1 short follow-up question. Do NOT shift to human support unless the customer explicitly asked for a call or human agent):`;
+
+  // Build structured multi-turn message history for native OpenAI GPT understanding
+  const structuredChatMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    {
+      role: 'system',
+      content: `${systemInstruction}\n\n${customerPastContext}\n\n[MERCHANT KNOWLEDGE & PRODUCTS]:\n${combinedSystemPrompt}\n\n${catalogContext}\n\n${orderGuidance}\n\n${languageDirective}`
+    }
+  ];
+
+  for (const m of historyList.slice(-14)) {
+    const role: 'user' | 'assistant' = m.direction === 'inbound' ? 'user' : 'assistant';
+    const textContent = m.transcription ? `[Voice Message]: "${m.transcription}"` : m.message_text;
+    if (textContent && textContent.trim()) {
+      structuredChatMessages.push({ role, content: textContent.trim() });
+    }
+  }
+
+  structuredChatMessages.push({
+    role: 'user',
+    content: params.incomingMessage
+  });
 
   // Check if customer clicked an interactive button/menu shortcut that can be answered deterministically & instantaneously
   const earlyInteractiveCheck = buildInteractiveConversationEnvelope({
@@ -2773,10 +2858,10 @@ Write a clean, mobile-friendly Bangla reply (if it is a greeting, small talk, or
     };
   }
 
-  // Cap total LLM call time to 9.5s so real AI reasoning has full time to respond thoughtfully
+  // Allow up to 14.5s so OpenAI GPT / Gemini has full time to respond thoughtfully
   const geminiReply = await withTimeout(
-    callGemini(fullPrompt, effectiveApiKey, systemInstruction),
-    9500
+    callGemini(fullPrompt, effectiveApiKey, systemInstruction, structuredChatMessages),
+    14500
   ).catch(() => null);
   // Determine if image should be attached:
   // An image should ONLY be attached if:

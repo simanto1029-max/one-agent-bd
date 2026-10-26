@@ -583,8 +583,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             max-width: 480px;
           }
           .pr .pop {
-            order: -1;
-            margin-top: 14px;
+            margin-top: 0;
           }
         }
       `}</style>

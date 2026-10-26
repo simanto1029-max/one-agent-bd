@@ -67,24 +67,127 @@ export function hasOrderSignals(text: string, aiReply?: string, userId?: string)
   return (hasPhone && matchCount >= 1) || matchCount >= 2;
 }
 
+import { extractBdPhoneNumber } from './metaService.js';
+
 /**
- * Heuristic extractor for Bangladeshi phone, address, and common items
+ * Strict validator to ensure required details are present before confirming an order.
+ * Never confirms an order without:
+ * 1. Valid Bangladeshi mobile number (11 digits: 01[3-9]XXXXXXXX)
+ * 2. Delivery address (with real details, not a placeholder)
+ * 3. Specific real product/items (from merchant's catalog or clear customer request, never invented)
  */
-function heuristicExtract(text: string, defaultName: string, customerId: string): Partial<Order> {
-  // Extract phone
-  const phoneMatch = text.match(/(?:\+?8801|01)[3-9]\d{8}/);
-  const phone = phoneMatch ? phoneMatch[0] : (customerId.startsWith('+8801') || customerId.startsWith('01') ? customerId : undefined);
+export function validateOrderCompleteness(
+  extracted: Partial<Order> | null | undefined,
+  userId: string
+): { isValid: boolean; missingFields: string[]; validatedOrder?: Partial<Order> } {
+  if (!extracted) {
+    return { isValid: false, missingFields: ['phone', 'address', 'product'] };
+  }
+
+  const missing: string[] = [];
+
+  // 1. Phone validation: Must be a valid 11-digit Bangladeshi mobile number
+  const phone = extracted.customer_phone ? extractBdPhoneNumber(extracted.customer_phone) : null;
+  if (!phone) {
+    missing.push('phone');
+  }
+
+  // 2. Address validation: Must be a non-empty, genuine delivery address
+  const addr = (extracted.customer_address || '').trim();
+  const isDummyAddr =
+    !addr ||
+    addr.length < 5 ||
+    addr.toLowerCase().includes('details shared') ||
+    addr.toLowerCase().includes('to be confirmed') ||
+    addr.toLowerCase().includes('address provided in chat') ||
+    addr.toLowerCase().includes('in chat') ||
+    addr === 'Customer provided address';
+  if (isDummyAddr) {
+    missing.push('address');
+  }
+
+  // 3. Items validation: Must be a genuine product (never invent dummy items!)
+  const items = (extracted.items || '').trim();
+  const isDummyItem =
+    !items ||
+    items.toLowerCase().includes('standard ai automation') ||
+    items.toLowerCase().includes('service order') ||
+    items.toLowerCase().includes('standard product/service') ||
+    items === 'Detected Product/Service';
+  if (isDummyItem) {
+    missing.push('product');
+  }
+
+  if (missing.length > 0) {
+    return { isValid: false, missingFields: missing };
+  }
+
+  return {
+    isValid: true,
+    missingFields: [],
+    validatedOrder: {
+      ...extracted,
+      customer_phone: phone!,
+      customer_address: addr,
+      items
+    }
+  };
+}
+
+/**
+ * Assess order readiness from conversation and incoming message before generating AI reply.
+ */
+export function checkOrderReadiness(params: {
+  userId: string;
+  customerId: string;
+  customerName?: string;
+  messageText: string;
+  recentHistory?: string;
+}): { isValid: boolean; missingFields: string[]; draftOrder?: Partial<Order> } {
+  const draft = heuristicExtract(
+    params.messageText,
+    params.customerName || 'Customer',
+    params.customerId,
+    params.userId,
+    params.recentHistory
+  );
+  const completeness = validateOrderCompleteness(draft, params.userId);
+  return {
+    isValid: completeness.isValid,
+    missingFields: completeness.missingFields,
+    draftOrder: completeness.validatedOrder || draft
+  };
+}
+
+/**
+ * Heuristic extractor for Bangladeshi phone, address, and real catalog items.
+ * Strictly respects merchant's product catalog and never invents fake items!
+ */
+function heuristicExtract(
+  text: string,
+  defaultName: string,
+  customerId: string,
+  userId: string,
+  recentHistory?: string
+): Partial<Order> {
+  const combinedText = `${recentHistory || ''}\n${text}`;
+
+  // Extract phone (from text, customerId, or recent history)
+  const phone =
+    extractBdPhoneNumber(text) ||
+    extractBdPhoneNumber(customerId) ||
+    extractBdPhoneNumber(recentHistory);
 
   // Extract payment method
-  let payment_method: Order['payment_method'] = 'unspecified';
+  let payment_method: Order['payment_method'] = 'cod';
   let payment_status: Order['payment_status'] = 'pending';
   const lower = text.toLowerCase();
-  
-  if (lower.includes('bkash')) {
+
+  if (lower.includes('bkash') || lower.includes('বিকাশ')) {
     payment_method = 'bkash';
-  } else if (lower.includes('nagad')) {
+  } else if (lower.includes('nagad') || lower.includes('নগদ')) {
     payment_method = 'nagad';
-  } else if (lower.includes('cod') || lower.includes('cash on delivery') || lower.includes('cash')) {
+  } else if (lower.includes('cod') || lower.includes('cash on delivery') || lower.includes('ক্যাশ অন')) {
     payment_method = 'cod';
   }
 
@@ -92,9 +195,59 @@ function heuristicExtract(text: string, defaultName: string, customerId: string)
     payment_status = 'paid';
   }
 
+  // Extract address hints (e.g. Dhaka, Chittagong, Dhanmondi, Mirpur, Uttara, road, house, thana, etc.)
+  let address = '';
+  const addressMatch = text.match(
+    /(?:address|thikana|location|delivery address|ঠিকানা|লোকেশন|বাসা)[\s:]*([^\n,]+(?:,[^\n,]+)*)/i
+  );
+  if (addressMatch && addressMatch[1].trim().length > 4) {
+    address = addressMatch[1].trim();
+  } else {
+    // Check if entire line or part of message looks like an address with location keywords
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const lLower = line.toLowerCase();
+      if (
+        (lLower.includes('dhaka') ||
+          lLower.includes('ঢাকা') ||
+          lLower.includes('chittagong') ||
+          lLower.includes('চট্টগ্রাম') ||
+          lLower.includes('road') ||
+          lLower.includes('house') ||
+          lLower.includes('sector') ||
+          lLower.includes('block') ||
+          lLower.includes('thana') ||
+          lLower.includes('district') ||
+          lLower.includes('মিরপুর') ||
+          lLower.includes('ধানমন্ডি') ||
+          lLower.includes('উত্তরা') ||
+          lLower.includes('গুলশান') ||
+          lLower.includes('বনানী') ||
+          lLower.includes('বাসা নং') ||
+          lLower.includes('গ্রাম') ||
+          lLower.includes('পোস্ট')) &&
+        line.length >= 6 &&
+        !line.match(/^(hi|hello|slm|koto|dam)/i)
+      ) {
+        address = line;
+        break;
+      }
+    }
+  }
+
+  // Match item name strictly against merchant's REAL catalog products!
+  const userProducts = db.getProducts(userId) || [];
+  let matchedProduct = db.findProductForQuery(userId, text);
+  if (!matchedProduct && recentHistory) {
+    matchedProduct = db.findProductForQuery(userId, recentHistory);
+  }
+  if (!matchedProduct && userProducts.length === 1) {
+    matchedProduct = userProducts[0];
+  }
+
   // Extract amount
-  let total_amount = 1450; // default standard plan price
-  const amountMatch = text.match(/(\d{3,5})\s*(?:taka|tk|bdt)/i) || text.match(/(?:tk|bdt|taka)\s*(\d{3,5})/i);
+  let total_amount = matchedProduct?.price || 0;
+  const amountMatch = text.match(/(\d{3,5})\s*(?:taka|tk|bdt|টাকা)/i) || text.match(/(?:tk|bdt|taka|৳)\s*(\d{3,5})/i);
   if (amountMatch) {
     const val = parseInt(amountMatch[1], 10);
     if (!isNaN(val) && val > 50) {
@@ -102,41 +255,25 @@ function heuristicExtract(text: string, defaultName: string, customerId: string)
     }
   }
 
-  // Extract address hints (e.g. Dhaka, Chittagong, Dhanmondi, Mirpur, Uttara, etc.)
-  let address = '';
-  const addressMatch = text.match(/(?:address|thikana|location|delivery address)[\s:]*([^\n,]+(?:,[^\n,]+)*)/i);
-  if (addressMatch && addressMatch[1].trim().length > 3) {
-    address = addressMatch[1].trim();
-  }
-
-  // Extract item name
-  let items = 'Standard AI Automation Service & Setup';
-  if (lower.includes('shirt') || lower.includes('polo') || lower.includes('t-shirt')) {
-    items = 'Cotton Polo Shirt';
-  } else if (lower.includes('premium') || lower.includes('pro')) {
-    items = 'All-in-One Annual Subscription Plan';
-    total_amount = 14500;
-  } else if (lower.includes('standard') || total_amount === 1450) {
-    items = 'One Agent BD All-in-One Plan (Monthly)';
-  }
+  let items = matchedProduct?.name || '';
 
   return {
     customer_name: defaultName || 'Customer',
-    customer_phone: phone,
-    customer_address: address || 'Details shared in conversation',
-    items,
+    customer_phone: phone || undefined,
+    customer_address: address || undefined,
+    items: items || undefined,
     quantity: 1,
-    total_amount,
+    total_amount: total_amount > 0 ? total_amount : undefined,
     currency: 'BDT',
     payment_method,
     payment_status,
-    notes: 'Order captured automatically by One Agent BD AI assistant.'
+    notes: 'Order details verified via One Agent BD customer support agent.'
   };
 }
 
 /**
  * Detects if an order has been confirmed in the conversation, extracts structured order info,
- * and saves it into the database.
+ * validates all required fields (phone, address, product), and saves it into the database only upon validation.
  */
 export async function detectAndRecordOrder(params: OrderDetectionParams): Promise<Order | null> {
   const { userId, customerId, customerName, platform, channelId, messageText, recentHistory, aiReplyText, isSimulation } = params;
@@ -155,26 +292,28 @@ export async function detectAndRecordOrder(params: OrderDetectionParams): Promis
   console.log(`[Order Detection] Order signals detected in message from customer ${customerId} (${customerName})`);
 
   let extracted: Partial<Order> | null = null;
+  const merchantProducts = db.getProducts(userId) || [];
+  const catalogListForPrompt = merchantProducts.length > 0
+    ? merchantProducts.map((p) => `- ${p.name} (Price: BDT ${p.price})`).join('\n')
+    : '(No catalog products added yet)';
 
-  // Try LLM structured parsing via Gemini
+  // Try LLM structured parsing via OpenAI GPT or Gemini
   try {
-    const ai = getGeminiClient(userId);
     const reqFieldsList = [
-      orderSettings.required_fields.customer_name ? 'Customer full name' : null,
-      orderSettings.required_fields.customer_phone ? 'Bangladeshi mobile phone number (11-digit)' : null,
-      orderSettings.required_fields.customer_address ? 'Delivery address with district/area' : null,
-      orderSettings.required_fields.items_detail ? 'Product or service items' : null,
-      orderSettings.required_fields.trx_id ? 'bKash/Nagad Transaction ID / Proof of payment' : null
-    ].filter(Boolean).join(', ');
+      'Customer full name',
+      'Valid 11-digit Bangladeshi mobile phone number (01[3-9]XXXXXXXX)',
+      'Specific delivery address with location/area/district',
+      'Specific product from the merchant catalog below'
+    ].join(', ');
 
-    const extractionPrompt = `You are a specialized Bangladeshi e-commerce and business order confirmation extractor.
+    const extractionPrompt = `You are an expert Bangladeshi e-commerce and business order validator.
 Analyze the customer message, previous conversation, and assistant reply.
 
-MERCHANT'S CUSTOM CONFIRMATION INSTRUCTIONS & RULES:
-"${orderSettings.instructions}"
+MERCHANT PRODUCT CATALOG:
+${catalogListForPrompt}
 
 REQUIRED INFORMATION TO CONFIRM ORDER:
-${reqFieldsList || 'General confirmation with contact and item details'}
+${reqFieldsList}
 
 Customer message:
 "${messageText}"
@@ -185,66 +324,119 @@ ${recentHistory || '(none)'}
 Assistant Reply:
 "${aiReplyText || ''}"
 
-Follow the merchant's instructions strictly. If the customer satisfies the merchant's criteria and is placing/confirming an order, output a JSON object with these EXACT fields:
+STRICT ORDER CONFIRMATION RULES:
+1. ONLY return "is_order": true if the customer has PROVIDED ALL OF:
+   a) A valid 11-digit Bangladeshi phone number (e.g. 017xxxxxxxx or 018xxxxxxxx)
+   b) A genuine delivery address (e.g. street, thana, district, or area)
+   c) A specific product name (strictly matched from the catalog above or explicitly stated)
+2. If ANY required detail (phone, delivery address, or product) is missing or incomplete, or if the customer is merely asking questions/prices, you MUST return ONLY:
+   {"is_order": false}
+3. Never invent product names or prices not in the catalog.
+
+If and only if ALL criteria are satisfied and the customer is confirming an order, return:
 {
   "is_order": true,
-  "customer_name": "<Customer full name if mentioned, otherwise '${customerName || 'Customer'}'>",
-  "customer_phone": "<Extracted Bangladeshi phone number, e.g. 017xxxxxxxx>",
-  "customer_address": "<Delivery or service address if given>",
-  "items": "<Clear description of product/service ordered with size/variant if any>",
+  "customer_name": "<Customer full name if given, else '${customerName || 'Customer'}'>",
+  "customer_phone": "<Valid 11-digit phone number>",
+  "customer_address": "<Real delivery address>",
+  "items": "<Exact product name from catalog>",
   "quantity": <number, default 1>,
-  "total_amount": <number in BDT, e.g. 1450 or 650>,
+  "total_amount": <number in BDT>,
   "payment_method": "<'cod' | 'bkash' | 'nagad' | 'bank' | 'unspecified'>",
   "payment_status": "<'pending' | 'paid'>",
-  "notes": "<Brief note indicating how confirmation criteria were met>"
+  "notes": "<Brief confirmation note>"
 }
 
-If the required criteria are NOT yet met (e.g. customer hasn't provided address/phone, or this is just a regular price inquiry/greeting), reply ONLY with:
-{"is_order": false}
-
-Respond ONLY with valid JSON, no markdown formatting.`;
+Respond ONLY with valid JSON.`;
 
     let responseText = '';
-    for (const modelName of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']) {
+
+    // Check if an OpenAI key is configured for the profile or system
+    const userProfile = db.getProfileById(userId);
+    const openAiKey =
+      (userProfile?.llm_api_key?.startsWith('sk-') ? userProfile.llm_api_key.trim() : '') ||
+      (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-proj-wJiInvQ') ? process.env.OPENAI_API_KEY.trim() : '');
+
+    if (openAiKey) {
       try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: extractionPrompt
+        const openAiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openAiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: extractionPrompt }],
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
+          })
         });
-        if (response.text?.trim()) {
-          responseText = response.text.trim();
-          break;
+        if (openAiRes.ok) {
+          const json: any = await openAiRes.json();
+          responseText = json?.choices?.[0]?.message?.content?.trim() || '';
         }
-      } catch {
-        // try next model
+      } catch (openAiErr) {
+        console.warn('[Order Detection] OpenAI extraction attempt warning:', openAiErr);
       }
     }
-    const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
 
-    if (parsed && parsed.is_order) {
-      extracted = {
-        customer_name: parsed.customer_name || customerName || 'Customer',
-        customer_phone: parsed.customer_phone || (customerId.startsWith('+8801') || customerId.startsWith('01') ? customerId : undefined),
-        customer_address: parsed.customer_address || 'Address provided in chat',
-        items: parsed.items || 'Standard Product/Service Order',
-        quantity: typeof parsed.quantity === 'number' ? parsed.quantity : 1,
-        total_amount: typeof parsed.total_amount === 'number' ? parsed.total_amount : 1450,
-        currency: 'BDT',
-        payment_method: ['cod', 'bkash', 'nagad', 'bank'].includes(parsed.payment_method) ? parsed.payment_method : 'unspecified',
-        payment_status: parsed.payment_status === 'paid' ? 'paid' : 'pending',
-        notes: parsed.notes || 'AI confirmed order based on merchant instructions.'
-      };
-      console.log(`[Order Detection] Gemini extracted order: ${extracted.items} for BDT ${extracted.total_amount}`);
+    if (!responseText) {
+      const ai = getGeminiClient(userId);
+      for (const modelName of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: extractionPrompt
+          });
+          if (response.text?.trim()) {
+            responseText = response.text.trim();
+            break;
+          }
+        } catch {
+          // try next model
+        }
+      }
+    }
+
+    if (responseText) {
+      const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      if (parsed && parsed.is_order) {
+        extracted = {
+          customer_name: parsed.customer_name || customerName || 'Customer',
+          customer_phone: parsed.customer_phone ? extractBdPhoneNumber(parsed.customer_phone) || undefined : undefined,
+          customer_address: parsed.customer_address,
+          items: parsed.items,
+          quantity: typeof parsed.quantity === 'number' ? parsed.quantity : 1,
+          total_amount: typeof parsed.total_amount === 'number' ? parsed.total_amount : undefined,
+          currency: 'BDT',
+          payment_method: ['cod', 'bkash', 'nagad', 'bank'].includes(parsed.payment_method) ? parsed.payment_method : 'cod',
+          payment_status: parsed.payment_status === 'paid' ? 'paid' : 'pending',
+          notes: parsed.notes || 'Order validated and confirmed via AI Assistant.'
+        };
+      }
     }
   } catch (err: any) {
-    console.warn('[Order Detection] Gemini extraction failed, falling back to heuristic parsing:', err?.message || err);
+    console.warn('[Order Detection] LLM extraction error, attempting heuristic parsing:', err?.message || err);
   }
 
-  // Fallback to heuristic extractor if LLM didn't return an order but strong signals existed
+  // Fallback to strict heuristic extractor if LLM didn't return an order but strong signals existed
   if (!extracted) {
-    extracted = heuristicExtract(messageText, customerName || 'Customer', customerId);
+    extracted = heuristicExtract(messageText, customerName || 'Customer', customerId, userId, recentHistory);
   }
+
+  // STRICT VALIDATION: Never confirm an order with incomplete details or invented items!
+  const completeness = validateOrderCompleteness(extracted, userId);
+  if (!completeness.isValid || !completeness.validatedOrder) {
+    console.log(
+      `[Order Detection] Order requirements not yet met for customer ${customerId}. Missing: ${completeness.missingFields.join(', ')}. Order NOT confirmed.`
+    );
+    return null;
+  }
+
+  extracted = completeness.validatedOrder;
 
   // Enrich with bKash/Nagad TrxID & advance amount if present in customer message
   const paymentInfo = extractPaymentDetailsFromText(messageText, aiReplyText);
@@ -257,10 +449,13 @@ Respond ONLY with valid JSON, no markdown formatting.`;
     }
   }
 
-  // Match catalog product to determine buying_cost for Net Profit & ROI tracking
+  // Match catalog product to determine exact pricing & buying_cost for Net Profit & ROI tracking
   const matchedProd = db.findProductForQuery(userId, `${extracted.items || ''} ${messageText}`);
   const qty = extracted.quantity || 1;
-  const totalAmt = extracted.total_amount || matchedProd?.price || 1450;
+  const totalAmt = extracted.total_amount || (matchedProd ? matchedProd.price * qty : 0);
+  if (totalAmt > 0) {
+    extracted.total_amount = totalAmt;
+  }
   const autoSettings = db.getAutomationSettings(userId) as any;
   const defaultCostPct = typeof autoSettings?.avg_product_cost_percent === 'number' ? autoSettings.avg_product_cost_percent : 55;
   const computedBuyingCost =
@@ -280,9 +475,9 @@ Respond ONLY with valid JSON, no markdown formatting.`;
       customer_address: extracted.customer_address || 'Customer provided address',
       platform,
       channel_id: channelId,
-      items: extracted.items || 'Detected Product/Service',
+      items: extracted.items || 'Detected Product',
       quantity: extracted.quantity || 1,
-      total_amount: extracted.total_amount || 1450,
+      total_amount: extracted.total_amount || 0,
       buying_cost: extracted.buying_cost,
       currency: 'BDT',
       payment_method: extracted.payment_method || 'cod',
@@ -319,7 +514,7 @@ Respond ONLY with valid JSON, no markdown formatting.`;
 
     const updated = db.updateOrder(recentDuplicate.id, {
       customer_phone: updatedPhone,
-      customer_address: extracted.customer_address !== 'Address provided in chat' ? extracted.customer_address : recentDuplicate.customer_address,
+      customer_address: extracted.customer_address || recentDuplicate.customer_address,
       payment_method: extracted.payment_method !== 'unspecified' ? extracted.payment_method : recentDuplicate.payment_method,
       payment_status: extracted.payment_status === 'paid' ? 'paid' : recentDuplicate.payment_status,
       payment_trx_id: extracted.payment_trx_id || recentDuplicate.payment_trx_id,
@@ -350,15 +545,15 @@ Respond ONLY with valid JSON, no markdown formatting.`;
     customer_id: customerId,
     customer_name: extracted.customer_name || customerName || 'Customer',
     customer_phone: extracted.customer_phone,
-    customer_address: extracted.customer_address || 'To be confirmed',
+    customer_address: extracted.customer_address!,
     platform,
     channel_id: channelId,
-    items: extracted.items || 'Service Order',
+    items: extracted.items!,
     quantity: extracted.quantity || 1,
-    total_amount: extracted.total_amount || 1450,
+    total_amount: extracted.total_amount || 0,
     buying_cost: extracted.buying_cost,
     currency: 'BDT',
-    payment_method: extracted.payment_method || 'unspecified',
+    payment_method: extracted.payment_method || 'cod',
     payment_status: extracted.payment_status || 'pending',
     payment_trx_id: extracted.payment_trx_id,
     advance_paid_amount: extracted.advance_paid_amount,

@@ -1188,6 +1188,53 @@ export const api = {
     return fetchJson<any[]>('/api/admin/users');
   },
 
+  async extendUserSubscription(
+    userId: string,
+    data: {
+      daysToAdd?: number;
+      customEndDate?: string;
+      status?: 'active' | 'trialing';
+      planId?: string;
+      reactivateChannels?: boolean;
+      adminNote?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    subscription: any;
+    reactivatedChannelsCount: number;
+    message: string;
+  }> {
+    return fetchJson<{
+      success: boolean;
+      subscription: any;
+      reactivatedChannelsCount: number;
+      message: string;
+    }>(`/api/admin/users/${userId}/extend-subscription`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async adjustUserCredits(
+    userId: string,
+    data: { creditsToAdd?: number; newTotalQuota?: number }
+  ): Promise<{
+    success: boolean;
+    user: any;
+    newQuota: number;
+    message: string;
+  }> {
+    return fetchJson<{
+      success: boolean;
+      user: any;
+      newQuota: number;
+      message: string;
+    }>(`/api/admin/users/${userId}/adjust-credits`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async toggleSuspendUser(userId: string): Promise<{ success: boolean; message: string }> {
     return fetchJson<{ success: boolean; message: string }>(`/api/admin/users/${userId}/suspend`, {
       method: 'POST'

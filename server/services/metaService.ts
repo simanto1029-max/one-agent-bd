@@ -8,7 +8,7 @@ import {
   downloadWhatsAppImage,
   prepareOutboundVoiceForMeta
 } from './audioDownloader.js';
-import { detectAndRecordOrder, detectAndRecordPaymentUpdate } from './orderDetectionService.js';
+import { detectAndRecordOrder, detectAndRecordPaymentUpdate, hasOrderSignals, validateOrderCompleteness, checkOrderReadiness } from './orderDetectionService.js';
 import { detectAndRecordAppointment } from './appointmentService.js';
 
 /**
@@ -97,6 +97,29 @@ const processedMessageIds = new Map<string, number>();
 // In-memory sequential queue per customer to ensure messages are answered in order
 const customerQueues = new Map<string, Promise<any>>();
 
+// Debounce queue for consecutive customer messages (e.g. customer sends 2-4 bubbles within 1.8s)
+interface CustomerMessageBatch {
+  customerId: string;
+  firstEvent: InboundWebhookEvent;
+  latestEvent: InboundWebhookEvent;
+  texts: string[];
+  audioBase64?: string;
+  audioMimeType?: string;
+  audioUrl?: string;
+  audioMediaId?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+  imageUrl?: string;
+  imageMediaId?: string;
+  firstReceivedAt: number;
+  timer: NodeJS.Timeout;
+  resolveBatch: (res: InboundProcessResult) => void;
+  rejectBatch: (err: any) => void;
+  resultPromise: Promise<InboundProcessResult>;
+}
+
+const activeCustomerBatches = new Map<string, CustomerMessageBatch>();
+
 // Prune old message IDs every 5 minutes
 setInterval(() => {
   const cutoff = Date.now() - 15 * 60 * 1000;
@@ -106,6 +129,45 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+
+async function runCustomerBatch(customerId: string): Promise<void> {
+  const batch = activeCustomerBatches.get(customerId);
+  if (!batch) return;
+  activeCustomerBatches.delete(customerId);
+
+  try {
+    // Combine all consecutive text messages from the customer with newlines
+    const textPieces = batch.texts.filter(
+      (t) => t && !t.startsWith('🎙️ [Voice') && !t.startsWith('📷 [Sent') && !t.startsWith('[Attachment]')
+    );
+    const combinedMessageText = textPieces.length > 0 ? textPieces.join('\n') : batch.firstEvent.messageText;
+
+    const consolidatedEvent: InboundWebhookEvent = {
+      ...batch.latestEvent,
+      customerId: batch.customerId,
+      messageText: combinedMessageText,
+      audioBase64: batch.audioBase64 || batch.latestEvent.audioBase64 || batch.firstEvent.audioBase64,
+      audioMimeType: batch.audioMimeType || batch.latestEvent.audioMimeType || batch.firstEvent.audioMimeType,
+      audioUrl: batch.audioUrl || batch.latestEvent.audioUrl || batch.firstEvent.audioUrl,
+      audioMediaId: batch.audioMediaId || batch.latestEvent.audioMediaId || batch.firstEvent.audioMediaId,
+      imageBase64: batch.imageBase64 || batch.latestEvent.imageBase64 || batch.firstEvent.imageBase64,
+      imageMimeType: batch.imageMimeType || batch.latestEvent.imageMimeType || batch.firstEvent.imageMimeType,
+      imageUrl: batch.imageUrl || batch.latestEvent.imageUrl || batch.firstEvent.imageUrl,
+      imageMediaId: batch.imageMediaId || batch.latestEvent.imageMediaId || batch.firstEvent.imageMediaId
+    };
+
+    const currentQueue = customerQueues.get(customerId) || Promise.resolve();
+    const task = currentQueue.then(async () => {
+      return processSingleInboundEvent(consolidatedEvent);
+    });
+    customerQueues.set(customerId, task);
+    const res = await task;
+    batch.resolveBatch(res);
+  } catch (err) {
+    console.error(`[Meta Service] Error running batch for customer ${customerId}:`, err);
+    batch.rejectBatch(err);
+  }
+}
 
 export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<{
   received: boolean;
@@ -130,17 +192,73 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
     sendMetaTypingAndSeenIndicator(immediateChannel, event.customerId, mid, 'typing_on').catch(() => {});
   }
 
-  // Queue processing per customer to preserve strict conversation order
-  const currentQueue = customerQueues.get(event.customerId) || Promise.resolve();
-  const nextTask = currentQueue.then(async () => {
+  // If this is a simulation / test message or has overrideSystemPrompt, execute directly with no debounce
+  if (event.identifier?.startsWith('sim_') || event.overrideSystemPrompt || event.userId) {
     return processSingleInboundEvent(event);
-  }).catch((err) => {
-    console.error(`[Meta Service] Error processing queued message for ${event.customerId}:`, err);
-    return { received: true, reason: 'Queue processing error' };
+  }
+
+  // Consecutive message debouncing:
+  // Customers often type in 2-3 short separate messages ("apnader delivery koto?", "dhaka te").
+  // Group them so the AI reads the FULL customer message before replying.
+  const existingBatch = activeCustomerBatches.get(event.customerId);
+  if (existingBatch) {
+    clearTimeout(existingBatch.timer);
+    if (event.messageText && event.messageText.trim()) {
+      existingBatch.texts.push(event.messageText.trim());
+    }
+    if (event.audioBase64) existingBatch.audioBase64 = event.audioBase64;
+    if (event.audioMimeType) existingBatch.audioMimeType = event.audioMimeType;
+    if (event.audioUrl) existingBatch.audioUrl = event.audioUrl;
+    if (event.audioMediaId) existingBatch.audioMediaId = event.audioMediaId;
+    if (event.imageBase64) existingBatch.imageBase64 = event.imageBase64;
+    if (event.imageMimeType) existingBatch.imageMimeType = event.imageMimeType;
+    if (event.imageUrl) existingBatch.imageUrl = event.imageUrl;
+    if (event.imageMediaId) existingBatch.imageMediaId = event.imageMediaId;
+    existingBatch.latestEvent = event;
+
+    const elapsed = Date.now() - existingBatch.firstReceivedAt;
+    const remainingCeiling = Math.max(300, 4000 - elapsed);
+    const debounceWait = Math.min(1800, remainingCeiling);
+
+    existingBatch.timer = setTimeout(() => {
+      runCustomerBatch(event.customerId);
+    }, debounceWait);
+
+    return existingBatch.resultPromise;
+  }
+
+  // Start new batch
+  let resolveBatch!: (res: InboundProcessResult) => void;
+  let rejectBatch!: (err: any) => void;
+  const resultPromise = new Promise<InboundProcessResult>((resolve, reject) => {
+    resolveBatch = resolve;
+    rejectBatch = reject;
   });
 
-  customerQueues.set(event.customerId, nextTask);
-  return nextTask;
+  const newBatch: CustomerMessageBatch = {
+    customerId: event.customerId,
+    firstEvent: event,
+    latestEvent: event,
+    texts: event.messageText ? [event.messageText.trim()] : [],
+    audioBase64: event.audioBase64,
+    audioMimeType: event.audioMimeType,
+    audioUrl: event.audioUrl,
+    audioMediaId: event.audioMediaId,
+    imageBase64: event.imageBase64,
+    imageMimeType: event.imageMimeType,
+    imageUrl: event.imageUrl,
+    imageMediaId: event.imageMediaId,
+    firstReceivedAt: Date.now(),
+    timer: setTimeout(() => {
+      runCustomerBatch(event.customerId);
+    }, 1800),
+    resolveBatch,
+    rejectBatch,
+    resultPromise
+  };
+
+  activeCustomerBatches.set(event.customerId, newBatch);
+  return resultPromise;
 }
 
 export interface InboundProcessResult {
@@ -391,33 +509,83 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
     {
       id: 'rule_delivery',
       name: 'ডেলিভারি চার্জ ও সময়',
-      keywords: ['delivery', 'ডেলিভারি', 'চার্জ', 'ডেলিভারি চার্জ', 'খরচ', 'khoroch', 'delivery fee', 'koto tk', 'কত টাকা', 'কতো', 'delivery koto'],
+      keywords: ['delivery charge', 'ডেলিভারি চার্জ', 'delivery fee', 'delivery khoroch', 'ডেলিভারি খরচ'],
       reply_text: 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে মাত্র ৳৮০, এবং ঢাকার বাইরে সারাদেশে ৳১৫০। ২-৩ কার্যদিবসের মধ্যে দ্রুততম হোম ডেলিভারি পৌঁছে যাবে ইনশাআল্লাহ।',
       is_active: true
     },
     {
       id: 'rule_payment',
       name: 'পেমেন্ট ও বিকাশ/নগদ',
-      keywords: ['bkash', 'বিকাশ', 'nagad', 'নগদ', 'payment', 'পেমেন্ট', 'টাকা পাঠাবো'],
+      keywords: ['bkash payment', 'বিকাশ নম্বর', 'বিকাশ পেমেন্ট', 'nagad payment', 'নগদ নম্বর', 'পেমেন্ট মেথড', 'পেমেন্ট কিভাবে'],
       reply_text: 'আপনি ক্যাশ অন ডেলিভারিতে পণ্য হাতে পেয়ে মূল্য পরিশোধ করতে পারবেন। অথবা আমাদের bKash/Nagad মার্চেন্ট নম্বরে অগ্রিম পে করতে পারেন।',
       is_active: true
     }
   ];
 
   let matchedInstantRule: any = null;
-  if (costSaverEnabled && event.messageText && !hasVoice && !hasImage) {
-    const rawLower = event.messageText.toLowerCase().trim();
+  const effectiveCustomerText = (inbound.transcription || event.messageText || inbound.message_text || '').trim();
+  const customerLower = effectiveCustomerText.toLowerCase();
+  const hasPhoneInMessage = Boolean(extractBdPhoneNumber(effectiveCustomerText));
+  const hasOrderIntent = hasOrderSignals(effectiveCustomerText, undefined, channel.user_id);
+
+  // Instant rules should NEVER intercept messages that contain orders, phone numbers, voice/image, or complex product queries.
+  // Must be short standalone FAQ inquiry (<= 50 chars, no phone, no order intent, no voice/image).
+  if (costSaverEnabled && effectiveCustomerText && !hasVoice && !hasImage && !hasPhoneInMessage && !hasOrderIntent && effectiveCustomerText.length <= 50) {
     for (const rule of instantRules) {
       if (rule.is_active && Array.isArray(rule.keywords)) {
         const hasMatch = rule.keywords.some((kw: string) => {
           const clean = kw.toLowerCase().trim();
-          return clean && rawLower.includes(clean);
+          return clean && customerLower.includes(clean);
         });
         if (hasMatch) {
           matchedInstantRule = rule;
           break;
         }
       }
+    }
+  }
+
+  // 5.9 Pre-evaluate Order Validation & System Confirmation BEFORE generating AI reply
+  // System rule: The AI MUST confirm orders ONLY after system validation and successful creation!
+  let preConfirmedOrder: Order | undefined = undefined;
+  let isOrderIncomplete = false;
+  let missingOrderFields: string[] = [];
+
+  const recentHistorySummary = conversationHistory.slice(-6).map((m) => `${m.direction}: ${m.message_text}`).join('\n');
+  const combinedConversationText = `${recentHistorySummary}\ninbound: ${effectiveCustomerText}`;
+
+  if (!matchedInstantRule && (hasOrderIntent || hasOrderSignals(combinedConversationText, undefined, channel.user_id))) {
+    const readiness = checkOrderReadiness({
+      userId: channel.user_id,
+      customerId: event.customerId,
+      customerName: inbound.customer_name,
+      messageText: effectiveCustomerText,
+      recentHistory: recentHistorySummary
+    });
+
+    if (readiness.isValid) {
+      try {
+        const confirmed = await detectAndRecordOrder({
+          userId: channel.user_id,
+          customerId: event.customerId,
+          customerName: inbound.customer_name,
+          platform: event.platform,
+          channelId: channel.id,
+          messageText: effectiveCustomerText,
+          recentHistory: recentHistorySummary,
+          aiReplyText: ''
+        });
+        if (confirmed) {
+          preConfirmedOrder = confirmed;
+          console.log(`[Order Pre-Confirmed] Order #${confirmed.id} successfully recorded before AI response`);
+        }
+      } catch (orderPreErr) {
+        console.warn('[Order Pre-Validation] Error attempting order record:', orderPreErr);
+      }
+    } else {
+      isOrderIncomplete = true;
+      missingOrderFields = readiness.missingFields;
+      console.log(`[Order Incomplete] Customer ${event.customerId} intent detected, missing: ${missingOrderFields.join(', ')}`);
     }
   }
 
@@ -453,7 +621,10 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
           imageBase64,
           imageMimeType,
           imageUrl: event.imageUrl,
-          overrideSystemPrompt: event.overrideSystemPrompt
+          overrideSystemPrompt: event.overrideSystemPrompt,
+          systemConfirmedOrder: preConfirmedOrder,
+          isOrderIncomplete,
+          missingOrderFields
         });
 
         generatedAiResult = aiResult;
@@ -478,7 +649,10 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
         imageBase64,
         imageMimeType,
         imageUrl: event.imageUrl,
-        overrideSystemPrompt: event.overrideSystemPrompt
+        overrideSystemPrompt: event.overrideSystemPrompt,
+        systemConfirmedOrder: preConfirmedOrder,
+        isOrderIncomplete,
+        missingOrderFields
       });
 
       generatedAiResult = aiResult;
@@ -653,23 +827,26 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
   });
 
   // 9. Check if customer placed or confirmed an order and save to Orders Hub list
-  let detectedOrder: Order | undefined = undefined;
+  let detectedOrder: Order | undefined = preConfirmedOrder;
   try {
     const rawCustomerText = inbound.transcription || event.messageText || inbound.message_text;
-    const orderResult = await detectAndRecordOrder({
-      userId: channel.user_id,
-      customerId: event.customerId,
-      customerName: inbound.customer_name,
-      platform: event.platform,
-      channelId: channel.id,
-      messageText: rawCustomerText,
-      recentHistory: conversationHistory.slice(-4).map(m => `${m.direction}: ${m.message_text}`).join('\n'),
-      aiReplyText
-    });
-    if (orderResult) {
-      detectedOrder = orderResult;
-      console.log(`[Order Confirmed] Order #${detectedOrder.id} logged for merchant ${channel.user_id}`);
-    } else if (autoSettings?.auto_payment_verify_enabled !== false) {
+    if (detectedOrder) {
+      console.log(`[Order Confirmed] Order #${detectedOrder.id} already verified & logged for merchant ${channel.user_id}`);
+    } else {
+      const orderResult = await detectAndRecordOrder({
+        userId: channel.user_id,
+        customerId: event.customerId,
+        customerName: inbound.customer_name,
+        platform: event.platform,
+        channelId: channel.id,
+        messageText: rawCustomerText,
+        recentHistory: conversationHistory.slice(-4).map((m) => `${m.direction}: ${m.message_text}`).join('\n'),
+        aiReplyText
+      });
+      if (orderResult) {
+        detectedOrder = orderResult;
+        console.log(`[Order Confirmed] Order #${detectedOrder.id} logged for merchant ${channel.user_id}`);
+      } else if (autoSettings?.auto_payment_verify_enabled !== false) {
       const paymentUpdatedOrder = detectAndRecordPaymentUpdate({
         userId: channel.user_id,
         customerId: event.customerId,
@@ -679,9 +856,10 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
         aiReplyText,
         hasImage
       });
-      if (paymentUpdatedOrder) {
-        detectedOrder = paymentUpdatedOrder;
-        console.log(`[Auto Payment Verified] Order #${paymentUpdatedOrder.id} marked PAID (TrxID: ${paymentUpdatedOrder.payment_trx_id})`);
+        if (paymentUpdatedOrder) {
+          detectedOrder = paymentUpdatedOrder;
+          console.log(`[Auto Payment Verified] Order #${paymentUpdatedOrder.id} marked PAID (TrxID: ${paymentUpdatedOrder.payment_trx_id})`);
+        }
       }
     }
   } catch (orderErr) {

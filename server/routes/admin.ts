@@ -95,9 +95,13 @@ adminRouter.get('/users', (req: Request, res: Response) => {
       ...p,
       subscription: sub
         ? {
+            id: sub.id,
             status: sub.status,
+            plan_id: sub.plan_id,
             planName: plan?.name || 'Advance AI',
-            endDate: sub.end_date
+            startDate: sub.start_date,
+            endDate: sub.end_date,
+            created_at: sub.created_at
           }
         : null,
       channelsCount: channels.length,
@@ -111,6 +115,105 @@ adminRouter.get('/users', (req: Request, res: Response) => {
   });
 
   return res.json(usersWithDetails);
+});
+
+// POST /api/admin/users/:id/extend-subscription - Extend or reactivate user subscription / trial
+adminRouter.post('/users/:id/extend-subscription', async (req: Request, res: Response) => {
+  const userId = req.params.id;
+  const profile = db.getProfileById(userId);
+  if (!profile) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const {
+    daysToAdd,
+    customEndDate,
+    status = 'active',
+    planId,
+    reactivateChannels = true,
+    adminNote
+  } = req.body;
+
+  const now = new Date();
+  let sub = db.getSubscriptionByUserId(userId);
+  const existingEndDate = sub ? new Date(sub.end_date) : now;
+
+  let targetEndDate: Date;
+
+  if (customEndDate) {
+    targetEndDate = new Date(customEndDate);
+    if (isNaN(targetEndDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid custom end date provided.' });
+    }
+  } else {
+    const days = typeof daysToAdd === 'number' && daysToAdd > 0 ? daysToAdd : 30;
+    // If user's current subscription has already expired or ended in the past, extend starting from now;
+    // if it's currently active in the future, add to the remaining duration!
+    const baseDate = sub && existingEndDate.getTime() > now.getTime() ? existingEndDate : now;
+    targetEndDate = new Date(baseDate.getTime() + days * 86400000);
+  }
+
+  const chosenPlanId = planId || sub?.plan_id || 'plan_pro';
+  const newStatus = status === 'trialing' ? 'trialing' : 'active';
+
+  if (sub) {
+    sub = db.updateSubscription(sub.id, {
+      status: newStatus,
+      end_date: targetEndDate.toISOString(),
+      plan_id: chosenPlanId,
+      updated_at: now.toISOString()
+    }) || sub;
+  } else {
+    sub = db.createSubscription({
+      id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      user_id: userId,
+      plan_id: chosenPlanId,
+      status: newStatus,
+      start_date: now.toISOString(),
+      end_date: targetEndDate.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
+    });
+  }
+
+  // If reactivateChannels is enabled, unpause any paused channels so AI starts responding immediately
+  let reactivatedChannelsCount = 0;
+  if (reactivateChannels) {
+    const userChannels = db.getChannels(userId);
+    for (const ch of userChannels) {
+      if (!ch.is_active) {
+        db.updateChannel(ch.id, { is_active: true });
+        reactivatedChannelsCount++;
+      }
+    }
+  }
+
+  // Audit log
+  db.logAudit({
+    id: `audit_${Date.now()}`,
+    user_id: userId,
+    action: 'extend_subscription',
+    resource: 'subscription',
+    details: `Admin extended subscription to ${targetEndDate.toISOString().split('T')[0]} (Status: ${newStatus}, Plan: ${chosenPlanId})${adminNote ? ` | Note: ${adminNote}` : ''}`,
+    created_at: now.toISOString()
+  });
+
+  await db.flushToSupabase().catch(() => {});
+
+  const plan = db.getPlanById(chosenPlanId);
+  return res.json({
+    success: true,
+    subscription: {
+      id: sub.id,
+      status: sub.status,
+      plan_id: sub.plan_id,
+      planName: plan?.name || 'Advance AI',
+      startDate: sub.start_date,
+      endDate: sub.end_date
+    },
+    reactivatedChannelsCount,
+    message: `Subscription successfully ${newStatus === 'trialing' ? 'extended as Trial' : 'activated/extended'} until ${targetEndDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}!`
+  });
 });
 
 // POST /api/admin/users/:id/adjust-credits - Adjust user message quota
