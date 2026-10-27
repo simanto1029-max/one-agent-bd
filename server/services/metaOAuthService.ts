@@ -83,7 +83,7 @@ export class MetaOAuthService {
 
   private getConfigId(): string {
     const settings = db.getSettings();
-    return (settings?.meta_config_id || process.env.META_CONFIG_ID || '').trim();
+    return (settings?.meta_config_id || process.env.META_CONFIG_ID || '1561729292212992').trim();
   }
 
   private getVerifyToken(): string {
