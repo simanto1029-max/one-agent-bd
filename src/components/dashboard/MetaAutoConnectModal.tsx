@@ -75,10 +75,11 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [alsoConnectLinkedIg, setAlsoConnectLinkedIg] = useState<boolean>(true);
   const [step, setStep] = useState<'auth' | 'select'>('auth');
-  const [metaAppId, setMetaAppId] = useState<string>('');
-  const [metaConfigId, setMetaConfigId] = useState<string>('');
+  const [metaAppId, setMetaAppId] = useState<string>('1668233901609132');
+  const [metaConfigId, setMetaConfigId] = useState<string>('1561729292212992');
   const [showWaHelp, setShowWaHelp] = useState<boolean>(false);
-  const [waMode, setWaMode] = useState<'embedded' | 'direct'>('direct');
+  const [waMode, setWaMode] = useState<'embedded' | 'direct'>('embedded');
+  const [showManualWa, setShowManualWa] = useState<boolean>(false);
   const [detecting, setDetecting] = useState<boolean>(false);
   const [detectSuccess, setDetectSuccess] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -204,8 +205,8 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               setSelectedAssetId(assets.pages[0].id);
               setStep('select');
             } else if (platform === 'whatsapp') {
-              setError('ফেসবুক লগইন সফল হয়েছে, কিন্তু এই ফেসবুক অ্যাকাউন্টে কোনো সক্রিয় WhatsApp Business অ্যাকাউন্ট বা ফোন নম্বর পাওয়া যায়নি। আপনি নিচের ফর্মে সরাসরি Phone Number ID দিয়ে অথবা Meta Developer Portal থেকে WABA সেটআপ করে সহজেই কানেক্ট করতে পারেন।');
-              setWaMode('direct');
+              setError('ফেসবুক লগইন সফল হয়েছে, কিন্তু এই ফেসবুক অ্যাকাউন্টে কোনো সক্রিয় WhatsApp Business অ্যাকাউন্ট বা ফোন নম্বর পাওয়া যায়নি। আপনি নিচের ম্যানুয়াল অপশন দিয়ে Phone Number ID বসিয়ে সহজেই কানেক্ট করতে পারেন।');
+              setShowManualWa(true);
             } else {
               setError('Meta অ্যাকাউন্ট লগইন সফল হয়েছে, কিন্তু কোনো ফেসবুক পেজ পাওয়া যায়নি। অনুগ্রহ করে একটি পেজ তৈরি করে আবার চেষ্টা করুন।');
             }
@@ -263,38 +264,42 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Official Meta WhatsApp Embedded Signup (1-Click flow)
+  // Open Meta-hosted WhatsApp Embedded Signup Onboarding URL directly
+  const openMetaHostedUrl = () => {
+    const effectiveAppId = metaAppId || '1668233901609132';
+    const effectiveConfigId = metaConfigId || '1561729292212992';
+    const directHostedUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(
+      effectiveAppId
+    )}&config_id=${encodeURIComponent(effectiveConfigId)}&extras=%7B%22version%22%3A%222%22%7D`;
+    window.open(directHostedUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // Official Meta WhatsApp Embedded Signup (1-Click flow with Coexistence)
   const handleWhatsAppEmbeddedSignup = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Validate Configuration ID requirement for Meta WhatsApp Embedded Signup
-      if (!metaConfigId) {
-        setLoading(false);
-        setError(
-          'Meta Login Configuration ID (config_id) প্রয়োজন! Meta WhatsApp Embedded Signup চালানোর জন্য Meta Developer Portal (Facebook Login for Business > Configurations) এ একটি Configuration তৈরি করে সেটির ID অ্যাডমিন সেটিংসে সংরক্ষণ করা বাধ্যতামূলক। আপনি চাইলে পাশের ট্যাবে গিয়ে সরাসরি Phone Number ID দিয়ে কোনো কনফিগারেশন ছাড়াই কানেক্ট করতে পারেন।'
-        );
-        setShowWaHelp(true);
-        return;
-      }
+      const effectiveAppId = metaAppId || '1668233901609132';
+      const effectiveConfigId = metaConfigId || '1561729292212992';
 
       // Ensure Facebook JavaScript SDK is loaded
-      if (!window.FB && metaAppId) {
-        initFacebookJsSdk(metaAppId);
+      if (!window.FB && effectiveAppId) {
+        initFacebookJsSdk(effectiveAppId);
         // Wait a brief moment for script initialization
         await new Promise((resolve) => setTimeout(resolve, 600));
       }
 
       // Strategy A: If Facebook JavaScript SDK is loaded, use official FB.login with config_id
-      if (window.FB && metaAppId) {
+      if (window.FB && effectiveAppId) {
         const loginOptions: any = {
-          config_id: metaConfigId,
+          config_id: effectiveConfigId,
           response_type: 'code',
           override_default_response_type: true,
           extras: {
             feature: 'whatsapp_embedded_signup',
             featureType: 'whatsapp_business_app_onboarding',
+            version: '2',
             sessionInfoVersion: '3',
             setup: {}
           }
@@ -337,7 +342,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               setLoading(false);
               if (response?.status !== 'connected') {
                 setError(
-                  'Meta Embedded Signup পপআপ সম্পন্ন হয়নি। নিশ্চিত করুন যে আপনার ব্রাউজারে লগইন করা Facebook অ্যাকাউন্টটি Meta App এর Admin/Developer রোলে আছে এবং Allowed Domains এ সাইটের ডোমেইন যোগ করা হয়েছে।'
+                  'Meta Embedded Signup পপআপ বন্ধ করা হয়েছে বা সম্পন্ন হয়নি। বিকল্প হিসেবে নিচে দেওয়া অফিসিয়াল মেটা-হোস্টেড অনবোর্ডিং লিংকে ক্লিক করে সরাসরি মেটার পেজ থেকেও অনবোর্ডিং করতে পারেন।'
                 );
               }
             }
@@ -347,30 +352,27 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         return;
       }
 
-      // Strategy B: Fallback to Server-Side Meta OAuth Dialog Popup
-      const res = await api.getMetaAuthUrl('whatsapp', true);
-      if (res.authUrl) {
-        const width = 640;
-        const height = 750;
-        const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
-        const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+      // Strategy B: Fallback to direct Meta-Hosted link or Server-Side OAuth Dialog Popup
+      const directHostedUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(
+        effectiveAppId
+      )}&config_id=${encodeURIComponent(effectiveConfigId)}&extras=%7B%22version%22%3A%222%22%7D`;
+      const width = 640;
+      const height = 750;
+      const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+      const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
 
-        const popup = window.open(
-          res.authUrl,
-          'oneagentbd_meta_wa_embedded_signup',
-          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
-        );
+      const popup = window.open(
+        directHostedUrl,
+        'oneagentbd_meta_wa_embedded_signup',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+      );
 
-        if (!popup) {
-          window.location.href = res.authUrl;
-        } else {
-          setLoading(false);
-        }
-        return;
+      if (!popup) {
+        window.location.href = directHostedUrl;
+      } else {
+        setLoading(false);
       }
-
-      setLoading(false);
-      setError('Meta App ID is not configured on the server yet. Please configure Meta App ID in Admin settings.');
+      return;
     } catch (err: any) {
       setLoading(false);
       setError(err.message || 'Failed to open WhatsApp Embedded Signup.');
@@ -729,263 +731,266 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
           <div className="space-y-4">
             {platform === 'whatsapp' ? (
               <div className="space-y-4 animate-in fade-in duration-150">
-                {/* 2-Option Segmented Tab: Direct Cloud API (Recommended) vs Embedded Signup (BSPs) */}
-                <div className="flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                {/* Official Tech Provider Coexistence Highlight Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-teal-500/10 border border-emerald-500/30 text-left space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-600 text-white text-[11px] font-bold shadow-xs">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Meta Official Tech Provider
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                      Coexistence Active
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      ১-ক্লিকে WhatsApp যুক্ত করুন (Zero Data Loss)
+                    </h3>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                      One Agent BD এখন মেটার অফিসিয়াল <strong>Tech Provider</strong>। অনবোর্ডিং কো-এক্সিস্টেন্স (Coexistence) ফিচারের মাধ্যমে আপনার বর্তমান WhatsApp Business অ্যাপের <strong>কোনো চ্যাট, কন্টাক্ট বা পুরোনো ডেটা হারাবে না</strong>।
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-neutral-700 dark:text-neutral-300">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>সব চ্যাট হিস্ট্রি সুরক্ষিত</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>App + AI দুটোই সচল</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>মেটার সিকিউর পপআপ</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>অটো Webhook কানেক্ট</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary 1-Click Embedded Signup Button */}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleWhatsAppEmbeddedSignup}
+                  className="w-full py-4 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/40 transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Meta Embedded Signup চালু হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="w-5 h-5" />
+                      <span>Connect WhatsApp in 1-Click</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Secondary: Open Meta-Hosted Onboarding Link directly */}
+                <div className="flex items-center justify-center pt-0.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      setWaMode('direct');
-                      setError(null);
-                    }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      waMode === 'direct'
-                        ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
-                    }`}
+                    onClick={openMetaHostedUrl}
+                    className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Key className="w-3.5 h-3.5" />
-                    <span>WhatsApp Cloud API (সরাসরি কানেক্ট)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWaMode('embedded');
-                      setError(null);
-                    }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      waMode === 'embedded'
-                        ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-white'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Embedded Signup (BSPs Only)</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>পপআপ ব্লক হলে: ওপেন করুন Official Meta-Hosted Onboarding লিংক</span>
                   </button>
                 </div>
 
-                {waMode === 'direct' ? (
-                  /* DIRECT PHONE NUMBER ID & CLOUD API FORM (100% Guaranteed Solution for App Owners) */
-                  <form onSubmit={handleDirectWhatsAppSubmit} className="space-y-3.5 text-left animate-in fade-in duration-150">
-                    {/* Owner Resolution Banner */}
-                    <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-neutral-700 dark:text-neutral-300 space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Owner Direct Connection (কোনো BSP অনুমোদনের প্রয়োজন নেই)</span>
-                      </div>
-                      <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-300">
-                        মেটা সাধারণ ডেভেলপার অ্যাপে Embedded Signup ব্লক করে রাখে (BSP error)। কিন্তু আপনি Meta App-এর Owner হিসেবে নিচের ফর্মে আপনার <strong>Phone Number ID</strong> এবং <strong>Access Token</strong> বসিয়ে দিলে ১ সেকেন্ডে ১০০% কানেক্ট হয়ে যাবে!
-                      </p>
-                    </div>
+                {/* Optional Developer / Advanced Manual Credentials (Collapsible) */}
+                <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 text-left">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualWa(!showManualWa)}
+                    className="w-full flex items-center justify-between py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5" />
+                      <span>ম্যানুয়াল Cloud API Credentials দিয়ে কানেক্ট (Advanced / Developers)</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-neutral-400">
+                      {showManualWa ? 'লুকান ▲' : 'দেখুন ▼'}
+                    </span>
+                  </button>
 
-                    {/* Direct link to Meta Developer Console */}
-                    <a
-                      href={`https://developers.facebook.com/apps/${metaAppId || '1668233901609132'}/whatsapp-business/wa-dev-console/`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 px-3.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold transition-all flex items-center justify-between cursor-pointer border border-neutral-300/80 dark:border-neutral-700"
-                    >
-                      <span className="flex items-center gap-2">
-                        <ExternalLink className="w-4 h-4 text-[#7F22FE]" />
-                        <span>Meta Developer Console &gt; WhatsApp API Setup খুলুন</span>
-                      </span>
-                      <span className="text-[11px] text-neutral-500 font-mono">App #{metaAppId || '1668233901609132'} ↗</span>
-                    </a>
+                  {showManualWa && (
+                    <form onSubmit={handleDirectWhatsAppSubmit} className="mt-3 space-y-3.5 animate-in fade-in duration-150">
+                      <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-300">
+                        আপনার যদি নিজস্ব Meta Cloud API Phone Number ID এবং Access Token থাকে, তবে আপনি নিচে সেগুলো সরাসরি বসিয়ে দিয়ে চ্যানেল কানেক্ট করতে পারেন।
+                      </div>
 
-                    {/* Access Token Input with 1-Click Auto-Detect Button */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
-                          Permanent Access Token / Temporary Token
-                        </label>
-                        <button
-                          type="button"
-                          disabled={detecting || !directAccessToken.trim()}
-                          onClick={handleDetectWhatsApp}
-                          className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-40 flex items-center gap-1 cursor-pointer"
-                        >
-                          {detecting ? (
-                            <>
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                              <span>যাচাই হচ্ছে...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-3 h-3 text-emerald-500" />
-                              <span>টোকেন দিয়ে নম্বর অটো-ফিল করুন</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <input
-                        type="password"
-                        value={directAccessToken}
-                        onChange={(e) => setDirectAccessToken(e.target.value)}
-                        placeholder="EAA... (Meta API Setup পেজের Access Token কপি করে পেস্ট করুন)"
-                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    {detectSuccess && (
-                      <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="text-[11px] leading-tight">{detectSuccess}</span>
-                      </div>
-                    )}
-
-                    {/* Phone Number ID */}
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
-                        Phone Number ID <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={directPhoneNumberId}
-                        onChange={(e) => setDirectPhoneNumberId(e.target.value)}
-                        placeholder="যেমন: 108375822394829 (Meta WhatsApp API Setup পেজে 'Phone number ID' দেওয়া আছে)"
-                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    {/* Display Number & Verified Name */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
-                          WhatsApp নম্বর (+880...)
-                        </label>
-                        <input
-                          type="text"
-                          value={directDisplayNumber}
-                          onChange={(e) => setDirectDisplayNumber(e.target.value)}
-                          placeholder="+88017XXXXXXXX"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
-                          Business Name (ঐচ্ছিক)
-                        </label>
-                        <input
-                          type="text"
-                          value={directVerifiedName}
-                          onChange={(e) => setDirectVerifiedName(e.target.value)}
-                          placeholder="ব্যবসার নাম"
-                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* WABA ID */}
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
-                        WABA ID (WhatsApp Business Account ID - ঐচ্ছিক)
-                      </label>
-                      <input
-                        type="text"
-                        value={directWabaId}
-                        onChange={(e) => setDirectWabaId(e.target.value)}
-                        placeholder="যেমন: 102837482947291 (API Setup পেজের WABA ID)"
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    {/* Webhook Configuration Quick Copy Box */}
-                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-neutral-800 dark:text-neutral-200 block text-[11px]">
-                          Meta Developer Portal &gt; WhatsApp &gt; Configuration-এ বসানোর জন্য Webhook তথ্য:
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <div className="min-w-0 font-mono text-[11px] truncate text-emerald-700 dark:text-emerald-400 font-semibold">
-                          https://www.oneagentbd.online/api/webhooks/whatsapp
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText('https://www.oneagentbd.online/api/webhooks/whatsapp', 'wa_wh')}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
-                        >
-                          {copiedKey === 'wa_wh' ? 'Copied ✓' : 'Copy URL'}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <span className="text-[11px] text-neutral-600 dark:text-neutral-300">
-                          Verify Token: <strong className="font-mono text-neutral-900 dark:text-white font-bold">oneagentbd_wa_secret</strong>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText('oneagentbd_wa_secret', 'wa_vt')}
-                          className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
-                        >
-                          {copiedKey === 'wa_vt' ? 'Copied ✓' : 'Copy Token'}
-                        </button>
-                      </div>
-                      <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-[10.5px] text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                        ⚠️ <strong>সবচেয়ে জরুরি ধাপ:</strong> মেটা পোর্টালে Webhook ভেরিফাই করার পর নিচে <strong>Webhook fields</strong> সেকশনে <strong>Manage</strong> বাটনে ক্লিক করে <strong>messages</strong> ফিল্ডে অবশ্যই <strong>Subscribe</strong> করবেন। এটি না করলে টেস্ট নাম্বারে আসা মেসেজ বা কাস্টমার রিপ্লাই মেটা পাঠাবে না!
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                      type="submit"
-                      disabled={loading || !directPhoneNumberId.trim()}
-                      className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Connecting WhatsApp Channel...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Smartphone className="w-4 h-4" />
-                          <span>WhatsApp চ্যানেল যুক্ত করুন (Connect Now)</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
-                ) : (
-                  /* EMBEDDED SIGNUP TAB (With Clear BSP Error Warning) */
-                  <div className="space-y-4 text-center animate-in fade-in duration-150">
-                    <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-left space-y-2">
-                      <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
-                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>'Embedded signup is only available for BSPs or TPs' এরর সতর্কতা</span>
-                      </div>
-                      <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
-                        মেটার নিজস্ব পলিসি অনুযায়ী সাধারণ Facebook Login পপআপ দিয়ে WhatsApp অনবোর্ডিং শুধুমাত্র সার্টিফাইড Business Solution Provider (BSP) পার্টনারদের জন্য অনুমোদিত।
-                        সাধারণ Meta App দিয়ে এটি ওপেন করলে মেটা 'It looks like this app isn't available' ডায়ালগ দেখায়।
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setWaMode('direct')}
-                        className="text-xs font-bold text-emerald-700 dark:text-emerald-300 underline cursor-pointer"
+                      {/* Direct link to Meta Developer Console */}
+                      <a
+                        href={`https://developers.facebook.com/apps/${metaAppId || '1668233901609132'}/whatsapp-business/wa-dev-console/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2.5 px-3.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold transition-all flex items-center justify-between cursor-pointer border border-neutral-300/80 dark:border-neutral-700"
                       >
-                        👉 সরাসরি কানেক্ট ট্যাবে যান (১০০% কোনো এরর ছাড়া কাজ করবে)
-                      </button>
-                    </div>
+                        <span className="flex items-center gap-2">
+                          <ExternalLink className="w-4 h-4 text-[#7F22FE]" />
+                          <span>Meta Developer Console &gt; WhatsApp API Setup</span>
+                        </span>
+                        <span className="text-[11px] text-neutral-500 font-mono">App #{metaAppId || '1668233901609132'} ↗</span>
+                      </a>
 
-                    {/* Primary Embedded Signup Button */}
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleWhatsAppEmbeddedSignup}
-                      className="w-full py-3.5 px-5 rounded-2xl bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {loading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Opening Meta Embedded Signup...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Smartphone className="w-4 h-4" />
-                          <span>তবুও Meta Embedded Signup পপআপ খুলুন</span>
-                        </>
+                      {/* Access Token Input with 1-Click Auto-Detect Button */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                            Permanent Access Token / Temporary Token
+                          </label>
+                          <button
+                            type="button"
+                            disabled={detecting || !directAccessToken.trim()}
+                            onClick={handleDetectWhatsApp}
+                            className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-40 flex items-center gap-1 cursor-pointer"
+                          >
+                            {detecting ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>যাচাই হচ্ছে...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3 h-3 text-emerald-500" />
+                                <span>টোকেন দিয়ে নম্বর অটো-ফিল করুন</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <input
+                          type="password"
+                          value={directAccessToken}
+                          onChange={(e) => setDirectAccessToken(e.target.value)}
+                          placeholder="EAA... (Meta API Setup পেজের Access Token কপি করে পেস্ট করুন)"
+                          className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {detectSuccess && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-[11px] leading-tight">{detectSuccess}</span>
+                        </div>
                       )}
-                    </button>
-                  </div>
-                )}
+
+                      {/* Phone Number ID */}
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
+                          Phone Number ID <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={directPhoneNumberId}
+                          onChange={(e) => setDirectPhoneNumberId(e.target.value)}
+                          placeholder="যেমন: 108375822394829 (API Setup পেজের Phone number ID)"
+                          className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Display Number & Verified Name */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                            WhatsApp নম্বর (+880...)
+                          </label>
+                          <input
+                            type="text"
+                            value={directDisplayNumber}
+                            onChange={(e) => setDirectDisplayNumber(e.target.value)}
+                            placeholder="+88017XXXXXXXX"
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                            Business Name (ঐচ্ছিক)
+                          </label>
+                          <input
+                            type="text"
+                            value={directVerifiedName}
+                            onChange={(e) => setDirectVerifiedName(e.target.value)}
+                            placeholder="ব্যবসার নাম"
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* WABA ID */}
+                      <div>
+                        <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                          WABA ID (WhatsApp Business Account ID - ঐচ্ছিক)
+                        </label>
+                        <input
+                          type="text"
+                          value={directWabaId}
+                          onChange={(e) => setDirectWabaId(e.target.value)}
+                          placeholder="যেমন: 102837482947291 (API Setup পেজের WABA ID)"
+                          className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Webhook Configuration Quick Copy Box */}
+                      <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5 text-xs">
+                        <span className="font-bold text-neutral-800 dark:text-neutral-200 block text-[11px]">
+                          Meta Developer Portal &gt; WhatsApp &gt; Configuration-এ Webhook সেটআপ:
+                        </span>
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                          <div className="min-w-0 font-mono text-[11px] truncate text-emerald-700 dark:text-emerald-400 font-semibold">
+                            https://www.oneagentbd.online/api/webhooks/whatsapp
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText('https://www.oneagentbd.online/api/webhooks/whatsapp', 'wa_wh')}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
+                          >
+                            {copiedKey === 'wa_wh' ? 'Copied ✓' : 'Copy URL'}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                          <span className="text-[11px] text-neutral-600 dark:text-neutral-300">
+                            Verify Token: <strong className="font-mono text-neutral-900 dark:text-white font-bold">oneagentbd_wa_secret</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText('oneagentbd_wa_secret', 'wa_vt')}
+                            className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
+                          >
+                            {copiedKey === 'wa_vt' ? 'Copied ✓' : 'Copy Token'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Manual Submit Button */}
+                      <button
+                        type="submit"
+                        disabled={loading || !directPhoneNumberId.trim()}
+                        className="w-full py-3 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {loading ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Connecting WhatsApp Channel...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Key className="w-4 h-4" />
+                            <span>ম্যানুয়ালি চ্যানেল সেভ করুন</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+                </div>
               </div>
             ) : platform === 'messenger' ? (
               <div className="space-y-4 animate-in fade-in duration-150">
