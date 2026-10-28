@@ -421,7 +421,10 @@ webhooksRouter.get('/messenger', (req: Request, res: Response) => {
 webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    console.log('[Messenger Webhook] Received payload:', JSON.stringify(body));
+    console.log('[Messenger Webhook] Received payload at', new Date().toISOString());
+
+    // Send instant HTTP 200 to Meta so Meta never times out or delays webhooks
+    res.status(200).send('EVENT_RECEIVED');
 
     const tasks: Promise<any>[] = [];
 
@@ -550,8 +553,9 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
       }
     }
 
-    await Promise.all(tasks);
-    return res.status(200).send('EVENT_RECEIVED');
+    if (tasks.length > 0) {
+      Promise.all(tasks).catch((err) => console.error('[Messenger Webhook Background Task Error]:', err));
+    }
   } catch (err: any) {
     console.error('Error handling Messenger webhook payload:', err);
     if (!res.headersSent) {
@@ -598,7 +602,10 @@ webhooksRouter.get('/instagram', (req: Request, res: Response) => {
 webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    console.log('[Instagram Webhook] Received payload:', JSON.stringify(body));
+    console.log('[Instagram Webhook] Received payload at', new Date().toISOString());
+
+    // Send instant HTTP 200 to Meta so Meta never times out or delays webhooks
+    res.status(200).send('EVENT_RECEIVED');
 
     const tasks: Promise<any>[] = [];
 
@@ -678,8 +685,9 @@ webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
       }
     }
 
-    await Promise.all(tasks);
-    return res.status(200).send('EVENT_RECEIVED');
+    if (tasks.length > 0) {
+      Promise.all(tasks).catch((err) => console.error('[Instagram Webhook Background Task Error]:', err));
+    }
   } catch (err: any) {
     console.error('Error handling Instagram webhook payload:', err);
     if (!res.headersSent) {
