@@ -150,28 +150,57 @@ channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, r
     <title>Meta Authorization - One Agent BD</title>
     <style>
       body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0c; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-      .box { padding: 28px 32px; border-radius: 20px; background: #141418; border: 1px solid #27272a; max-width: 380px; }
+      .box { padding: 28px 32px; border-radius: 20px; background: #141418; border: 1px solid #27272a; max-width: 420px; }
       .title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-      .sub { font-size: 13px; color: #a1a1aa; }
+      .sub { font-size: 13px; color: #a1a1aa; line-height: 1.5; }
+      .btn { margin-top: 18px; padding: 10px 20px; background: #7F22FE; color: #fff; border: none; border-radius: 12px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; }
+      .btn:hover { background: #6b1cd4; }
     </style>
   </head>
   <body>
     <div class="box">
       <div class="title">${payload.success ? '✅ Meta Account Authorized!' : '⚠️ Meta Authorization Notice'}</div>
-      <div class="sub">${payload.success ? 'Capturing Page Access Tokens & closing window...' : (payload.error || 'Redirecting back to dashboard...')}</div>
+      <div class="sub">${payload.success ? 'Page Access Tokens captured successfully. Closing window...' : (payload.error || 'Redirecting back to dashboard...')}</div>
+      <button class="btn" onclick="finishAndClose();">ড্যাশবোর্ডে ফিরে যান (Return to Dashboard)</button>
     </div>
     <script>
-      (function() {
-        var msg = ${safePayloadJson};
-        var redirectTarget = ${safeRedirect};
-        if (window.opener && !window.opener.closed) {
-          try {
+      var msg = ${safePayloadJson};
+      var redirectTarget = ${safeRedirect};
+
+      function broadcastAndNotify() {
+        try {
+          localStorage.setItem('oneagentbd_oauth_result', JSON.stringify(Object.assign({}, msg, { timestamp: Date.now() })));
+        } catch (e) {}
+
+        try {
+          if (window.opener && !window.opener.closed) {
             window.opener.postMessage(msg, '*');
-            setTimeout(function() { window.close(); }, 350);
-            return;
-          } catch (e) {}
+          }
+        } catch (e) {}
+      }
+
+      function finishAndClose() {
+        broadcastAndNotify();
+        try { window.close(); } catch(e) {}
+        if (!window.closed) {
+          window.location.href = redirectTarget;
         }
-        window.location.href = redirectTarget;
+      }
+
+      (function() {
+        broadcastAndNotify();
+
+        var isPopup = Boolean(window.opener) || window.name === 'oneagentbd_meta_oauth' || window.innerWidth < 850;
+        if (isPopup) {
+          setTimeout(function() {
+            try { window.close(); } catch (e) {}
+          }, 450);
+          return;
+        }
+
+        setTimeout(function() {
+          window.location.href = redirectTarget;
+        }, 300);
       })();
     </script>
   </body>
@@ -183,7 +212,7 @@ channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, r
     return sendPopupOrRedirect({
       success: false,
       error: errStr,
-      redirectUrl: `${baseUrl}/?tab=channels&meta_error=${encodeURIComponent(errStr)}`
+      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(errStr)}`
     });
   }
 
@@ -191,7 +220,7 @@ channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, r
     return sendPopupOrRedirect({
       success: false,
       error: 'Missing authorization code or state parameter from Meta.',
-      redirectUrl: `${baseUrl}/?tab=channels&meta_error=Missing_code_or_state`
+      redirectUrl: `${baseUrl}/channels?meta_error=Missing_code_or_state`
     });
   }
 
@@ -203,7 +232,20 @@ channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, r
       success: false,
       platform: outcome.platform,
       error: errMsg,
-      redirectUrl: `${baseUrl}/?tab=channels&meta_error=${encodeURIComponent(errMsg)}`
+      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(errMsg)}&platform=${outcome.platform}`
+    });
+  }
+
+  // If platform is messenger or instagram and no pages were granted or discovered
+  if (outcome.platform !== 'whatsapp' && outcome.pages.length === 0) {
+    const noPagesMsg =
+      'ফেসবুক লগইন সফল হয়েছে, কিন্তু কোনো ফেসবুক পেজ পাওয়া যায়নি। (আপনার মেটা অ্যাপ Development মোডে থাকলে ফেসবুক অ্যাকাউন্টটি মেটা কনসোলের App Roles > Roles-এ Developer বা Tester হিসেবে যোগ করুন, অথবা Page ID ও Token দিয়ে সরাসরি কানেক্ট করুন)।';
+    return sendPopupOrRedirect({
+      success: false,
+      platform: outcome.platform,
+      assetsCount: 0,
+      error: noPagesMsg,
+      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(noPagesMsg)}&platform=${outcome.platform}`
     });
   }
 
@@ -212,7 +254,7 @@ channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, r
     success: true,
     platform: outcome.platform,
     assetsCount: outcome.pages.length,
-    redirectUrl: `${baseUrl}/?tab=channels&meta_auth=success&platform=${outcome.platform}&assets_count=${outcome.pages.length}`
+    redirectUrl: `${baseUrl}/channels?meta_auth=success&platform=${outcome.platform}&assets_count=${outcome.pages.length}`
   });
 });
 

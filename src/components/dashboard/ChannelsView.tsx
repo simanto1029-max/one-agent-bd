@@ -278,13 +278,28 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
     // Check URL params if redirected from Meta OAuth
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('meta_auth') === 'success') {
-      const plat = (urlParams.get('platform') as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
-      setAutoConnectPlatform(plat);
+    const metaAuth = urlParams.get('meta_auth');
+    const metaError = urlParams.get('meta_error');
+    const metaPlatform = (urlParams.get('platform') as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
+
+    if (metaAuth === 'success') {
+      setAutoConnectPlatform(metaPlatform);
       setIsAutoConnectModalOpen(true);
       setSuccessMessage('Meta account verified! Please select your Page to complete connection.');
-    } else if (urlParams.get('meta_error')) {
-      setError(`Meta login error: ${decodeURIComponent(urlParams.get('meta_error') || '')}`);
+      // Clean query params from URL without reload
+      try {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      } catch (_e) {}
+    } else if (metaError) {
+      const decodedErr = decodeURIComponent(metaError);
+      setError(decodedErr);
+      setAutoConnectPlatform(metaPlatform);
+      setIsAutoConnectModalOpen(true);
+      try {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      } catch (_e) {}
     }
 
     // Listen for Popup postMessage from Meta OAuth callback
@@ -295,13 +310,41 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
         const plat = (data.platform as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
         setAutoConnectPlatform(plat);
         setIsAutoConnectModalOpen(true);
+        setSuccessMessage('Meta authorization successful! Please select your Page to activate AI.');
       } else if (data.type === 'META_OAUTH_ERROR') {
+        const plat = (data.platform as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
+        setAutoConnectPlatform(plat);
+        setIsAutoConnectModalOpen(true);
         setError(data.error || 'Meta login was not completed.');
       }
     };
 
+    // Cross-window / popup localStorage synchronization
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'oneagentbd_oauth_result' && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data && typeof data === 'object') {
+            const plat = (data.platform as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
+            setAutoConnectPlatform(plat);
+            setIsAutoConnectModalOpen(true);
+            if (data.type === 'META_OAUTH_SUCCESS') {
+              setSuccessMessage('Meta authorization successful! Please select your Page to activate AI.');
+            } else if (data.type === 'META_OAUTH_ERROR') {
+              setError(data.error || 'Meta authorization was not completed.');
+            }
+          }
+          localStorage.removeItem('oneagentbd_oauth_result');
+        } catch (_err) {}
+      }
+    };
+
     window.addEventListener('message', handlePopupMessage);
-    return () => window.removeEventListener('message', handlePopupMessage);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('message', handlePopupMessage);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [isAdmin]);
 
   const getEffectiveOrigin = () => {

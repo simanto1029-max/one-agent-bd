@@ -353,21 +353,22 @@ export class MetaOAuthService {
         const meRes = await fetch(meUrl);
         const meJson = (await meRes.json()) as any;
 
-        if (meRes.ok && meJson.id && !meJson.error) {
+        if (meRes.ok && meJson.id && meJson.category && !meJson.error) {
+          // Valid direct Facebook Page Access Token (has category field)
           pages.push({
             id: String(meJson.id),
             name: String(meJson.name || 'Facebook Page'),
-            category: meJson.category || 'Direct Page Token',
+            category: meJson.category,
             access_token: effectiveUserToken,
             token_preview: `EAA••••${effectiveUserToken.slice(-6)}`,
             picture_url: meJson.picture?.data?.url,
             instagram_business_account: meJson.instagram_business_account
           });
-        } else if (accountsJson?.error || meJson?.error) {
+        } else if (accountsJson?.error) {
           return {
             pages: [],
             whatsappNumbers: [],
-            error: accountsJson?.error?.message || meJson?.error?.message || 'Invalid Meta Access Token.'
+            error: accountsJson.error.message || 'Invalid Meta Access Token.'
           };
         }
       }

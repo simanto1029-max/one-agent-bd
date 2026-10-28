@@ -206,14 +206,16 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
               setSelectedAssetId(assets.pages[0].id);
               setStep('select');
             } else if (platform === 'whatsapp') {
-              setError('ফেসবুক লগইন সফল হয়েছে, কিন্তু এই ফেসবুক অ্যাকাউন্টে কোনো সক্রিয় WhatsApp Business অ্যাকাউন্ট বা ফোন নম্বর পাওয়া যায়নি। আপনি নিচের ম্যানুয়াল অপশন দিয়ে Phone Number ID বসিয়ে সহজেই কানেক্ট করতে পারেন।');
-              setShowManualWa(true);
+              setError('ফেসবুক লগইন সফল হয়েছে, কিন্তু এই অ্যাকাউন্টে কোনো সক্রিয় WhatsApp Business ফোন নম্বর পাওয়া যায়নি। আপনি "WhatsApp ID দিয়ে কানেক্ট" অপশন ব্যবহার করুন।');
+              setWaMode('direct');
             } else {
-              setError('Meta অ্যাকাউন্ট লগইন সফল হয়েছে, কিন্তু কোনো ফেসবুক পেজ পাওয়া যায়নি। অনুগ্রহ করে একটি পেজ তৈরি করে আবার চেষ্টা করুন।');
+              setError('Meta অ্যাকাউন্ট লগইন সফল হয়েছে, কিন্তু কোনো ফেসবুক পেজ পাওয়া যায়নি। আপনার মেটা অ্যাপ Development মোডে থাকলে ফেসবুক আইডিটি App Roles-এ যোগ করুন, অথবা নিচের "Page ID ও Token দিয়ে কানেক্ট" অপশন ব্যবহার করে তাৎক্ষণিক কানেক্ট করুন।');
+              setFbMode('direct');
             }
           })
           .catch((err: any) => {
             setError(err.message || 'Failed to load assets list.');
+            if (platform === 'messenger') setFbMode('direct');
           })
           .finally(() => {
             setLoading(false);
@@ -221,11 +223,28 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       } else if (data.type === 'META_OAUTH_ERROR') {
         setLoading(false);
         setError(data.error || 'Login was not completed. Please try again.');
+        if (platform === 'messenger') setFbMode('direct');
+        if (platform === 'instagram') setIgMode('direct');
+      }
+    };
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'oneagentbd_oauth_result' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          if (payload?.type) {
+            handleWindowMessage({ data: payload } as MessageEvent);
+          }
+        } catch (_err) {}
       }
     };
 
     window.addEventListener('message', handleWindowMessage);
-    return () => window.removeEventListener('message', handleWindowMessage);
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('message', handleWindowMessage);
+      window.removeEventListener('storage', handleStorageEvent);
+    };
   }, [isOpen, platform]);
 
   const initFacebookJsSdk = (appId: string) => {
