@@ -1053,9 +1053,18 @@ export class MetaOAuthService {
           verifiedName = wabaJson.name || '';
           const phoneList = wabaJson.phone_numbers?.data || [];
           if (!targetPhoneId && phoneList.length > 0) {
-            targetPhoneId = phoneList[0].id;
-            displayPhone = phoneList[0].display_phone_number || phoneList[0].id;
-            verifiedName = phoneList[0].verified_name || verifiedName;
+            // Prioritize REAL business phone number over Meta's sandbox test number (+1 555-xxx)
+            const nonTestPhone = phoneList.find(
+              (p: any) =>
+                p.display_phone_number &&
+                !p.display_phone_number.includes('555') &&
+                !p.display_phone_number.startsWith('+1555') &&
+                !String(p.verified_name || '').toLowerCase().includes('test')
+            );
+            const chosen = nonTestPhone || phoneList[0];
+            targetPhoneId = chosen.id;
+            displayPhone = chosen.display_phone_number || chosen.id;
+            verifiedName = chosen.verified_name || verifiedName;
           } else if (targetPhoneId) {
             const matched = phoneList.find((p: any) => p.id === targetPhoneId);
             if (matched) {
@@ -1126,7 +1135,15 @@ export class MetaOAuthService {
     if (effectiveToken) {
       const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
       if (whatsappNumbers && whatsappNumbers.length > 0) {
-        const autoWa = whatsappNumbers[0];
+        // Prioritize real business number over Meta's sandbox test number (+1 555-xxx)
+        const realNumber = whatsappNumbers.find(
+          (w) =>
+            w.display_phone_number &&
+            !w.display_phone_number.includes('555') &&
+            !w.display_phone_number.startsWith('+1555') &&
+            !w.waba_name?.toLowerCase().includes('test')
+        );
+        const autoWa = realNumber || whatsappNumbers[0];
         const autoConn = await this.connectWhatsAppOnboarding(userId, {
           wabaId: autoWa.waba_id,
           phoneNumberId: autoWa.id,
