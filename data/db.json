@@ -233,17 +233,36 @@
       "id": "chn_wa_qr_1791268848603",
       "user_id": "usr_demo_002",
       "platform": "whatsapp",
-      "name": "WhatsApp (+8801712345678)",
-      "identifier": "8801712345678",
+      "name": "One Agent Bd (+8801601705804)",
+      "identifier": "8801601705804",
       "access_token": "qr_linked_token_wa_qr_test",
       "is_active": true,
       "status": "connected",
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-10-06T06:40:48.603Z",
-      "updated_at": "2026-10-13T09:10:06.687Z",
-      "last_webhook_at": "2026-10-13T09:10:06.687Z",
-      "last_message_at": "2026-10-13T09:10:06.687Z"
+      "updated_at": "2026-10-30T12:37:55.141Z",
+      "last_webhook_at": "2026-10-30T12:37:55.140Z",
+      "last_message_at": "2026-10-30T12:37:55.140Z"
+    },
+    {
+      "id": "chn_me_1789553189985_lrft",
+      "user_id": "usr_demo_002",
+      "platform": "messenger",
+      "name": "One Agent BD",
+      "identifier": "379312975259492",
+      "access_token": "system_cloud_token",
+      "is_active": true,
+      "status": "connected",
+      "meta_asset_name": "One Agent BD",
+      "meta_asset_id": "379312975259492",
+      "auto_comment_reply": true,
+      "auto_followup_enabled": true,
+      "created_at": "2026-09-16T10:15:00.000Z",
+      "updated_at": "2026-10-31T08:06:54.304Z",
+      "last_webhook_at": "2026-10-31T08:06:44.047Z",
+      "last_message_at": "2026-10-31T08:06:44.047Z",
+      "error_message": "Invalid OAuth access token - Cannot parse access token"
     }
   ],
   "messages": [
@@ -3859,6 +3878,426 @@
         "is_followup": true
       },
       "created_at": "2026-10-14T06:19:12.326Z"
+    },
+    {
+      "id": "msg_1793265821497_in_udvk",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_001",
+      "customer_name": "Customer Test",
+      "direction": "inbound",
+      "message_text": "কেমন আছেন ভাই?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-29T09:23:41.497Z"
+    },
+    {
+      "id": "msg_1793265821867_out_xksi",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_001",
+      "customer_name": "Customer Test",
+      "direction": "outbound",
+      "message_text": "আলহামদুলিল্লাহ, আমরা সবাই ভালো আছি! আশা করি আপনিও ভালো আছেন। 😊 আমাদের One Agent BD-এ আপনাকে স্বাগতম।\n\nবলুন, আজ আপনাকে কীভাবে সাহায্য করতে পারি?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "interactive_options": {
+        "type": "list",
+        "listButtonLabel": "পছন্দ করুন",
+        "listButtonTitle": "পছন্দ করুন",
+        "listSectionTitle": "পছন্দ করুন",
+        "footerText": "One Agent BD AI Assistant",
+        "items": [
+          {
+            "id": "prod_seed_cargo_01",
+            "title": "Cargo Jogger Pant (Olive Green)",
+            "description": "৳1150 BDT",
+            "price": 1150
+          },
+          {
+            "id": "prod_seed_denim_02",
+            "title": "Slim Fit Denim Jeans (Deep Blue)",
+            "description": "৳1250 BDT",
+            "price": 1250
+          },
+          {
+            "id": "prod_seed_shirt_03",
+            "title": "Casual Oxford Cotton Shirt (Sky Blue)",
+            "description": "৳850 BDT",
+            "price": 850
+          },
+          {
+            "id": "prod_seed_watch_04",
+            "title": "Smart Calling Watch (Series 9 Metallic Black)",
+            "description": "৳2450 BDT",
+            "price": 2450
+          }
+        ],
+        "listItems": [
+          {
+            "id": "prod_seed_cargo_01",
+            "title": "Cargo Jogger Pant (Olive Green)",
+            "description": "৳1150 BDT",
+            "price": 1150
+          },
+          {
+            "id": "prod_seed_denim_02",
+            "title": "Slim Fit Denim Jeans (Deep Blue)",
+            "description": "৳1250 BDT",
+            "price": 1250
+          },
+          {
+            "id": "prod_seed_shirt_03",
+            "title": "Casual Oxford Cotton Shirt (Sky Blue)",
+            "description": "৳850 BDT",
+            "price": 850
+          },
+          {
+            "id": "prod_seed_watch_04",
+            "title": "Smart Calling Watch (Series 9 Metallic Black)",
+            "description": "৳2450 BDT",
+            "price": 2450
+          }
+        ],
+        "buttons": [
+          {
+            "id": "btn_order_now",
+            "label": "Order Now",
+            "payload": "অর্ডার করতে চাই",
+            "icon": "order"
+          },
+          {
+            "id": "btn_see_more",
+            "label": "আরও দেখুন",
+            "payload": "আরও দেখুন",
+            "icon": "back"
+          },
+          {
+            "id": "btn_home",
+            "label": "হোম পেজ",
+            "payload": "হোম পেজ",
+            "icon": "home"
+          }
+        ]
+      },
+      "status": "sent",
+      "created_at": "2026-10-29T09:23:41.867Z"
+    },
+    {
+      "id": "msg_1793363245199_in_2sb4",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_002",
+      "customer_name": "Customer Test",
+      "direction": "inbound",
+      "message_text": "আপনাদের service কেমন?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-30T12:27:25.199Z"
+    },
+    {
+      "id": "msg_1793363250988_out_q9ea",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_002",
+      "customer_name": "Customer Test",
+      "direction": "outbound",
+      "message_text": "আমাদের প্ল্যাটফর্মের প্রধান সার্ভিস ও সুবিধাসমূহ নিচে দেওয়া হলো:\n\n১. ২৪/৭ অটো মেসেজ ও কমেন্ট রিপ্লাই (Facebook, Instagram, WhatsApp ও Website)\n\n২. ভয়েস মেসেজ শুনে ও প্রোডাক্টের ছবি দেখে সাথে সাথে সঠিক উত্তর প্রদান\n\n৩. চ্যাটের ভেতরেই অটো অর্ডার গ্রহণ এবং ১-ক্লিকে Steadfast, Pathao ও RedX কুরিয়ার বুকিং\n\n৪. প্ল্যান মূল্য: Starter Plan ১,২৫০ টাকা/মাস এবং Pro Plan ১,৯৫০ টাকা/মাস (সাথে ২ দিনের ফ্রি ট্রায়াল)\n\nআপনার বিজনেস বা পেজটি মূলত কোন ধরনের প্রোডাক্ট বা সার্ভিস নিয়ে কাজ করে?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-30T12:27:30.988Z"
+    },
+    {
+      "id": "msg_1793363285889_in_2mno",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_003",
+      "customer_name": "Customer Test",
+      "direction": "inbound",
+      "message_text": "ans den na keno?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-30T12:28:05.889Z"
+    },
+    {
+      "id": "msg_1793363291582_out_a5oa",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_003",
+      "customer_name": "Customer Test",
+      "direction": "outbound",
+      "message_text": "আন্তরিকভাবে দুঃখিত সাময়িক বিলম্বের জন্য!\n\nআমাদের সিস্টেমে কয়েক মুহূর্ত ব্যাকগ্রাউন্ড আপডেটের কাজ চলায় বিলম্ব হয়েছিল। এখন সিস্টেম সম্পূর্ণ সুপার ফাস্ট এবং মেসেজ আসার সাথে সাথে ১–২ সেকেন্ডের মধ্যে স্বয়ংক্রিয়ভাবে উত্তর দিতে সক্রিয় রয়েছে।\n\nOne Agent BD আপনার ব্যবসার সেলস ও কাস্টমার রেসপন্স ২৪/৭ শতভাগ দ্রুত ও নির্ভুলভাবে পরিচালনা করবে যাতে কোনো কাস্টমার হাতছাড়া না হয়।\n\nবলুন, আপনার পেজ বা বিজনেসের জন্য কীভাবে সাহায্য করতে পারি?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-30T12:28:11.582Z"
+    },
+    {
+      "id": "msg_1793363324270_in_jgdh",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "+8801700112233",
+      "customer_name": "WhatsApp Customer",
+      "direction": "inbound",
+      "message_text": "আপনাদের সার্ভিস চার্জ কত?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-30T12:28:44.270Z"
+    },
+    {
+      "id": "msg_1793363330743_out_ylzb",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "+8801700112233",
+      "customer_name": "WhatsApp Customer",
+      "direction": "outbound",
+      "message_text": "আমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, WhatsApp, Messenger, Instagram ও Website অটো-রিপ্লাই, ভয়েস ও ছবির AI এবং কুরিয়ার বুকিং)\n\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ১০টি পর্যন্ত চ্যানেল, আনলিমিটেড ওয়েবসাইট স্টোর ও VIP ব্রডকাস্ট)\n\n৩. ফ্রি ট্রায়াল — ওয়েবসাইটে অ্যাকাউন্ট খুলেই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি নিতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": true,
+      "image_url": "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80",
+      "attached_images": [
+        "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80"
+      ],
+      "attached_products": [
+        {
+          "id": "prod_seed_cargo_01",
+          "name": "Cargo Jogger Pant (Olive Green)",
+          "price": 1150,
+          "image_url": "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80"
+        }
+      ],
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-30T12:28:50.743Z"
+    },
+    {
+      "id": "msg_1793363875135_in_t7bo",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "+8801700112233",
+      "customer_name": "WhatsApp Customer",
+      "direction": "inbound",
+      "message_text": "আপনাদের সার্ভিস চার্জ কত?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-30T12:37:55.135Z"
+    },
+    {
+      "id": "msg_1793363878965_out_stmw",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "+8801700112233",
+      "customer_name": "WhatsApp Customer",
+      "direction": "outbound",
+      "message_text": "আমাদের সাবস্ক্রিপশন প্ল্যান ও সার্ভিস চার্জ নিচে দেওয়া হলো:\n\n১. Starter AI Plan — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, Facebook, Instagram, WhatsApp ও Website অটো-রিপ্লাই, ৫০টি প্রোডাক্ট ক্যাটালগ ও কুরিয়ার বুকিং)\n\n২. Pro Business Plan — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ভয়েস মেসেজ ও ছবি চেনার AI, আনলিমিটেড প্রোডাক্ট ও ২৪/৭ ভিআইপি সাপোর্ট)\n\n৩. ফ্রি ট্রায়াল — কোনো অগ্রিম পেমেন্ট ছাড়াই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল সুবিধা\n\nআপনি কি ১ নম্বর (Starter) নাকি ২ নম্বর (Pro) প্ল্যানটি দিয়ে শুরু করতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-30T12:37:58.965Z"
+    },
+    {
+      "id": "msg_1793368003458_fw_f9d4",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_002",
+      "customer_name": "Customer Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Customer Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-30T13:46:43.458Z"
+    },
+    {
+      "id": "msg_1793368003793_fw_mhwu",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_cust_003",
+      "customer_name": "Customer Test",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Customer Test! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-30T13:46:43.793Z"
+    },
+    {
+      "id": "msg_1793368004332_fw_gt9v",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "+8801700112233",
+      "customer_name": "WhatsApp Customer",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello WhatsApp Customer! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-10-30T13:46:44.332Z"
+    },
+    {
+      "id": "msg_1793433601196_in_qdmy",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "inbound",
+      "message_text": "Tumi nijei to deri kore reply daw...ami zodi tumake amar business ar sathe connect kori tahole to amar business ar customers ami harabo.",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-31T08:00:01.196Z"
+    },
+    {
+      "id": "msg_1793433611505_out_dy23",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "outbound",
+      "message_text": "Business Knowledge Base:\n\nএই বিষয়ে আর কোনো কিছু জানতে চান?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-31T08:00:11.505Z"
+    },
+    {
+      "id": "msg_1793433953962_in_3gh2",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "inbound",
+      "message_text": "Tumi nijei to deri kore reply daw...ami zodi tumake amar business ar sathe connect kori tahole to amar business ar customers ami harabo.",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-31T08:05:53.962Z",
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"Tumi nijei to deri kore reply daw...ami zodi tumake amar business ar sathe conne\""
+    },
+    {
+      "id": "msg_1793433964259_out_3dbb",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "outbound",
+      "message_text": "দুঃখিত, এই বিষয়টি সম্পর্কে আমার কাছে সঠিক তথ্য নেই।\n\nআমি বিষয়টি আমাদের সাপোর্ট টিমকে জানিয়ে দিচ্ছি, একজন প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবেন।",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"Tumi nijei to deri kore reply daw...ami zodi tumake amar business ar sathe conne\"",
+      "status": "sent",
+      "created_at": "2026-10-31T08:06:04.259Z"
+    },
+    {
+      "id": "msg_1793433985698_in_czbw",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "inbound",
+      "message_text": "আপনাদের সার্ভিস বা প্ল্যান সম্পর্কে জানতে চাই",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-31T08:06:25.698Z"
+    },
+    {
+      "id": "msg_1793433989721_out_vuyb",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "outbound",
+      "message_text": "আমাদের সার্ভিস ও প্ল্যান সম্পর্কে জানতে চাওয়ার জন্য ধন্যবাদ।\n\nআমাদের ২টি সাবস্ক্রিপশন প্ল্যান রয়েছে:\n\n১. স্টার্টার প্ল্যান (Starter AI Plan) — ১,২৫০ টাকা/মাস (১টি AI এজেন্ট, ফেসবুক, ইনস্টাগ্রাম, হোয়াটসঅ্যাপ ও ওয়েবসাইট চ্যাটবট, অটো কমেন্ট রিপ্লাই, অটো অর্ডার গ্রহণ এবং ১-ক্লিকে কুরিয়ার বুকিং সুবিধা)\n\n২. প্রো বিজনেস প্ল্যান (Pro Business Plan) — ১,৯৫০ টাকা/মাস (৩টি AI এজেন্ট, ভয়েস মেসেজ ও ছবির মাধ্যমে রিপ্লাই, আনলিমিটেড প্রোডাক্ট ক্যাটালগ, ওয়েবসাইট সিঙ্ক এবং ২৪/৭ ভিআইপি সাপোর্ট)\n\n৩. ফ্রি ট্রায়াল — আমাদের ওয়েবসাইটে (https://www.oneagentbd.online) অ্যাকাউন্ট খুলেই আপনি ২ দিনের (৪৮ ঘণ্টা) সম্পূর্ণ ফ্রি ট্রায়াল নিয়ে সব ফিচার টেস্ট করতে পারবেন\n\nআপনি কি ১ নম্বর (স্টার্টার) নাকি ২ নম্বর (প্রো) প্ল্যানটি সম্পর্কে আরও বিস্তারিত জানতে চাচ্ছেন?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-31T08:06:29.721Z"
+    },
+    {
+      "id": "msg_1793434004042_in_5721",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "inbound",
+      "message_text": "কেমন আছেন ভাই?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "created_at": "2026-10-31T08:06:44.042Z"
+    },
+    {
+      "id": "msg_1793434014315_out_qxpf",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "psid_992817263",
+      "customer_name": "Interactive Tester",
+      "direction": "outbound",
+      "message_text": "আলহামদুলিল্লাহ, আমরা সবাই ভালো আছি!\n\nআশা করি আপনিও ভালো আছেন। 😊\n\nআমাদের One Agent BD-এ আপনাকে স্বাগতম।\n\nবলুন, কীভাবে সাহায্য করতে পারি?",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": false,
+      "status": "sent",
+      "created_at": "2026-10-31T08:06:54.315Z"
     }
   ],
   "settings": {
@@ -3869,8 +4308,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-21T08:38:12.252Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:38:12 AM)",
+    "cron_last_run": "2026-10-31T08:06:42.201Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 8:06:42 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4234,6 +4673,87 @@
     }
   ],
   "webhook_events": [
+    {
+      "id": "wh_1793434004052",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "psid_992817263",
+      "status": "processed",
+      "created_at": "2026-10-31T08:06:44.052Z"
+    },
+    {
+      "id": "wh_1793433985711",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "psid_992817263",
+      "status": "processed",
+      "created_at": "2026-10-31T08:06:25.711Z"
+    },
+    {
+      "id": "wh_1793433953972",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "psid_992817263",
+      "status": "processed",
+      "created_at": "2026-10-31T08:05:53.972Z"
+    },
+    {
+      "id": "wh_1793433601213",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "psid_992817263",
+      "status": "processed",
+      "created_at": "2026-10-31T08:00:01.213Z"
+    },
+    {
+      "id": "wh_1793363875146",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801601705804",
+      "sender_id": "+8801700112233",
+      "status": "processed",
+      "created_at": "2026-10-30T12:37:55.146Z"
+    },
+    {
+      "id": "wh_1793363324280",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "8801601705804",
+      "sender_id": "+8801700112233",
+      "status": "processed",
+      "created_at": "2026-10-30T12:28:44.280Z"
+    },
+    {
+      "id": "wh_1793363285900",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "test_cust_003",
+      "status": "processed",
+      "created_at": "2026-10-30T12:28:05.900Z"
+    },
+    {
+      "id": "wh_1793363245211",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "test_cust_002",
+      "status": "processed",
+      "created_at": "2026-10-30T12:27:25.211Z"
+    },
+    {
+      "id": "wh_1793265821510",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "test_cust_001",
+      "status": "processed",
+      "created_at": "2026-10-29T09:23:41.510Z"
+    },
     {
       "id": "wh_1791882606692",
       "platform": "whatsapp",
@@ -4839,6 +5359,106 @@
   ],
   "notifications": [
     {
+      "id": "notif_meta_perm_1793434014309",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-31T08:06:54.309Z"
+    },
+    {
+      "id": "notif_meta_perm_1793433989716",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-31T08:06:29.716Z"
+    },
+    {
+      "id": "notif_meta_perm_1793433964255",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-31T08:06:04.255Z"
+    },
+    {
+      "id": "notif_1793433964000_4f80",
+      "title": "কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (Interactive Tester)",
+      "message": "কাস্টমারের প্রশ্ন: \"Tumi nijei to deri kore reply daw...ami zodi tumake amar business ar sathe connect kori tahole to am\" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।",
+      "type": "warning",
+      "action_label": "ইনবক্স দেখুন",
+      "action_tab": "inbox",
+      "is_active": true,
+      "created_at": "2026-10-31T08:06:04.000Z"
+    },
+    {
+      "id": "notif_meta_perm_1793433611500",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-31T08:00:11.500Z"
+    },
+    {
+      "id": "notif_meta_perm_1793368003787",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-30T13:46:43.788Z"
+    },
+    {
+      "id": "notif_meta_perm_1793368003452",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-30T13:46:43.452Z"
+    },
+    {
+      "id": "notif_meta_perm_1793363291577",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-30T12:28:11.577Z"
+    },
+    {
+      "id": "notif_meta_perm_1793363250983",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-30T12:27:30.983Z"
+    },
+    {
+      "id": "notif_meta_perm_1793265821861",
+      "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
+      "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
+      "type": "warning",
+      "action_label": "চ্যানেল সেটিংস দেখুন",
+      "action_tab": "channels",
+      "is_active": true,
+      "created_at": "2026-10-29T09:23:41.861Z"
+    },
+    {
       "id": "notif_1791478337209_jjm6",
       "title": "কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (Testing Handover)",
       "message": "কাস্টমারের প্রশ্ন: \"আমার পার্সেলটি ভেঙে গেছে, দ্রুত রিফান্ড চাই\" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।",
@@ -4849,7 +5469,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1792571892252,
+  "_lastUpdatedAt": 1793434014315,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],

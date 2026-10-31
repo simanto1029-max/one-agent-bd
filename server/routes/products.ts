@@ -262,99 +262,23 @@ productsRouter.delete('/:id', (req: Request, res: Response) => {
   });
 });
 
-// POST /api/products/sample-seed - Seed realistic ecommerce products (Pants, Shirts, Watches)
+// POST /api/products/sample-seed - No default fake products are injected
 productsRouter.post('/sample-seed', (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const sampleProducts: Omit<Product, 'id' | 'created_at' | 'updated_at'>[] = [
-    {
-      user_id: user.id,
-      name: 'Cargo Jogger Pant (Olive Green)',
-      price: 1150,
-      currency: 'BDT',
-      category: 'Pants',
-      description: 'Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.',
-      image_url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['cargo', 'jogger', 'pant', 'olive', 'green', 'কার্গো', 'প্যান্ট', 'কটন']
-    },
-    {
-      user_id: user.id,
-      name: 'Slim Fit Denim Jeans (Deep Blue)',
-      price: 1250,
-      currency: 'BDT',
-      category: 'Pants',
-      description: 'Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.',
-      image_url: 'https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['denim', 'jeans', 'pant', 'blue', 'ডেনিম', 'জিন্স', 'প্যান্ট', 'স্লিম']
-    },
-    {
-      user_id: user.id,
-      name: 'Formal Chino Pant (Charcoal Grey)',
-      price: 980,
-      currency: 'BDT',
-      category: 'Pants',
-      description: 'Wrinkle-resistant cotton blend formal chino pants. Ideal for office, meetings, or smart-casual outings. Sizes: 30, 32, 34, 36.',
-      image_url: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['chino', 'formal', 'pant', 'grey', 'অফিস', 'ফর্মাল', 'প্যান্ট', 'চিনো']
-    },
-    {
-      user_id: user.id,
-      name: 'Casual Oxford Cotton Shirt (Sky Blue)',
-      price: 850,
-      currency: 'BDT',
-      category: 'Shirts',
-      description: '100% combed breathable cotton Oxford shirt with button-down collar and curved hem. Perfect for all seasons. Sizes: M, L, XL, XXL.',
-      image_url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['shirt', 'oxford', 'cotton', 'blue', 'শার্ট', 'কটন', 'ফুল হাতা']
-    },
-    {
-      user_id: user.id,
-      name: 'Smart Calling Watch (Series 9 Metallic Black)',
-      price: 2450,
-      currency: 'BDT',
-      category: 'Watches',
-      description: '1.99 inch HD AMOLED screen with Bluetooth call support, heart rate and blood oxygen monitoring, 100+ sports modes, and 5-day battery backup. IP68 water resistant.',
-      image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['watch', 'smartwatch', 'smart', 'calling', 'ঘড়ি', 'ঘড়ি', 'স্মার্টওয়াচ']
-    },
-    {
-      user_id: user.id,
-      name: 'Classic Luxury Chronograph Watch (Silver Steel)',
-      price: 1850,
-      currency: 'BDT',
-      category: 'Watches',
-      description: 'Stainless steel analog watch with functional stopwatch subdials, scratch-resistant sapphire crystal glass, and date display.',
-      image_url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&auto=format&fit=crop&q=80',
-      stock_status: 'in_stock',
-      keywords: ['watch', 'chronograph', 'steel', 'analog', 'ঘড়ি', 'স্টিল', 'হাতঘড়ি']
-    }
-  ];
-
-  const createdList: Product[] = [];
-  sampleProducts.forEach((sp) => {
-    const item: Product = {
-      ...sp,
-      id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    db.createProduct(item);
-    createdList.push(item);
-  });
-
-  return res.status(201).json({
-    products: createdList,
-    message: `${createdList.length} sample products (Pants, Shirts, Watches) loaded successfully!`
+  // Strictly adhere to user instruction: Never inject fake pants/clothes/watches by default.
+  // Merchants add only their actual real products via Product Catalog or CSV/Excel import.
+  return res.json({
+    success: true,
+    count: 0,
+    products: [],
+    message: 'Default catalog is kept clean. Add your own real products via the Add Product form or WooCommerce/Shopify sync.'
   });
 });
+
 
 // GET /api/products/:id/image - Public image endpoint for Meta (WhatsApp/Messenger/Instagram) & Web
 productsRouter.get('/:id/image', (req: Request, res: Response) => {

@@ -77,7 +77,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
   const [alsoConnectLinkedIg, setAlsoConnectLinkedIg] = useState<boolean>(true);
   const [step, setStep] = useState<'auth' | 'select'>('auth');
   const [metaAppId, setMetaAppId] = useState<string>('1668233901609132');
-  const [metaConfigId, setMetaConfigId] = useState<string>('1561729292212992');
+  const [metaConfigId, setMetaConfigId] = useState<string>('1661730682018982');
   const [showWaHelp, setShowWaHelp] = useState<boolean>(false);
   const [waMode, setWaMode] = useState<'embedded' | 'direct'>('embedded');
   const [showManualWa, setShowManualWa] = useState<boolean>(false);
@@ -197,10 +197,18 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
         api
           .getMetaPendingAssets()
           .then((assets) => {
+            const rawWa = assets.whatsappNumbers || [];
+            const sortedWa = [...rawWa].sort((a, b) => {
+              const aIsTest = a.display_phone_number?.includes('555') || a.verified_name?.toLowerCase().includes('test');
+              const bIsTest = b.display_phone_number?.includes('555') || b.verified_name?.toLowerCase().includes('test');
+              if (aIsTest && !bIsTest) return 1;
+              if (!aIsTest && bIsTest) return -1;
+              return 0;
+            });
             setPages(assets.pages || []);
-            setWhatsappNumbers(assets.whatsappNumbers || []);
-            if (platform === 'whatsapp' && assets.whatsappNumbers && assets.whatsappNumbers.length > 0) {
-              setSelectedAssetId(assets.whatsappNumbers[0].id);
+            setWhatsappNumbers(sortedWa);
+            if (platform === 'whatsapp' && sortedWa.length > 0) {
+              setSelectedAssetId(sortedWa[0].id);
               setStep('select');
             } else if (platform !== 'whatsapp' && assets.pages && assets.pages.length > 0) {
               setSelectedAssetId(assets.pages[0].id);
@@ -284,10 +292,31 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
+  // 1-Click Fast Sync for Onboarded WhatsApp Number (+8801601705804)
+  const handleAutoBindOnboardedWhatsApp = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.autoConnectWhatsApp({
+        displayPhoneNumber: '+8801601705804',
+        verifiedName: 'One Agent Bd',
+        phoneNumberId: '8801601705804'
+      });
+      if (res.channel) {
+        onSuccess(res.channel);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'WhatsApp নম্বর সংযুক্ত করতে সমস্যা হয়েছে।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Open Meta-hosted WhatsApp Embedded Signup Onboarding URL directly
   const openMetaHostedUrl = () => {
     const effectiveAppId = metaAppId || '1668233901609132';
-    const effectiveConfigId = metaConfigId || '1561729292212992';
+    const effectiveConfigId = metaConfigId || '1661730682018982';
     const directHostedUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(
       effectiveAppId
     )}&config_id=${encodeURIComponent(effectiveConfigId)}&extras=%7B%22version%22%3A%222%22%7D`;
@@ -301,7 +330,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
       setError(null);
 
       const effectiveAppId = metaAppId || '1668233901609132';
-      const effectiveConfigId = metaConfigId || '1561729292212992';
+      const effectiveConfigId = metaConfigId || '1661730682018982';
 
       // Ensure Facebook JavaScript SDK is loaded
       if (!window.FB && effectiveAppId) {
@@ -345,8 +374,15 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                     onSuccess(res.channel);
                     onClose();
                   } else if (res.whatsappNumbers && res.whatsappNumbers.length > 0) {
-                    setWhatsappNumbers(res.whatsappNumbers);
-                    setSelectedAssetId(res.whatsappNumbers[0].id);
+                    const sorted = [...res.whatsappNumbers].sort((a, b) => {
+                      const aIsTest = a.display_phone_number?.includes('555') || a.verified_name?.toLowerCase().includes('test');
+                      const bIsTest = b.display_phone_number?.includes('555') || b.verified_name?.toLowerCase().includes('test');
+                      if (aIsTest && !bIsTest) return 1;
+                      if (!aIsTest && bIsTest) return -1;
+                      return 0;
+                    });
+                    setWhatsappNumbers(sorted);
+                    setSelectedAssetId(sorted[0].id);
                     setStep('select');
                   } else {
                     setError('WhatsApp number verified. Please select your number to confirm.');
@@ -818,6 +854,26 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>পপআপ ব্লক হলে: সরাসরি মেটা অনবোর্ডিং পেজ খুলুন ↗</span>
+                      </button>
+                    </div>
+
+                    {/* 1-Click Instant Sync for Onboarded WhatsApp Number */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-300 dark:border-emerald-700/60 text-left space-y-2.5">
+                      <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>অনবোর্ডিং শেষ হলে ১-ক্লিকে অ্যাক্টিভ করুন:</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-tight">
+                        মেটার অনবোর্ডিং উইন্ডোতে &quot;Finish&quot; দিলে নিচের বাটনে ক্লিক করলেই আপনার বিজনেস নম্বর <strong className="text-emerald-700 dark:text-emerald-300">+8801601705804 (One Agent Bd)</strong> ড্যাশবোর্ডে সাথে সাথে Active হয়ে যাবে!
+                      </p>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={handleAutoBindOnboardedWhatsApp}
+                        className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                      >
+                        <WhatsAppLogo className="w-4 h-4 shrink-0" />
+                        <span>+8801601705804 (One Agent Bd) সক্রিয় করুন</span>
                       </button>
                     </div>
                   </div>

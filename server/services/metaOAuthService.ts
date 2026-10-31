@@ -83,7 +83,7 @@ export class MetaOAuthService {
 
   private getConfigId(): string {
     const settings = db.getSettings();
-    return (settings?.meta_config_id || process.env.META_CONFIG_ID || '1561729292212992').trim();
+    return (settings?.meta_config_id || process.env.META_CONFIG_ID || '1661730682018982').trim();
   }
 
   private getVerifyToken(): string {
@@ -1052,24 +1052,37 @@ export class MetaOAuthService {
         if (wabaRes.ok && wabaJson) {
           verifiedName = wabaJson.name || '';
           const phoneList = wabaJson.phone_numbers?.data || [];
-          if (!targetPhoneId && phoneList.length > 0) {
-            // Prioritize REAL business phone number over Meta's sandbox test number (+1 555-xxx)
-            const nonTestPhone = phoneList.find(
+          if (phoneList.length > 0) {
+            // Prioritize REAL business phone number (especially BD +880 or non-555 numbers) over Meta's sandbox test number (+1 555-xxx)
+            const realBdPhone = phoneList.find(
+              (p: any) =>
+                p.display_phone_number &&
+                (p.display_phone_number.includes('880') || p.display_phone_number.includes('1601705804'))
+            );
+            const realNonTestPhone = realBdPhone || phoneList.find(
               (p: any) =>
                 p.display_phone_number &&
                 !p.display_phone_number.includes('555') &&
                 !p.display_phone_number.startsWith('+1555') &&
                 !String(p.verified_name || '').toLowerCase().includes('test')
             );
-            const chosen = nonTestPhone || phoneList[0];
-            targetPhoneId = chosen.id;
-            displayPhone = chosen.display_phone_number || chosen.id;
-            verifiedName = chosen.verified_name || verifiedName;
-          } else if (targetPhoneId) {
-            const matched = phoneList.find((p: any) => p.id === targetPhoneId);
-            if (matched) {
-              displayPhone = matched.display_phone_number || targetPhoneId;
-              verifiedName = matched.verified_name || verifiedName;
+
+            const currentIsTest = targetPhoneId && phoneList.find((p: any) => p.id === targetPhoneId && (p.display_phone_number?.includes('555') || String(p.verified_name || '').toLowerCase().includes('test')));
+
+            if ((!targetPhoneId || currentIsTest) && realNonTestPhone) {
+              targetPhoneId = realNonTestPhone.id;
+              displayPhone = realNonTestPhone.display_phone_number || realNonTestPhone.id;
+              verifiedName = realNonTestPhone.verified_name || verifiedName;
+            } else if (targetPhoneId) {
+              const matched = phoneList.find((p: any) => p.id === targetPhoneId);
+              if (matched) {
+                displayPhone = matched.display_phone_number || targetPhoneId;
+                verifiedName = matched.verified_name || verifiedName;
+              }
+            } else if (phoneList[0]) {
+              targetPhoneId = phoneList[0].id;
+              displayPhone = phoneList[0].display_phone_number || phoneList[0].id;
+              verifiedName = phoneList[0].verified_name || verifiedName;
             }
           }
         }
@@ -1135,14 +1148,20 @@ export class MetaOAuthService {
     if (effectiveToken) {
       const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
       if (whatsappNumbers && whatsappNumbers.length > 0) {
-        // Prioritize real business number over Meta's sandbox test number (+1 555-xxx)
-        const realNumber = whatsappNumbers.find(
-          (w) =>
-            w.display_phone_number &&
-            !w.display_phone_number.includes('555') &&
-            !w.display_phone_number.startsWith('+1555') &&
-            !w.waba_name?.toLowerCase().includes('test')
-        );
+        // Prioritize real BD business number over Meta's sandbox test number (+1 555-xxx)
+        const realNumber =
+          whatsappNumbers.find(
+            (w) =>
+              w.display_phone_number &&
+              (w.display_phone_number.includes('880') || w.display_phone_number.includes('1601705804'))
+          ) ||
+          whatsappNumbers.find(
+            (w) =>
+              w.display_phone_number &&
+              !w.display_phone_number.includes('555') &&
+              !w.display_phone_number.startsWith('+1555') &&
+              !w.waba_name?.toLowerCase().includes('test')
+          );
         const autoWa = realNumber || whatsappNumbers[0];
         const autoConn = await this.connectWhatsAppOnboarding(userId, {
           wabaId: autoWa.waba_id,

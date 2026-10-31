@@ -997,7 +997,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     support_email: 'support@oneagentbd.online',
     meta_description: 'Automate WhatsApp and Messenger customer inquiries and order confirmations with fine-tuned AI agents, unified inbox, and instant billing.',
     meta_app_id: '1668233901609132',
-    meta_config_id: '1561729292212992',
+    meta_config_id: '1661730682018982',
     cron_last_run: new Date().toISOString(),
     cron_status: 'Healthy (Running hourly checks)'
   }
@@ -1122,10 +1122,58 @@ class Database {
         (c: Channel) =>
           c.id !== 'chn_wa_001' &&
           c.id !== 'chn_fb_002' &&
-          c.id !== 'chn_me_1789553189985_lrft' &&
           c.id !== 'chn_wh_1789555400609_26an' &&
           c.id !== 'chn_in_1789983618031_f34e'
       );
+
+      // Ensure usr_demo_002's WhatsApp channel has their real onboarded business number +8801601705804
+      const waDemo = parsed.channels.find(
+        (c: Channel) => c.platform === 'whatsapp' && (c.user_id === 'usr_demo_002' || c.identifier === '8801712345678')
+      );
+      if (waDemo) {
+        waDemo.identifier = '8801601705804';
+        waDemo.name = 'One Agent Bd (+8801601705804)';
+        waDemo.is_active = true;
+        waDemo.status = 'connected';
+      } else {
+        parsed.channels.push({
+          id: 'chn_wa_qr_1791268848603',
+          user_id: 'usr_demo_002',
+          platform: 'whatsapp',
+          name: 'One Agent Bd (+8801601705804)',
+          identifier: '8801601705804',
+          access_token: 'system_cloud_token',
+          is_active: true,
+          status: 'connected',
+          auto_comment_reply: true,
+          auto_followup_enabled: true,
+          created_at: '2026-10-06T06:40:48.603Z',
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Ensure Facebook Page channel (379312975259492) is active for usr_demo_002
+      const fbDemo = parsed.channels.find(
+        (c: Channel) => c.platform === 'messenger' && (c.identifier === '379312975259492' || c.id === 'chn_me_1789553189985_lrft')
+      );
+      if (!fbDemo) {
+        parsed.channels.push({
+          id: 'chn_me_1789553189985_lrft',
+          user_id: 'usr_demo_002',
+          platform: 'messenger',
+          name: 'One Agent BD',
+          identifier: '379312975259492',
+          access_token: 'system_cloud_token',
+          is_active: true,
+          status: 'connected',
+          meta_asset_name: 'One Agent BD',
+          meta_asset_id: '379312975259492',
+          auto_comment_reply: true,
+          auto_followup_enabled: true,
+          created_at: '2026-09-16T10:15:00.000Z',
+          updated_at: new Date().toISOString()
+        });
+      }
     }
     if (parsed.messages) {
       parsed.messages = parsed.messages.filter(
@@ -1184,8 +1232,8 @@ class Database {
       const nowIso = new Date().toISOString();
       const defaultSeedItems: Product[] = [
         {
-          id: 'prod_seed_cargo_01',
-          user_id: 'usr_demo_002',
+          id: 'prod_admin_cargo_01',
+          user_id: 'usr_admin_001',
           name: 'Cargo Jogger Pant (Olive Green)',
           price: 1150,
           currency: 'BDT',
@@ -1198,8 +1246,8 @@ class Database {
           updated_at: nowIso
         },
         {
-          id: 'prod_seed_denim_02',
-          user_id: 'usr_demo_002',
+          id: 'prod_admin_denim_02',
+          user_id: 'usr_admin_001',
           name: 'Slim Fit Denim Jeans (Deep Blue)',
           price: 1250,
           currency: 'BDT',
@@ -1212,8 +1260,8 @@ class Database {
           updated_at: nowIso
         },
         {
-          id: 'prod_seed_shirt_03',
-          user_id: 'usr_demo_002',
+          id: 'prod_admin_shirt_03',
+          user_id: 'usr_admin_001',
           name: 'Casual Oxford Cotton Shirt (Sky Blue)',
           price: 850,
           currency: 'BDT',
@@ -1226,8 +1274,8 @@ class Database {
           updated_at: nowIso
         },
         {
-          id: 'prod_seed_watch_04',
-          user_id: 'usr_demo_002',
+          id: 'prod_admin_watch_04',
+          user_id: 'usr_admin_001',
           name: 'Smart Calling Watch (Series 9 Metallic Black)',
           price: 2450,
           currency: 'BDT',
@@ -1240,13 +1288,7 @@ class Database {
           updated_at: nowIso
         }
       ];
-      // Also copy to usr_admin_001
-      const adminItems = defaultSeedItems.map((p) => ({
-        ...p,
-        id: p.id.replace('prod_seed_', 'prod_admin_'),
-        user_id: 'usr_admin_001'
-      }));
-      parsed.products = [...defaultSeedItems, ...adminItems];
+      parsed.products = defaultSeedItems;
     } else {
       // Fix any mismatched seed image URLs in existing database records
       parsed.products.forEach((p: Product) => {
@@ -2729,6 +2771,16 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return undefined;
     }
 
+    // Never match a product on conversational feedback, complaints, speed criticism, or service inquiries
+    const nonProductConversationalSignals = [
+      'deri', 'derite', 'ans den na', 'ans dao na', 'reply daw na', 'reply den na', 'reply dei na',
+      'late', 'slow', 'harabo', 'harai', 'customer', 'customers', 'service kemon', 'service kmn',
+      'connect', 'kotha bolte', 'call din', 'call den', 'সাহায্য', 'দেরি', 'উত্তর দেন না', 'রিপ্লাই দেন না'
+    ];
+    if (nonProductConversationalSignals.some((sig) => q.includes(sig))) {
+      return undefined;
+    }
+
     // 0. If customer is asking for the catalog / all products / what items exist, NEVER lock to a single product!
     // But ONLY if they are NOT asking an attribute question like 'ki ki size' or 'ki ki color'!
     const isAskingAboutAttribute =
@@ -2893,22 +2945,13 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       rawTokens.some((t) => t.length >= 4 && getLevenshteinDistance(t, 'shirt') <= 1);
 
     const queryMentionsPant =
-      q.includes('pant') ||
-      q.includes('pent') ||
-      q.includes('pants') ||
-      q.includes('pents') ||
+      /\b(pant|pants|pent|pents|cargo|jogger|joggers|denim|trouser|trousers)\b/i.test(q) ||
       q.includes('প্যান্ট') ||
       q.includes('জিন্স') ||
-      q.includes('jeans') ||
-      q.includes('cargo') ||
       q.includes('কার্গো') ||
-      q.includes('jogger') ||
       q.includes('জগার') ||
-      q.includes('denim') ||
       q.includes('ডেনিম') ||
-      q.includes('trouser') ||
-      normalizedTokens.includes('pant') ||
-      rawTokens.some((t) => t.length >= 4 && getLevenshteinDistance(t, 'pant') <= 1);
+      normalizedTokens.includes('pant');
 
     const queryMentionsWatch =
       q.includes('watch') ||

@@ -217,8 +217,8 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
     existingBatch.latestEvent = event;
 
     const elapsed = Date.now() - existingBatch.firstReceivedAt;
-    const remainingCeiling = Math.max(300, 4000 - elapsed);
-    const debounceWait = Math.min(1800, remainingCeiling);
+    const remainingCeiling = Math.max(200, 2000 - elapsed);
+    const debounceWait = Math.min(350, remainingCeiling);
 
     existingBatch.timer = setTimeout(() => {
       runCustomerBatch(event.customerId);
@@ -227,7 +227,7 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
     return existingBatch.resultPromise;
   }
 
-  // Start new batch
+  // Start new batch with fast 350ms initial wait (replies in ~1 second!)
   let resolveBatch!: (res: InboundProcessResult) => void;
   let rejectBatch!: (err: any) => void;
   const resultPromise = new Promise<InboundProcessResult>((resolve, reject) => {
@@ -251,7 +251,7 @@ export async function handleInboundWebhook(event: InboundWebhookEvent): Promise<
     firstReceivedAt: Date.now(),
     timer: setTimeout(() => {
       runCustomerBatch(event.customerId);
-    }, 1800),
+    }, 350),
     resolveBatch,
     rejectBatch,
     resultPromise
@@ -505,22 +505,9 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
   // 5.8 Cost-Saver / Instant FAQ Rule Check (Saves LLM tokens & WhatsApp credits!)
   const merchantProfile = db.getProfileById(channel.user_id);
   const costSaverEnabled = (merchantProfile as any)?.instant_rules_active !== false;
-  const instantRules: any[] = (merchantProfile as any)?.instant_faq_rules || [
-    {
-      id: 'rule_delivery',
-      name: 'ডেলিভারি চার্জ ও সময়',
-      keywords: ['delivery charge', 'ডেলিভারি চার্জ', 'delivery fee', 'delivery khoroch', 'ডেলিভারি খরচ'],
-      reply_text: 'আমাদের ডেলিভারি চার্জ: ঢাকা সিটির ভিতরে মাত্র ৳৮০, এবং ঢাকার বাইরে সারাদেশে ৳১৫০। ২-৩ কার্যদিবসের মধ্যে দ্রুততম হোম ডেলিভারি পৌঁছে যাবে ইনশাআল্লাহ।',
-      is_active: true
-    },
-    {
-      id: 'rule_payment',
-      name: 'পেমেন্ট ও বিকাশ/নগদ',
-      keywords: ['bkash payment', 'বিকাশ নম্বর', 'বিকাশ পেমেন্ট', 'nagad payment', 'নগদ নম্বর', 'পেমেন্ট মেথড', 'পেমেন্ট কিভাবে'],
-      reply_text: 'আপনি ক্যাশ অন ডেলিভারিতে পণ্য হাতে পেয়ে মূল্য পরিশোধ করতে পারবেন। অথবা আমাদের bKash/Nagad মার্চেন্ট নম্বরে অগ্রিম পে করতে পারেন।',
-      is_active: true
-    }
-  ];
+  const instantRules: any[] = Array.isArray((merchantProfile as any)?.instant_faq_rules)
+    ? (merchantProfile as any).instant_faq_rules
+    : [];
 
   let matchedInstantRule: any = null;
   const effectiveCustomerText = (inbound.transcription || event.messageText || inbound.message_text || '').trim();
@@ -952,7 +939,7 @@ export async function sendMetaTypingAndSeenIndicator(
     if (channel.platform === 'messenger' || channel.platform === 'instagram') {
       const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
       if (action === 'typing_on') {
-        // Send both mark_seen and typing_on in parallel so the customer immediately sees "Seen" + "Typing..." bubble
+        // Send both mark_seen and typing_on in parallel so the customer immediately sees "Seen" + "Typing..." bubble in 1-2 seconds
         await Promise.allSettled([
           fetch(url, {
             method: 'POST',
@@ -960,7 +947,8 @@ export async function sendMetaTypingAndSeenIndicator(
             body: JSON.stringify({
               recipient: { id: cleanRecipientId },
               sender_action: 'mark_seen'
-            })
+            }),
+            signal: AbortSignal.timeout(2000)
           }),
           fetch(url, {
             method: 'POST',
@@ -968,7 +956,8 @@ export async function sendMetaTypingAndSeenIndicator(
             body: JSON.stringify({
               recipient: { id: cleanRecipientId },
               sender_action: 'typing_on'
-            })
+            }),
+            signal: AbortSignal.timeout(2000)
           })
         ]);
       } else {
@@ -978,7 +967,8 @@ export async function sendMetaTypingAndSeenIndicator(
           body: JSON.stringify({
             recipient: { id: cleanRecipientId },
             sender_action: 'typing_off'
-          })
+          }),
+          signal: AbortSignal.timeout(2000)
         }).catch(() => {});
       }
     }
@@ -1183,7 +1173,8 @@ async function sendMetaMessage(
           Authorization: `Bearer ${channel.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(bodyPayload)
+        body: JSON.stringify(bodyPayload),
+        signal: AbortSignal.timeout(5000)
       });
 
       // Fallback to standard text if interactive payload had any formatting issue
@@ -1199,7 +1190,8 @@ async function sendMetaMessage(
             to: recipientId,
             type: 'text',
             text: { body: text }
-          })
+          }),
+          signal: AbortSignal.timeout(5000)
         });
       }
       if (!res.ok) {
@@ -1302,7 +1294,8 @@ async function sendMetaMessage(
             recipient: recipientObj,
             ...(isCommentLead ? {} : { messaging_type: 'RESPONSE' }),
             message: msgObject
-          })
+          }),
+          signal: AbortSignal.timeout(5000)
         });
         if (res.ok) {
           console.log(`[${channel.platform} Outbound Success] Sent reply to ${recipientId}`);

@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { handleInboundWebhook, handleInboundCommentWebhook, fetchMetaCustomerProfile } from '../services/metaService.js';
+import {
+  handleInboundWebhook,
+  handleInboundCommentWebhook,
+  fetchMetaCustomerProfile,
+  sendMetaTypingAndSeenIndicator
+} from '../services/metaService.js';
 import { db } from '../db/database.js';
 
 export const webhooksRouter = Router();
@@ -105,6 +110,11 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
               messageObj.caption ||
               (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
 
+            const immediateWaChannel = db.getChannelByIdentifier('whatsapp', phoneNumberId);
+            if (immediateWaChannel && senderId && messageId) {
+              sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+            }
+
             tasks.push(
               handleInboundWebhook({
                 platform: 'whatsapp',
@@ -164,13 +174,19 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
             tasks.push(
               (async () => {
                 const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
-                const profile = await fetchMetaCustomerProfile(
-                  targetPlatform,
-                  senderId,
-                  targetChannel?.access_token
-                );
+                if (targetChannel && senderId) {
+                  sendMetaTypingAndSeenIndicator(targetChannel, senderId, messageId, 'typing_on').catch(() => {});
+                }
+                const profile = await Promise.race([
+                  fetchMetaCustomerProfile(
+                    targetPlatform,
+                    senderId,
+                    targetChannel?.access_token
+                  ),
+                  new Promise<any>((r) => setTimeout(() => r({}), 450))
+                ]);
 
-                const resolvedName = profile.name || `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`;
+                const resolvedName = profile?.name || `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`;
 
                 return handleInboundWebhook({
                   platform: targetPlatform,
@@ -352,6 +368,11 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
               messageObj.caption ||
               (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
 
+            const immediateWaChannel = db.getChannelByIdentifier('whatsapp', phoneNumberId);
+            if (immediateWaChannel && senderId && messageId) {
+              sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+            }
+
             tasks.push(
               handleInboundWebhook({
                 platform: 'whatsapp',
@@ -462,13 +483,19 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
             tasks.push(
               (async () => {
                 const targetChannel = db.getChannelByIdentifier('messenger', pageId);
-                const profile = await fetchMetaCustomerProfile(
-                  'messenger',
-                  senderId,
-                  targetChannel?.access_token
-                );
+                if (targetChannel && senderId) {
+                  sendMetaTypingAndSeenIndicator(targetChannel, senderId, messageId, 'typing_on').catch(() => {});
+                }
+                const profile = await Promise.race([
+                  fetchMetaCustomerProfile(
+                    'messenger',
+                    senderId,
+                    targetChannel?.access_token
+                  ),
+                  new Promise<any>((r) => setTimeout(() => r({}), 350))
+                ]);
 
-                const resolvedName = profile.name || `Messenger User (${senderId.slice(-4)})`;
+                const resolvedName = profile?.name || `Messenger User (${senderId.slice(-4)})`;
 
                 return handleInboundWebhook({
                   platform: 'messenger',

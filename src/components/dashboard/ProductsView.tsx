@@ -44,38 +44,7 @@ const PRESET_CATEGORIES = [
   'Accessories'
 ];
 
-const PRESET_DEMO_IMAGES = [
-  {
-    name: 'Cargo Jogger Pant (Olive)',
-    category: 'Pants',
-    url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Slim Fit Denim Jeans (Blue)',
-    category: 'Pants',
-    url: 'https://images.unsplash.com/photo-1542272604-780c96856592?w=600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Formal Chino Pant (Grey)',
-    category: 'Pants',
-    url: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Casual Cotton Oxford Shirt',
-    category: 'Shirts',
-    url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Smart Calling Watch',
-    category: 'Watches',
-    url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Luxury Steel Chronograph',
-    category: 'Watches',
-    url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&auto=format&fit=crop&q=80'
-  }
-];
+const PRESET_DEMO_IMAGES: Array<{ name: string; category: string; url: string }> = [];
 
 export const ProductsView: React.FC<ProductsViewProps> = ({ onNavigate }) => {
   const [products, setProducts] = useState<Product[]>([]);

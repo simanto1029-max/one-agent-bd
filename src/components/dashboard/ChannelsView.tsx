@@ -1224,10 +1224,10 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleConnectClick('whatsapp')}
-                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{whatsappChannels.length > 0 ? 'Connect Another Number' : 'Connect WhatsApp'}</span>
+                    <WhatsAppLogo className="w-4 h-4 shrink-0" />
+                    <span>{whatsappChannels.length > 0 ? 'Connect Another WhatsApp' : 'Connect WhatsApp'}</span>
                   </button>
                 </div>
               </div>
