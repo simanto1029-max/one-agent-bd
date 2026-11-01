@@ -954,7 +954,11 @@ export async function sendMetaTypingAndSeenIndicator(
   try {
     if (channel.platform === 'whatsapp') {
       if (action !== 'typing_on' || !messageId) return;
-      const url = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
+      const phoneId =
+        channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
+          ? channel.meta_asset_id
+          : channel.identifier;
+      const url = `https://graph.facebook.com/v21.0/${phoneId}/messages`;
       // Send official WhatsApp Cloud API Read Receipt + Typing Indicator
       const res = await fetch(url, {
         method: 'POST',
@@ -1115,7 +1119,11 @@ async function sendMetaMessage(
     }
 
     if (channel.platform === 'whatsapp') {
-      const url = `https://graph.facebook.com/v21.0/${channel.identifier}/messages`;
+      const phoneId =
+        channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
+          ? channel.meta_asset_id
+          : channel.identifier;
+      const url = `https://graph.facebook.com/v21.0/${phoneId}/messages`;
 
       // 1. Send all product image attachments first
       for (const img of imagesToSend) {
