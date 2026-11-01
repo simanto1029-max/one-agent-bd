@@ -307,6 +307,7 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
   console.log(`[WhatsApp Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
 
   const allowedTokens = [
+    'oneagentbd_messenger_secret',
     'oneagentbd_wa_secret',
     'oneagentbd_whatsapp_secret',
     'oneagentbd_secret',
