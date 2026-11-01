@@ -886,13 +886,66 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
   };
 }
 
+export function isPlaceholderToken(token?: string): boolean {
+  if (!token) return true;
+  const t = token.trim();
+  return (
+    t.length < 15 ||
+    t.includes('demo') ||
+    t.startsWith('sim_') ||
+    t === 'system_cloud_token' ||
+    t.startsWith('qr_linked_token') ||
+    t === 'one_agent_bd_verify_token'
+  );
+}
+
+export function resolveEffectiveChannelToken(channel: Channel): string {
+  // 1. Direct valid token on channel
+  if (channel.access_token && !isPlaceholderToken(channel.access_token)) {
+    return channel.access_token.trim();
+  }
+
+  // 2. Check Facebook Pages stored for this user (for messenger/instagram)
+  if (channel.platform === 'messenger' || channel.platform === 'instagram') {
+    const pages = db.getFacebookPages(channel.user_id);
+    const matchedPage = pages.find(
+      (p) =>
+        p.id === channel.identifier ||
+        (p.instagram_business_account && p.instagram_business_account.id === channel.identifier)
+    );
+    if (matchedPage?.access_token && !isPlaceholderToken(matchedPage.access_token)) {
+      return matchedPage.access_token.trim();
+    }
+  }
+
+  // 3. Check user profile meta_user_access_token
+  const user = db.getProfileById(channel.user_id);
+  if (user?.meta_user_access_token && !isPlaceholderToken(user.meta_user_access_token)) {
+    return user.meta_user_access_token.trim();
+  }
+
+  // 4. Check Environment variables
+  if (channel.platform === 'whatsapp') {
+    const envToken = process.env.WHATSAPP_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN;
+    if (envToken && !isPlaceholderToken(envToken)) return envToken.trim();
+  } else {
+    const envToken =
+      process.env.META_PAGE_ACCESS_TOKEN || process.env.PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN;
+    if (envToken && !isPlaceholderToken(envToken)) return envToken.trim();
+  }
+
+  return channel.access_token || '';
+}
+
 export async function sendMetaTypingAndSeenIndicator(
   channel: Channel,
   recipientId: string,
   messageId?: string,
   action: 'typing_on' | 'typing_off' = 'typing_on'
 ): Promise<void> {
-  if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
+  const effectiveToken = resolveEffectiveChannelToken(channel);
+  if (isPlaceholderToken(effectiveToken)) {
+    // In simulation mode, skip outbound network calls to prevent Meta Graph API error 190
     return;
   }
   const cleanRecipientId = recipientId.startsWith('commenter_') ? '' : recipientId;
@@ -906,7 +959,7 @@ export async function sendMetaTypingAndSeenIndicator(
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${channel.access_token}`,
+          Authorization: `Bearer ${effectiveToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -916,28 +969,31 @@ export async function sendMetaTypingAndSeenIndicator(
           typing_indicator: {
             type: 'text'
           }
-        })
-      });
+        }),
+        signal: AbortSignal.timeout(2000)
+      }).catch(() => null);
+
       // Fallback if the WABA API version only accepts status: "read" without typing_indicator
-      if (!res.ok) {
+      if (res && !res.ok) {
         await fetch(url, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${channel.access_token}`,
+            Authorization: `Bearer ${effectiveToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             messaging_product: 'whatsapp',
             status: 'read',
             message_id: messageId
-          })
+          }),
+          signal: AbortSignal.timeout(2000)
         }).catch(() => {});
       }
       return;
     }
 
     if (channel.platform === 'messenger' || channel.platform === 'instagram') {
-      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(effectiveToken)}`;
       if (action === 'typing_on') {
         // Send both mark_seen and typing_on in parallel so the customer immediately sees "Seen" + "Typing..." bubble in 1-2 seconds
         await Promise.allSettled([
@@ -1036,12 +1092,12 @@ async function sendMetaMessage(
   interactiveOptions?: InteractiveMessageConfig,
   attachedImages?: string[]
 ): Promise<{ ok: boolean; outsideWindow?: boolean; error?: string }> {
-  // If token is demo/simulated, don't make outbound network call
-  if (!channel.access_token || channel.access_token.includes('demo') || channel.access_token.startsWith('sim_')) {
+  const effectiveToken = resolveEffectiveChannelToken(channel);
+
+  // If token is demo/simulated or placeholder, don't make outbound network call to prevent Meta error 190
+  if (isPlaceholderToken(effectiveToken)) {
     console.log(
-      `[Meta Simulation] Outbound ${channel.platform} message sent to ${recipientId}: "${text}" ${
-        imageUrl ? `[Image: ${imageUrl}]` : ''
-      } ${interactiveOptions ? `[Interactive: ${interactiveOptions.type}]` : ''}`
+      `[Meta Simulation / Pending Token] Outbound ${channel.platform} reply logged for ${recipientId}: "${text.slice(0, 80)}...". Set valid Page / WhatsApp Access Token in channel settings to send live Meta messages.`
     );
     return { ok: true };
   }
@@ -1065,12 +1121,12 @@ async function sendMetaMessage(
       for (const img of imagesToSend) {
         try {
           if (img.startsWith('data:image/')) {
-            const mediaId = await uploadDataUrlToMeta('whatsapp', channel.identifier, channel.access_token, img);
+            const mediaId = await uploadDataUrlToMeta('whatsapp', channel.identifier, effectiveToken, img);
             if (mediaId) {
               await fetch(url, {
                 method: 'POST',
                 headers: {
-                  Authorization: `Bearer ${channel.access_token}`,
+                  Authorization: `Bearer ${effectiveToken}`,
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -1085,7 +1141,7 @@ async function sendMetaMessage(
             await fetch(url, {
               method: 'POST',
               headers: {
-                Authorization: `Bearer ${channel.access_token}`,
+                Authorization: `Bearer ${effectiveToken}`,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
@@ -1170,7 +1226,7 @@ async function sendMetaMessage(
       let res = await fetch(url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${channel.access_token}`,
+          Authorization: `Bearer ${effectiveToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(bodyPayload),
@@ -1182,7 +1238,7 @@ async function sendMetaMessage(
         res = await fetch(url, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${channel.access_token}`,
+            Authorization: `Bearer ${effectiveToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -1206,7 +1262,7 @@ async function sendMetaMessage(
       }
       return { ok: true };
     } else if (channel.platform === 'messenger' || channel.platform === 'instagram') {
-      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(channel.access_token)}`;
+      const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(effectiveToken)}`;
       const isCommentLead = recipientId.startsWith('commenter_');
       const recipientObj = isCommentLead
         ? { comment_id: recipientId.replace(/^commenter_/, '') }
@@ -1219,7 +1275,7 @@ async function sendMetaMessage(
               const attachmentId = await uploadDataUrlToMeta(
                 channel.platform as any,
                 channel.identifier,
-                channel.access_token,
+                effectiveToken,
                 img
               );
               if (attachmentId) {

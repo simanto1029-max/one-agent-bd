@@ -1970,9 +1970,14 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     const cleanId = String(identifier || '').trim().toLowerCase();
     if (!cleanId) return undefined;
 
-    // 1. Exact match with active channel
+    // 1. Exact match with active channel identifier or meta_asset_id
     const exact = this.data.channels.find(
-      (c) => c.platform === platform && c.identifier.trim().toLowerCase() === cleanId && c.is_active
+      (c) =>
+        c.platform === platform &&
+        c.is_active &&
+        (c.identifier.trim().toLowerCase() === cleanId ||
+          (c.meta_asset_id && c.meta_asset_id.trim().toLowerCase() === cleanId) ||
+          ((c as any).phone_number && String((c as any).phone_number).trim().toLowerCase() === cleanId))
     );
     if (exact) return exact;
 
@@ -1981,33 +1986,48 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     const flexible = this.data.channels.find((c) => {
       if (c.platform !== platform || !c.is_active) return false;
       const cId = c.identifier.trim().toLowerCase();
+      const assetId = (c.meta_asset_id || '').trim().toLowerCase();
+      const phoneProp = String((c as any).phone_number || '').trim().toLowerCase();
+
       if (
         cId === cleanId ||
+        assetId === cleanId ||
+        phoneProp === cleanId ||
         cId.replace(/^page_/, '') === cleanId.replace(/^page_/, '') ||
-        cId.replace(/^\+/, '') === cleanId.replace(/^\+/, '')
+        cId.replace(/^\+/, '') === cleanId.replace(/^\+/, '') ||
+        assetId.replace(/^\+/, '') === cleanId.replace(/^\+/, '')
       ) {
         return true;
       }
-      if (platform === 'whatsapp' && digitsOnly.length >= 10) {
+
+      if (platform === 'whatsapp') {
+        // Known aliases or common phone number matches
         const cDigits = cId.replace(/\D/g, '');
+        const assetDigits = assetId.replace(/\D/g, '');
+        const phoneDigits = phoneProp.replace(/\D/g, '');
         const nameDigits = (c.name || '').replace(/\D/g, '');
-        const tail10 = digitsOnly.slice(-10);
-        if (
-          (cDigits.length >= 10 && cDigits.slice(-10) === tail10) ||
-          (nameDigits.length >= 10 && nameDigits.slice(-10) === tail10)
-        ) {
-          return true;
+
+        if (digitsOnly.length >= 8) {
+          const tail8 = digitsOnly.slice(-8);
+          if (
+            (cDigits.length >= 8 && cDigits.slice(-8) === tail8) ||
+            (assetDigits.length >= 8 && assetDigits.slice(-8) === tail8) ||
+            (phoneDigits.length >= 8 && phoneDigits.slice(-8) === tail8) ||
+            (nameDigits.length >= 8 && nameDigits.slice(-8) === tail8)
+          ) {
+            return true;
+          }
         }
       }
       return false;
     });
     if (flexible) return flexible;
 
-    // 3. Resilient single-channel fallback: If the merchant has configured 1 active channel for this platform,
-    // match it so incoming webhooks are not discarded due to minor Meta identifier variances
+    // 3. Resilient single-channel fallback: If the merchant has configured active channels for this platform,
+    // match the active channel so incoming webhooks are not discarded due to minor Meta identifier variances
     const platformChannels = this.data.channels.filter((c) => c.platform === platform && c.is_active);
-    if (platformChannels.length === 1) {
-      console.log(`[Database] Resilient fallback matched incoming ${platform} (${identifier}) to configured channel ${platformChannels[0].identifier}`);
+    if (platformChannels.length >= 1) {
+      console.log(`[Database] Resilient fallback matched incoming ${platform} (${identifier}) to configured channel ${platformChannels[0].name} (${platformChannels[0].identifier})`);
       return platformChannels[0];
     }
 

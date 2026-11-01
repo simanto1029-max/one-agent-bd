@@ -235,15 +235,17 @@
       "platform": "whatsapp",
       "name": "One Agent Bd (+8801601705804)",
       "identifier": "8801601705804",
+      "meta_asset_id": "1339419689265678",
+      "phone_number": "8801601705804",
       "access_token": "qr_linked_token_wa_qr_test",
       "is_active": true,
       "status": "connected",
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-10-06T06:40:48.603Z",
-      "updated_at": "2026-10-30T12:37:55.141Z",
-      "last_webhook_at": "2026-10-30T12:37:55.140Z",
-      "last_message_at": "2026-10-30T12:37:55.140Z"
+      "updated_at": "2026-11-01T09:22:30.118Z",
+      "last_webhook_at": "2026-11-01T09:22:30.118Z",
+      "last_message_at": "2026-11-01T09:22:30.118Z"
     },
     {
       "id": "chn_me_1789553189985_lrft",
@@ -259,10 +261,9 @@
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-09-16T10:15:00.000Z",
-      "updated_at": "2026-10-31T08:06:54.304Z",
-      "last_webhook_at": "2026-10-31T08:06:44.047Z",
-      "last_message_at": "2026-10-31T08:06:44.047Z",
-      "error_message": "Invalid OAuth access token - Cannot parse access token"
+      "updated_at": "2026-11-01T09:22:29.508Z",
+      "last_webhook_at": "2026-11-01T09:22:29.508Z",
+      "last_message_at": "2026-11-01T09:22:29.508Z"
     }
   ],
   "messages": [
@@ -4298,6 +4299,60 @@
       "requires_human_attention": false,
       "status": "sent",
       "created_at": "2026-10-31T08:06:54.315Z"
+    },
+    {
+      "id": "msg_1793524949503_in_s8b8",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "test_user_fb_999",
+      "customer_name": "Messenger User (_999)",
+      "direction": "inbound",
+      "message_text": "Hello, subscriptions nile ki product picture send korte parbe?",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "raw_payload": {
+        "sender": {
+          "id": "test_user_fb_999"
+        },
+        "recipient": {
+          "id": "379312975259492"
+        },
+        "timestamp": 1793524948728,
+        "message": {
+          "mid": "mid_test_1793524948728",
+          "text": "Hello, subscriptions nile ki product picture send korte parbe?"
+        }
+      },
+      "created_at": "2026-11-01T09:22:29.503Z"
+    },
+    {
+      "id": "msg_1793524950112_in_mjbp",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_wa_qr_1791268848603",
+      "platform": "whatsapp",
+      "customer_id": "8801601705804",
+      "customer_name": "Customer Tanvir",
+      "direction": "inbound",
+      "message_text": "hello",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "raw_payload": {
+        "from": "8801601705804",
+        "id": "wamid_test_1793524949750",
+        "timestamp": "1793524949",
+        "text": {
+          "body": "hello"
+        },
+        "type": "text"
+      },
+      "created_at": "2026-11-01T09:22:30.113Z"
     }
   ],
   "settings": {
@@ -4308,8 +4363,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-10-31T08:06:42.201Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:06:42 AM)",
+    "cron_last_run": "2026-11-01T09:22:08.107Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:22:08 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4673,6 +4728,26 @@
     }
   ],
   "webhook_events": [
+    {
+      "id": "wh_1793524950124",
+      "platform": "whatsapp",
+      "event_type": "message",
+      "identifier": "1339419689265678",
+      "sender_id": "8801601705804",
+      "status": "processed",
+      "message_id": "wamid_test_1793524949750",
+      "created_at": "2026-11-01T09:22:30.124Z"
+    },
+    {
+      "id": "wh_1793524949513",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "test_user_fb_999",
+      "status": "processed",
+      "message_id": "mid_test_1793524948728",
+      "created_at": "2026-11-01T09:22:29.513Z"
+    },
     {
       "id": "wh_1793434004052",
       "platform": "messenger",
@@ -5469,7 +5544,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1793434014315,
+  "_lastUpdatedAt": 1793524950124,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],
@@ -5477,23 +5552,24 @@
     {
       "id": "agent_usr_demo_002_mvc6mvf1",
       "user_id": "usr_demo_002",
-      "name": "Main Business AI Agent",
-      "business_name": "Simanto Rahman",
+      "name": "One Agent BD Assistant",
+      "business_name": "One Agent BD",
       "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80",
       "tone": "sales_closer",
       "language": "bangla",
       "assigned_channels": [
-        "chn_wa_qr_1791268848603"
+        "chn_wa_qr_1791268848603",
+        "chn_me_1789553189985_lrft"
       ],
-      "system_prompt": "You are the official Customer Service & Sales AI Assistant for \"Simanto Rahman\".\n\nBusiness Knowledge Base:\n1. Services & Products:\n   - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.\n   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.\n2. Delivery & Charges:\n   - Digital services activate instantly. Physical parcel delivery: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka nationwide 120 BDT (2-3 days). Cash on Delivery (COD) available.\n3. Payment Methods:\n   - bKash, Nagad, Rocket, and Cash on Delivery (COD). Merchant Number: 01711-223344.\n4. How to Order:\n   - To confirm an order, we require the customer's Full Name, Complete Delivery Address, and 11-digit Phone Number.\n5. Support & Helpline:\n   - Open daily from 9:00 AM to 11:00 PM. Helpline: 01811-998877.\n\nMANDATORY LANGUAGE & REPLY RULES:\n- If the customer writes in Bangla or Banglish, reply in natural, polite Bangla script. If the customer writes in English, reply in clear English.\n- Whenever the customer asks about plans, prices, products, what is available (\"ki ki ase\"), or details, format them as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.",
-      "knowledge_base": "Business: E-commerce products & fast delivery.\nDelivery Charges: Inside Dhaka 60 BDT, Outside Dhaka 120 BDT.\nPayment: Cash on Delivery (COD), bKash / Nagad.",
+      "system_prompt": "You are the official Customer Service & Sales AI Assistant for \"One Agent BD\".\n\nBusiness Knowledge Base:\n1. Services & Products:\n   - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.\n   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.\n2. Delivery & Charges:\n   - Digital services activate instantly. Physical parcel delivery: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka nationwide 120 BDT (2-3 days). Cash on Delivery (COD) available.\n3. Payment Methods:\n   - bKash, Nagad, Rocket, and Cash on Delivery (COD). Merchant Number: 01711-223344.\n4. How to Order:\n   - To confirm an order, we require the customer's Full Name, Complete Delivery Address, and 11-digit Phone Number.\n5. Support & Helpline:\n   - Open daily from 9:00 AM to 11:00 PM. Helpline: 01811-998877.\n\nMANDATORY LANGUAGE & REPLY RULES:\n- If the customer writes in Bangla or Banglish, reply in natural, polite Bangla script. If the customer writes in English, reply in clear English.\n- Whenever the customer asks about plans, prices, products, what is available (\"ki ki ase\"), or details, format them as a clean serial numbered list (১., ২., ৩. in Bangla or 1., 2., 3. in English) on separate lines.",
+      "knowledge_base": "Business: One Agent BD 24/7 AI Sales Automation.\nPlans: Starter AI Plan 1,250 BDT/month, Pro Business Plan 1,950 BDT/month, 2-day free trial.\nDelivery Charges: Inside Dhaka 60 BDT, Outside Dhaka 120 BDT.\nPayment: Cash on Delivery (COD), bKash / Nagad.",
       "delivery_charge_inside_dhaka": 60,
       "delivery_charge_outside_dhaka": 120,
       "is_active": true,
       "total_chats": 0,
       "total_orders": 0,
       "created_at": "2026-10-17T09:16:41.485Z",
-      "updated_at": "2026-10-17T09:16:41.485Z"
+      "updated_at": "2026-10-31T08:45:00.000Z"
     }
   ],
   "customer_metadata": [
