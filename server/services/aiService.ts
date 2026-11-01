@@ -1690,6 +1690,10 @@ function buildSmartBanglaFallbackFromPrompt(
   matchedProduct?: Product
 ): string {
   const q = (incomingMessage || '').toLowerCase().trim();
+  const isOneAgent =
+    businessName.toLowerCase().includes('one agent') ||
+    systemPrompt.includes('Starter AI Plan') ||
+    systemPrompt.includes('One Agent BD');
 
   // 1. Natural greetings
   const pureGreetings = ['hello', 'hi', 'hey', 'hlw', 'salam', 'assalamu alaikum', 'assalamu', 'হ্যালো', 'হাই', 'সালাম', 'আসসালামু আলাইকুম'];
@@ -1716,30 +1720,92 @@ function buildSmartBanglaFallbackFromPrompt(
     return 'অবশ্যই! আমাদের সাপোর্ট টিমের একজন প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবেন।\n\nঅনুগ্রহ করে আপনার সচল মোবাইল নাম্বারটি এখানে লিখে দিন। [HUMAN_HANDOFF]';
   }
 
-  // 4. If merchant has real products and customer matched one
+  // 4. One Agent BD Platform Knowledge: Can AI send product pictures to customer?
+  const isAskingIfAiCanSendPictures =
+    (q.includes('picture') || q.includes('photo') || q.includes('chobi') || q.includes('ছবি') || q.includes('পিকচার') || q.includes('পিক')) &&
+    (q.includes('send') || q.includes('pathate') || q.includes('পাঠাতে') || q.includes('parbe') || q.includes('পারবে') || q.includes('debe') || q.includes('দেবে') || q.includes('customer ke') || q.includes('customer') || q.includes('কাস্টমার'));
+
+  if (isOneAgent && isAskingIfAiCanSendPictures) {
+    return 'হ্যাঁ, অবশ্যই! One Agent BD-এর সাবস্ক্রিপশন নিলে আমাদের AI স্বয়ংক্রিয়ভাবে আপনার কাস্টমারদের ইনবক্সে যেকোনো প্রোডাক্টের ছবি, সাইজ, বিবরণ ও মূল্য পাঠাতে পারবে।\n\nআপনার ক্যাটালগে যে ছবিগুলো আপলোড করা থাকবে, কাস্টমার কোনো প্রোডাক্ট দেখতে চাইলেই AI সাথে সাথে চ্যাটে সেই প্রোডাক্টের স্পষ্ট ছবি ও বিস্তারিত পাঠিয়ে দিবে।';
+  }
+
+  // 5. One Agent BD Platform Knowledge: Services & Capabilities ("apnader ki service?")
+  const isAskingForServices =
+    q.includes('service') ||
+    q.includes('সার্ভিস') ||
+    q.includes('kaj ki') ||
+    q.includes('কাজ কি') ||
+    q.includes('ki koren') ||
+    q.includes('কি করেন') ||
+    q.includes('ki ki subidha') ||
+    q.includes('কি কি সুবিধা');
+
+  if (isOneAgent && isAskingForServices) {
+    return 'One Agent BD একটি অল-ইন-ওয়ান AI কাস্টমার সাপোর্ট ও সেলস অটোমেশন প্ল্যাটফর্ম। আমাদের মূল সার্ভিসগুলো হলো:\n\n' +
+      '১. WhatsApp, Facebook Messenger ও Instagram-এ ২৪/৭ নন-স্টপ স্বয়ংক্রিয় AI চ্যাট রিপ্লাই।\n' +
+      '২. কাস্টমার প্রোডাক্ট দেখতে চাইলে স্বয়ংক্রিয়ভাবে ইনবক্সে প্রোডাক্টের হাই-কোয়ালিটি ছবি ও সাইজ চার্ট পাঠানো।\n' +
+      '৩. চ্যাট থেকেই কাস্টমারের নাম, ফোন নাম্বার ও ঠিকানা নিয়ে ক্যাশ অন ডেলিভারি (COD) অর্ডার কনফার্ম করা।\n' +
+      '৪. কাস্টমার ভয়েস মেসেজ পাঠালে তা শুনে বুঝে তাৎক্ষণিক বাংলায় ভয়েস ও টেক্সট রিপ্লাই প্রদান।\n' +
+      '৫. ফেসবুক ও ইনস্টাগ্রাম পোস্টের কমেন্টে স্বয়ংক্রিয় কমেন্ট রিপ্লাই এবং সরাসরি কাস্টমারের ইনবক্সে সিক্রেট ডিল পাঠানো।\n\n' +
+      'আপনি কি আপনার ব্যবসার জন্য ২ দিনের ফ্রি ট্রায়াল চালু করতে চান?';
+  }
+
+  // 6. One Agent BD Platform Knowledge: Subscriptions & Packages ("subscriptions nile ki ki korte parbo?")
+  const isAskingForSubscriptions =
+    q.includes('subscription') ||
+    q.includes('subscriptions') ||
+    q.includes('সাবস্ক্রিপশন') ||
+    q.includes('package') ||
+    q.includes('প্যাকেজ') ||
+    q.includes('plan') ||
+    q.includes('প্ল্যান') ||
+    q.includes('pricing') ||
+    q.includes('খরচ কত') ||
+    q.includes('koto taka') ||
+    q.includes('দাম কত');
+
+  if (isOneAgent && isAskingForSubscriptions) {
+    return 'One Agent BD-এর সাবস্ক্রিপশন নিলে আপনার ফেসবুক, ইনস্টাগ্রাম ও হোয়াটসঅ্যাপ পেজে কোনো অতিরিক্ত সেলস কর্মী ছাড়াই ২৪ ঘণ্টা সম্পূর্ণ ব্যবসা অটোমেট করতে পারবেন!\n\n' +
+      'সাবস্ক্রিপশন নিলে যে সব সুবিধা পাবেন:\n' +
+      '১. ২৪/৭ ইনস্ট্যান্ট রিপ্লাই: রাত কিংবা ছুটির দিনেও কাস্টমার মেসেজ দিলে ২ সেকেন্ডে সঠিক উত্তর পাবে।\n' +
+      '২. প্রোডাক্টের ছবি ও ক্যাটালগ পাঠানো: কাস্টমার চাইলে AI স্বয়ংক্রিয়ভাবে ইনবক্সে ছবি ও বিস্তারিত পাঠিয়ে দিবে।\n' +
+      '৩. স্বয়ংক্রিয় অর্ডার বুকিং: চ্যাট থেকেই নাম, ঠিকানা ও মোবাইল নম্বর সংগ্রহ করে সম্পূর্ণ ক্যাশ অন ডেলিভারি অর্ডার কনফার্ম করবে।\n' +
+      '৪. ভয়েস মেসেজ সাপোর্ট: কাস্টমারের ভয়েস নোট শুনে বাংলায় অডিও ও টেক্সট উত্তর দেবে।\n' +
+      '৫. পোস্ট কমেন্ট টু ইনবক্স অটোমেশন: কমেন্ট করা ক্রেতাদের সাথে সাথে ইনবক্সে টেনে নিয়ে সেল কনভার্ট করবে।\n\n' +
+      'আমাদের প্যাকেজসমূহ:\n' +
+      '• Starter AI Plan: ৳১,২৫০ / মাস (১টি চ্যানেল, ১,০০০ মেসেজ, পূর্ণ অটোমেশন)\n' +
+      '• Pro Sales AI Plan: ৳১,৯৫০ / মাস (৩টি চ্যানেল — WhatsApp, Facebook, Instagram, আনলিমিটেড AI)\n\n' +
+      'এছাড়াও আপনি ২ দিনের ফ্রি ট্রায়াল দিয়ে নিজেই সম্পূর্ণ ফিচার টেস্ট করে দেখতে পারেন!';
+  }
+
+  // 7. Free Trial inquiry
+  if (isOneAgent && (q.includes('trial') || q.includes('ট্রায়াল') || q.includes('free') || q.includes('ফ্রি'))) {
+    return 'হ্যাঁ! One Agent BD-তে আপনি কোনো ক্রেডিট কার্ড ছাড়াই সম্পূর্ণ ২ দিনের ফ্রি ট্রায়াল ব্যবহার করতে পারবেন।\n\nফ্রি ট্রায়ালে আপনি WhatsApp, Facebook Messenger ও Instagram কানেক্ট করে স্বয়ংক্রিয় AI রিপ্লাই ও অর্ডার কালেকশন নিজে টেস্ট করে দেখতে পারবেন।';
+  }
+
+  // 8. If merchant has real products and customer matched one
   if (matchedProduct) {
     return 'আমাদের "' + matchedProduct.name + '"-এর মূল্য ৳' + matchedProduct.price + ' ' + matchedProduct.currency + '।\n' +
       (matchedProduct.description ? matchedProduct.description + '\n\n' : '\n') +
       'আপনি কি এটি অর্ডার করতে চান? অর্ডার করতে আপনার নাম, পূর্ণাঙ্গ ডেলিভারি ঠিকানা ও মোবাইল নাম্বারটি দিন।';
   }
 
-  // 5. Check if query matches trained knowledge lines
+  // 9. Check if query matches trained knowledge lines
   if (systemPrompt && systemPrompt.trim()) {
     const kbLines = systemPrompt
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => {
-        if (l.length < 25) return false;
+        if (l.length < 20) return false;
         if (l.endsWith(':')) return false;
         if (l.startsWith('[') || l.startsWith('MANDATORY') || l.startsWith('CRITICAL') || l.startsWith('You are')) return false;
-        if (/^(business knowledge|services|how to order|support|helpline|payment|delivery)/i.test(l)) return false;
         return true;
       });
 
     const searchTokens = q
       .replace(/[?!,.]/g, '')
       .split(/\s+/)
-      .filter((t) => t.length >= 3 && !['ki', 'koto', 'kemon', 'apnader', 'amader', 'korbo', 'kivabe', 'business', 'sathe', 'connect', 'customer', 'customers', 'tumi', 'amar'].includes(t));
+      .filter((t) => t.length >= 3 && !['koto', 'kemon', 'apnader', 'amader', 'korbo', 'kivabe', 'business', 'sathe', 'connect', 'customer', 'customers', 'tumi', 'amar'].includes(t));
 
     if (searchTokens.length > 0) {
       const scoredLines = kbLines
@@ -1748,17 +1814,17 @@ function buildSmartBanglaFallbackFromPrompt(
           const matchCount = searchTokens.filter((tok) => lineLower.includes(tok)).length;
           return { line, matchCount };
         })
-        .filter((item) => item.matchCount >= 2 || (searchTokens.length === 1 && item.matchCount === 1))
+        .filter((item) => item.matchCount >= 1)
         .sort((a, b) => b.matchCount - a.matchCount);
 
-      if (scoredLines.length > 0) {
+      if (scoredLines.length > 0 && scoredLines[0].matchCount >= 1) {
         const best = scoredLines[0].line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '');
         return best + '\n\nএই বিষয়ে আর কোনো কিছু জানতে চান?';
       }
     }
   }
 
-  // 6. When unknown or unscripted: NEVER hallucinate fake products or canned excuses!
+  // 10. When unknown or unscripted: NEVER hallucinate fake products or canned excuses!
   // Gracefully transfer to human support as explicitly instructed by the user.
   return 'দুঃখিত, এই বিষয়টি সম্পর্কে আমার কাছে সঠিক তথ্য নেই। আমি বিষয়টি আমাদের সাপোর্ট টিমকে জানিয়ে দিচ্ছি, একজন প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবেন। [HUMAN_HANDOFF]';
 }
@@ -1884,7 +1950,7 @@ export async function generateAIReply(params: GenerateReplyParams): Promise<Gene
 - ট্রাস্ট ও বিশ্বাসযোগ্যতা (Trust & Credibility Policy): কাস্টমার ট্রাস্ট বা বিশ্বাস নিয়ে প্রশ্ন করলে (যেমন: "apnader trust korbo kivabe?", "কীভাবে বিশ্বাস করব?", "রিয়েল কিনা?") খুব আন্তরিকভাবে আশ্বস্ত করবেন যে:
   ১) আমরা মেটার (Meta) ১০০% অফিশিয়াল API ব্যবহার করি, পেজ ব্যান বা সিকিউরিটির কোনো ভয় নেই।
   ২) বিশ্বাসযোগ্যতা নিজে যাচাইয়ের জন্য কোনো অগ্রিম টাকা ছাড়াই ২ দিনের সম্পূর্ণ ফ্রি ট্রায়াল সুবিধা রয়েছে। আপনি নিজের পেজে চালিয়ে সন্তুষ্ট হলে তবেই সাবস্ক্রিপশন নিতে পারবেন।
-  ৩) সারা দেশে শত শত পেজ সফলভাবে আমাদের সেবা ব্যবহার করছে এবং যেকোনো দরকারে হেল্পলাইন (+8801601705804) সরাসরি চালু রয়েছে।
+- প্রোডাক্টের ছবি ও ক্যাটালগ পাঠানো (Photo & Image Dispatch Capability): কাস্টমার কোনো প্রোডাক্ট দেখতে চাইলে AI স্বয়ংক্রিয়ভাবে ইনবক্সে হাই-কোয়ালিটি ছবি ও সাইজ ডিটেইলস পাঠিয়ে দেয়। কাস্টমার যদি জানতে চায় "আমাদের কাস্টমারকে কি ছবি পাঠাতে পারবে?", "picture send korte parbe ki?", তখন খুব পরিষ্কারভাবে "হ্যাঁ, অবশ্যই! One Agent BD সাবস্ক্রিপশন নিলে আমাদের AI স্বয়ংক্রিয়ভাবে আপনার কাস্টমারদের ইনবক্সে যেকোনো প্রোডাক্টের ছবি ও বিবরণ পাঠিয়ে দিতে পারে।" বলে আশ্বস্ত করবেন।
 - পেমেন্ট ও সাপোর্ট: বিকাশ, নগদ, রকেট ও উপায় (pay.oneagentbd.online)-এর মাধ্যমে পেমেন্ট করে TrxID দিলেই প্ল্যান সাথে সাথে অটোমেটিক অ্যাক্টিভ হয়। সাপোর্ট ও হেল্পলাইন (সকাল ৯টা – রাত ১১টা): +8801601705804 (WhatsApp/Call), ইমেইল: support.oneagentbd@gmail.com, ওয়েবসাইট: https://www.oneagentbd.online।`
     : '';
 

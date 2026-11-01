@@ -911,7 +911,7 @@ export function resolveEffectiveChannelToken(channel: Channel): string {
     const matchedPage = pages.find(
       (p) =>
         p.id === channel.identifier ||
-        (p.instagram_business_account && p.instagram_business_account.id === channel.identifier)
+        ((p as any).instagram_business_account && (p as any).instagram_business_account.id === channel.identifier)
     );
     if (matchedPage?.access_token && !isPlaceholderToken(matchedPage.access_token)) {
       return matchedPage.access_token.trim();

@@ -69,11 +69,6 @@ webhooksRouter.get(['/meta', '/', '/messenger', '/facebook', '/page'], (req: Req
 webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
-    console.log('[Unified Meta Webhook POST] object=', body.object);
-
-    // Fast HTTP 200 response to prevent Meta webhook timeout
-    res.status(200).send('EVENT_RECEIVED');
-
     const tasks: Promise<any>[] = [];
 
     // 1. WhatsApp Business Account events
@@ -281,7 +276,15 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
     }
 
     if (tasks.length > 0) {
-      Promise.all(tasks).catch((err) => console.error('[Unified Meta Webhook Async Task Error]:', err));
+      // Hold HTTP connection open up to 2.4s so Vercel Serverless Lambda does not freeze before reply is dispatched
+      await Promise.race([
+        Promise.allSettled(tasks),
+        new Promise((resolve) => setTimeout(resolve, 2400))
+      ]);
+    }
+
+    if (!res.headersSent) {
+      return res.status(200).send('EVENT_RECEIVED');
     }
   } catch (err: any) {
     console.error('[Unified Meta Webhook Error]:', err);
@@ -328,9 +331,6 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
     console.log('[WhatsApp Webhook] Received payload at', new Date().toISOString(), 'object=', body.object);
-
-    // Fast HTTP 200 response to prevent Meta webhook timeout (<3s requirement)
-    res.status(200).send('EVENT_RECEIVED');
 
     const tasks: Promise<any>[] = [];
 
@@ -396,7 +396,14 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
     }
 
     if (tasks.length > 0) {
-      Promise.all(tasks).catch((err) => console.error('[WhatsApp Webhook Async Task Error]:', err));
+      await Promise.race([
+        Promise.allSettled(tasks),
+        new Promise((resolve) => setTimeout(resolve, 2400))
+      ]);
+    }
+
+    if (!res.headersSent) {
+      return res.status(200).send('EVENT_RECEIVED');
     }
   } catch (err: any) {
     console.error('Error handling WhatsApp webhook payload:', err);
@@ -442,11 +449,6 @@ webhooksRouter.get('/messenger', (req: Request, res: Response) => {
 webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    console.log('[Messenger Webhook] Received payload at', new Date().toISOString());
-
-    // Send instant HTTP 200 to Meta so Meta never times out or delays webhooks
-    res.status(200).send('EVENT_RECEIVED');
-
     const tasks: Promise<any>[] = [];
 
     if (body.object === 'page') {
@@ -581,7 +583,14 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
     }
 
     if (tasks.length > 0) {
-      Promise.all(tasks).catch((err) => console.error('[Messenger Webhook Background Task Error]:', err));
+      await Promise.race([
+        Promise.allSettled(tasks),
+        new Promise((resolve) => setTimeout(resolve, 2400))
+      ]);
+    }
+
+    if (!res.headersSent) {
+      return res.status(200).send('EVENT_RECEIVED');
     }
   } catch (err: any) {
     console.error('Error handling Messenger webhook payload:', err);
@@ -629,11 +638,6 @@ webhooksRouter.get('/instagram', (req: Request, res: Response) => {
 webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
   try {
     const body = req.body;
-    console.log('[Instagram Webhook] Received payload at', new Date().toISOString());
-
-    // Send instant HTTP 200 to Meta so Meta never times out or delays webhooks
-    res.status(200).send('EVENT_RECEIVED');
-
     const tasks: Promise<any>[] = [];
 
     if (body.object === 'instagram' || body.object === 'page') {
@@ -713,7 +717,14 @@ webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
     }
 
     if (tasks.length > 0) {
-      Promise.all(tasks).catch((err) => console.error('[Instagram Webhook Background Task Error]:', err));
+      await Promise.race([
+        Promise.allSettled(tasks),
+        new Promise((resolve) => setTimeout(resolve, 2400))
+      ]);
+    }
+
+    if (!res.headersSent) {
+      return res.status(200).send('EVENT_RECEIVED');
     }
   } catch (err: any) {
     console.error('Error handling Instagram webhook payload:', err);
