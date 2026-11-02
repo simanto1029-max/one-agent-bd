@@ -1587,19 +1587,45 @@ export class MetaOAuthService {
       return { success: false, message: 'Channel not found or unauthorized.' };
     }
 
-    const token = channel.access_token;
+    let token = channel.access_token;
     const phoneId = channel.phone_number_id || channel.meta_asset_id || channel.identifier;
-    const wabaId = channel.waba_id || channel.meta_business_id || '';
+    let wabaId = channel.waba_id || channel.meta_business_id || '';
 
-    if (!token || token.startsWith('sim_')) {
-      return { success: false, message: 'Channel has no active Meta token to repair.' };
+    // Check if channel has placeholder token and fallback to system token if available
+    const masterToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
+    if ((!token || token.startsWith('qr_') || token.startsWith('sim_')) && masterToken) {
+      token = masterToken;
+    }
+
+    if (!token || token.startsWith('qr_') || token.startsWith('sim_')) {
+      return {
+        success: false,
+        message:
+          'এই চ্যানেলটিতে রিয়েল মেটা টোকেন নেই (পুরনো বা কিউআর টেস্ট টোকেন)। দয়া করে "+ Connect Another WhatsApp" বাটনে ক্লিক করে অফিশিয়াল মেটা এমবেডেড সাইন-আপ সম্পন্ন করুন।'
+      };
     }
 
     try {
-      // 1. Re-subscribe WABA to Webhooks: POST /{waba_id}/subscribed_apps
+      // 1. If wabaId is missing but phoneId is known, auto-discover WABA ID from Meta Graph API
+      if (!wabaId && phoneId) {
+        try {
+          const phQuery = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneId)}?fields=id,display_phone_number,whatsapp_business_account&access_token=${encodeURIComponent(token)}`
+          );
+          const phData = (await phQuery.json().catch(() => ({}))) as any;
+          if (phData?.whatsapp_business_account?.id) {
+            wabaId = phData.whatsapp_business_account.id;
+            db.updateChannel(channel.id, { waba_id: wabaId });
+          }
+        } catch (_wabaLookupErr) {
+          console.warn('[Repair WA] Could not lookup WABA ID from phone:', _wabaLookupErr);
+        }
+      }
+
+      // 2. Re-subscribe WABA to Webhooks: POST /{waba_id}/subscribed_apps
       if (wabaId) {
         console.log(`[Repair WA] Calling POST /${wabaId}/subscribed_apps ...`);
-        await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`, {
+        const subRes = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1609,9 +1635,14 @@ export class MetaOAuthService {
             subscribed_fields: ['messages', 'message_deliveries', 'messaging_postbacks']
           })
         });
+        const subJson = (await subRes.json().catch(() => ({}))) as any;
+        console.log('[Repair WA] Subscribed apps response:', subJson);
+        if (subRes.ok && subJson.success !== false) {
+          db.updateChannel(channel.id, { subscribed_apps_status: 'subscribed' });
+        }
       }
 
-      // 2. Re-register Phone Number: POST /{phone_number_id}/register
+      // 3. Re-register Phone Number: POST /{phone_number_id}/register
       if (phoneId) {
         console.log(`[Repair WA] Calling POST /${phoneId}/register ...`);
         await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneId)}/register`, {
@@ -1627,7 +1658,7 @@ export class MetaOAuthService {
         });
       }
 
-      // 3. Re-query diagnostics
+      // 4. Re-query diagnostics
       const diagResult = await this.getWhatsAppDiagnostics(channelId, userId);
       return {
         success: true,

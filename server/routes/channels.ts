@@ -5,7 +5,7 @@ import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
 import { getPublicTunnelUrl } from '../services/tunnelService.js';
 import { metaOAuthService } from '../services/metaOAuthService.js';
 import { metaChannelService } from '../services/metaChannelService.js';
-import { runAutoFollowUpEngine, handleInboundCommentWebhook } from '../services/metaService.js';
+import { runAutoFollowUpEngine, handleInboundCommentWebhook, handleInboundWebhook } from '../services/metaService.js';
 
 export const channelsRouter = Router();
 
@@ -898,6 +898,47 @@ channelsRouter.post('/:id/whatsapp-diagnostics/repair', async (req: Request, res
   }
 
   return res.json(result);
+});
+
+// POST /api/channels/:id/test-message - Simulate an incoming customer message to test AI reply and view in Live Chat Inbox
+channelsRouter.post('/:id/test-message', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const channel = db.getChannelById(req.params.id);
+  if (!channel || channel.user_id !== user.id) {
+    return res.status(404).json({ error: 'Channel not found or unauthorized' });
+  }
+
+  const { messageText } = req.body || {};
+  const testText =
+    (typeof messageText === 'string' && messageText.trim()) ||
+    'আসসালামু আলাইকুম, আপনাদের সার্ভিস ও প্ল্যানের বিস্তারিত বলুন?';
+  const testCustomerId = `test_${Date.now().toString().slice(-4)}`;
+  const testCustomerName =
+    channel.platform === 'whatsapp'
+      ? `WhatsApp Test Customer (+8801700${Date.now().toString().slice(-4)})`
+      : `${channel.platform.toUpperCase()} Test Customer`;
+
+  const outcome = await handleInboundWebhook({
+    platform: channel.platform as any,
+    identifier: channel.phone_number_id || channel.identifier,
+    customerId: testCustomerId,
+    customerName: testCustomerName,
+    messageText: testText,
+    messageId: `sim_test_${Date.now()}`
+  });
+
+  return res.json({
+    success: true,
+    handled: outcome.received,
+    replyText: outcome.aiReplyMessage?.message_text || '',
+    testCustomerId,
+    testCustomerName,
+    channelName: channel.name
+  });
 });
 
 // POST /api/channels/:id/disconnect - Disconnect channel

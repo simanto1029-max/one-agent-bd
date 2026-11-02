@@ -895,6 +895,20 @@ export const api = {
     });
   },
 
+  async testChannelMessage(channelId: string, messageText?: string): Promise<{
+    success: boolean;
+    handled: boolean;
+    replyText?: string;
+    testCustomerId?: string;
+    testCustomerName?: string;
+    channelName?: string;
+  }> {
+    return fetchJson(`/api/channels/${encodeURIComponent(channelId)}/test-message`, {
+      method: 'POST',
+      body: JSON.stringify({ messageText })
+    });
+  },
+
   async getWhatsAppQR(): Promise<{
     success: boolean;
     sessionId: string;

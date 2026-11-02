@@ -88,6 +88,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [repairingChannelId, setRepairingChannelId] = useState<string | null>(null);
   const [waDiagnosticsMap, setWaDiagnosticsMap] = useState<{ [id: string]: any }>({});
   const [expandedDiagnostics, setExpandedDiagnostics] = useState<{ [id: string]: boolean }>({});
+  const [testingSimulatedMessageChannelId, setTestingSimulatedMessageChannelId] = useState<string | null>(null);
+  const [simulatedMessageResult, setSimulatedMessageResult] = useState<{ [id: string]: { text: string; customerId: string } }>({});
 
   // Auto Comment Reply & Smart Follow-up Settings State
   const [autoCommentEnabled, setAutoCommentEnabled] = useState(true);
@@ -530,6 +532,33 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       } catch (err) {
         console.warn('Diagnostics fetch warning:', err);
       }
+    }
+  };
+
+  // Test Simulated Message on WhatsApp Channel to verify AI reply in Inbox
+  const handleTestChannelMessage = async (channelId: string) => {
+    try {
+      setTestingSimulatedMessageChannelId(channelId);
+      setError(null);
+      const res = await api.testChannelMessage(
+        channelId,
+        'আসসালামু আলাইকুম, আপনাদের সার্ভিস ও প্ল্যানের বিস্তারিত বলুন?'
+      );
+      if (res.success) {
+        setSimulatedMessageResult((prev) => ({
+          ...prev,
+          [channelId]: {
+            text: res.replyText || 'AI Reply generated successfully!',
+            customerId: res.testCustomerId || ''
+          }
+        }));
+        setSuccessMessage('AI টেস্ট মেসেজ সফলভাবে প্রসেস হয়েছে এবং Live Chat Inbox-এ যুক্ত হয়েছে! ✓');
+        onRefresh();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'টেস্ট মেসেজ পাঠাতে সমস্যা হয়েছে।');
+    } finally {
+      setTestingSimulatedMessageChannelId(null);
     }
   };
 
@@ -1403,6 +1432,46 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                       )
                                     ) : (
                                       <span className="text-slate-400">Waiting for incoming conversation</span>
+                                    )}
+                                  </div>
+
+                                  {/* 1-Click Interactive AI Reply Test to simulate message in Live Chat Inbox */}
+                                  <div className="pt-2 border-t border-slate-200/50 dark:border-purple-500/10 space-y-1.5 font-sans">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-semibold text-slate-700 dark:text-slate-300 text-[10px]">
+                                        সিমুলেট ও ইনবক্স টেস্ট:
+                                      </span>
+                                      <button
+                                        type="button"
+                                        disabled={testingSimulatedMessageChannelId === waCh.id}
+                                        onClick={() => handleTestChannelMessage(waCh.id)}
+                                        className="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+                                        title="Send simulated customer question to test AI auto-reply and check in Live Chat Inbox"
+                                      >
+                                        <Sparkles className="w-2.5 h-2.5" />
+                                        <span>{testingSimulatedMessageChannelId === waCh.id ? 'টেস্টিং...' : '🧪 AI টেস্ট মেসেজ পাঠান'}</span>
+                                      </button>
+                                    </div>
+
+                                    {simulatedMessageResult[waCh.id] && (
+                                      <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[10px] space-y-1">
+                                        <p className="font-bold text-emerald-800 dark:text-emerald-300">
+                                          🤖 AI স্বয়ংক্রিয় রিপ্লাই:
+                                        </p>
+                                        <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-sans text-[10px]">
+                                          {simulatedMessageResult[waCh.id].text}
+                                        </p>
+                                        {onNavigate && (
+                                          <button
+                                            type="button"
+                                            onClick={() => onNavigate('inbox')}
+                                            className="mt-1 text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1 cursor-pointer font-sans text-[10px]"
+                                          >
+                                            <MessageSquare className="w-2.5 h-2.5" />
+                                            <span>👉 Live Chat Inbox-এ গিয়ে চ্যাটটি দেখুন</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
                                 </div>
