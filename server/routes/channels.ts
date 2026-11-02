@@ -49,8 +49,13 @@ function checkChannelLimitForPlan(
         c.identifier !== 'website_widget'
     );
 
-  // If re-connecting/updating an already connected channel with the same identifier (or same platform when within limit), allow it
+  // If re-connecting/updating an already connected channel with the same identifier, allow it
   if (targetIdentifier && activeMetaChannels.some((c) => c.identifier === targetIdentifier)) {
+    return { allowed: true };
+  }
+
+  // If re-connecting or onboarding a channel of the same platform (e.g. replacing/re-authorizing WhatsApp), allow it
+  if (targetPlatform && activeMetaChannels.some((c) => c.platform === targetPlatform)) {
     return { allowed: true };
   }
 
@@ -863,6 +868,36 @@ channelsRouter.post('/:id/test-connection', async (req: Request, res: Response) 
 
   const outcome = await metaOAuthService.testChannelConnection(req.params.id, user.id);
   return res.json(outcome);
+});
+
+// GET /api/channels/:id/whatsapp-diagnostics - Check live WABA webhook & Cloud API status
+channelsRouter.get('/:id/whatsapp-diagnostics', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const result = await metaOAuthService.getWhatsAppDiagnostics(req.params.id, user.id);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  return res.json(result);
+});
+
+// POST /api/channels/:id/whatsapp-diagnostics/repair - 1-Click Re-subscribe WABA & Re-register Phone Number
+channelsRouter.post('/:id/whatsapp-diagnostics/repair', async (req: Request, res: Response) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const result = await metaOAuthService.repairWhatsAppChannel(req.params.id, user.id);
+  if (!result.success) {
+    return res.status(400).json({ error: result.message || result.error });
+  }
+
+  return res.json(result);
 });
 
 // POST /api/channels/:id/disconnect - Disconnect channel

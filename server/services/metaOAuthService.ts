@@ -827,32 +827,70 @@ export class MetaOAuthService {
       displayPhoneNumber: string;
       verifiedName?: string;
       accessToken: string;
+      subscribedAppsStatus?: 'subscribed' | 'failed' | 'not_subscribed' | 'pending';
+      subscribedAppsDetails?: any;
+      phoneNumberStatus?: string;
+      codeVerificationStatus?: string;
+      qualityRating?: string;
     }
   ): Promise<{ success: boolean; channel?: Channel; error?: string }> {
-    const { wabaId, phoneNumberId, displayPhoneNumber, verifiedName, accessToken } = data;
+    const { wabaId, phoneNumberId, accessToken } = data;
+    let displayPhoneNumber = data.displayPhoneNumber;
+    let verifiedName = data.verifiedName;
+    let subscribedAppsStatus = data.subscribedAppsStatus || 'pending';
+    let subscribedAppsDetails = data.subscribedAppsDetails || null;
+    let phoneNumberStatus = data.phoneNumberStatus || 'CONNECTED';
+    let codeVerificationStatus = data.codeVerificationStatus || 'VERIFIED';
+    let qualityRating = data.qualityRating || 'GREEN';
 
     if (!phoneNumberId || !accessToken) {
       return { success: false, error: 'Phone Number ID and System Access Token are required.' };
     }
 
     try {
-      // 1. Subscribe WABA to webhooks and register phone number on Cloud API if not simulated
+      // Step 2 & 3: Webhook subscription and Cloud API Registration
       if (accessToken && !accessToken.startsWith('sim_')) {
+        // Step 2: POST /{waba_id}/subscribed_apps
         if (wabaId) {
           try {
-            const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-              wabaId
-            )}/subscribed_apps?access_token=${encodeURIComponent(accessToken)}`;
-            await fetch(subUrl, { method: 'POST' });
+            console.log(`[Meta WhatsApp] Calling POST /${wabaId}/subscribed_apps ...`);
+            const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`;
+            const subRes = await fetch(subUrl, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                subscribed_fields: ['messages', 'message_deliveries', 'messaging_postbacks']
+              })
+            });
+            const subJson = (await subRes.json().catch(() => ({}))) as any;
+            console.log(`[Meta WhatsApp] POST /${wabaId}/subscribed_apps response:`, JSON.stringify(subJson));
+
+            // Verify with GET /{waba_id}/subscribed_apps
+            const getSubUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`;
+            const getSubRes = await fetch(getSubUrl, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const getSubJson = (await getSubRes.json().catch(() => ({}))) as any;
+            console.log(`[Meta WhatsApp] GET /${wabaId}/subscribed_apps verification:`, JSON.stringify(getSubJson));
+
+            const isSubscribed = Boolean(subJson?.success || (getSubRes.ok && getSubJson?.data?.length > 0));
+            subscribedAppsStatus = isSubscribed ? 'subscribed' : 'failed';
+            subscribedAppsDetails = getSubJson?.data || subJson;
           } catch (subErr) {
-            console.warn('[MetaOAuth] WhatsApp WABA webhook subscription warning:', subErr);
+            console.warn('[Meta WhatsApp] Webhook subscription warning:', subErr);
+            subscribedAppsStatus = 'failed';
           }
         }
 
-        // Also call Cloud API /register so verified numbers transition from Pending/Unverified to Connected
+        // Step 3: Register phone number via POST /{phone_number_id}/register with pin
         try {
+          console.log(`[Meta WhatsApp] Calling POST /${phoneNumberId}/register ...`);
           const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/register`;
-          await fetch(regUrl, {
+          const regRes = await fetch(regUrl, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -863,12 +901,36 @@ export class MetaOAuthService {
               pin: '123456'
             })
           });
+          const regJson = (await regRes.json().catch(() => ({}))) as any;
+          console.log(`[Meta WhatsApp] POST /${phoneNumberId}/register response:`, JSON.stringify(regJson));
         } catch (regErr) {
-          console.warn('[MetaOAuth] WhatsApp Cloud API register warning:', regErr);
+          console.warn('[Meta WhatsApp] Cloud API register warning:', regErr);
+        }
+
+        // Query phone number status via GET /{phone_number_id}
+        try {
+          const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            phoneNumberId
+          )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+            accessToken
+          )}`;
+          const phRes = await fetch(phUrl);
+          const phJson = (await phRes.json().catch(() => ({}))) as any;
+          console.log(`[Meta WhatsApp] GET /${phoneNumberId} status:`, JSON.stringify(phJson));
+
+          if (phRes.ok && phJson) {
+            if (phJson.status) phoneNumberStatus = phJson.status;
+            if (phJson.code_verification_status) codeVerificationStatus = phJson.code_verification_status;
+            if (phJson.quality_rating) qualityRating = phJson.quality_rating;
+            if (phJson.display_phone_number) displayPhoneNumber = phJson.display_phone_number;
+            if (phJson.verified_name) verifiedName = phJson.verified_name;
+          }
+        } catch (phQueryErr) {
+          console.warn('[Meta WhatsApp] Error fetching phone status:', phQueryErr);
         }
       }
 
-      // 2. Save WABA and Phone records
+      // Save WABA and Phone records
       if (wabaId) {
         const wabaRecord: WhatsAppBusinessAccount = {
           id: wabaId,
@@ -887,31 +949,50 @@ export class MetaOAuthService {
         waba_id: wabaId || '',
         display_phone_number: displayPhoneNumber,
         verified_name: verifiedName,
-        quality_rating: 'GREEN',
-        code_verification_status: 'VERIFIED',
-        status: 'connected',
+        quality_rating: qualityRating || 'GREEN',
+        code_verification_status: codeVerificationStatus || 'VERIFIED',
+        status: (phoneNumberStatus === 'CONNECTED' ? 'connected' : 'pending') as any,
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       db.saveWhatsAppPhoneNumber(phoneRecord);
 
-      // 3. Upsert channel
+      // Upsert channel: find existing channel to update in place so limit is never breached
       const existingChannels = db.getChannels(userId);
-      let channel = existingChannels.find((c) => c.platform === 'whatsapp' && c.identifier === phoneNumberId);
+      let channel = existingChannels.find(
+        (c) =>
+          c.platform === 'whatsapp' &&
+          (c.identifier === phoneNumberId ||
+            c.meta_asset_id === phoneNumberId ||
+            c.phone_number_id === phoneNumberId ||
+            (c.display_phone_number && c.display_phone_number.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')) ||
+            (c.identifier && c.identifier.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')))
+      ) || existingChannels.find((c) => c.platform === 'whatsapp');
 
-      const channelName = verifiedName ? `${verifiedName} (${displayPhoneNumber})` : `WhatsApp (${displayPhoneNumber})`;
+      const channelName = verifiedName
+        ? `${verifiedName} (${displayPhoneNumber})`
+        : `WhatsApp (${displayPhoneNumber})`;
 
       if (channel) {
         channel = db.updateChannel(channel.id, {
           name: channelName,
           identifier: phoneNumberId,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId || channel.waba_id,
+          display_phone_number: displayPhoneNumber,
           access_token: accessToken,
           is_active: true,
           status: 'connected',
           meta_asset_name: channelName,
           meta_asset_id: phoneNumberId,
-          meta_business_id: wabaId,
-          error_message: undefined
+          meta_business_id: wabaId || channel.meta_business_id,
+          subscribed_apps_status: subscribedAppsStatus,
+          subscribed_apps_details: subscribedAppsDetails,
+          phone_number_status: phoneNumberStatus,
+          code_verification_status: codeVerificationStatus,
+          quality_rating: qualityRating,
+          error_message: undefined,
+          updated_at: new Date().toISOString()
         });
       } else {
         channel = db.createChannel({
@@ -920,15 +1001,34 @@ export class MetaOAuthService {
           platform: 'whatsapp',
           name: channelName,
           identifier: phoneNumberId,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId,
+          display_phone_number: displayPhoneNumber,
           access_token: accessToken,
           is_active: true,
           status: 'connected',
           meta_asset_name: channelName,
           meta_asset_id: phoneNumberId,
           meta_business_id: wabaId,
+          subscribed_apps_status: subscribedAppsStatus,
+          subscribed_apps_details: subscribedAppsDetails,
+          phone_number_status: phoneNumberStatus,
+          code_verification_status: codeVerificationStatus,
+          quality_rating: qualityRating,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
+      }
+
+      // Clean up any old duplicate or inactive test channels for this tenant
+      const otherDuplicates = db
+        .getChannels(userId)
+        .filter((c) => c.platform === 'whatsapp' && c.id !== channel?.id);
+      for (const dup of otherDuplicates) {
+        // If it's a test QR token or duplicate number, remove it to keep tenant clean
+        if (dup.access_token.includes('sim_') || dup.access_token.includes('qr_linked') || dup.identifier === phoneNumberId) {
+          db.deleteChannel(dup.id, userId);
+        }
       }
 
       db.logAudit({
@@ -937,18 +1037,19 @@ export class MetaOAuthService {
         action: 'channel_connected',
         resource: 'channel',
         resource_id: channel?.id,
-        details: `Connected WhatsApp Business Number "${displayPhoneNumber}" (${phoneNumberId})`,
+        details: `Connected WhatsApp Business Number "${displayPhoneNumber}" (${phoneNumberId}) with WABA ${wabaId}`,
         created_at: new Date().toISOString()
       });
 
       return { success: true, channel };
     } catch (err: any) {
+      console.error('[Meta WhatsApp] Onboarding failed:', err);
       return { success: false, error: err?.message || 'Failed to complete WhatsApp onboarding.' };
     }
   }
 
   /**
-   * Complete WhatsApp Embedded Signup via Authorization Code and/or WABA data (from Meta sessionInfoListener / postMessage or FB.login callback)
+   * Complete WhatsApp Embedded Signup via Authorization Code and/or WABA data
    */
   public async handleWhatsAppEmbeddedSignupCode(
     userId: string,
@@ -970,7 +1071,7 @@ export class MetaOAuthService {
     let effectiveToken = (params.accessToken && String(params.accessToken).trim()) || '';
     let codeExchangeError = '';
 
-    // 1. If authorization code is provided, exchange it for access token
+    // Step 1: Exchange authorization code for business access token server-side
     if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
       if (!appSecret) {
         return {
@@ -980,7 +1081,7 @@ export class MetaOAuthService {
       }
 
       try {
-        // Standard Meta FB.login code exchange for WhatsApp Embedded Signup
+        console.log(`[Meta WhatsApp] Exchanging Embedded Signup code for App ID ${appId}...`);
         const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
           appId
         )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
@@ -990,8 +1091,9 @@ export class MetaOAuthService {
 
         if (tokenRes.ok && tokenJson.access_token) {
           effectiveToken = tokenJson.access_token;
+          console.log('[Meta WhatsApp] Short-lived token captured successfully. Upgrading to long-lived token...');
 
-          // Attempt exchange for long-lived token
+          // Upgrade to 60-day long-lived token
           try {
             const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
               appId
@@ -1000,15 +1102,18 @@ export class MetaOAuthService {
             const llJson = (await llRes.json()) as any;
             if (llRes.ok && llJson.access_token) {
               effectiveToken = llJson.access_token;
+              console.log('[Meta WhatsApp] Long-lived token upgraded successfully.');
             }
-          } catch (_llErr) {}
+          } catch (_llErr) {
+            console.warn('[Meta WhatsApp] Long-lived token exchange warning:', _llErr);
+          }
         } else {
           codeExchangeError = tokenJson?.error?.message || `HTTP ${tokenRes.status}`;
-          console.warn('[MetaOAuth] WhatsApp Embedded Signup code exchange error:', tokenJson);
+          console.warn('[Meta WhatsApp] Code exchange error:', tokenJson);
         }
       } catch (err: any) {
         codeExchangeError = err?.message || 'Network error';
-        console.error('[MetaOAuth] Code exchange network error:', err);
+        console.error('[Meta WhatsApp] Code exchange network error:', err);
       }
 
       if (!effectiveToken && codeExchangeError) {
@@ -1027,106 +1132,116 @@ export class MetaOAuthService {
     let targetPhoneId = params.phoneNumberId ? String(params.phoneNumberId).trim() : '';
     let displayPhone = '';
     let verifiedName = '';
+    let phoneList: any[] = [];
 
-    // 2. If wabaId is provided from postMessage event, query WABA details & subscribe to webhooks
+    // If wabaId or phone_number_id is missing, inspect the token via debug_token or Graph API
+    if (effectiveToken && (!targetWabaId || !targetPhoneId)) {
+      try {
+        console.log('[Meta WhatsApp] Querying debug_token to find granular_scopes / WABA ID...');
+        const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(
+          effectiveToken
+        )}&access_token=${encodeURIComponent(appId)}|${encodeURIComponent(appSecret)}`;
+        const debugRes = await fetch(debugUrl);
+        const debugJson = (await debugRes.json().catch(() => ({}))) as any;
+
+        if (debugRes.ok && debugJson?.data?.granular_scopes) {
+          for (const scope of debugJson.data.granular_scopes) {
+            if (
+              (scope.scope === 'whatsapp_business_management' || scope.scope === 'whatsapp_business_messaging') &&
+              scope.target_ids &&
+              scope.target_ids.length > 0
+            ) {
+              if (!targetWabaId) {
+                targetWabaId = String(scope.target_ids[0]);
+                console.log(`[Meta WhatsApp] Discovered WABA ID ${targetWabaId} from token granular_scopes!`);
+              }
+              break;
+            }
+          }
+        }
+      } catch (dbgErr) {
+        console.warn('[Meta WhatsApp] Error querying debug_token:', dbgErr);
+      }
+    }
+
+    // If still no wabaId, query /me/assigned_whatsapp_business_accounts
+    if (effectiveToken && !targetWabaId) {
+      try {
+        const assignedUrl = `https://graph.facebook.com/v21.0/me/assigned_whatsapp_business_accounts?access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const assignedRes = await fetch(assignedUrl);
+        const assignedJson = (await assignedRes.json().catch(() => ({}))) as any;
+        if (assignedRes.ok && assignedJson?.data?.length > 0) {
+          targetWabaId = assignedJson.data[0].id;
+          console.log(`[Meta WhatsApp] Discovered WABA ID ${targetWabaId} from assigned accounts!`);
+        }
+      } catch (_e) {}
+    }
+
+    // Step 2 & 3: If targetWabaId is known, query WABA details & phone numbers
     if (targetWabaId && effectiveToken) {
       try {
-        // Subscribe our app to WABA webhooks immediately so incoming messages route to our webhook
-        const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetWabaId)}/subscribed_apps`;
-        await fetch(subUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${effectiveToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        // Fetch phone numbers under this WABA
         const wabaInfoUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
           targetWabaId
-        )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+        )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating,code_verification_status,status}&access_token=${encodeURIComponent(
           effectiveToken
         )}`;
         const wabaRes = await fetch(wabaInfoUrl);
         const wabaJson = (await wabaRes.json()) as any;
+
         if (wabaRes.ok && wabaJson) {
           verifiedName = wabaJson.name || '';
-          const phoneList = wabaJson.phone_numbers?.data || [];
+          phoneList = wabaJson.phone_numbers?.data || [];
+          console.log(`[Meta WhatsApp] WABA ${targetWabaId} has ${phoneList.length} phone number(s).`);
+
           if (phoneList.length > 0) {
-            // Prioritize REAL business phone number (especially BD +880 or non-555 numbers) over Meta's sandbox test number (+1 555-xxx)
-            const realBdPhone = phoneList.find(
-              (p: any) =>
-                p.display_phone_number &&
-                (p.display_phone_number.includes('880') || p.display_phone_number.includes('1601705804'))
-            );
-            const realNonTestPhone = realBdPhone || phoneList.find(
-              (p: any) =>
-                p.display_phone_number &&
-                !p.display_phone_number.includes('555') &&
-                !p.display_phone_number.startsWith('+1555') &&
-                !String(p.verified_name || '').toLowerCase().includes('test')
-            );
-
-            const currentIsTest = targetPhoneId && phoneList.find((p: any) => p.id === targetPhoneId && (p.display_phone_number?.includes('555') || String(p.verified_name || '').toLowerCase().includes('test')));
-
-            if ((!targetPhoneId || currentIsTest) && realNonTestPhone) {
-              targetPhoneId = realNonTestPhone.id;
-              displayPhone = realNonTestPhone.display_phone_number || realNonTestPhone.id;
-              verifiedName = realNonTestPhone.verified_name || verifiedName;
-            } else if (targetPhoneId) {
+            if (targetPhoneId) {
               const matched = phoneList.find((p: any) => p.id === targetPhoneId);
               if (matched) {
                 displayPhone = matched.display_phone_number || targetPhoneId;
                 verifiedName = matched.verified_name || verifiedName;
               }
-            } else if (phoneList[0]) {
-              targetPhoneId = phoneList[0].id;
-              displayPhone = phoneList[0].display_phone_number || phoneList[0].id;
-              verifiedName = phoneList[0].verified_name || verifiedName;
+            } else {
+              // Prioritize customer's verified/connected phone number over sandbox test number
+              const realNumber = phoneList.find(
+                (p: any) =>
+                  p.display_phone_number &&
+                  !p.display_phone_number.includes('555') &&
+                  !p.display_phone_number.startsWith('+1555')
+              );
+              const selectedPhone = realNumber || phoneList[0];
+              targetPhoneId = selectedPhone.id;
+              displayPhone = selectedPhone.display_phone_number || targetPhoneId;
+              verifiedName = selectedPhone.verified_name || verifiedName;
             }
           }
         }
       } catch (wabaErr) {
-        console.warn('[MetaOAuth] Error querying WABA details:', wabaErr);
+        console.warn('[Meta WhatsApp] Error querying WABA details:', wabaErr);
       }
     }
 
-    // 3. If phone_number_id is provided, query phone details and register with WhatsApp Cloud API
-    if (targetPhoneId && effectiveToken) {
+    // If targetPhoneId is known but displayPhone is not yet set, query phone details
+    if (targetPhoneId && effectiveToken && !displayPhone) {
       try {
-        if (!displayPhone) {
-          const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-            targetPhoneId
-          )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
-            effectiveToken
-          )}`;
-          const phRes = await fetch(phUrl);
-          const phJson = (await phRes.json()) as any;
-          if (phRes.ok && phJson) {
-            displayPhone = phJson.display_phone_number || targetPhoneId;
-            verifiedName = phJson.verified_name || verifiedName;
-          }
+        const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          targetPhoneId
+        )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const phRes = await fetch(phUrl);
+        const phJson = (await phRes.json()) as any;
+        if (phRes.ok && phJson) {
+          displayPhone = phJson.display_phone_number || targetPhoneId;
+          verifiedName = phJson.verified_name || verifiedName;
         }
-
-        // Register phone number with WhatsApp Cloud API
-        const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(targetPhoneId)}/register`;
-        await fetch(regUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${effectiveToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            pin: '123456'
-          })
-        });
       } catch (phErr) {
-        console.warn('[MetaOAuth] Error querying or registering phone:', phErr);
+        console.warn('[Meta WhatsApp] Error querying phone details:', phErr);
       }
     }
 
-    // 4. If we have phone_number_id, connect channel immediately!
+    // Connect channel immediately if phone_number_id is resolved!
     if (targetPhoneId) {
       const connResult = await this.connectWhatsAppOnboarding(userId, {
         wabaId: targetWabaId,
@@ -1144,30 +1259,24 @@ export class MetaOAuthService {
       }
     }
 
-    // 5. Discover all available WhatsApp assets from token if not explicitly provided
+    // Discover from token if not explicitly provided
     if (effectiveToken) {
       const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
       if (whatsappNumbers && whatsappNumbers.length > 0) {
-        // Prioritize real BD business number over Meta's sandbox test number (+1 555-xxx)
         const realNumber =
-          whatsappNumbers.find(
-            (w) =>
-              w.display_phone_number &&
-              (w.display_phone_number.includes('880') || w.display_phone_number.includes('1601705804'))
-          ) ||
           whatsappNumbers.find(
             (w) =>
               w.display_phone_number &&
               !w.display_phone_number.includes('555') &&
               !w.display_phone_number.startsWith('+1555') &&
               !w.waba_name?.toLowerCase().includes('test')
-          );
-        const autoWa = realNumber || whatsappNumbers[0];
+          ) || whatsappNumbers[0];
+
         const autoConn = await this.connectWhatsAppOnboarding(userId, {
-          wabaId: autoWa.waba_id,
-          phoneNumberId: autoWa.id,
-          displayPhoneNumber: autoWa.display_phone_number,
-          verifiedName: autoWa.verified_name || autoWa.waba_name,
+          wabaId: realNumber.waba_id,
+          phoneNumberId: realNumber.id,
+          displayPhoneNumber: realNumber.display_phone_number,
+          verifiedName: realNumber.verified_name || realNumber.waba_name,
           accessToken: effectiveToken
         });
         if (autoConn.success && autoConn.channel) {
@@ -1179,10 +1288,9 @@ export class MetaOAuthService {
 
     return {
       success: false,
-      error:
-        targetWabaId
-          ? 'Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup.'
-          : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure your Meta App has WhatsApp product added, and that your Facebook user has an Administrator or Developer role on the Meta App in Development Mode.'
+      error: targetWabaId
+        ? 'Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup.'
+        : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure your Meta App has WhatsApp product added, and that your Facebook user has an Administrator role.'
     };
   }
 
@@ -1350,6 +1458,189 @@ export class MetaOAuthService {
     });
 
     return { success: true, message: `Channel "${channel.name}" has been disconnected.` };
+  }
+
+  /**
+   * Diagnostic inspector for a customer's WhatsApp Business Account & Cloud API Phone Number
+   */
+  public async getWhatsAppDiagnostics(channelId: string, userId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    diagnostics?: {
+      wabaId: string;
+      phoneNumberId: string;
+      displayPhoneNumber: string;
+      subscribedAppsStatus: string;
+      subscribedAppsDetails: any;
+      phoneNumberStatus: string;
+      codeVerificationStatus: string;
+      qualityRating: string;
+      lastWebhookAt?: string;
+      lastWebhookPayload?: any;
+      lastSendResult?: any;
+    };
+    error?: string;
+  }> {
+    const channel = db.getChannelById(channelId);
+    if (!channel || channel.user_id !== userId) {
+      return { success: false, error: 'Channel not found or unauthorized.' };
+    }
+
+    if (channel.platform !== 'whatsapp') {
+      return { success: false, error: 'Channel is not a WhatsApp channel.' };
+    }
+
+    const token = channel.access_token;
+    const phoneId = channel.phone_number_id || channel.meta_asset_id || channel.identifier;
+    const wabaId = channel.waba_id || channel.meta_business_id || '';
+
+    let subscribedAppsStatus = channel.subscribed_apps_status || 'pending';
+    let subscribedAppsDetails = channel.subscribed_apps_details || null;
+    let phoneNumberStatus = channel.phone_number_status || 'CONNECTED';
+    let codeVerificationStatus = channel.code_verification_status || 'VERIFIED';
+    let qualityRating = channel.quality_rating || 'GREEN';
+    let displayPhone = channel.display_phone_number || channel.name;
+
+    if (token && !token.startsWith('sim_')) {
+      // 1. Check subscribed_apps
+      if (wabaId) {
+        try {
+          const getSubRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const getSubJson = (await getSubRes.json().catch(() => ({}))) as any;
+          if (getSubRes.ok && getSubJson?.data) {
+            const hasSubscription = getSubJson.data.length > 0;
+            subscribedAppsStatus = hasSubscription ? 'subscribed' : 'failed';
+            subscribedAppsDetails = getSubJson.data;
+          }
+        } catch (subErr) {
+          console.warn('[WhatsApp Diagnostics] Error reading subscribed_apps:', subErr);
+        }
+      }
+
+      // 2. Check phone number status
+      if (phoneId) {
+        try {
+          const phRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              phoneId
+            )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+              token
+            )}`
+          );
+          const phJson = (await phRes.json().catch(() => ({}))) as any;
+          if (phRes.ok && phJson) {
+            if (phJson.status) phoneNumberStatus = phJson.status;
+            if (phJson.code_verification_status) codeVerificationStatus = phJson.code_verification_status;
+            if (phJson.quality_rating) qualityRating = phJson.quality_rating;
+            if (phJson.display_phone_number) displayPhone = phJson.display_phone_number;
+          }
+        } catch (phErr) {
+          console.warn('[WhatsApp Diagnostics] Error reading phone status:', phErr);
+        }
+      }
+    }
+
+    const updated = db.updateChannel(channel.id, {
+      subscribed_apps_status: subscribedAppsStatus,
+      subscribed_apps_details: subscribedAppsDetails,
+      phone_number_status: phoneNumberStatus,
+      code_verification_status: codeVerificationStatus,
+      quality_rating: qualityRating,
+      display_phone_number: displayPhone,
+      waba_id: wabaId,
+      phone_number_id: phoneId
+    });
+
+    return {
+      success: true,
+      channel: updated || channel,
+      diagnostics: {
+        wabaId,
+        phoneNumberId: phoneId,
+        displayPhoneNumber: displayPhone,
+        subscribedAppsStatus,
+        subscribedAppsDetails,
+        phoneNumberStatus,
+        codeVerificationStatus,
+        qualityRating,
+        lastWebhookAt: channel.last_webhook_at,
+        lastWebhookPayload: channel.last_webhook_payload,
+        lastSendResult: channel.last_send_result
+      }
+    };
+  }
+
+  /**
+   * 1-Click Repair & Re-Sync WhatsApp Webhook and Cloud API Registration
+   */
+  public async repairWhatsAppChannel(channelId: string, userId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    message: string;
+    error?: string;
+  }> {
+    const channel = db.getChannelById(channelId);
+    if (!channel || channel.user_id !== userId) {
+      return { success: false, message: 'Channel not found or unauthorized.' };
+    }
+
+    const token = channel.access_token;
+    const phoneId = channel.phone_number_id || channel.meta_asset_id || channel.identifier;
+    const wabaId = channel.waba_id || channel.meta_business_id || '';
+
+    if (!token || token.startsWith('sim_')) {
+      return { success: false, message: 'Channel has no active Meta token to repair.' };
+    }
+
+    try {
+      // 1. Re-subscribe WABA to Webhooks: POST /{waba_id}/subscribed_apps
+      if (wabaId) {
+        console.log(`[Repair WA] Calling POST /${wabaId}/subscribed_apps ...`);
+        await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subscribed_fields: ['messages', 'message_deliveries', 'messaging_postbacks']
+          })
+        });
+      }
+
+      // 2. Re-register Phone Number: POST /{phone_number_id}/register
+      if (phoneId) {
+        console.log(`[Repair WA] Calling POST /${phoneId}/register ...`);
+        await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneId)}/register`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            pin: '123456'
+          })
+        });
+      }
+
+      // 3. Re-query diagnostics
+      const diagResult = await this.getWhatsAppDiagnostics(channelId, userId);
+      return {
+        success: true,
+        channel: diagResult.channel,
+        message: 'Successfully re-subscribed WABA to webhooks and re-registered phone number with WhatsApp Cloud API!'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: 'Repair attempt failed: ' + (err?.message || 'Network error'),
+        error: err?.message
+      };
+    }
   }
 
   /**

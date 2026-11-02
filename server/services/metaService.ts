@@ -955,9 +955,10 @@ export async function sendMetaTypingAndSeenIndicator(
     if (channel.platform === 'whatsapp') {
       if (action !== 'typing_on' || !messageId) return;
       const phoneId =
-        channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
+        channel.phone_number_id ||
+        (channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
           ? channel.meta_asset_id
-          : channel.identifier;
+          : channel.identifier);
       const url = `https://graph.facebook.com/v21.0/${phoneId}/messages`;
       // Send official WhatsApp Cloud API Read Receipt + Typing Indicator
       const res = await fetch(url, {
@@ -1120,9 +1121,10 @@ async function sendMetaMessage(
 
     if (channel.platform === 'whatsapp') {
       const phoneId =
-        channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
+        channel.phone_number_id ||
+        (channel.meta_asset_id && channel.meta_asset_id.length > 10 && !channel.meta_asset_id.startsWith('+') && !channel.meta_asset_id.startsWith('880')
           ? channel.meta_asset_id
-          : channel.identifier;
+          : channel.identifier);
       const url = `https://graph.facebook.com/v21.0/${phoneId}/messages`;
 
       // 1. Send all product image attachments first
@@ -1258,16 +1260,39 @@ async function sendMetaMessage(
           signal: AbortSignal.timeout(5000)
         });
       }
+
       if (!res.ok) {
         const err: any = await res.json().catch(() => ({}));
         console.error('[WhatsApp Outbound Error]', err);
         const errMsg = err?.error?.message || 'WhatsApp delivery error';
+        const errCode = err?.error?.code;
         const isOutsideWindow =
-          err?.error?.code === 131047 ||
+          errCode === 131047 ||
           errMsg.toLowerCase().includes('24 hour') ||
           errMsg.toLowerCase().includes('re-engagement');
+
+        // Record failed outbound send result on channel
+        db.updateChannel(channel.id, {
+          last_send_result: {
+            timestamp: new Date().toISOString(),
+            success: false,
+            errorCode: errCode,
+            errorMessage: errMsg,
+            recipientId
+          }
+        });
+
         return { ok: false, outsideWindow: isOutsideWindow, error: errMsg };
       }
+
+      // Record successful outbound send result on channel
+      db.updateChannel(channel.id, {
+        last_send_result: {
+          timestamp: new Date().toISOString(),
+          success: true,
+          recipientId
+        }
+      });
       return { ok: true };
     } else if (channel.platform === 'messenger' || channel.platform === 'instagram') {
       const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(effectiveToken)}`;

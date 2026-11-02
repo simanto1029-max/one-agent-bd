@@ -85,6 +85,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [channelToDelete, setChannelToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [runningFollowUps, setRunningFollowUps] = useState(false);
+  const [repairingChannelId, setRepairingChannelId] = useState<string | null>(null);
+  const [waDiagnosticsMap, setWaDiagnosticsMap] = useState<{ [id: string]: any }>({});
+  const [expandedDiagnostics, setExpandedDiagnostics] = useState<{ [id: string]: boolean }>({});
 
   // Auto Comment Reply & Smart Follow-up Settings State
   const [autoCommentEnabled, setAutoCommentEnabled] = useState(true);
@@ -486,6 +489,47 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       }));
     } finally {
       setTestingChannelId(null);
+    }
+  };
+
+  // 1-Click Auto-Repair WhatsApp Channel Webhook & Phone Registration
+  const handleRepairWhatsAppChannel = async (channelId: string) => {
+    try {
+      setRepairingChannelId(channelId);
+      setError(null);
+      setSuccessMessage(null);
+      const res = await api.repairWhatsAppChannel(channelId);
+      if (res.channel) {
+        setSuccessMessage('WhatsApp Webhook Subscribed & Phone Registered successfully! ✓');
+        const diag = await api.getWhatsAppDiagnostics(channelId);
+        if (diag.diagnostics) {
+          setWaDiagnosticsMap((prev) => ({ ...prev, [channelId]: diag.diagnostics }));
+        }
+      } else {
+        setError(res.message || 'Repair attempt completed with notices.');
+      }
+      onRefresh();
+    } catch (err: any) {
+      setError(err?.message || 'Repair attempt failed.');
+    } finally {
+      setRepairingChannelId(null);
+    }
+  };
+
+  // Inspect Live Diagnostics for WhatsApp Channel
+  const handleToggleWhatsAppDiagnostics = async (channelId: string) => {
+    const isCurrentlyExpanded = Boolean(expandedDiagnostics[channelId]);
+    setExpandedDiagnostics((prev) => ({ ...prev, [channelId]: !isCurrentlyExpanded }));
+
+    if (!isCurrentlyExpanded && !waDiagnosticsMap[channelId]) {
+      try {
+        const diag = await api.getWhatsAppDiagnostics(channelId);
+        if (diag.diagnostics) {
+          setWaDiagnosticsMap((prev) => ({ ...prev, [channelId]: diag.diagnostics }));
+        }
+      } catch (err) {
+        console.warn('Diagnostics fetch warning:', err);
+      }
     }
   };
 
@@ -1261,6 +1305,108 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
+                            </div>
+
+                            {/* Live Status Indicators (Requirement 6) */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              {waCh.subscribed_apps_status === 'subscribed' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                  <Check className="w-2.5 h-2.5" />
+                                  <span>Webhook Active</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                  <ShieldAlert className="w-2.5 h-2.5" />
+                                  <span>Webhook Pending</span>
+                                </span>
+                              )}
+
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                <span>{waCh.phone_number_status || 'CONNECTED'}</span>
+                              </span>
+
+                              {waCh.quality_rating && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                  <span>Quality: {waCh.quality_rating}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* WhatsApp Diagnostics Accordion */}
+                            <div className="pt-1.5 border-t border-slate-200/60 dark:border-purple-500/10 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleWhatsAppDiagnostics(waCh.id)}
+                                  className="text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1 cursor-pointer"
+                                >
+                                  {expandedDiagnostics[waCh.id] ? (
+                                    <>
+                                      <ChevronUp className="w-3 h-3 text-emerald-600" />
+                                      <span>Hide Diagnostics &amp; Logs</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-3 h-3 text-emerald-600" />
+                                      <span>Show Diagnostics &amp; Meta Logs</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={repairingChannelId === waCh.id}
+                                  onClick={() => handleRepairWhatsAppChannel(waCh.id)}
+                                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  title="Re-subscribe WABA to Webhooks and Re-register Phone Number on Meta Cloud API"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${repairingChannelId === waCh.id ? 'animate-spin' : ''}`} />
+                                  <span>{repairingChannelId === waCh.id ? 'Repairing...' : 'Auto-Repair Webhook'}</span>
+                                </button>
+                              </div>
+
+                              {expandedDiagnostics[waCh.id] && (
+                                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#120826] border border-slate-200 dark:border-purple-500/20 text-[10px] space-y-1.5 font-mono">
+                                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-semibold text-slate-500">WABA ID:</span>
+                                    <span className="text-slate-800 dark:text-slate-200 font-bold">{waCh.waba_id || waCh.meta_business_id || 'Embedded WABA'}</span>
+                                  </div>
+
+                                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-semibold text-slate-500">Phone ID:</span>
+                                    <span className="text-slate-800 dark:text-slate-200 font-bold">{waCh.phone_number_id || waCh.identifier}</span>
+                                  </div>
+
+                                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-semibold text-slate-500">Subscribed Apps:</span>
+                                    <span className={`font-bold ${waCh.subscribed_apps_status === 'subscribed' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                      {waCh.subscribed_apps_status ? waCh.subscribed_apps_status.toUpperCase() : 'PENDING'}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                                    <span className="font-semibold text-slate-500">Last Webhook:</span>
+                                    <span className="text-slate-700 dark:text-slate-300">
+                                      {waCh.last_webhook_at ? new Date(waCh.last_webhook_at).toLocaleTimeString() : 'None received yet'}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-col gap-0.5 text-slate-600 dark:text-slate-400 pt-1 border-t border-slate-200/50 dark:border-purple-500/10">
+                                    <span className="font-semibold text-slate-500">Last AI Reply Result:</span>
+                                    {waCh.last_send_result ? (
+                                      waCh.last_send_result.success ? (
+                                        <span className="text-emerald-600 font-bold">✓ Successfully delivered to Meta Cloud API</span>
+                                      ) : (
+                                        <span className="text-rose-600 font-bold break-all">
+                                          ✕ Error {waCh.last_send_result.errorCode}: {waCh.last_send_result.errorMessage}
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span className="text-slate-400">Waiting for incoming conversation</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {Boolean(waCh.error_message) && (

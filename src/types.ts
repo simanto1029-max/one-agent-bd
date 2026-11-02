@@ -123,6 +123,22 @@ export interface Channel {
   meta_asset_name?: string;
   meta_asset_id?: string;
   meta_business_id?: string;
+  waba_id?: string;
+  phone_number_id?: string;
+  display_phone_number?: string;
+  subscribed_apps_status?: 'subscribed' | 'failed' | 'not_subscribed' | 'pending';
+  subscribed_apps_details?: any;
+  phone_number_status?: string;
+  code_verification_status?: string;
+  quality_rating?: string;
+  last_webhook_payload?: any;
+  last_send_result?: {
+    timestamp: string;
+    success: boolean;
+    errorCode?: number;
+    errorMessage?: string;
+    recipientId?: string;
+  };
   agent_id?: string;
   agent_name?: string;
   business_name?: string;

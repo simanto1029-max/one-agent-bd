@@ -271,6 +271,22 @@ export interface Channel {
   meta_asset_name?: string;
   meta_asset_id?: string;
   meta_business_id?: string;
+  waba_id?: string;
+  phone_number_id?: string;
+  display_phone_number?: string;
+  subscribed_apps_status?: 'subscribed' | 'failed' | 'not_subscribed' | 'pending';
+  subscribed_apps_details?: any;
+  phone_number_status?: string;
+  code_verification_status?: string;
+  quality_rating?: string;
+  last_webhook_payload?: any;
+  last_send_result?: {
+    timestamp: string;
+    success: boolean;
+    errorCode?: number;
+    errorMessage?: string;
+    recipientId?: string;
+  };
   agent_id?: string;
   agent_name?: string;
   business_name?: string;
@@ -1977,6 +1993,8 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         c.is_active &&
         (c.identifier.trim().toLowerCase() === cleanId ||
           (c.meta_asset_id && c.meta_asset_id.trim().toLowerCase() === cleanId) ||
+          (c.phone_number_id && c.phone_number_id.trim().toLowerCase() === cleanId) ||
+          (c.waba_id && c.waba_id.trim().toLowerCase() === cleanId) ||
           ((c as any).phone_number && String((c as any).phone_number).trim().toLowerCase() === cleanId))
     );
     if (exact) return exact;
@@ -1987,6 +2005,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       if (c.platform !== platform || !c.is_active) return false;
       const cId = c.identifier.trim().toLowerCase();
       const assetId = (c.meta_asset_id || '').trim().toLowerCase();
+      const phoneId = (c.phone_number_id || '').trim().toLowerCase();
       const phoneProp = String((c as any).phone_number || '').trim().toLowerCase();
 
       if (

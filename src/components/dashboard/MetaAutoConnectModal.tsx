@@ -292,19 +292,31 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1-Click Fast Sync for Onboarded WhatsApp Number (+8801601705804)
+  // 1-Click Dynamic Sync for Onboarded WhatsApp Number
   const handleAutoBindOnboardedWhatsApp = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.autoConnectWhatsApp({
-        displayPhoneNumber: '+8801601705804',
-        verifiedName: 'One Agent Bd',
-        phoneNumberId: '8801601705804'
+      const res = await api.whatsappEmbeddedSignup({
+        wabaId: capturedWaDataRef.current.waba_id,
+        phoneNumberId: capturedWaDataRef.current.phone_number_id
       });
       if (res.channel) {
         onSuccess(res.channel);
         onClose();
+      } else if (res.whatsappNumbers && res.whatsappNumbers.length > 0) {
+        setWhatsappNumbers(res.whatsappNumbers);
+        setSelectedAssetId(res.whatsappNumbers[0].id);
+        setStep('select');
+      } else {
+        const assets = await api.getMetaPendingAssets();
+        if (assets.whatsappNumbers && assets.whatsappNumbers.length > 0) {
+          setWhatsappNumbers(assets.whatsappNumbers);
+          setSelectedAssetId(assets.whatsappNumbers[0].id);
+          setStep('select');
+        } else {
+          setError('WhatsApp Embedded Signup সম্পন্ন হয়েছে। নম্বরটি ড্যাশবোর্ডে দেখতে নিচে বা "WhatsApp ID দিয়ে কানেক্ট" অপশন ব্যবহার করুন।');
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'WhatsApp নম্বর সংযুক্ত করতে সমস্যা হয়েছে।');
@@ -864,7 +876,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                         <span>অনবোর্ডিং শেষ হলে ১-ক্লিকে অ্যাক্টিভ করুন:</span>
                       </div>
                       <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-tight">
-                        মেটার অনবোর্ডিং উইন্ডোতে &quot;Finish&quot; দিলে নিচের বাটনে ক্লিক করলেই আপনার বিজনেস নম্বর <strong className="text-emerald-700 dark:text-emerald-300">+8801601705804 (One Agent Bd)</strong> ড্যাশবোর্ডে সাথে সাথে Active হয়ে যাবে!
+                        মেটার অনবোর্ডিং উইন্ডোতে &quot;Finish&quot; দেওয়ার পর নিচের বাটনে ক্লিক করলেই আপনার সংযুক্ত WhatsApp Business নম্বর ড্যাশবোর্ডে সাথে সাথে Active ও Webhook সাবস্ক্রাইব হয়ে যাবে!
                       </p>
                       <button
                         type="button"
@@ -873,7 +885,7 @@ export const MetaAutoConnectModal: React.FC<MetaAutoConnectModalProps> = ({
                         className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
                       >
                         <WhatsAppLogo className="w-4 h-4 shrink-0" />
-                        <span>+8801601705804 (One Agent Bd) সক্রিয় করুন</span>
+                        <span>অনবোর্ডিং সিঙ্ক ও সক্রিয় করুন (Sync &amp; Activate WhatsApp)</span>
                       </button>
                     </div>
                   </div>

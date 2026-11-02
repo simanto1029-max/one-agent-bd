@@ -863,6 +863,38 @@ export const api = {
     });
   },
 
+  async getWhatsAppDiagnostics(channelId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    diagnostics?: {
+      wabaId: string;
+      phoneNumberId: string;
+      displayPhoneNumber: string;
+      subscribedAppsStatus: string;
+      subscribedAppsDetails: any;
+      phoneNumberStatus: string;
+      codeVerificationStatus: string;
+      qualityRating: string;
+      lastWebhookAt?: string;
+      lastWebhookPayload?: any;
+      lastSendResult?: any;
+    };
+    error?: string;
+  }> {
+    return fetchJson(`/api/channels/${encodeURIComponent(channelId)}/whatsapp-diagnostics`);
+  },
+
+  async repairWhatsAppChannel(channelId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    message: string;
+    error?: string;
+  }> {
+    return fetchJson(`/api/channels/${encodeURIComponent(channelId)}/whatsapp-diagnostics/repair`, {
+      method: 'POST'
+    });
+  },
+
   async getWhatsAppQR(): Promise<{
     success: boolean;
     sessionId: string;

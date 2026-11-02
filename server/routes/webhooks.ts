@@ -73,6 +73,7 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
 
     // 1. WhatsApp Business Account events
     if (body.object === 'whatsapp_business_account') {
+      console.log('[WhatsApp Webhook Inbound Full Payload]:', JSON.stringify(body, null, 2));
       for (const entry of body.entry || []) {
         for (const change of entry.changes || []) {
           const value = change.value;
@@ -106,8 +107,15 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
               (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
 
             const immediateWaChannel = db.getChannelByIdentifier('whatsapp', phoneNumberId);
-            if (immediateWaChannel && senderId && messageId) {
-              sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+            if (immediateWaChannel) {
+              db.updateChannel(immediateWaChannel.id, {
+                last_webhook_at: new Date().toISOString(),
+                last_webhook_payload: messageObj
+              });
+              if (senderId && messageId) {
+                // Send official WhatsApp read receipt
+                sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+              }
             }
 
             tasks.push(
@@ -336,6 +344,7 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
     const tasks: Promise<any>[] = [];
 
     if (body.object === 'whatsapp_business_account') {
+      console.log('[WhatsApp Cloud API Webhook Full Payload]:', JSON.stringify(body, null, 2));
       for (const entry of body.entry || []) {
         for (const change of entry.changes || []) {
           const value = change.value;
@@ -370,8 +379,15 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
               (isAudio ? '🎙️ [Voice Message]' : isImage ? '📷 [Sent Product Image]' : '[Media Message]');
 
             const immediateWaChannel = db.getChannelByIdentifier('whatsapp', phoneNumberId);
-            if (immediateWaChannel && senderId && messageId) {
-              sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+            if (immediateWaChannel) {
+              db.updateChannel(immediateWaChannel.id, {
+                last_webhook_at: new Date().toISOString(),
+                last_webhook_payload: messageObj
+              });
+              if (senderId && messageId) {
+                // Send official WhatsApp read receipt
+                sendMetaTypingAndSeenIndicator(immediateWaChannel, senderId, messageId, 'typing_on').catch(() => {});
+              }
             }
 
             tasks.push(
