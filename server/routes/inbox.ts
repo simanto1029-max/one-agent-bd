@@ -16,8 +16,9 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
   }
 
   const { channel_id, platform, customer_id, search, category } = req.query;
-  let messages = db.getMessages(user.id);
-  const userOrders = db.getOrders(user.id);
+  const isAdmin = user.role === 'admin';
+  let messages = isAdmin ? db.getAllMessages() : db.getMessages(user.id);
+  const userOrders = isAdmin ? db.getOrders() : db.getOrders(user.id);
   const profile = db.getProfileById(user.id);
   const pausedList = profile?.automation_settings?.paused_customers || [];
   const blockedList = profile?.automation_settings?.blocked_customers || [];
@@ -41,7 +42,7 @@ inboxRouter.get('/messages', (req: Request, res: Response) => {
     );
   }
 
-  const allCustomerMeta = db.getAllCustomerMetadata(user.id);
+  const allCustomerMeta = isAdmin ? db.getAllCustomerMetadata() : db.getAllCustomerMetadata(user.id);
   const metaMap = new Map<string, any>(allCustomerMeta.map((m) => [m.customer_id, m]));
 
   // Group by customer conversation
@@ -253,7 +254,7 @@ inboxRouter.post('/reply', async (req: Request, res: Response) => {
   }
 
   // Dispatch to real connected Meta channel if available
-  const userChannels = db.getChannels(user.id);
+  const userChannels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
   const activeChannel =
     (channelId ? userChannels.find((c) => c.id === channelId) : undefined) ||
     userChannels.find((c) => c.platform === platform && c.is_active);

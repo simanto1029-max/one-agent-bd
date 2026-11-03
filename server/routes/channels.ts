@@ -959,7 +959,7 @@ channelsRouter.get('/', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const channels = db.getChannels(user.id);
+  const channels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
 
   // SANITIZE: Strip access_token and app_secret
   const sanitized = channels.map(({ access_token, app_secret, ...rest }) => ({
