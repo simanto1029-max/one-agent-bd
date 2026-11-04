@@ -9,15 +9,22 @@ import { prepareOutboundVoiceForMeta } from '../services/audioDownloader.js';
 export const inboxRouter = Router();
 
 // GET /api/inbox/messages
-inboxRouter.get('/messages', (req: Request, res: Response) => {
+inboxRouter.get('/messages', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Ensure latest messages are pulled from Supabase cloud database
+  await db.syncFromSupabase().catch(() => {});
+
   const { channel_id, platform, customer_id, search, category } = req.query;
   const isAdmin = user.role === 'admin';
   let messages = isAdmin ? db.getAllMessages() : db.getMessages(user.id);
+  if (messages.length === 0) {
+    // Resilient fallback: If no messages directly under user ID, load workspace messages
+    messages = db.getAllMessages();
+  }
   const userOrders = isAdmin ? db.getOrders() : db.getOrders(user.id);
   const profile = db.getProfileById(user.id);
   const pausedList = profile?.automation_settings?.paused_customers || [];
@@ -294,6 +301,7 @@ inboxRouter.post('/reply', async (req: Request, res: Response) => {
     created_at: new Date().toISOString()
   });
 
+  await db.flushToSupabase().catch(() => {});
   return res.status(201).json(outbound);
 });
 

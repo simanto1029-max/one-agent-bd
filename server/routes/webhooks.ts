@@ -68,6 +68,9 @@ webhooksRouter.get(['/meta', '/', '/messenger', '/facebook', '/page'], (req: Req
 
 webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, res: Response) => {
   try {
+    // Pull latest channels and state in serverless lambda before processing
+    await db.syncFromSupabase().catch(() => {});
+
     const body = req.body || {};
     const tasks: Promise<any>[] = [];
 
@@ -289,6 +292,8 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
         Promise.allSettled(tasks),
         new Promise((resolve) => setTimeout(resolve, 2400))
       ]);
+      // Await database flush so Serverless Lambda persists messages to Supabase before freezing
+      await db.flushToSupabase().catch((err) => console.warn('[Meta Webhook] Flush warning:', err));
     }
 
     if (!res.headersSent) {
@@ -338,6 +343,9 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
 // POST /api/webhooks/whatsapp - Inbound WhatsApp Messages
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
   try {
+    // Pull latest state in serverless lambda before processing
+    await db.syncFromSupabase().catch(() => {});
+
     const body = req.body || {};
     console.log('[WhatsApp Webhook] Received payload at', new Date().toISOString(), 'object=', body.object);
 
@@ -417,6 +425,7 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
         Promise.allSettled(tasks),
         new Promise((resolve) => setTimeout(resolve, 2400))
       ]);
+      await db.flushToSupabase().catch((err) => console.warn('[WhatsApp Webhook] Flush warning:', err));
     }
 
     if (!res.headersSent) {
@@ -465,6 +474,9 @@ webhooksRouter.get('/messenger', (req: Request, res: Response) => {
 // POST /api/webhooks/messenger - Inbound Messenger Messages
 webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
   try {
+    // Pull latest state in serverless lambda before processing
+    await db.syncFromSupabase().catch(() => {});
+
     const body = req.body;
     const tasks: Promise<any>[] = [];
 
@@ -604,6 +616,7 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
         Promise.allSettled(tasks),
         new Promise((resolve) => setTimeout(resolve, 2400))
       ]);
+      await db.flushToSupabase().catch((err) => console.warn('[Messenger Webhook] Flush warning:', err));
     }
 
     if (!res.headersSent) {
@@ -654,6 +667,9 @@ webhooksRouter.get('/instagram', (req: Request, res: Response) => {
 // POST /api/webhooks/instagram - Inbound Instagram Direct Messages
 webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
   try {
+    // Pull latest state in serverless lambda before processing
+    await db.syncFromSupabase().catch(() => {});
+
     const body = req.body;
     const tasks: Promise<any>[] = [];
 
@@ -738,6 +754,7 @@ webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
         Promise.allSettled(tasks),
         new Promise((resolve) => setTimeout(resolve, 2400))
       ]);
+      await db.flushToSupabase().catch((err) => console.warn('[Instagram Webhook] Flush warning:', err));
     }
 
     if (!res.headersSent) {

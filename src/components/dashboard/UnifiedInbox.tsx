@@ -277,9 +277,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadInbox = async () => {
+  const loadInbox = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await api.getInbox();
       if (res.conversations && res.conversations.length > 0) {
         setConversations(res.conversations);
@@ -453,12 +453,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     } catch (err) {
       console.error('Failed to load inbox:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadInbox();
+    loadInbox(false);
+    // Live auto-polling: Refresh conversations every 3.5 seconds so incoming Facebook & WhatsApp messages appear immediately
+    const pollTimer = setInterval(() => {
+      loadInbox(true);
+    }, 3500);
+
+    return () => clearInterval(pollTimer);
   }, []);
 
   const selectedConv = conversations.find(

@@ -1675,6 +1675,46 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       }
     }
 
+    // Merge messages: union by id, preserve newest
+    if (this.data?.messages && this.data.messages.length > 0) {
+      const msgMap = new Map((incoming.messages || []).map((m: any) => [m.id, m]));
+      for (const localM of this.data.messages) {
+        if (!msgMap.has(localM.id)) {
+          msgMap.set(localM.id, localM);
+        }
+      }
+      incoming.messages = Array.from(msgMap.values()).sort(
+        (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    }
+
+    // Merge channels: union by id, preserve local active tokens
+    if (this.data?.channels && this.data.channels.length > 0) {
+      const chMap = new Map((incoming.channels || []).map((c: any) => [c.id, c]));
+      for (const localC of this.data.channels) {
+        if (!chMap.has(localC.id)) {
+          chMap.set(localC.id, localC);
+        } else {
+          const remoteC = chMap.get(localC.id);
+          if (localC.access_token && !remoteC.access_token) {
+            chMap.set(localC.id, { ...remoteC, access_token: localC.access_token });
+          }
+        }
+      }
+      incoming.channels = Array.from(chMap.values());
+    }
+
+    // Merge orders: union by id
+    if (this.data?.orders && this.data.orders.length > 0) {
+      const orderMap = new Map((incoming.orders || []).map((o: any) => [o.id, o]));
+      for (const localO of this.data.orders) {
+        if (!orderMap.has(localO.id)) {
+          orderMap.set(localO.id, localO);
+        }
+      }
+      incoming.orders = Array.from(orderMap.values());
+    }
+
     return incoming;
   }
 
@@ -2325,9 +2365,12 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     }
   }
 
-  getAllCustomerMetadata(userId: string): CustomerMetadata[] {
+  getAllCustomerMetadata(userId?: string): CustomerMetadata[] {
     if (!this.data.customer_metadata) this.data.customer_metadata = [];
-    return this.data.customer_metadata.filter((m) => m.user_id === userId);
+    if (userId) {
+      return this.data.customer_metadata.filter((m) => m.user_id === userId);
+    }
+    return this.data.customer_metadata;
   }
 
   deleteCustomerPermanently(userId: string, customerId: string): boolean {

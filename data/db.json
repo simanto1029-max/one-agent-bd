@@ -234,7 +234,7 @@
       "user_id": "usr_demo_002",
       "platform": "whatsapp",
       "name": "One Agent Bd (+8801601705804)",
-      "identifier": "1339419689265678",
+      "identifier": "8801601705804",
       "meta_asset_id": "1339419689265678",
       "phone_number": "+8801601705804",
       "access_token": "qr_linked_token_wa_qr_test",
@@ -4363,8 +4363,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-11-01T16:25:47.494Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 4:25:47 PM)",
+    "cron_last_run": "2026-11-04T08:08:20.235Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 8:08:20 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -5544,7 +5544,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1793550347494,
+  "_lastUpdatedAt": 1793779700236,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],
