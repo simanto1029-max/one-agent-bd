@@ -1715,17 +1715,28 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       incoming.orders = Array.from(orderMap.values());
     }
 
+    // Merge webhook_events: union by id, preserve newest 200
+    const localEvents = this.data?.webhook_events || [];
+    const remoteEvents = incoming.webhook_events || [];
+    const eventMap = new Map((remoteEvents).map((e: any) => [e.id || `${e.platform}_${e.created_at}`, e]));
+    for (const localE of localEvents) {
+      const key = localE.id || `${localE.platform}_${localE.created_at}`;
+      if (!eventMap.has(key)) {
+        eventMap.set(key, localE);
+      }
+    }
+    incoming.webhook_events = Array.from(eventMap.values())
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 200);
+
     return incoming;
   }
 
   public async syncFromSupabase(force = false): Promise<void> {
     const cfg = this.getSupabaseConfig();
     if (!cfg) return;
-    // Never overwrite recent local writes within 10 seconds
-    if (!force && this.lastLocalWriteAt > 0 && Date.now() - this.lastLocalWriteAt < 10000) {
-      return;
-    }
-    if (!force && !IS_VERCEL && Date.now() - this.lastSupabaseSyncAt < 2000) {
+    // When force is false, throttle pulls to 2 seconds
+    if (!force && Date.now() - this.lastSupabaseSyncAt < 2000) {
       return;
     }
     const controller = new AbortController();
@@ -1772,12 +1783,6 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       }
 
       if (rawState && typeof rawState === 'object') {
-        const remoteTs = Number(rawState._lastUpdatedAt || 0);
-        if (this.lastLocalWriteAt > 0 && (!remoteTs || this.lastLocalWriteAt >= remoteTs)) {
-          // Local in-memory state is newer than cloud state; push local state to cloud instead
-          await this.pushToSupabase();
-          return;
-        }
         const normalized = this.normalizeSchema(rawState);
         this.data = this.mergeLocalNewerProfiles(normalized);
         this.saveData(this.data);

@@ -751,20 +751,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
-  // Filter conversations
-  const filteredConversations = conversations.filter((c) => {
-    // Trash filter isolation
-    if (filterCategory === 'trash') {
-      if (!c.isDeleted) return false;
-    } else {
-      if (c.isDeleted) return false;
-    }
+  // Debug tracking per filter step (Task 5)
+  const totalMessagesInState = conversations.reduce((sum, c) => sum + (c.messages?.length || 0), 0);
+  const step1TrashFiltered = conversations.filter((c) => (filterCategory === 'trash' ? c.isDeleted : !c.isDeleted));
+  const step2PlatformFiltered = step1TrashFiltered.filter((c) => filterPlatform === 'all' || c.platform === filterPlatform);
+  const step3CategoryFiltered = step2PlatformFiltered.filter((c) => {
+    if (filterCategory === 'orders') return c.orderCategory === 'orders';
+    if (filterCategory === 'delivered') return c.orderCategory === 'delivered';
+    if (filterCategory === 'starred') return c.isStarred;
+    return true;
+  });
 
-    if (filterPlatform !== 'all' && c.platform !== filterPlatform) return false;
-    if (filterCategory === 'orders' && c.orderCategory !== 'orders') return false;
-    if (filterCategory === 'delivered' && c.orderCategory !== 'delivered') return false;
-    if (filterCategory === 'starred' && !c.isStarred) return false;
-
+  const filteredConversations = step3CategoryFiltered.filter((c) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchName = c.customerName.toLowerCase().includes(q);
@@ -958,6 +956,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <InstagramLogo className="w-3 h-3" />
             <span>Instagram</span>
           </button>
+        </div>
+
+        {/* Temporary Debug Line (Task 5): Shows total messages in state & counts after each filter step */}
+        <div className="mx-3.5 mt-2 px-2.5 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-[10px] text-indigo-800 dark:text-indigo-300 font-mono flex flex-wrap items-center gap-1.5 shrink-0">
+          <span className="font-bold text-indigo-900 dark:text-indigo-200">State:</span>
+          <span>{totalMessagesInState} msgs ({conversations.length} convs)</span>
+          <span>➜ Active: {step1TrashFiltered.length}</span>
+          <span>➜ Platform: {step2PlatformFiltered.length}</span>
+          <span>➜ Category: {step3CategoryFiltered.length}</span>
+          <span>➜ Filtered: {filteredConversations.length}</span>
         </div>
 
         {/* Trash Notice Banner when viewing trash */}

@@ -261,9 +261,9 @@
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-09-16T10:15:00.000Z",
-      "updated_at": "2026-11-01T09:22:29.508Z",
-      "last_webhook_at": "2026-11-01T09:22:29.508Z",
-      "last_message_at": "2026-11-01T09:22:29.508Z"
+      "updated_at": "2026-11-04T09:41:12.940Z",
+      "last_webhook_at": "2026-11-04T09:41:12.940Z",
+      "last_message_at": "2026-11-04T09:41:12.940Z"
     }
   ],
   "messages": [
@@ -4353,6 +4353,53 @@
         "type": "text"
       },
       "created_at": "2026-11-01T09:22:30.113Z"
+    },
+    {
+      "id": "msg_1793785272936_in_jo33",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "8424341844344622",
+      "customer_name": "Messenger User (4622)",
+      "direction": "inbound",
+      "message_text": "test123",
+      "has_voice": false,
+      "audio_mime_type": "audio/ogg",
+      "has_image": false,
+      "is_ai_reply": false,
+      "status": "delivered",
+      "raw_payload": {
+        "sender": {
+          "id": "8424341844344622"
+        },
+        "recipient": {
+          "id": "379312975259492"
+        },
+        "timestamp": 1730709000,
+        "message": {
+          "mid": "mid_test_123_1793785272",
+          "text": "test123"
+        }
+      },
+      "created_at": "2026-11-04T09:41:12.936Z",
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"test123\""
+    },
+    {
+      "id": "msg_1793785282989_out_a8r2",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "8424341844344622",
+      "customer_name": "Messenger User (4622)",
+      "direction": "outbound",
+      "message_text": "দুঃখিত, এই বিষয়টি সম্পর্কে আমার কাছে সঠিক তথ্য নেই।\n\nআমি বিষয়টি আমাদের সাপোর্ট টিমকে জানিয়ে দিচ্ছি, একজন প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবেন।",
+      "is_ai_reply": true,
+      "has_image": false,
+      "requires_human_attention": true,
+      "attention_reason": "Customer query flagged for human support: \"test123\"",
+      "status": "sent",
+      "created_at": "2026-11-04T09:41:22.989Z"
     }
   ],
   "settings": {
@@ -4363,8 +4410,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-11-04T08:08:20.235Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:08:20 AM)",
+    "cron_last_run": "2026-11-04T09:41:20.445Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:41:20 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4388,58 +4435,6 @@
       "notes": "Order captured automatically by One Agent BD AI assistant. | 🚨 AI Auto Fraud Alert: Unverified/Incomplete Phone Number — Call customer to verify before COD dispatch. | Confirmation Slip: \"Thank you Simanto Test! Your order for One Agent BD All-in-One Plan (Monthly) has been successfully received. Order ID: #ord_1791882487309_juq9. Total Bill: BDT 1450. Our delivery team will contact you shortly.\"",
       "created_at": "2026-10-13T09:08:07.309Z",
       "updated_at": "2026-10-13T09:08:07.309Z"
-    },
-    {
-      "id": "ord_dm_8841",
-      "user_id": "usr_demo_002",
-      "customer_id": "cust_8841",
-      "customer_name": "Mahmudul Hasan",
-      "customer_phone": "01715-667788",
-      "customer_address": "House 19, Road 4, Sector 7, Uttara, Dhaka",
-      "platform": "whatsapp",
-      "items": "Premium Linen Panjabi (Maroon - L)",
-      "quantity": 1,
-      "total_amount": 1850,
-      "currency": "BDT",
-      "payment_method": "cod",
-      "payment_status": "pending",
-      "status": "processing",
-      "order_source": "ai_detected",
-      "created_at": "2026-10-09T06:41:42.240Z",
-      "updated_at": "2026-10-09T07:42:24.616Z",
-      "courier_provider": "steadfast",
-      "tracking_number": "SF-M_8841-6586",
-      "consignment_id": "SF-M_8841-6586",
-      "dispatched_at": "2026-10-09T07:42:24.610Z",
-      "is_suspicious": false,
-      "manual_review_status": "approved",
-      "auto_dispatch_skipped": false
-    },
-    {
-      "id": "ord_dm_8842",
-      "user_id": "usr_demo_002",
-      "customer_id": "cust_8842",
-      "customer_name": "Rashedul Karim",
-      "customer_phone": "01822-334455",
-      "customer_address": "Flat 5A, Green Horizon, Dhanmondi 27, Dhaka",
-      "platform": "messenger",
-      "items": "Slim Fit Chino Pants (Khaki - 32)",
-      "quantity": 1,
-      "total_amount": 1450,
-      "currency": "BDT",
-      "payment_method": "cod",
-      "payment_status": "pending",
-      "status": "processing",
-      "order_source": "ai_detected",
-      "created_at": "2026-10-09T05:41:42.241Z",
-      "updated_at": "2026-10-09T07:42:24.635Z",
-      "courier_provider": "steadfast",
-      "tracking_number": "SF-M_8842-4281",
-      "consignment_id": "SF-M_8842-4281",
-      "dispatched_at": "2026-10-09T07:42:24.630Z",
-      "is_suspicious": false,
-      "manual_review_status": "approved",
-      "auto_dispatch_skipped": false
     },
     {
       "id": "ord_susp_9901",
@@ -4469,6 +4464,32 @@
       "dispatched_at": "2026-10-09T07:42:30.231Z"
     },
     {
+      "id": "ord_dm_8841",
+      "user_id": "usr_demo_002",
+      "customer_id": "cust_8841",
+      "customer_name": "Mahmudul Hasan",
+      "customer_phone": "01715-667788",
+      "customer_address": "House 19, Road 4, Sector 7, Uttara, Dhaka",
+      "platform": "whatsapp",
+      "items": "Premium Linen Panjabi (Maroon - L)",
+      "quantity": 1,
+      "total_amount": 1850,
+      "currency": "BDT",
+      "payment_method": "cod",
+      "payment_status": "pending",
+      "status": "processing",
+      "order_source": "ai_detected",
+      "created_at": "2026-10-09T06:41:42.240Z",
+      "updated_at": "2026-10-09T07:42:24.616Z",
+      "courier_provider": "steadfast",
+      "tracking_number": "SF-M_8841-6586",
+      "consignment_id": "SF-M_8841-6586",
+      "dispatched_at": "2026-10-09T07:42:24.610Z",
+      "is_suspicious": false,
+      "manual_review_status": "approved",
+      "auto_dispatch_skipped": false
+    },
+    {
       "id": "ord_susp_9902",
       "user_id": "usr_demo_002",
       "customer_id": "cust_9902",
@@ -4491,6 +4512,32 @@
       "created_at": "2026-10-09T06:11:42.241Z",
       "updated_at": "2026-10-09T07:42:24.621Z",
       "auto_dispatch_skipped": true
+    },
+    {
+      "id": "ord_dm_8842",
+      "user_id": "usr_demo_002",
+      "customer_id": "cust_8842",
+      "customer_name": "Rashedul Karim",
+      "customer_phone": "01822-334455",
+      "customer_address": "Flat 5A, Green Horizon, Dhanmondi 27, Dhaka",
+      "platform": "messenger",
+      "items": "Slim Fit Chino Pants (Khaki - 32)",
+      "quantity": 1,
+      "total_amount": 1450,
+      "currency": "BDT",
+      "payment_method": "cod",
+      "payment_status": "pending",
+      "status": "processing",
+      "order_source": "ai_detected",
+      "created_at": "2026-10-09T05:41:42.241Z",
+      "updated_at": "2026-10-09T07:42:24.635Z",
+      "courier_provider": "steadfast",
+      "tracking_number": "SF-M_8842-4281",
+      "consignment_id": "SF-M_8842-4281",
+      "dispatched_at": "2026-10-09T07:42:24.630Z",
+      "is_suspicious": false,
+      "manual_review_status": "approved",
+      "auto_dispatch_skipped": false
     },
     {
       "id": "ord_shop_1042",
@@ -4728,6 +4775,16 @@
     }
   ],
   "webhook_events": [
+    {
+      "id": "wh_1793785272945",
+      "platform": "messenger",
+      "event_type": "message",
+      "identifier": "379312975259492",
+      "sender_id": "8424341844344622",
+      "status": "processed",
+      "message_id": "mid_test_123_1793785272",
+      "created_at": "2026-11-04T09:41:12.945Z"
+    },
     {
       "id": "wh_1793524950124",
       "platform": "whatsapp",
@@ -5434,6 +5491,16 @@
   ],
   "notifications": [
     {
+      "id": "notif_1793785282979_p682",
+      "title": "কাস্টমার ইনকোয়ারি ফলো-আপ প্রয়োজন (Messenger User (4622))",
+      "message": "কাস্টমারের প্রশ্ন: \"test123\" — এআই নলেজবেসে সরাসরি না থাকায় বিনীত হোল্ড রিপ্লাই দেওয়া হয়েছে। লাইভ এজেন্টের ফলো-আপ প্রয়োজন।",
+      "type": "warning",
+      "action_label": "ইনবক্স দেখুন",
+      "action_tab": "inbox",
+      "is_active": true,
+      "created_at": "2026-11-04T09:41:22.979Z"
+    },
+    {
       "id": "notif_meta_perm_1793434014309",
       "title": "মেটা মেসেজিং ডেলিভারি সতর্কতা (One Agent BD)",
       "message": "ফেসবুকে মেসেজ পাঠানোর সময় মেটা এরর দিয়েছে: \"Invalid OAuth access token - Cannot parse access token\". আপনার Meta App যদি Live মোডে থাকে, তবে সাধারণ কাস্টমারদের রিপ্লাই দিতে Meta App Review (pages_messaging এর Advanced Access) প্রয়োজন, অথবা টেস্টিং এর জন্য প্রাপককে Meta App Roles এ Tester হিসেবে যুক্ত করুন।",
@@ -5544,7 +5611,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1793779700236,
+  "_lastUpdatedAt": 1793785282989,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],

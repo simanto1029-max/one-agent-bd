@@ -15,8 +15,8 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Ensure latest messages are pulled from Supabase cloud database
-  await db.syncFromSupabase().catch(() => {});
+  // Ensure latest messages are pulled from Supabase cloud database on every load/refresh
+  await db.syncFromSupabase(true).catch(() => {});
 
   const { channel_id, platform, customer_id, search, category } = req.query;
   const isAdmin = user.role === 'admin';
@@ -114,7 +114,19 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
       const validOrders = matchingOrders.filter((o) => o.status !== 'cancelled');
       const totalSpent = validOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
-      const custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
+      let custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
+      if (!custMeta) {
+        // Auto-create customer metadata so chat is never dropped due to missing record
+        custMeta = db.upsertCustomerMetadata(msg.user_id || user.id, msg.customer_id, {
+          customer_name: msg.customer_name || `Messenger User (${msg.customer_id.slice(-4)})`,
+          customer_avatar: msg.customer_avatar,
+          is_starred: false,
+          is_deleted: false
+        });
+        metaMap.set(msg.customer_id, custMeta);
+        metaMap.set(key, custMeta);
+      }
+
       const isAiPaused = pausedList.includes(msg.customer_id) || pausedList.includes(key);
       const isBlocked = blockedList.includes(msg.customer_id) || blockedList.includes(key);
 
@@ -135,7 +147,7 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
         assignedAgentId: custMeta?.assigned_agent_id,
         totalSpent,
         platform: msg.platform,
-        channelId: msg.channel_id,
+        channelId: msg.channel_id || `chn_${msg.platform}_direct`,
         lastMessage: msg,
         messages: [],
         unreadCount: 0,

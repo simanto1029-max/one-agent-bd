@@ -1995,36 +1995,58 @@ export async function fetchMetaCustomerProfile(
     return { name: cached.name, avatar: cached.avatar };
   }
 
-  if (!accessToken) {
+  // If token is missing, find active channel token
+  let token = accessToken;
+  if (!token) {
+    const allChannels = db.getChannels();
+    const match = allChannels.find(
+      (c) => (c.platform === platform || (platform === 'messenger' && c.platform === 'messenger')) &&
+             c.access_token && !c.access_token.includes('demo') && !c.access_token.startsWith('sim_')
+    );
+    token = match?.access_token;
+  }
+
+  if (!token) {
+    console.warn(`[Meta Graph API Profile] No access token available to fetch ${platform} customer profile for ${customerId}`);
     return {};
   }
 
   try {
     if (platform === 'messenger') {
-      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=first_name,last_name,name,profile_pic&access_token=${encodeURIComponent(accessToken)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=first_name,last_name,name,profile_pic&access_token=${encodeURIComponent(token)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4500) });
       if (res.ok) {
         const data = (await res.json()) as any;
         const name = data.name || (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : undefined);
         const avatar = data.profile_pic || undefined;
         const profile = { name, avatar };
-        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        if (name) {
+          customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        }
         return profile;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        console.error(`[Meta Graph API Profile Error] Messenger profile lookup for ${customerId} failed (${res.status} ${res.statusText}):`, JSON.stringify(errJson));
       }
     } else if (platform === 'instagram') {
-      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=name,username,profile_picture_url&access_token=${encodeURIComponent(accessToken)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const url = `https://graph.facebook.com/v21.0/${encodeURIComponent(customerId)}?fields=name,username,profile_picture_url&access_token=${encodeURIComponent(token)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4500) });
       if (res.ok) {
         const data = (await res.json()) as any;
         const name = data.name || data.username || undefined;
         const avatar = data.profile_picture_url || undefined;
         const profile = { name, avatar };
-        customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        if (name) {
+          customerProfileCache.set(cacheKey, { ...profile, timestamp: Date.now() });
+        }
         return profile;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        console.error(`[Meta Graph API Profile Error] Instagram profile lookup for ${customerId} failed (${res.status} ${res.statusText}):`, JSON.stringify(errJson));
       }
     }
-  } catch {
-    // Non-fatal, suppress log spam
+  } catch (err: any) {
+    console.error(`[Meta Graph API Profile Exception] Error fetching profile for ${customerId}:`, err?.message || err);
   }
 
   return {};

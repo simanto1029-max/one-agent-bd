@@ -177,20 +177,29 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
             const messageText =
               rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
+            // Immediately log event to state.webhook_events (Task 7)
+            db.logWebhookEvent({
+              id: `wh_${targetPlatform}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              platform: targetPlatform,
+              event_type: 'message',
+              identifier: assetId,
+              sender_id: senderId,
+              status: 'processed',
+              message_id: messageId,
+              created_at: new Date().toISOString()
+            });
+
             tasks.push(
               (async () => {
                 const targetChannel = db.getChannelByIdentifier(targetPlatform, assetId);
                 if (targetChannel && senderId) {
                   sendMetaTypingAndSeenIndicator(targetChannel, senderId, messageId, 'typing_on').catch(() => {});
                 }
-                const profile = await Promise.race([
-                  fetchMetaCustomerProfile(
-                    targetPlatform,
-                    senderId,
-                    targetChannel?.access_token
-                  ),
-                  new Promise<any>((r) => setTimeout(() => r({}), 450))
-                ]);
+                const profile = await fetchMetaCustomerProfile(
+                  targetPlatform,
+                  senderId,
+                  targetChannel?.access_token
+                );
 
                 const resolvedName = profile?.name || `${targetPlatform === 'instagram' ? 'Instagram' : 'Messenger'} User (${String(senderId || '').slice(-4)})`;
 
@@ -199,7 +208,7 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
                   identifier: assetId,
                   customerId: senderId,
                   customerName: resolvedName,
-                  customerAvatar: profile.avatar,
+                  customerAvatar: profile?.avatar,
                   messageText,
                   messageId,
                   audioUrl,
@@ -511,20 +520,29 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
             const rawText = event.message.quick_reply?.payload || event.message.text || '';
             const messageText = rawText || (audioUrl ? '🎙️ [Voice Message]' : imageUrl ? '📷 [Sent Product Image]' : '[Attachment]');
 
+            // Immediately log event to state.webhook_events (Task 7)
+            db.logWebhookEvent({
+              id: `wh_messenger_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              platform: 'messenger',
+              event_type: 'message',
+              identifier: pageId,
+              sender_id: senderId,
+              status: 'processed',
+              message_id: messageId,
+              created_at: new Date().toISOString()
+            });
+
             tasks.push(
               (async () => {
                 const targetChannel = db.getChannelByIdentifier('messenger', pageId);
                 if (targetChannel && senderId) {
                   sendMetaTypingAndSeenIndicator(targetChannel, senderId, messageId, 'typing_on').catch(() => {});
                 }
-                const profile = await Promise.race([
-                  fetchMetaCustomerProfile(
-                    'messenger',
-                    senderId,
-                    targetChannel?.access_token
-                  ),
-                  new Promise<any>((r) => setTimeout(() => r({}), 350))
-                ]);
+                const profile = await fetchMetaCustomerProfile(
+                  'messenger',
+                  senderId,
+                  targetChannel?.access_token
+                );
 
                 const resolvedName = profile?.name || `Messenger User (${senderId.slice(-4)})`;
 
@@ -533,7 +551,7 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
                   identifier: pageId,
                   customerId: senderId,
                   customerName: resolvedName,
-                  customerAvatar: profile.avatar,
+                  customerAvatar: profile?.avatar,
                   messageText,
                   messageId,
                   audioUrl,
