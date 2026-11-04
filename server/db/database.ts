@@ -1,6 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export interface OrderConfirmationSettings {
   enabled: boolean;
@@ -1111,16 +1114,39 @@ class Database {
 
   constructor() {
     this.data = this.loadData();
+    const cfg = this.getSupabaseConfig();
+    const isConnected = Boolean(cfg);
+    console.log(`Supabase connected: ${isConnected ? 'yes' : 'no'}, messages loaded: ${this.data.messages.length}`);
+    if (cfg) {
+      console.log(`[Database Startup] Supabase URL: ${cfg.url}, Key prefix: ${cfg.key.slice(0, 10)}... (length: ${cfg.key.length})`);
+      this.syncFromSupabase(true).catch((err) => {
+        console.error('[Database Startup] Initial Supabase sync error:', err);
+      });
+    } else {
+      console.warn('[Database Startup] Supabase environment variables NOT detected in process.env! Available keys:',
+        Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('URL') || k.includes('KEY'))
+      );
+    }
   }
 
   private getSupabaseConfig(): { url: string; key: string } | null {
-    const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const url = (
+      process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.VITE_SUPABASE_URL ||
+      ''
+    ).trim().replace(/\/+$/, '');
+
     const key = (
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.SUPABASE_KEY ||
       process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
       process.env.VITE_SUPABASE_ANON_KEY ||
       ''
     ).trim();
+
     if (!url || !key) return null;
     return { url, key };
   }
@@ -1466,13 +1492,9 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   private getSupabaseHeaders(key: string, extra: Record<string, string> = {}): Record<string, string> {
     const headers: Record<string, string> = {
       apikey: key,
+      Authorization: `Bearer ${key}`,
       ...extra
     };
-    // Legacy JWT keys start with 'eyJ' and require Authorization: Bearer <jwt>
-    // New Supabase keys (sb_secret_... / sb_publishable_...) use the 'apikey' header which Supabase Gateway exchanges for a JWT
-    if (key.startsWith('eyJ')) {
-      headers.Authorization = `Bearer ${key}`;
-    }
     return headers;
   }
 
@@ -1734,37 +1756,76 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   public async syncFromSupabase(force = false): Promise<void> {
     const cfg = this.getSupabaseConfig();
-    if (!cfg) return;
+    if (!cfg) {
+      console.warn('[Supabase Sync] Skipped: No Supabase URL or Key found in process.env');
+      return;
+    }
     // When force is false, throttle pulls to 2 seconds
     if (!force && Date.now() - this.lastSupabaseSyncAt < 2000) {
       return;
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       let rawState: any = null;
-      const response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&order=updated_at.desc&limit=1`, {
+      let usedEndpoint = '';
+
+      // Strategy 1: Fetch from app_state with updated_at ordering
+      let response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&order=updated_at.desc&limit=1`, {
         method: 'GET',
-        headers: this.getSupabaseHeaders(cfg.key, {
-          Accept: 'application/json'
-        }),
+        headers: this.getSupabaseHeaders(cfg.key, { Accept: 'application/json' }),
         signal: controller.signal
       });
+
+      // Strategy 2: If 400 Bad Request (e.g. column updated_at does not exist), try select=* limit 1
+      if (!response.ok && response.status === 400) {
+        console.warn(`[Supabase Sync] order=updated_at.desc returned 400, trying plain select=* limit 1`);
+        response = await fetch(`${cfg.url}/rest/v1/app_state?select=*&limit=1`, {
+          method: 'GET',
+          headers: this.getSupabaseHeaders(cfg.key, { Accept: 'application/json' }),
+          signal: controller.signal
+        });
+      }
+
+      // Strategy 3: If still failing, try by primary key id=eq.1
+      if (!response.ok && response.status === 400) {
+        response = await fetch(`${cfg.url}/rest/v1/app_state?id=eq.1&select=*`, {
+          method: 'GET',
+          headers: this.getSupabaseHeaders(cfg.key, { Accept: 'application/json' }),
+          signal: controller.signal
+        });
+      }
+
       if (response.ok) {
         const rows = await response.json();
         if (Array.isArray(rows) && rows.length > 0 && rows[0]) {
           const row = rows[0];
+          usedEndpoint = 'app_state';
           if ('payload' in row || typeof row.id === 'number') {
             this.useNumericPayloadSchema = true;
           }
           rawState = row.state_data || row.payload;
-        } else if (Array.isArray(rows) && rows.length === 0) {
-          await this.pushToSupabase();
-          return;
+          // In case state_data was stored as a serialized JSON string in Supabase
+          if (typeof rawState === 'string') {
+            try {
+              rawState = JSON.parse(rawState);
+            } catch (pErr) {
+              console.error('[Supabase Sync] Failed to parse serialized state_data string:', pErr);
+            }
+          }
+          // If row itself contains messages
+          if (!rawState && (row.messages || row.profiles)) {
+            rawState = row;
+          }
+        } else {
+          console.warn(`[Supabase Sync] app_state returned 0 rows or non-array:`, rows);
         }
+      } else {
+        const errText = await response.text().catch(() => '');
+        console.error(`[Supabase Sync Error] app_state fetch failed HTTP ${response.status} ${response.statusText}: ${errText}`);
       }
 
-      // Fallback to system_settings backup if app_state was unavailable
+      // Fallback to system_settings backup if app_state had no state
       if (!rawState) {
         const sysRes = await fetch(
           `${cfg.url}/rest/v1/system_settings?key=eq.app_state_backup&select=*&limit=1`,
@@ -1777,19 +1838,31 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         if (sysRes.ok) {
           const sysRows = await sysRes.json();
           if (Array.isArray(sysRows) && sysRows.length > 0 && sysRows[0]?.value) {
+            usedEndpoint = 'system_settings (app_state_backup)';
             rawState = sysRows[0].value;
+            if (typeof rawState === 'string') {
+              try { rawState = JSON.parse(rawState); } catch (_) {}
+            }
           }
+        } else {
+          const sysErrText = await sysRes.text().catch(() => '');
+          console.error(`[Supabase Sync Error] system_settings query failed HTTP ${sysRes.status}: ${sysErrText}`);
         }
       }
 
       if (rawState && typeof rawState === 'object') {
+        const remoteMsgCount = Array.isArray(rawState.messages) ? rawState.messages.length : 0;
+        console.log(`[Supabase Sync Success] Pulled from ${usedEndpoint}. Remote messages: ${remoteMsgCount}, Profiles: ${rawState.profiles?.length || 0}`);
         const normalized = this.normalizeSchema(rawState);
         this.data = this.mergeLocalNewerProfiles(normalized);
         this.saveData(this.data);
         this.lastSupabaseSyncAt = Date.now();
+        console.log(`[Supabase Sync Done] In-memory database now has ${this.data.messages.length} messages, ${this.data.channels?.length || 0} channels.`);
+      } else {
+        console.warn(`[Supabase Sync Warning] No valid state_data found in app_state or system_settings.`);
       }
     } catch (err: any) {
-      console.warn('[Supabase Sync] Pull warning:', err?.message || err);
+      console.error('[Supabase Sync Exception] Full error:', err?.message || err);
     } finally {
       clearTimeout(timer);
     }

@@ -251,8 +251,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     trash: 0
   });
 
-  // Toast
+  // Toast & Error Diagnostics
   const [inboxToast, setInboxToast] = useState<string | null>(null);
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const [serverDebug, setServerDebug] = useState<{
+    userId?: string;
+    userRole?: string;
+    userEmail?: string;
+    totalDbMessages?: number;
+    returnedMessages?: number;
+    returnedConversations?: number;
+    supabaseUrlDetected?: boolean;
+    supabaseKeyDetected?: boolean;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -281,165 +292,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     try {
       if (!silent) setLoading(true);
       const res = await api.getInbox();
-      if (res.conversations && res.conversations.length > 0) {
-        setConversations(res.conversations);
-      } else {
-        // Fallback default demo conversations with profile pictures and tags
-        const fallback: Conversation[] = [
-          {
-            customerId: '8801711513252',
-            customerName: 'Shahinul Islam',
-            customerPhone: '01711513252',
-            customerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-            platform: 'whatsapp',
-            channelId: 'chn_wa_01',
-            tags: ['VIP', 'Repeat Buyer'],
-            isStarred: true,
-            isDeleted: false,
-            unreadCount: 0,
-            orderCategory: 'new_customer',
-            totalOrdersCount: 2,
-            totalSpent: 2450,
-            isAiPaused: false,
-            isBlocked: false,
-            requiresHumanAttention: false,
-            lastMessage: {
-              id: 'm1',
-              user_id: 'u1',
-              channel_id: 'chn_wa_01',
-              platform: 'whatsapp',
-              customer_id: '8801711513252',
-              customer_name: 'Shahinul Islam',
-              direction: 'outbound',
-              is_ai_reply: true,
-              status: 'delivered',
-              message_text: "চ্যাটের ভেতরেই কাস্টমারের নাম, ঠিকানা ও মোবাইল নাম্বার নিয়ে AI অটোমেটিক অর্ডার বুক করে নেয়।\n\nএরপর ড্যাশবোর্ড থেকে মাত্র ১ ক্লিকে Steadfast, Pathao বা RedX কুরিয়ারে পার্সেল এন্ট্রি করতে পারবেন!\n\nআপনি বর্তমানে কোন কুরিয়ার সার্ভিসটি বেশি ব্যবহার করেন?",
-              created_at: new Date().toISOString()
-            },
-            messages: [
-              {
-                id: 'm0',
-                user_id: 'u1',
-                channel_id: 'chn_wa_01',
-                platform: 'whatsapp',
-                customer_id: '8801711513252',
-                customer_name: 'Shahinul Islam',
-                direction: 'inbound',
-                is_ai_reply: false,
-                status: 'delivered',
-                message_text: 'order details',
-                created_at: new Date(Date.now() - 60000).toISOString()
-              },
-              {
-                id: 'm1',
-                user_id: 'u1',
-                channel_id: 'chn_wa_01',
-                platform: 'whatsapp',
-                customer_id: '8801711513252',
-                customer_name: 'Shahinul Islam',
-                direction: 'outbound',
-                is_ai_reply: true,
-                status: 'delivered',
-                message_text: "চ্যাটের ভেতরেই কাস্টমারের নাম, ঠিকানা ও মোবাইল নাম্বার নিয়ে AI অটোমেটিক অর্ডার বুক করে নেয়।\n\nএরপর ড্যাশবোর্ড থেকে মাত্র ১ ক্লিকে Steadfast, Pathao বা RedX কুরিয়ারে পার্সেল এন্ট্রি করতে পারবেন!\n\nআপনি বর্তমানে কোন কুরিয়ার সার্ভিসটি বেশি ব্যবহার করেন?",
-                created_at: new Date().toISOString()
-              }
-            ]
-          },
-          {
-            customerId: 'shahinul_bablu_fb_01',
-            customerName: 'Shahinul Islam Bablu',
-            customerPhone: '01711998877',
-            customerAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-            platform: 'messenger',
-            channelId: 'chn_fb_01',
-            tags: ['Wholesale'],
-            isStarred: false,
-            isDeleted: false,
-            unreadCount: 0,
-            orderCategory: 'new_customer',
-            totalOrdersCount: 0,
-            totalSpent: 0,
-            isAiPaused: false,
-            isBlocked: false,
-            requiresHumanAttention: false,
-            lastMessage: {
-              id: 'm2',
-              user_id: 'u1',
-              channel_id: 'chn_fb_01',
-              platform: 'messenger',
-              customer_id: 'shahinul_bablu_fb_01',
-              customer_name: 'Shahinul Islam Bablu',
-              direction: 'inbound',
-              is_ai_reply: false,
-              status: 'delivered',
-              message_text: 'Ajk na kalk',
-              created_at: new Date(Date.now() - 3600000).toISOString()
-            },
-            messages: [
-              {
-                id: 'm2',
-                user_id: 'u1',
-                channel_id: 'chn_fb_01',
-                platform: 'messenger',
-                customer_id: 'shahinul_bablu_fb_01',
-                customer_name: 'Shahinul Islam Bablu',
-                direction: 'inbound',
-                is_ai_reply: false,
-                status: 'delivered',
-                message_text: 'Ajk na kalk',
-                created_at: new Date(Date.now() - 3600000).toISOString()
-              }
-            ]
-          },
-          {
-            customerId: 'saas_visitor_wa_01',
-            customerName: 'SaaS Website Visitor',
-            customerPhone: '01811223344',
-            customerAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-            platform: 'whatsapp',
-            channelId: 'chn_wa_02',
-            tags: ['Website Lead'],
-            isStarred: false,
-            isDeleted: false,
-            unreadCount: 0,
-            orderCategory: 'new_customer',
-            totalOrdersCount: 0,
-            totalSpent: 0,
-            isAiPaused: false,
-            isBlocked: false,
-            requiresHumanAttention: false,
-            lastMessage: {
-              id: 'm3',
-              user_id: 'u1',
-              channel_id: 'chn_wa_02',
-              platform: 'whatsapp',
-              customer_id: 'saas_visitor_wa_01',
-              customer_name: 'SaaS Website Visitor',
-              direction: 'outbound',
-              is_ai_reply: true,
-              status: 'delivered',
-              message_text: "AI: আপনি এখন 'One Agent BD'-এর অফিসিয়াল ওয়েবসাইটে লাইভ আছেন! কিভাবে সাহায্য করতে পারি?",
-              created_at: new Date(Date.now() - 7200000).toISOString()
-            },
-            messages: [
-              {
-                id: 'm3',
-                user_id: 'u1',
-                channel_id: 'chn_wa_02',
-                platform: 'whatsapp',
-                customer_id: 'saas_visitor_wa_01',
-                customer_name: 'SaaS Website Visitor',
-                direction: 'outbound',
-                is_ai_reply: true,
-                status: 'delivered',
-                message_text: "AI: আপনি এখন 'One Agent BD'-এর অফিসিয়াল ওয়েবসাইটে লাইভ আছেন! কিভাবে সাহায্য করতে পারি?",
-                created_at: new Date(Date.now() - 7200000).toISOString()
-              }
-            ]
-          }
-        ];
-        setConversations(fallback);
+      setInboxError(null);
+      if ((res as any).debug) {
+        setServerDebug((res as any).debug);
       }
+      setConversations(res.conversations || []);
 
       if (res.categoryCounts) {
         setCategoryCounts({
@@ -450,8 +307,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           trash: (res.categoryCounts as any).trash ?? 0
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load inbox:', err);
+      setInboxError(err?.message || 'Failed to load messages from server');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -958,6 +816,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           </button>
         </div>
 
+        {/* Visible Error Banner if inbox fetch fails (Task 4) */}
+        {inboxError && (
+          <div className="mx-3.5 mt-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-700 dark:text-red-300 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 font-semibold min-w-0">
+              <span className="shrink-0 text-red-500">⚠️</span>
+              <span className="truncate">Inbox API Error: {inboxError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadInbox(false)}
+              className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold cursor-pointer shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Temporary Debug Line (Task 5): Shows total messages in state & counts after each filter step */}
         <div className="mx-3.5 mt-2 px-2.5 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-[10px] text-indigo-800 dark:text-indigo-300 font-mono flex flex-wrap items-center gap-1.5 shrink-0">
           <span className="font-bold text-indigo-900 dark:text-indigo-200">State:</span>
@@ -966,6 +841,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           <span>➜ Platform: {step2PlatformFiltered.length}</span>
           <span>➜ Category: {step3CategoryFiltered.length}</span>
           <span>➜ Filtered: {filteredConversations.length}</span>
+          {serverDebug && (
+            <span className="w-full text-[9px] text-indigo-600 dark:text-indigo-400 mt-0.5 border-t border-indigo-200/50 dark:border-indigo-800/40 pt-0.5">
+              [Server: {serverDebug.totalDbMessages ?? '?'} in DB | User: {serverDebug.userId} ({serverDebug.userRole}) | Supabase: {serverDebug.supabaseUrlDetected ? 'URL OK' : 'NO URL'}, {serverDebug.supabaseKeyDetected ? 'Key OK' : 'NO KEY'}]
+            </span>
+          )}
         </div>
 
         {/* Trash Notice Banner when viewing trash */}

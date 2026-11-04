@@ -12,11 +12,14 @@ export const inboxRouter = Router();
 inboxRouter.get('/messages', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
+    console.warn('[Inbox GET Unauthorized] No authenticated user found from headers/query');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   // Ensure latest messages are pulled from Supabase cloud database on every load/refresh
-  await db.syncFromSupabase(true).catch(() => {});
+  await db.syncFromSupabase(true).catch((err) => {
+    console.error('[Inbox GET] syncFromSupabase error:', err);
+  });
 
   const { channel_id, platform, customer_id, search, category } = req.query;
   const isAdmin = user.role === 'admin';
@@ -25,6 +28,8 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
     // Resilient fallback: If no messages directly under user ID, load workspace messages
     messages = db.getAllMessages();
   }
+
+  console.log(`[Inbox GET] Authenticated user: id="${user.id}", role="${user.role}", email="${user.email}", total_db_messages=${db.getAllMessages().length}, user_messages=${messages.length}`);
   const userOrders = isAdmin ? db.getOrders() : db.getOrders(user.id);
   const profile = db.getProfileById(user.id);
   const pausedList = profile?.automation_settings?.paused_customers || [];
@@ -203,11 +208,23 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
     conversations = activeConversations.filter((c) => c.orderCategory === category);
   }
 
+  console.log(`[Inbox GET Response] Returning HTTP 200: user_id="${user.id}", role="${user.role}", conversations_count=${conversations.length}, messages_count=${messages.length}, active_conversations=${activeConversations.length}`);
+
   return res.json({
     conversations,
     allConversations,
     allMessages: messages,
-    categoryCounts
+    categoryCounts,
+    debug: {
+      userId: user.id,
+      userRole: user.role,
+      userEmail: user.email,
+      totalDbMessages: db.getAllMessages().length,
+      returnedMessages: messages.length,
+      returnedConversations: conversations.length,
+      supabaseUrlDetected: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
+      supabaseKeyDetected: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY)
+    }
   });
 });
 
