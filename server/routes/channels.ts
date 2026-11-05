@@ -953,11 +953,16 @@ channelsRouter.post('/:id/disconnect', async (req: Request, res: Response) => {
 });
 
 // GET /api/channels - List tenant channels (NEVER EXPOSE TOKENS TO CLIENT)
-channelsRouter.get('/', (req: Request, res: Response) => {
+channelsRouter.get('/', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  // Ensure latest channels are synced from Supabase cloud database
+  await db.syncFromSupabase(true).catch((err) => {
+    console.error('[Channels GET] syncFromSupabase error:', err);
+  });
 
   const channels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
 
@@ -1014,9 +1019,12 @@ channelsRouter.post('/', async (req: Request, res: Response) => {
   const cleanToken = String(access_token).trim();
   const cleanName = name?.trim() || (platform === 'whatsapp' ? 'WhatsApp Business' : platform === 'messenger' ? 'Facebook Page' : 'Instagram Direct');
 
-  // Check if channel already exists for this user & platform & identifier
-  const existing = db.getChannels(user.id).find(
-    (c) => c.platform === platform && c.identifier === cleanIdentifier
+  // Check if channel already exists for this platform & identifier to prevent duplicate cards
+  const existing = (user.role === 'admin' ? db.getChannels() : db.getChannels(user.id)).find(
+    (c) =>
+      c.platform === platform &&
+      (c.identifier.toLowerCase() === cleanIdentifier.toLowerCase() ||
+        (c.meta_asset_id && c.meta_asset_id.toLowerCase() === cleanIdentifier.toLowerCase()))
   );
 
   // Automatic Meta Webhook Subscription for Messenger & Instagram
@@ -1296,8 +1304,9 @@ channelsRouter.put('/:id', (req: Request, res: Response) => {
   }
 
   const channel = db.getChannelById(req.params.id);
-  if (!channel || channel.user_id !== user.id) {
-    return res.status(404).json({ error: 'Channel not found' });
+  const isAdmin = user.role === 'admin';
+  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
+    return res.status(404).json({ error: 'Channel not found or unauthorized' });
   }
 
   const { name, identifier, access_token, app_secret, is_active } = req.body;
@@ -1324,8 +1333,9 @@ channelsRouter.patch('/:id/toggle', (req: Request, res: Response) => {
   }
 
   const channel = db.getChannelById(req.params.id);
-  if (!channel || channel.user_id !== user.id) {
-    return res.status(404).json({ error: 'Channel not found' });
+  const isAdmin = user.role === 'admin';
+  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
+    return res.status(404).json({ error: 'Channel not found or unauthorized' });
   }
 
   if (!channel.is_active) {
@@ -1358,8 +1368,9 @@ channelsRouter.patch('/:id/automation', (req: Request, res: Response) => {
   }
 
   const channel = db.getChannelById(req.params.id);
-  if (!channel || channel.user_id !== user.id) {
-    return res.status(404).json({ error: 'Channel not found' });
+  const isAdmin = user.role === 'admin';
+  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
+    return res.status(404).json({ error: 'Channel not found or unauthorized' });
   }
 
   const { auto_comment_reply, auto_followup_enabled } = req.body || {};
@@ -1380,10 +1391,17 @@ channelsRouter.delete('/:id', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const outcome = await metaOAuthService.disconnectChannel(req.params.id, user.id);
-  if (!outcome.success) {
-    return res.status(404).json({ error: outcome.message });
+  const channel = db.getChannelById(req.params.id);
+  const isAdmin = user.role === 'admin';
+  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
+    return res.status(404).json({ error: 'Channel not found or unauthorized' });
   }
 
-  return res.json(outcome);
+  // Gracefully attempt webhook unsubscription
+  await metaOAuthService.disconnectChannel(req.params.id, user.id).catch(() => {});
+
+  // Clean delete from database
+  db.deleteChannel(req.params.id, isAdmin ? undefined : user.id);
+
+  return res.json({ success: true, message: `Channel "${channel.name}" has been disconnected.` });
 });

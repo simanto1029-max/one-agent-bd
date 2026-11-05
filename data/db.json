@@ -215,21 +215,6 @@
   "payments": [],
   "channels": [
     {
-      "id": "chn_wa_1791103340120",
-      "user_id": "usr_1790321094039_p5g7h",
-      "platform": "whatsapp",
-      "name": "Test WhatsApp Store (+8801700998877)",
-      "identifier": "wa_8801700998877",
-      "access_token": "system_cloud_token",
-      "is_active": false,
-      "status": "connected",
-      "meta_asset_name": "Test WhatsApp Store (+8801700998877)",
-      "meta_asset_id": "wa_8801700998877",
-      "meta_business_id": "",
-      "created_at": "2026-10-04T08:42:20.120Z",
-      "updated_at": "2026-10-05T13:10:26.273Z"
-    },
-    {
       "id": "chn_wa_qr_1791268848603",
       "user_id": "usr_demo_002",
       "platform": "whatsapp",
@@ -261,7 +246,7 @@
       "auto_comment_reply": true,
       "auto_followup_enabled": true,
       "created_at": "2026-09-16T10:15:00.000Z",
-      "updated_at": "2026-11-04T09:41:12.940Z",
+      "updated_at": "2026-11-05T09:01:25.477Z",
       "last_webhook_at": "2026-11-04T09:41:12.940Z",
       "last_message_at": "2026-11-04T09:41:12.940Z"
     }
@@ -4400,6 +4385,22 @@
       "attention_reason": "Customer query flagged for human support: \"test123\"",
       "status": "sent",
       "created_at": "2026-11-04T09:41:22.989Z"
+    },
+    {
+      "id": "msg_1793869135257_fw_3iih",
+      "user_id": "usr_demo_002",
+      "channel_id": "chn_me_1789553189985_lrft",
+      "platform": "messenger",
+      "customer_id": "8424341844344622",
+      "customer_name": "Messenger User (4622)",
+      "direction": "outbound",
+      "message_text": "⏰ [Auto Follow-up]: Hello Messenger User (4622)! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️",
+      "is_ai_reply": true,
+      "status": "sent",
+      "raw_payload": {
+        "is_followup": true
+      },
+      "created_at": "2026-11-05T08:58:55.257Z"
     }
   ],
   "settings": {
@@ -4410,8 +4411,8 @@
     "nagad_number": "+8801800123456",
     "support_email": "support@replayagent.com",
     "meta_description": "Automate WhatsApp and Messenger customer inquiries with fine-tuned AI agents, unified inbox, and instant bKash/Nagad billing.",
-    "cron_last_run": "2026-11-05T08:26:56.354Z",
-    "cron_status": "Active (Last check expired 0 subscriptions at 8:26:56 AM)",
+    "cron_last_run": "2026-11-05T09:03:19.684Z",
+    "cron_status": "Active (Last check expired 0 subscriptions at 9:03:19 AM)",
     "meta_app_id": "1668233901609132"
   },
   "orders": [
@@ -4953,6 +4954,15 @@
     }
   ],
   "audit_logs": [
+    {
+      "id": "aud_1793869292623",
+      "user_id": "usr_admin_001",
+      "action": "channel_disconnected",
+      "resource": "channel",
+      "resource_id": "chn_wa_1791103340120",
+      "details": "Disconnected whatsapp channel \"Test WhatsApp Store (+8801700998877)\" (wa_8801700998877)",
+      "created_at": "2026-11-05T09:01:32.623Z"
+    },
     {
       "id": "aud_1791268848608",
       "user_id": "usr_demo_002",
@@ -5611,7 +5621,7 @@
       "created_at": "2026-10-08T16:52:17.209Z"
     }
   ],
-  "_lastUpdatedAt": 1793867216354,
+  "_lastUpdatedAt": 1793869399684,
   "appointments": [],
   "email_subscribers": [],
   "email_campaigns": [],

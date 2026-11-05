@@ -656,9 +656,9 @@ export class MetaOAuthService {
       };
       db.saveFacebookPage(fbPageRecord);
 
-      // 3. Upsert tenant channel
-      const existingChannels = db.getChannels(userId);
-      let channel = existingChannels.find((c) => c.platform === 'messenger' && c.identifier === targetPage!.id);
+      // 3. Upsert tenant channel: check workspace-wide to prevent duplicates
+      const existingChannels = db.getChannels();
+      let channel = existingChannels.find((c) => c.platform === 'messenger' && (c.identifier === targetPage!.id || c.meta_asset_id === targetPage!.id));
 
       if (channel) {
         channel = db.updateChannel(channel.id, {
@@ -764,9 +764,9 @@ export class MetaOAuthService {
       };
       db.saveInstagramAccount(igRecord);
 
-      // 3. Upsert channel
-      const existingChannels = db.getChannels(userId);
-      let channel = existingChannels.find((c) => c.platform === 'instagram' && c.identifier === igAccountId);
+      // 3. Upsert channel: check workspace-wide to prevent duplicates
+      const existingChannels = db.getChannels();
+      let channel = existingChannels.find((c) => c.platform === 'instagram' && (c.identifier === igAccountId || c.meta_asset_id === igAccountId));
 
       if (channel) {
         channel = db.updateChannel(channel.id, {
@@ -957,8 +957,8 @@ export class MetaOAuthService {
       };
       db.saveWhatsAppPhoneNumber(phoneRecord);
 
-      // Upsert channel: find existing channel to update in place so limit is never breached
-      const existingChannels = db.getChannels(userId);
+      // Upsert channel: find existing channel across workspace to update in place and prevent duplicate cards
+      const existingChannels = db.getChannels();
       let channel = existingChannels.find(
         (c) =>
           c.platform === 'whatsapp' &&
@@ -1429,7 +1429,9 @@ export class MetaOAuthService {
    */
   public async disconnectChannel(channelId: string, userId: string): Promise<{ success: boolean; message: string }> {
     const channel = db.getChannelById(channelId);
-    if (!channel || channel.user_id !== userId) {
+    const user = db.getProfileById(userId);
+    const isAdmin = user?.role === 'admin';
+    if (!channel || (!isAdmin && channel.user_id !== userId)) {
       return { success: false, message: 'Channel not found or unauthorized.' };
     }
 
@@ -1445,7 +1447,7 @@ export class MetaOAuthService {
       }
     }
 
-    db.deleteChannel(channel.id, userId);
+    db.deleteChannel(channel.id, isAdmin ? undefined : userId);
 
     db.logAudit({
       id: 'aud_' + Date.now(),

@@ -109,8 +109,25 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
 
+  const loadChannels = async () => {
+    try {
+      const data = await api.getChannels();
+      if (Array.isArray(data) && data.length > 0) {
+        setLocalChannels(data);
+      }
+    } catch (err) {
+      console.warn('Failed to load channels in ChannelsView:', err);
+    }
+  };
+
   useEffect(() => {
-    setLocalChannels(channels);
+    loadChannels();
+  }, []);
+
+  useEffect(() => {
+    if (channels && channels.length > 0) {
+      setLocalChannels(channels);
+    }
   }, [channels]);
 
   useEffect(() => {
@@ -565,14 +582,20 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   // Confirm Disconnect Channel
   const handleConfirmDelete = async () => {
     if (!channelToDelete) return;
+    const targetId = channelToDelete.id;
     try {
       setIsDeleting(true);
-      await api.deleteChannel(channelToDelete.id);
+      setError(null);
+      // Optimistically remove from local state immediately
+      setLocalChannels((prev) => prev.filter((c) => c.id !== targetId));
+      await api.deleteChannel(targetId);
       setSuccessMessage(`"${channelToDelete.name}" has been disconnected successfully.`);
       setChannelToDelete(null);
+      await loadChannels();
       onRefresh();
     } catch (err: any) {
       setError(err.message || 'Failed to disconnect channel.');
+      await loadChannels();
     } finally {
       setIsDeleting(false);
     }
@@ -581,13 +604,19 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   // 1-Click Toggle AI Agent Active/Pause on a connected channel (Instant optimistic update)
   const handleToggleChannelActive = async (channelId: string) => {
     try {
+      setError(null);
       setLocalChannels((prev) =>
         prev.map((c) => (c.id === channelId ? { ...c, is_active: !c.is_active } : c))
       );
-      await api.toggleChannel(channelId);
+      const updated = await api.toggleChannel(channelId);
+      if (updated) {
+        setLocalChannels((prev) =>
+          prev.map((c) => (c.id === channelId ? { ...c, ...updated } : c))
+        );
+      }
       onRefresh();
     } catch (err: any) {
-      setLocalChannels(channels);
+      await loadChannels();
       setError(err.message || 'Failed to toggle AI Auto-Reply on this channel.');
     }
   };
@@ -698,11 +727,34 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   };
 
   const allChannels = localChannels.length > 0 ? localChannels : channels;
-  const facebookChannels = allChannels.filter(
+
+  // Clean deduplication by platform + identifier so duplicate cards NEVER show up
+  const deduplicatedChannels = React.useMemo(() => {
+    const map = new Map<string, Channel>();
+    for (const c of allChannels) {
+      const cleanIdent = String(
+        c.identifier || (c as any).meta_asset_id || (c as any).phone_number_id || c.id
+      ).trim().toLowerCase();
+      const key = `${c.platform}_${cleanIdent}`;
+      if (!map.has(key)) {
+        map.set(key, c);
+      } else {
+        const existing = map.get(key)!;
+        if (!existing.is_active && c.is_active) {
+          map.set(key, c);
+        } else if (!existing.has_token && c.has_token) {
+          map.set(key, c);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [allChannels]);
+
+  const facebookChannels = deduplicatedChannels.filter(
     (c) => c.platform === 'messenger' || (c.platform as any) === 'facebook'
   );
-  const instagramChannels = allChannels.filter((c) => c.platform === 'instagram');
-  const whatsappChannels = allChannels.filter((c) => c.platform === 'whatsapp');
+  const instagramChannels = deduplicatedChannels.filter((c) => c.platform === 'instagram');
+  const whatsappChannels = deduplicatedChannels.filter((c) => c.platform === 'whatsapp');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-6xl mx-auto">
@@ -2187,18 +2239,25 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             `"${connectedChannel.name}" connected successfully and AI Auto-Reply is now active!`
           );
           setLocalChannels((prev) => {
+            const cleanIdent = String(
+              connectedChannel.identifier || (connectedChannel as any).meta_asset_id || (connectedChannel as any).phone_number_id || connectedChannel.id
+            ).trim().toLowerCase();
             const exists = prev.some(
-              (c) => c.id === connectedChannel.id || c.identifier === connectedChannel.identifier
+              (c) =>
+                c.id === connectedChannel.id ||
+                String(c.identifier || (c as any).meta_asset_id || (c as any).phone_number_id || c.id).trim().toLowerCase() === cleanIdent
             );
             if (exists) {
               return prev.map((c) =>
-                c.id === connectedChannel.id || c.identifier === connectedChannel.identifier
+                c.id === connectedChannel.id ||
+                String(c.identifier || (c as any).meta_asset_id || (c as any).phone_number_id || c.id).trim().toLowerCase() === cleanIdent
                   ? { ...c, ...connectedChannel, is_active: true, status: 'connected' }
                   : c
               );
             }
             return [{ ...connectedChannel, is_active: true, status: 'connected' }, ...prev];
           });
+          loadChannels();
           onRefresh();
         }}
       />

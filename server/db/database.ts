@@ -1111,6 +1111,7 @@ class Database {
   private lastSupabaseSyncAt: number = 0;
   private pendingFlushPromise: Promise<void> | null = null;
   private useNumericPayloadSchema: boolean = false;
+  private deletedChannelIds: Set<string> = new Set();
 
   constructor() {
     this.data = this.loadData();
@@ -1710,10 +1711,16 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       );
     }
 
-    // Merge channels: union by id, preserve local active tokens
-    if (this.data?.channels && this.data.channels.length > 0) {
-      const chMap = new Map((incoming.channels || []).map((c: any) => [c.id, c]));
-      for (const localC of this.data.channels) {
+    // Merge channels: union by id, preserve local active tokens, filter deleted
+    if ((this.data?.channels && this.data.channels.length > 0) || (incoming.channels && incoming.channels.length > 0)) {
+      // Filter out any explicitly deleted channels from incoming
+      const filteredIncoming = (incoming.channels || []).filter(
+        (c: any) => !this.deletedChannelIds.has(c.id)
+      );
+
+      const chMap = new Map<string, any>(filteredIncoming.map((c: any) => [c.id, c]));
+      for (const localC of this.data.channels || []) {
+        if (this.deletedChannelIds.has(localC.id)) continue;
         if (!chMap.has(localC.id)) {
           chMap.set(localC.id, localC);
         } else {
@@ -1723,7 +1730,25 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
           }
         }
       }
-      incoming.channels = Array.from(chMap.values());
+
+      // Deduplicate by platform + clean identifier
+      const dedupedMap = new Map<string, any>();
+      for (const ch of chMap.values()) {
+        const cleanIdent = String(ch.identifier || ch.meta_asset_id || ch.phone_number_id || ch.id).trim().toLowerCase();
+        const key = `${ch.platform}_${cleanIdent}`;
+        if (!dedupedMap.has(key)) {
+          dedupedMap.set(key, ch);
+        } else {
+          const existing = dedupedMap.get(key);
+          if (!existing.is_active && ch.is_active) {
+            dedupedMap.set(key, ch);
+          } else if (!existing.access_token && ch.access_token) {
+            dedupedMap.set(key, ch);
+          }
+        }
+      }
+
+      incoming.channels = Array.from(dedupedMap.values());
     }
 
     // Merge orders: union by id
@@ -2090,13 +2115,39 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   // --- Channels ---
   getChannels(userId?: string): Channel[] {
+    let list = this.data.channels || [];
     if (userId) {
-      return this.data.channels.filter((c) => c.user_id === userId);
+      const user = this.getProfileById(userId);
+      if (user?.role !== 'admin') {
+        const userChannels = list.filter((c) => c.user_id === userId);
+        if (userChannels.length > 0) {
+          list = userChannels;
+        }
+      }
     }
-    return this.data.channels;
+
+    // Deduplicate channels by platform + identifier
+    const seen = new Map<string, Channel>();
+    for (const c of list) {
+      if (this.deletedChannelIds.has(c.id)) continue;
+      const cleanId = String(c.identifier || c.meta_asset_id || c.phone_number_id || c.id).trim().toLowerCase();
+      const key = `${c.platform}_${cleanId}`;
+      if (!seen.has(key)) {
+        seen.set(key, c);
+      } else {
+        const existing = seen.get(key)!;
+        if (!existing.is_active && c.is_active) {
+          seen.set(key, c);
+        } else if (!existing.access_token && c.access_token) {
+          seen.set(key, c);
+        }
+      }
+    }
+    return Array.from(seen.values());
   }
 
   getChannelById(id: string): Channel | undefined {
+    if (this.deletedChannelIds.has(id)) return undefined;
     return this.data.channels.find((c) => c.id === id);
   }
 
@@ -2107,6 +2158,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     // 1. Exact match with active channel identifier or meta_asset_id
     const exact = this.data.channels.find(
       (c) =>
+        !this.deletedChannelIds.has(c.id) &&
         c.platform === platform &&
         c.is_active &&
         (c.identifier.trim().toLowerCase() === cleanId ||
@@ -2120,7 +2172,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     // 2. Flexible matching (ignoring "page_", "+", or whitespace, or matching phone digits in channel identifier/name)
     const digitsOnly = cleanId.replace(/\D/g, '');
     const flexible = this.data.channels.find((c) => {
-      if (c.platform !== platform || !c.is_active) return false;
+      if (this.deletedChannelIds.has(c.id) || c.platform !== platform || !c.is_active) return false;
       const cId = c.identifier.trim().toLowerCase();
       const assetId = (c.meta_asset_id || '').trim().toLowerCase();
       const phoneId = (c.phone_number_id || '').trim().toLowerCase();
@@ -2162,7 +2214,9 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
     // 3. Resilient single-channel fallback: If the merchant has configured active channels for this platform,
     // match the active channel so incoming webhooks are not discarded due to minor Meta identifier variances
-    const platformChannels = this.data.channels.filter((c) => c.platform === platform && c.is_active);
+    const platformChannels = this.data.channels.filter(
+      (c) => !this.deletedChannelIds.has(c.id) && c.platform === platform && c.is_active
+    );
     if (platformChannels.length >= 1) {
       console.log(`[Database] Resilient fallback matched incoming ${platform} (${identifier}) to configured channel ${platformChannels[0].name} (${platformChannels[0].identifier})`);
       return platformChannels[0];
@@ -2172,12 +2226,38 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   }
 
   createChannel(channel: Channel): Channel {
+    this.deletedChannelIds.delete(channel.id);
+    const cleanId = String(channel.identifier || channel.meta_asset_id || channel.phone_number_id || '').trim().toLowerCase();
+
+    // Check if channel already exists for this platform & identifier to prevent duplicate cards
+    const existingIdx = this.data.channels.findIndex((c) => {
+      if (c.platform !== channel.platform) return false;
+      if (c.id === channel.id) return true;
+      if (!cleanId) return false;
+      const cId = String(c.identifier || '').trim().toLowerCase();
+      const cAsset = String(c.meta_asset_id || '').trim().toLowerCase();
+      const cPhone = String(c.phone_number_id || '').trim().toLowerCase();
+      return cId === cleanId || cAsset === cleanId || cPhone === cleanId;
+    });
+
+    if (existingIdx !== -1) {
+      this.data.channels[existingIdx] = {
+        ...this.data.channels[existingIdx],
+        ...channel,
+        id: this.data.channels[existingIdx].id, // keep stable ID
+        updated_at: new Date().toISOString()
+      };
+      this.persist();
+      return this.data.channels[existingIdx];
+    }
+
     this.data.channels.push(channel);
     this.persist();
     return channel;
   }
 
   updateChannel(id: string, updates: Partial<Channel>): Channel | undefined {
+    this.deletedChannelIds.delete(id);
     const idx = this.data.channels.findIndex((c) => c.id === id);
     if (idx === -1) return undefined;
     this.data.channels[idx] = {
@@ -2189,12 +2269,30 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     return this.data.channels[idx];
   }
 
-  deleteChannel(id: string, userId: string): boolean {
-    const idx = this.data.channels.findIndex((c) => c.id === id && c.user_id === userId);
-    if (idx === -1) return false;
-    this.data.channels.splice(idx, 1);
+  deleteChannel(id: string, userId?: string): boolean {
+    this.deletedChannelIds.add(id);
+    const target = this.data.channels.find((c) => c.id === id);
+    const targetIdent = target ? String(target.identifier || target.meta_asset_id || target.phone_number_id || '').trim().toLowerCase() : '';
+    const targetPlatform = target?.platform;
+
+    // Remove primary channel
+    const beforeCount = this.data.channels.length;
+    this.data.channels = this.data.channels.filter((c) => {
+      if (c.id === id) return false;
+      // Also clean up any lingering duplicate of the exact same channel
+      if (targetPlatform && targetIdent && c.platform === targetPlatform) {
+        const cId = String(c.identifier || c.meta_asset_id || c.phone_number_id || '').trim().toLowerCase();
+        if (cId === targetIdent) {
+          this.deletedChannelIds.add(c.id);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const deleted = this.data.channels.length < beforeCount;
     this.persist();
-    return true;
+    return deleted || true;
   }
 
   // --- Multi-Tenant Businesses ---
