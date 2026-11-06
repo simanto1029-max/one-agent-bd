@@ -425,6 +425,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         this.useNumericPayloadSchema = false;
         this.deletedChannelIds = /* @__PURE__ */ new Set();
         this.lastLocalWriteAt = 0;
+        this.pushDebounceTimer = null;
         this.data = this.loadData();
         const cfg = this.getSupabaseConfig();
         const isConnected = Boolean(cfg);
@@ -737,10 +738,16 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         this.saveData(this.data);
         this.isDirty = true;
         if (this.getSupabaseConfig()) {
-          this.pendingFlushPromise = this.pushToSupabase().catch((err) => {
-            console.warn("[Supabase Sync] Background push warning:", err?.message || err);
-          });
+          if (this.pushDebounceTimer) clearTimeout(this.pushDebounceTimer);
+          this.pushDebounceTimer = setTimeout(() => {
+            this.pushToSupabase().catch((err) => {
+              console.warn("[Supabase Sync] Background push warning:", err?.message || err);
+            });
+          }, 400);
         }
+      }
+      getLastSupabaseSyncAt() {
+        return this.lastSupabaseSyncAt;
       }
       getSupabaseHeaders(key, extra = {}) {
         const headers = {
@@ -996,7 +1003,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
           return;
         }
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 8e3);
+        const timer = setTimeout(() => controller.abort(), 2500);
         try {
           let rawState = null;
           let usedEndpoint = "";
@@ -12188,9 +12195,18 @@ channelsRouter.get("/", async (req, res) => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  await db.syncFromSupabase(true).catch((err) => {
-    console.error("[Channels GET] syncFromSupabase error:", err);
-  });
+  if (db.getChannels().length === 0) {
+    await Promise.race([
+      db.syncFromSupabase(true),
+      new Promise((resolve) => setTimeout(resolve, 1500))
+    ]).catch((err) => {
+      console.warn("[Channels GET] syncFromSupabase error:", err);
+    });
+  } else if (Date.now() - db.getLastSupabaseSyncAt() > 2e4) {
+    db.syncFromSupabase(false).catch((err) => {
+      console.warn("[Channels GET] Background sync warning:", err);
+    });
+  }
   const channels = user.role === "admin" ? db.getChannels() : db.getChannels(user.id);
   const sanitized = channels.map(({ access_token, app_secret, ...rest }) => ({
     ...rest,
@@ -12769,9 +12785,20 @@ inboxRouter.get("/messages", async (req, res) => {
     console.warn("[Inbox GET Unauthorized] No authenticated user found from headers/query");
     return res.status(401).json({ error: "Unauthorized" });
   }
-  await db.syncFromSupabase(true).catch((err) => {
-    console.error("[Inbox GET] syncFromSupabase error:", err);
-  });
+  const now = Date.now();
+  const hasLocalMessages = db.getAllMessages().length > 0;
+  if (!hasLocalMessages) {
+    await Promise.race([
+      db.syncFromSupabase(true),
+      new Promise((resolve) => setTimeout(resolve, 1500))
+    ]).catch((err) => {
+      console.warn("[Inbox GET] Initial syncFromSupabase error:", err?.message || err);
+    });
+  } else if (now - db.getLastSupabaseSyncAt() > 15e3) {
+    db.syncFromSupabase(false).catch((err) => {
+      console.warn("[Inbox GET] Background sync warning:", err?.message || err);
+    });
+  }
   const { channel_id, platform, customer_id, search, category } = req.query;
   const isAdmin = user.role === "admin";
   let messages = isAdmin ? db.getAllMessages() : db.getMessages(user.id);
@@ -12800,17 +12827,31 @@ inboxRouter.get("/messages", async (req, res) => {
   }
   const allCustomerMeta = isAdmin ? db.getAllCustomerMetadata() : db.getAllCustomerMetadata(user.id);
   const metaMap = new Map(allCustomerMeta.map((m) => [m.customer_id, m]));
+  const ordersByCustomerId = /* @__PURE__ */ new Map();
+  const ordersByPhoneTail = /* @__PURE__ */ new Map();
+  for (const ord of userOrders) {
+    if (ord.customer_id) {
+      const list = ordersByCustomerId.get(ord.customer_id) || [];
+      list.push(ord);
+      ordersByCustomerId.set(ord.customer_id, list);
+    }
+    if (ord.customer_phone) {
+      const digits = ord.customer_phone.replace(/\D/g, "");
+      if (digits.length >= 8) {
+        const tail = digits.slice(-8);
+        const list = ordersByPhoneTail.get(tail) || [];
+        list.push(ord);
+        ordersByPhoneTail.set(tail, list);
+      }
+    }
+  }
   const conversationsMap = /* @__PURE__ */ new Map();
   for (const msg of messages) {
     const key = `${msg.platform}_${msg.customer_id}`;
     if (!conversationsMap.has(key)) {
       const cleanMsgId = msg.customer_id.replace(/\D/g, "");
-      const matchingOrders = userOrders.filter((o) => {
-        const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, "") : "";
-        const phoneMatch = cleanOrderPhone.length >= 8 && cleanMsgId.length >= 8 && (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
-        const nameMatch = Boolean(o.customer_name && msg.customer_name && o.customer_name.toLowerCase().trim() === msg.customer_name.toLowerCase().trim());
-        return phoneMatch || nameMatch || o.customer_id === msg.customer_id;
-      });
+      const tail8 = cleanMsgId.length >= 8 ? cleanMsgId.slice(-8) : "";
+      const matchingOrders = (ordersByCustomerId.get(msg.customer_id) || (tail8 ? ordersByPhoneTail.get(tail8) : null) || []).slice();
       let orderCategory = "new_customer";
       let latestOrderId;
       let latestOrderStatus;
@@ -12829,12 +12870,15 @@ inboxRouter.get("/messages", async (req, res) => {
       const totalSpent = validOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
       let custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
       if (!custMeta) {
-        custMeta = db.upsertCustomerMetadata(msg.user_id || user.id, msg.customer_id, {
+        custMeta = {
+          id: `${msg.user_id || user.id}_${msg.customer_id}`,
+          user_id: msg.user_id || user.id,
+          customer_id: msg.customer_id,
           customer_name: msg.customer_name || `Messenger User (${msg.customer_id.slice(-4)})`,
           customer_avatar: msg.customer_avatar,
           is_starred: false,
           is_deleted: false
-        });
+        };
         metaMap.set(msg.customer_id, custMeta);
         metaMap.set(key, custMeta);
       }
@@ -19428,32 +19472,47 @@ app.use((req, res, next) => {
 app.use("/api/webhooks", webhooksRouter);
 var lastExpiryCheckAt = 0;
 app.use("/api", async (req, res, next) => {
-  if (req.path.startsWith("/webhooks")) {
+  if (req.path.startsWith("/webhooks") || req.path === "/health") {
     return next();
   }
-  try {
-    await db.syncFromSupabase();
-    if (Date.now() - lastExpiryCheckAt >= 60 * 1e3) {
-      lastExpiryCheckAt = Date.now();
-      runSubscriptionExpiryCheck();
+  const isColdStart = db.getAllMessages().length === 0;
+  if (isColdStart) {
+    try {
+      await Promise.race([
+        db.syncFromSupabase(true),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    } catch (err) {
+      console.warn("[API Sync Middleware] Cold-start sync warning:", err?.message || err);
     }
-  } catch (err) {
-    console.warn("[API Sync Middleware] Warning:", err);
-  }
-  const originalSend = res.send.bind(res);
-  let sendIntercepted = false;
-  res.send = function(body) {
-    if (sendIntercepted) {
-      return originalSend(body);
-    }
-    sendIntercepted = true;
-    res.send = originalSend;
-    db.flushToSupabase().catch(() => {
-    }).finally(() => {
-      originalSend(body);
+  } else if (Date.now() - db.getLastSupabaseSyncAt() > 2e4) {
+    db.syncFromSupabase(false).catch((err) => {
+      console.warn("[API Sync Middleware] Background sync warning:", err?.message || err);
     });
-    return res;
-  };
+  }
+  if (Date.now() - lastExpiryCheckAt >= 60 * 1e3) {
+    lastExpiryCheckAt = Date.now();
+    try {
+      runSubscriptionExpiryCheck();
+    } catch (_) {
+    }
+  }
+  if (req.method !== "GET") {
+    const originalSend = res.send.bind(res);
+    let sendIntercepted = false;
+    res.send = function(body) {
+      if (sendIntercepted) {
+        return originalSend(body);
+      }
+      sendIntercepted = true;
+      res.send = originalSend;
+      const result = originalSend(body);
+      db.flushToSupabase().catch((err) => {
+        console.warn("[API Mutation Flush] Warning:", err?.message || err);
+      });
+      return result;
+    };
+  }
   next();
 });
 app.get("/api/health", (req, res) => {

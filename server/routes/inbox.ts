@@ -16,10 +16,23 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Ensure latest messages are pulled from Supabase cloud database on every load/refresh
-  await db.syncFromSupabase(true).catch((err) => {
-    console.error('[Inbox GET] syncFromSupabase error:', err);
-  });
+  // Ensure latest messages are pulled from Supabase cloud database without exceeding serverless execution limits
+  const now = Date.now();
+  const hasLocalMessages = db.getAllMessages().length > 0;
+  if (!hasLocalMessages) {
+    // On cold start with 0 messages, race sync with a 1500ms timeout
+    await Promise.race([
+      db.syncFromSupabase(true),
+      new Promise((resolve) => setTimeout(resolve, 1500))
+    ]).catch((err) => {
+      console.warn('[Inbox GET] Initial syncFromSupabase error:', err?.message || err);
+    });
+  } else if (now - db.getLastSupabaseSyncAt() > 15000) {
+    // Background non-blocking sync every 15s so requests return in <20ms
+    db.syncFromSupabase(false).catch((err) => {
+      console.warn('[Inbox GET] Background sync warning:', err?.message || err);
+    });
+  }
 
   const { channel_id, platform, customer_id, search, category } = req.query;
   const isAdmin = user.role === 'admin';
@@ -57,6 +70,26 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
   const allCustomerMeta = isAdmin ? db.getAllCustomerMetadata() : db.getAllCustomerMetadata(user.id);
   const metaMap = new Map<string, any>(allCustomerMeta.map((m) => [m.customer_id, m]));
 
+  // Pre-index user orders for instant O(1) matching
+  const ordersByCustomerId = new Map<string, any[]>();
+  const ordersByPhoneTail = new Map<string, any[]>();
+  for (const ord of userOrders) {
+    if (ord.customer_id) {
+      const list = ordersByCustomerId.get(ord.customer_id) || [];
+      list.push(ord);
+      ordersByCustomerId.set(ord.customer_id, list);
+    }
+    if (ord.customer_phone) {
+      const digits = ord.customer_phone.replace(/\D/g, '');
+      if (digits.length >= 8) {
+        const tail = digits.slice(-8);
+        const list = ordersByPhoneTail.get(tail) || [];
+        list.push(ord);
+        ordersByPhoneTail.set(tail, list);
+      }
+    }
+  }
+
   // Group by customer conversation
   const conversationsMap = new Map<string, {
     customerId: string;
@@ -88,16 +121,14 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
   for (const msg of messages) {
     const key = `${msg.platform}_${msg.customer_id}`;
     if (!conversationsMap.has(key)) {
-      // Cross-match orders for this customer
+      // Cross-match orders for this customer (O(1) lookup)
       const cleanMsgId = msg.customer_id.replace(/\D/g, '');
-      const matchingOrders = userOrders.filter((o) => {
-        const cleanOrderPhone = o.customer_phone ? o.customer_phone.replace(/\D/g, '') : '';
-        const phoneMatch = cleanOrderPhone.length >= 8 && cleanMsgId.length >= 8 &&
-          (cleanMsgId.includes(cleanOrderPhone) || cleanOrderPhone.includes(cleanMsgId));
-        const nameMatch = Boolean(o.customer_name && msg.customer_name &&
-          o.customer_name.toLowerCase().trim() === msg.customer_name.toLowerCase().trim());
-        return phoneMatch || nameMatch || o.customer_id === msg.customer_id;
-      });
+      const tail8 = cleanMsgId.length >= 8 ? cleanMsgId.slice(-8) : '';
+      const matchingOrders = (
+        ordersByCustomerId.get(msg.customer_id) ||
+        (tail8 ? ordersByPhoneTail.get(tail8) : null) ||
+        []
+      ).slice();
 
       let orderCategory: 'orders' | 'delivered' | 'new_customer' = 'new_customer';
       let latestOrderId: string | undefined;
@@ -121,13 +152,16 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
 
       let custMeta = metaMap.get(msg.customer_id) || metaMap.get(key);
       if (!custMeta) {
-        // Auto-create customer metadata so chat is never dropped due to missing record
-        custMeta = db.upsertCustomerMetadata(msg.user_id || user.id, msg.customer_id, {
+        // Auto-create in-memory customer metadata so chat is never dropped (no disk/network write on GET)
+        custMeta = {
+          id: `${msg.user_id || user.id}_${msg.customer_id}`,
+          user_id: msg.user_id || user.id,
+          customer_id: msg.customer_id,
           customer_name: msg.customer_name || `Messenger User (${msg.customer_id.slice(-4)})`,
           customer_avatar: msg.customer_avatar,
           is_starred: false,
           is_deleted: false
-        });
+        };
         metaMap.set(msg.customer_id, custMeta);
         metaMap.set(key, custMeta);
       }

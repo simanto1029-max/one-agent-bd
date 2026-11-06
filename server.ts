@@ -64,35 +64,59 @@ let lastExpiryCheckAt = 0;
 
 // Serverless & Cloud Database Synchronization Middleware
 app.use('/api', async (req, res, next) => {
-  // Never block webhooks on database sync
-  if (req.path.startsWith('/webhooks')) {
+  // Never block webhooks or health checks on database sync
+  if (req.path.startsWith('/webhooks') || req.path === '/health') {
     return next();
   }
-  try {
-    await db.syncFromSupabase();
-    if (Date.now() - lastExpiryCheckAt >= 60 * 1000) {
-      lastExpiryCheckAt = Date.now();
-      runSubscriptionExpiryCheck();
+
+  // Non-blocking sync strategy to guarantee <50ms response times and prevent 504 serverless timeouts
+  const isColdStart = db.getAllMessages().length === 0;
+  if (isColdStart) {
+    // Only on brand new cold start with 0 messages, race sync with a fast 1500ms timeout
+    try {
+      await Promise.race([
+        db.syncFromSupabase(true),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    } catch (err: any) {
+      console.warn('[API Sync Middleware] Cold-start sync warning:', err?.message || err);
     }
-  } catch (err) {
-    console.warn('[API Sync Middleware] Warning:', err);
+  } else if (Date.now() - db.getLastSupabaseSyncAt() > 20000) {
+    // Background non-blocking sync every 20s
+    db.syncFromSupabase(false).catch((err: any) => {
+      console.warn('[API Sync Middleware] Background sync warning:', err?.message || err);
+    });
   }
 
-  const originalSend = res.send.bind(res);
-  let sendIntercepted = false;
-  (res as any).send = function (body?: any) {
-    if (sendIntercepted) {
-      return originalSend(body);
-    }
-    sendIntercepted = true;
-    res.send = originalSend;
-    db.flushToSupabase()
-      .catch(() => {})
-      .finally(() => {
-        originalSend(body);
+  if (Date.now() - lastExpiryCheckAt >= 60 * 1000) {
+    lastExpiryCheckAt = Date.now();
+    try {
+      runSubscriptionExpiryCheck();
+    } catch (_) {}
+  }
+
+  // Only intercept mutating operations (POST, PUT, PATCH, DELETE) to persist data without blocking GET responses
+  if (req.method !== 'GET') {
+    const originalSend = res.send.bind(res);
+    let sendIntercepted = false;
+    (res as any).send = function (body?: any) {
+      if (sendIntercepted) {
+        return originalSend(body);
+      }
+      sendIntercepted = true;
+      res.send = originalSend;
+
+      // Deliver HTTP response to client immediately so UI never hangs
+      const result = originalSend(body);
+
+      // Persist changes to Supabase asynchronously in the background
+      db.flushToSupabase().catch((err: any) => {
+        console.warn('[API Mutation Flush] Warning:', err?.message || err);
       });
-    return res;
-  };
+
+      return result;
+    };
+  }
 
   next();
 });

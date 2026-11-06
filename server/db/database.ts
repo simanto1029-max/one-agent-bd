@@ -1478,16 +1478,25 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   private lastLocalWriteAt: number = 0;
 
+  private pushDebounceTimer: any = null;
+
   private persist(): void {
     this.lastLocalWriteAt = Date.now();
     (this.data as any)._lastUpdatedAt = this.lastLocalWriteAt;
     this.saveData(this.data);
     this.isDirty = true;
     if (this.getSupabaseConfig()) {
-      this.pendingFlushPromise = this.pushToSupabase().catch((err) => {
-        console.warn('[Supabase Sync] Background push warning:', err?.message || err);
-      });
+      if (this.pushDebounceTimer) clearTimeout(this.pushDebounceTimer);
+      this.pushDebounceTimer = setTimeout(() => {
+        this.pushToSupabase().catch((err) => {
+          console.warn('[Supabase Sync] Background push warning:', err?.message || err);
+        });
+      }, 400);
     }
+  }
+
+  public getLastSupabaseSyncAt(): number {
+    return this.lastSupabaseSyncAt;
   }
 
   private getSupabaseHeaders(key: string, extra: Record<string, string> = {}): Record<string, string> {
@@ -1790,7 +1799,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return;
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 2500);
     try {
       let rawState: any = null;
       let usedEndpoint = '';

@@ -959,10 +959,19 @@ channelsRouter.get('/', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Ensure latest channels are synced from Supabase cloud database
-  await db.syncFromSupabase(true).catch((err) => {
-    console.error('[Channels GET] syncFromSupabase error:', err);
-  });
+  // Ensure latest channels are synced from Supabase cloud database without blocking
+  if (db.getChannels().length === 0) {
+    await Promise.race([
+      db.syncFromSupabase(true),
+      new Promise((resolve) => setTimeout(resolve, 1500))
+    ]).catch((err) => {
+      console.warn('[Channels GET] syncFromSupabase error:', err);
+    });
+  } else if (Date.now() - db.getLastSupabaseSyncAt() > 20000) {
+    db.syncFromSupabase(false).catch((err) => {
+      console.warn('[Channels GET] Background sync warning:', err);
+    });
+  }
 
   const channels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
 
