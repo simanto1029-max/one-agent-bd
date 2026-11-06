@@ -1110,11 +1110,39 @@ class Database {
   private isDirty: boolean = false;
   private lastSupabaseSyncAt: number = 0;
   private pendingFlushPromise: Promise<void> | null = null;
-  private useNumericPayloadSchema: boolean = false;
   private deletedChannelIds: Set<string> = new Set();
+  private deletedAgentIds: Set<string> = new Set();
+  private deletedProductIds: Set<string> = new Set();
+  private useNumericPayloadSchema: boolean = false;
+
+  private syncDeletedIdsToData(): void {
+    if (!this.data) return;
+    (this.data as any)._deleted_ids = {
+      channels: Array.from(this.deletedChannelIds),
+      agents: Array.from(this.deletedAgentIds),
+      products: Array.from(this.deletedProductIds)
+    };
+  }
+
+  private loadDeletedIdsFromData(source: any): void {
+    if (!source || typeof source !== 'object') return;
+    const del = source._deleted_ids;
+    if (del && typeof del === 'object') {
+      if (Array.isArray(del.channels)) {
+        del.channels.forEach((id: string) => this.deletedChannelIds.add(id));
+      }
+      if (Array.isArray(del.agents)) {
+        del.agents.forEach((id: string) => this.deletedAgentIds.add(id));
+      }
+      if (Array.isArray(del.products)) {
+        del.products.forEach((id: string) => this.deletedProductIds.add(id));
+      }
+    }
+  }
 
   constructor() {
     this.data = this.loadData();
+    this.loadDeletedIdsFromData(this.data);
     const cfg = this.getSupabaseConfig();
     const isConnected = Boolean(cfg);
     console.log(`Supabase connected: ${isConnected ? 'yes' : 'no'}, messages loaded: ${this.data.messages.length}`);
@@ -1169,54 +1197,19 @@ class Database {
           c.id !== 'chn_in_1789983618031_f34e'
       );
 
-      // Ensure usr_demo_002's WhatsApp channel has their real onboarded business number +8801601705804
+      // Ensure usr_demo_002's WhatsApp channel has their real onboarded business number +8801601705804 if not deleted
       const waDemo = parsed.channels.find(
-        (c: Channel) => c.platform === 'whatsapp' && (c.user_id === 'usr_demo_002' || c.identifier === '8801712345678')
+        (c: Channel) => c.platform === 'whatsapp' && (c.user_id === 'usr_demo_002' || c.identifier === '8801601705804' || c.identifier === '8801712345678')
       );
       if (waDemo) {
         waDemo.identifier = '8801601705804';
         waDemo.name = 'One Agent Bd (+8801601705804)';
         waDemo.is_active = true;
         waDemo.status = 'connected';
-      } else {
-        parsed.channels.push({
-          id: 'chn_wa_qr_1791268848603',
-          user_id: 'usr_demo_002',
-          platform: 'whatsapp',
-          name: 'One Agent Bd (+8801601705804)',
-          identifier: '8801601705804',
-          access_token: 'system_cloud_token',
-          is_active: true,
-          status: 'connected',
-          auto_comment_reply: true,
-          auto_followup_enabled: true,
-          created_at: '2026-10-06T06:40:48.603Z',
-          updated_at: new Date().toISOString()
-        });
       }
 
-      // Ensure Facebook Page channel (379312975259492) is active for usr_demo_002
-      const fbDemo = parsed.channels.find(
-        (c: Channel) => c.platform === 'messenger' && (c.identifier === '379312975259492' || c.id === 'chn_me_1789553189985_lrft')
-      );
-      if (!fbDemo) {
-        parsed.channels.push({
-          id: 'chn_me_1789553189985_lrft',
-          user_id: 'usr_demo_002',
-          platform: 'messenger',
-          name: 'One Agent BD',
-          identifier: '379312975259492',
-          access_token: 'system_cloud_token',
-          is_active: true,
-          status: 'connected',
-          meta_asset_name: 'One Agent BD',
-          meta_asset_id: '379312975259492',
-          auto_comment_reply: true,
-          auto_followup_enabled: true,
-          created_at: '2026-09-16T10:15:00.000Z',
-          updated_at: new Date().toISOString()
-        });
-      }
+      // Filter out any explicitly deleted channels
+      parsed.channels = parsed.channels.filter((c: Channel) => !this.deletedChannelIds.has(c.id));
     }
     if (parsed.messages) {
       parsed.messages = parsed.messages.filter(
@@ -1331,7 +1324,11 @@ class Database {
           updated_at: nowIso
         }
       ];
-      parsed.products = defaultSeedItems;
+      if (this.deletedProductIds.size === 0) {
+        parsed.products = defaultSeedItems;
+      } else {
+        parsed.products = [];
+      }
     } else {
       // Fix any mismatched seed image URLs in existing database records
       parsed.products.forEach((p: Product) => {
@@ -1342,7 +1339,9 @@ class Database {
         }
       });
       parsed.products = parsed.products.filter(
-        (p: Product) => !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
+        (p: Product) =>
+          !this.deletedProductIds.has(p.id) &&
+          !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
       );
     }
     if (Array.isArray(parsed.messages)) {
@@ -1661,11 +1660,24 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       };
     });
 
-    if (hasInMemoryWrites && this.data?.settings) {
-      incoming.settings = {
-        ...(incoming.settings || {}),
-        ...this.data.settings
-      };
+    if (!incoming.settings) incoming.settings = {} as any;
+    if (this.data?.settings) {
+      // NEVER allow empty or missing remote secrets to erase locally configured Meta App Secrets
+      if (this.data.settings.meta_app_secret && !incoming.settings.meta_app_secret) {
+        incoming.settings.meta_app_secret = this.data.settings.meta_app_secret;
+      }
+      if (this.data.settings.meta_app_id && !incoming.settings.meta_app_id) {
+        incoming.settings.meta_app_id = this.data.settings.meta_app_id;
+      }
+      if (this.data.settings.meta_config_id && !incoming.settings.meta_config_id) {
+        incoming.settings.meta_config_id = this.data.settings.meta_config_id;
+      }
+      if (hasInMemoryWrites) {
+        incoming.settings = {
+          ...incoming.settings,
+          ...this.data.settings
+        };
+      }
     } else if ((this.data.settings as any)?.default_llm_api_key && !(incoming.settings as any)?.default_llm_api_key) {
       const localSysKey = String((this.data.settings as any).default_llm_api_key).trim();
       if (!localSysKey.startsWith('sk-proj-wJiInvQ')) {
@@ -1690,20 +1702,45 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       }
     }
 
-    // Merge agents: preserve user-created multi-business AI agents
-    if (this.data?.agents && this.data.agents.length > 0) {
-      const localAgentMap = new Map(this.data.agents.map((a) => [a.id, a]));
-      incoming.agents = (incoming.agents || []).map((remoteAgent) => {
-        const local = localAgentMap.get(remoteAgent.id);
-        if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remoteAgent.updated_at || new Date(local.updated_at) >= new Date(remoteAgent.updated_at))))) {
-          return local;
-        }
-        return remoteAgent;
-      });
-      for (const localA of this.data.agents) {
-        if (!incoming.agents.some((ia) => ia.id === localA.id)) {
-          incoming.agents.push(localA);
-        }
+    // Merge agents: preserve user-created multi-business AI agents & filter deleted
+    if (incoming.agents) {
+      incoming.agents = incoming.agents.filter((a: any) => !this.deletedAgentIds.has(a.id));
+    } else {
+      incoming.agents = [];
+    }
+    const localAgentMap = new Map((this.data?.agents || []).map((a) => [a.id, a]));
+    incoming.agents = (incoming.agents || []).map((remoteAgent) => {
+      const local = localAgentMap.get(remoteAgent.id);
+      if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remoteAgent.updated_at || new Date(local.updated_at) >= new Date(remoteAgent.updated_at))))) {
+        return local;
+      }
+      return remoteAgent;
+    });
+    for (const localA of this.data?.agents || []) {
+      if (this.deletedAgentIds.has(localA.id)) continue;
+      if (!incoming.agents.some((ia) => ia.id === localA.id)) {
+        incoming.agents.push(localA);
+      }
+    }
+
+    // Merge products: preserve user-created catalog products & filter deleted
+    if (incoming.products) {
+      incoming.products = incoming.products.filter((p: any) => !this.deletedProductIds.has(p.id));
+    } else {
+      incoming.products = [];
+    }
+    const localProdMap = new Map((this.data?.products || []).map((p) => [p.id, p]));
+    incoming.products = (incoming.products || []).map((remoteProd) => {
+      const local = localProdMap.get(remoteProd.id);
+      if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remoteProd.updated_at || new Date(local.updated_at) >= new Date(remoteProd.updated_at))))) {
+        return local;
+      }
+      return remoteProd;
+    });
+    for (const localP of this.data?.products || []) {
+      if (this.deletedProductIds.has(localP.id)) continue;
+      if (!incoming.products.some((ip) => ip.id === localP.id)) {
+        incoming.products.push(localP);
       }
     }
 
@@ -1889,6 +1926,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         console.log(`[Supabase Sync Success] Pulled from ${usedEndpoint}. Remote messages: ${remoteMsgCount}, Profiles: ${rawState.profiles?.length || 0}`);
         const normalized = this.normalizeSchema(rawState);
         this.data = this.mergeLocalNewerProfiles(normalized);
+        this.loadDeletedIdsFromData(this.data);
         this.saveData(this.data);
         this.lastSupabaseSyncAt = Date.now();
         console.log(`[Supabase Sync Done] In-memory database now has ${this.data.messages.length} messages, ${this.data.channels?.length || 0} channels.`);
@@ -1903,14 +1941,20 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   }
 
   public async flushToSupabase(): Promise<void> {
+    if (this.pushDebounceTimer) {
+      clearTimeout(this.pushDebounceTimer);
+      this.pushDebounceTimer = null;
+    }
     if (this.pendingFlushPromise) {
       await this.pendingFlushPromise;
       this.pendingFlushPromise = null;
     }
     if (this.isDirty) {
-      await this.pushToSupabase().catch((err) => {
+      this.pendingFlushPromise = this.pushToSupabase().catch((err) => {
         console.warn('[Supabase Sync] Flush warning:', err?.message || err);
       });
+      await this.pendingFlushPromise;
+      this.pendingFlushPromise = null;
     }
   }
 
@@ -2036,6 +2080,8 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   createAgent(agent: Agent): Agent {
     if (!this.data.agents) this.data.agents = [];
+    this.deletedAgentIds.delete(agent.id);
+    this.syncDeletedIdsToData();
     this.data.agents.push(agent);
     this.persist();
     return agent;
@@ -2056,9 +2102,12 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   deleteAgent(id: string): boolean {
     if (!this.data.agents) this.data.agents = [];
+    this.deletedAgentIds.add(id);
+    this.syncDeletedIdsToData();
     const idx = this.data.agents.findIndex((a) => a.id === id);
-    if (idx === -1) return false;
-    this.data.agents.splice(idx, 1);
+    if (idx !== -1) {
+      this.data.agents.splice(idx, 1);
+    }
     this.persist();
     return true;
   }
@@ -2236,6 +2285,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   createChannel(channel: Channel): Channel {
     this.deletedChannelIds.delete(channel.id);
+    this.syncDeletedIdsToData();
     const cleanId = String(channel.identifier || channel.meta_asset_id || channel.phone_number_id || '').trim().toLowerCase();
 
     // Check if channel already exists for this platform & identifier to prevent duplicate cards
@@ -2267,6 +2317,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   updateChannel(id: string, updates: Partial<Channel>): Channel | undefined {
     this.deletedChannelIds.delete(id);
+    this.syncDeletedIdsToData();
     const idx = this.data.channels.findIndex((c) => c.id === id);
     if (idx === -1) return undefined;
     this.data.channels[idx] = {
@@ -2299,6 +2350,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return true;
     });
 
+    this.syncDeletedIdsToData();
     const deleted = this.data.channels.length < beforeCount;
     this.persist();
     return deleted || true;
@@ -2860,6 +2912,8 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
 
   createProduct(product: Product): Product {
     if (!this.data.products) this.data.products = [];
+    this.deletedProductIds.delete(product.id);
+    this.syncDeletedIdsToData();
     product.keywords = this.enrichProductKeywords(product);
     this.data.products.unshift(product);
     this.persist();
@@ -3007,10 +3061,13 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   }
 
   deleteProduct(id: string): boolean {
-    if (!this.data.products) return false;
+    if (!this.data.products) this.data.products = [];
+    this.deletedProductIds.add(id);
+    this.syncDeletedIdsToData();
     const idx = this.data.products.findIndex((p) => p.id === id);
-    if (idx === -1) return false;
-    this.data.products.splice(idx, 1);
+    if (idx !== -1) {
+      this.data.products.splice(idx, 1);
+    }
     this.persist();
     return true;
   }

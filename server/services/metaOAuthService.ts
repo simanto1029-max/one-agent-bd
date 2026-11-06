@@ -5,6 +5,8 @@ import { db, Channel, FacebookPage, InstagramAccount, WhatsAppBusinessAccount, W
 export interface MetaConfig {
   configured: boolean;
   appId: string;
+  hasSecret: boolean;
+  secretMasked?: string;
   configId?: string;
   redirectUri: string;
   webhookVerifyTokenConfigured: boolean;
@@ -57,13 +59,21 @@ export class MetaOAuthService {
   private customAppId: string = '';
   private customAppSecret: string = '';
 
-  public setCustomConfig(appId: string, appSecret: string, configId?: string) {
-    this.customAppId = appId.trim();
-    this.customAppSecret = appSecret.trim();
+  public setCustomConfig(appId?: string, appSecret?: string, configId?: string) {
+    if (appId && typeof appId === 'string' && appId.trim()) {
+      this.customAppId = appId.trim();
+    }
+    if (appSecret && typeof appSecret === 'string' && appSecret.trim()) {
+      this.customAppSecret = appSecret.trim();
+    }
+    const current = db.getSettings();
+    const effectiveAppId = (this.customAppId || current?.meta_app_id || process.env.META_APP_ID || '').trim();
+    const effectiveAppSecret = (this.customAppSecret || current?.meta_app_secret || process.env.META_APP_SECRET || '').trim();
+
     db.updateSettings({
-      meta_app_id: this.customAppId,
-      meta_app_secret: this.customAppSecret,
-      ...(configId !== undefined ? { meta_config_id: configId.trim() } : {})
+      meta_app_id: effectiveAppId,
+      ...(effectiveAppSecret ? { meta_app_secret: effectiveAppSecret } : {}),
+      ...(configId !== undefined && configId.trim() ? { meta_config_id: configId.trim() } : {})
     });
   }
 
@@ -78,7 +88,7 @@ export class MetaOAuthService {
 
   private getAppSecret(): string {
     const settings = db.getSettings();
-    return this.customAppSecret || settings?.meta_app_secret || process.env.META_APP_SECRET || '';
+    return (this.customAppSecret || settings?.meta_app_secret || process.env.META_APP_SECRET || '').trim();
   }
 
   private getConfigId(): string {
@@ -133,6 +143,8 @@ export class MetaOAuthService {
     return {
       configured: Boolean(appId && appSecret),
       appId,
+      hasSecret: Boolean(appSecret),
+      secretMasked: appSecret ? `••••••••••••${appSecret.slice(-4)}` : '',
       configId: this.getConfigId(),
       redirectUri,
       webhookVerifyTokenConfigured: Boolean(this.getVerifyToken()),

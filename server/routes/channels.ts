@@ -88,16 +88,21 @@ channelsRouter.get('/meta/config', (req: Request, res: Response) => {
 });
 
 // POST /api/channels/meta/config - Save Meta App credentials
-channelsRouter.post('/meta/config', (req: Request, res: Response) => {
+channelsRouter.post('/meta/config', async (req: Request, res: Response) => {
   const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { appId, appSecret, configId } = req.body;
-  if (typeof appId === 'string' && typeof appSecret === 'string') {
-    metaOAuthService.setCustomConfig(appId, appSecret, typeof configId === 'string' ? configId : undefined);
-  }
+  const cleanAppId = typeof appId === 'string' ? appId.trim() : undefined;
+  const cleanAppSecret = typeof appSecret === 'string' ? appSecret.trim() : undefined;
+  const cleanConfigId = typeof configId === 'string' ? configId.trim() : undefined;
+
+  metaOAuthService.setCustomConfig(cleanAppId, cleanAppSecret, cleanConfigId);
+  await db.flushToSupabase().catch((err) => {
+    console.warn('[Channels Meta Config Flush Error]:', err);
+  });
 
   const config = metaOAuthService.getConfig(req);
   return res.json({ success: true, config });

@@ -582,6 +582,8 @@ export const api = {
     appId?: string;
     redirectUri?: string;
     configId?: string;
+    hasSecret?: boolean;
+    secretMasked?: string;
     webhookUrlWhatsApp?: string;
     webhookUrlMessenger?: string;
     webhookUrlInstagram?: string;
@@ -589,9 +591,16 @@ export const api = {
     return fetchJson('/api/channels/meta/config');
   },
 
-  async updateMetaConfig(data: { appId: string; appSecret: string; configId?: string }): Promise<{
+  async updateMetaConfig(data: { appId?: string; appSecret?: string; configId?: string }): Promise<{
     success: boolean;
-    config: { configured: boolean; appId?: string; configId?: string; redirectUri?: string };
+    config: {
+      configured: boolean;
+      appId?: string;
+      configId?: string;
+      redirectUri?: string;
+      hasSecret?: boolean;
+      secretMasked?: string;
+    };
   }> {
     return fetchJson('/api/channels/meta/config', {
       method: 'POST',

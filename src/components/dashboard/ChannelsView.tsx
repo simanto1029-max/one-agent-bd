@@ -339,6 +339,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     appId?: string;
     configId?: string;
     redirectUri?: string;
+    hasSecret?: boolean;
+    secretMasked?: string;
   } | null>(null);
   const [metaAppIdInput, setMetaAppIdInput] = useState('');
   const [metaAppSecretInput, setMetaAppSecretInput] = useState('');
@@ -712,12 +714,16 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       setSavingMetaConfig(true);
       setError(null);
       setSuccessMessage(null);
-      const res = await api.updateMetaConfig({
+      const payload: { appId: string; appSecret?: string; configId?: string } = {
         appId: metaAppIdInput.trim(),
-        appSecret: metaAppSecretInput.trim(),
         configId: metaConfigIdInput.trim() || undefined
-      });
+      };
+      if (metaAppSecretInput.trim()) {
+        payload.appSecret = metaAppSecretInput.trim();
+      }
+      const res = await api.updateMetaConfig(payload);
       setMetaConfig(res.config);
+      setMetaAppSecretInput('');
       setSuccessMessage('Meta App ID, Secret & Embedded Signup Config saved! 1-Click login active.');
     } catch (err: any) {
       setError(err.message || 'Failed to save Meta configuration.');
@@ -2171,15 +2177,26 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Meta App Secret *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                    Meta App Secret {metaConfig?.hasSecret ? '' : '*'}
+                  </label>
+                  {metaConfig?.hasSecret && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                      Secret stored ({metaConfig.secretMasked || '••••••••'})
+                    </span>
+                  )}
+                </div>
                 <input
                   type="password"
-                  required
+                  required={!metaConfig?.hasSecret}
                   value={metaAppSecretInput}
                   onChange={(e) => setMetaAppSecretInput(e.target.value)}
-                  placeholder="e.g. 4a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d"
+                  placeholder={
+                    metaConfig?.hasSecret
+                      ? '•••••••••••• (Secret saved - leave blank to keep)'
+                      : 'e.g. 4a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d'
+                  }
                   className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
                 />
               </div>

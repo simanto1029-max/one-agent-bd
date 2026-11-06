@@ -106,15 +106,16 @@ app.use('/api', async (req, res, next) => {
       sendIntercepted = true;
       res.send = originalSend;
 
-      // Deliver HTTP response to client immediately so UI never hangs
-      const result = originalSend(body);
+      // Ensure mutated state is flushed to Supabase cloud before ending the request
+      db.flushToSupabase()
+        .catch((err: any) => {
+          console.warn('[API Mutation Flush] Warning:', err?.message || err);
+        })
+        .finally(() => {
+          originalSend(body);
+        });
 
-      // Persist changes to Supabase asynchronously in the background
-      db.flushToSupabase().catch((err: any) => {
-        console.warn('[API Mutation Flush] Warning:', err?.message || err);
-      });
-
-      return result;
+      return res;
     };
   }
 
