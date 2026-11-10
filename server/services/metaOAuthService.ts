@@ -1,1437 +1,1710 @@
-import { Router, Request, Response } from 'express';
-import { db, Channel } from '../db/database.js';
-import { getAuthenticatedUser } from './auth.js';
-import { getUserSubscriptionStatus } from '../services/subscriptionService.js';
-import { getPublicTunnelUrl } from '../services/tunnelService.js';
-import { metaOAuthService } from '../services/metaOAuthService.js';
-import { metaChannelService } from '../services/metaChannelService.js';
-import { runAutoFollowUpEngine, handleInboundCommentWebhook, handleInboundWebhook } from '../services/metaService.js';
+import { Request } from 'express';
+import crypto from 'crypto';
+import { db, Channel, FacebookPage, InstagramAccount, WhatsAppBusinessAccount, WhatsAppPhoneNumber } from '../db/database';
 
-export const channelsRouter = Router();
+export interface MetaConfig {
+  configured: boolean;
+  appId: string;
+  hasSecret: boolean;
+  secretMasked?: string;
+  configId?: string;
+  redirectUri: string;
+  webhookVerifyTokenConfigured: boolean;
+  webhookUrlWhatsApp: string;
+  webhookUrlMessenger: string;
+  webhookUrlInstagram: string;
+}
 
-// Meta connect / config / OAuth endpoints must see the LATEST saved App ID, App Secret, tokens and channels.
-// Every Vercel serverless instance keeps its own in-memory copy, so pull fresh state from Supabase first.
-channelsRouter.use('/meta', async (req: Request, _res: Response, next) => {
-  try {
-    if (Date.now() - db.getLastSupabaseSyncAt() > 1500) {
-      await Promise.race([
-        db.syncFromSupabase(true),
-        new Promise((resolve) => setTimeout(resolve, 3000))
-      ]);
-    }
-  } catch (err: any) {
-    console.warn('[Channels Meta Fresh Sync] warning:', err?.message || err);
+export interface AuthorizedPageItem {
+  id: string; // page_id
+  name: string;
+  category?: string;
+  access_token: string;
+  token_preview?: string;
+  tasks?: string[];
+  picture_url?: string;
+  instagram_business_account?: {
+    id: string;
+    username: string;
+    name?: string;
+    profile_picture_url?: string;
+  };
+}
+
+export interface AuthorizedWhatsAppItem {
+  id: string; // phone_number_id
+  waba_id: string;
+  waba_name: string;
+  display_phone_number: string;
+  verified_name?: string;
+  quality_rating?: string;
+  access_token: string;
+  token_preview?: string;
+}
+
+// In-memory cache for temporary OAuth session assets (held during asset selection step)
+const pendingAuthCache = new Map<
+  string,
+  {
+    userId: string;
+    platform: 'messenger' | 'instagram' | 'whatsapp';
+    pages: AuthorizedPageItem[];
+    whatsappNumbers?: AuthorizedWhatsAppItem[];
+    wabaInfo?: any;
+    expiresAt: number;
   }
-  next();
-});
+>();
 
-// Helper to check active subscription or active free trial
-export function checkSubscriptionActive(userId: string): { allowed: boolean; error?: string } {
-  const user = db.getProfileById(userId);
-  if (user?.role === 'admin') return { allowed: true }; // Admins have full access
+export class MetaOAuthService {
+  private customAppId: string = '';
+  private customAppSecret: string = '';
 
-  const subStatus = getUserSubscriptionStatus(userId);
-  if (subStatus.isExpired || subStatus.isGated || !subStatus.canAccessDashboard) {
+  public setCustomConfig(appId?: string, appSecret?: string, configId?: string) {
+    if (appId && typeof appId === 'string' && appId.trim()) {
+      this.customAppId = appId.trim();
+    }
+    if (appSecret && typeof appSecret === 'string' && appSecret.trim()) {
+      this.customAppSecret = appSecret.trim();
+    }
+    const current = db.getSettings();
+    const effectiveAppId = (this.customAppId || current?.meta_app_id || process.env.META_APP_ID || '').trim();
+    const effectiveAppSecret = (this.customAppSecret || current?.meta_app_secret || process.env.META_APP_SECRET || '').trim();
+
+    db.updateSettings({
+      meta_app_id: effectiveAppId,
+      ...(effectiveAppSecret ? { meta_app_secret: effectiveAppSecret } : {}),
+      ...(configId !== undefined && configId.trim() ? { meta_config_id: configId.trim() } : {})
+    });
+  }
+
+  private getAppId(): string {
+    const settings = db.getSettings();
+    const candidate = settings?.meta_app_id || this.customAppId || process.env.META_APP_ID || process.env.VITE_META_APP_ID || '';
+    if (!candidate || candidate.trim() === '28133631089641045') {
+      return '1668233901609132';
+    }
+    return candidate.trim();
+  }
+
+  private getAppSecret(): string {
+    const settings = db.getSettings();
+    return (settings?.meta_app_secret || this.customAppSecret || process.env.META_APP_SECRET || '').trim();
+  }
+
+  private getConfigId(): string {
+    const settings = db.getSettings();
+    return (settings?.meta_config_id || process.env.META_CONFIG_ID || '1661730682018982').trim();
+  }
+
+  private getVerifyToken(): string {
+    const settings = db.getSettings();
+    return (
+      settings?.meta_verify_token ||
+      process.env.META_WEBHOOK_VERIFY_TOKEN ||
+      process.env.WHATSAPP_VERIFY_TOKEN ||
+      process.env.MESSENGER_VERIFY_TOKEN ||
+      'one_agent_bd_verify_token'
+    );
+  }
+
+  public getEffectiveBaseUrl(req: Request): string {
+    const rawHost = ((req.headers['x-forwarded-host'] as string) || req.headers.host || '').split(',')[0].trim();
+    const isLocalhost = rawHost.includes('localhost') || rawHost.includes('127.0.0.1');
+    const forwardedProto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0].trim();
+    // Non-localhost domains must ALWAYS use https for Meta OAuth compliance
+    const effectiveProto = isLocalhost ? (forwardedProto || req.protocol || 'http') : 'https';
+
+    if (rawHost && !rawHost.includes('.vercel.app')) {
+      return `${effectiveProto}://${rawHost}`;
+    }
+    if (process.env.APP_URL) {
+      return process.env.APP_URL.replace(/\/+$/, '');
+    }
+    if (rawHost) {
+      return `${effectiveProto}://${rawHost}`;
+    }
+    return 'https://oneagentbd.online';
+  }
+
+  public getRedirectUri(req: Request): string {
+    if (process.env.META_REDIRECT_URI) {
+      return process.env.META_REDIRECT_URI;
+    }
+    const baseUrl = this.getEffectiveBaseUrl(req);
+    return `${baseUrl}/api/channels/meta/callback`;
+  }
+
+  public getConfig(req: Request): MetaConfig {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+    const baseUrl = this.getEffectiveBaseUrl(req);
+    const redirectUri = this.getRedirectUri(req);
+
     return {
-      allowed: false,
-      error:
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan (Starter: 1,250 BDT or Pro: 1,950 BDT) via bKash/Nagad to unpause and connect channels.'
+      configured: Boolean(appId && appSecret),
+      appId,
+      hasSecret: Boolean(appSecret),
+      secretMasked: appSecret ? `••••••••••••${appSecret.slice(-4)}` : '',
+      configId: this.getConfigId(),
+      redirectUri,
+      webhookVerifyTokenConfigured: Boolean(this.getVerifyToken()),
+      webhookUrlWhatsApp: `${baseUrl}/api/webhooks/whatsapp`,
+      webhookUrlMessenger: `${baseUrl}/api/webhooks/messenger`,
+      webhookUrlInstagram: `${baseUrl}/api/webhooks/instagram`
     };
   }
 
-  return { allowed: true };
-}
+  /**
+   * Generates official Meta OAuth Authorization URL
+   */
+  public generateAuthUrl(
+    userId: string,
+    platform: 'messenger' | 'instagram' | 'whatsapp',
+    req: Request,
+    onboarding: boolean = false
+  ): { authUrl: string; state: string; isConfigured: boolean } {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+    const redirectUri = this.getRedirectUri(req);
 
-// Helper to enforce Starter Plan (up to 3 social channels) vs Pro Plan (up to 10 social channels) limit
-function checkChannelLimitForPlan(
-  userId: string,
-  targetPlatform: 'messenger' | 'instagram' | 'whatsapp',
-  targetIdentifier?: string
-): { allowed: boolean; error?: string } {
-  const user = db.getProfileById(userId);
-  if (user?.role === 'admin') return { allowed: true };
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const statePayload = JSON.stringify({ userId, platform, nonce, time: Date.now() });
+    const state = Buffer.from(statePayload).toString('base64url');
 
-  const subStatus = getUserSubscriptionStatus(userId);
-  const isTrialActive = !subStatus.isExpired && subStatus.subscription?.status === 'trialing';
-  const isPro = subStatus.isProPlan || isTrialActive;
-  const maxAllowedChannels = isPro ? 10 : subStatus.featureConfig?.max_channels || 3;
-
-  const activeMetaChannels = db
-    .getChannels(userId)
-    .filter(
-      (c) =>
-        c.is_active &&
-        ['messenger', 'instagram', 'whatsapp'].includes(c.platform) &&
-        c.identifier !== 'website_widget'
-    );
-
-  // If re-connecting/updating an already connected channel with the same identifier, allow it
-  if (targetIdentifier && activeMetaChannels.some((c) => c.identifier === targetIdentifier)) {
-    return { allowed: true };
-  }
-
-  // If re-connecting or onboarding a channel of the same platform (e.g. replacing/re-authorizing WhatsApp), allow it
-  if (targetPlatform && activeMetaChannels.some((c) => c.platform === targetPlatform)) {
-    return { allowed: true };
-  }
-
-  if (activeMetaChannels.length >= maxAllowedChannels) {
-    if (!isPro) {
+    if (!appId || !appSecret) {
+      // Return simulated link indicator if credentials are not configured yet
       return {
-        allowed: false,
-        error: `Your Starter AI Plan (1,250 BDT/month) allows up to ${maxAllowedChannels} social channels (Facebook, Instagram & WhatsApp). Upgrade to the Pro Business Plan (1,950 BDT/month) to connect up to 10 channels simultaneously.`
+        authUrl: '',
+        state,
+        isConfigured: false
       };
     }
+
+    let scopes = 'pages_manage_metadata,pages_read_engagement,pages_manage_engagement,pages_messaging,business_management,pages_show_list';
+    if (platform === 'instagram') {
+      scopes = 'pages_manage_metadata,pages_read_engagement,pages_manage_engagement,pages_messaging,business_management,pages_show_list,instagram_basic,instagram_manage_messages,instagram_manage_comments';
+    } else if (platform === 'whatsapp') {
+      scopes = 'pages_manage_metadata,pages_read_engagement,pages_messaging,business_management,whatsapp_business_management,whatsapp_business_messaging';
+    }
+
+    const configId = this.getConfigId();
+    let extrasParam = '';
+    if (platform === 'whatsapp') {
+      const configParam = configId && onboarding ? `&config_id=${encodeURIComponent(configId)}` : '';
+      extrasParam = `${configParam}&auth_type=rerequest`;
+    } else if (onboarding) {
+      extrasParam = '&auth_type=rerequest';
+    }
+
+    const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(
+      appId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
+      scopes
+    )}&response_type=code&state=${encodeURIComponent(state)}${extrasParam}`;
+
     return {
-      allowed: false,
-      error: `You have reached the maximum of ${maxAllowedChannels} connected channels on your Pro Business Plan. Please disconnect an existing channel before adding a new one.`
+      authUrl,
+      state,
+      isConfigured: true
     };
   }
 
-  return { allowed: true };
-}
-
-// GET /api/channels/public-url
-channelsRouter.get('/public-url', (req: Request, res: Response) => {
-  const tunnelUrl = getPublicTunnelUrl();
-  return res.json({ publicUrl: tunnelUrl });
-});
-
-// GET /api/channels/meta/config
-channelsRouter.get('/meta/config', (req: Request, res: Response) => {
-  const config = metaOAuthService.getConfig(req);
-  return res.json(config);
-});
-
-// POST /api/channels/meta/config - Save Meta App credentials
-channelsRouter.post('/meta/config', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { appId, appSecret, configId } = req.body;
-  const cleanAppId = typeof appId === 'string' ? appId.trim() : undefined;
-  const cleanAppSecret = typeof appSecret === 'string' ? appSecret.trim() : undefined;
-  const cleanConfigId = typeof configId === 'string' ? configId.trim() : undefined;
-
-  metaOAuthService.setCustomConfig(cleanAppId, cleanAppSecret, cleanConfigId);
-  await db.flushToSupabase().catch((err) => {
-    console.warn('[Channels Meta Config Flush Error]:', err);
-  });
-
-  const config = metaOAuthService.getConfig(req);
-  return res.json({ success: true, config });
-});
-
-// GET /api/channels/meta/auth-url
-channelsRouter.get('/meta/auth-url', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const platform = (req.query.platform as 'messenger' | 'instagram' | 'whatsapp') || 'messenger';
-  const onboarding = req.query.onboarding === 'true' || req.query.onboarding === '1';
-  const result = metaOAuthService.generateAuthUrl(user.id, platform, req, onboarding);
-  return res.json(result);
-});
-
-// GET /api/channels/meta/callback - Handles Meta OAuth Redirect & Popup postMessage
-channelsRouter.get(['/meta/callback', '/meta/callback/'], async (req: Request, res: Response) => {
-  const code = req.query.code as string;
-  const state = req.query.state as string;
-  const error = req.query.error_message || req.query.error_description || req.query.error;
-
-  const baseUrl = metaOAuthService.getEffectiveBaseUrl(req);
-
-  const sendPopupOrRedirect = (payload: {
+  /**
+   * Handles official Meta OAuth Callback (code exchange, token upgrade, page retrieval)
+   */
+  public async handleCallback(
+    code: string,
+    stateString: string,
+    req: Request
+  ): Promise<{
     success: boolean;
-    platform?: string;
-    assetsCount?: number;
+    userId: string;
+    platform: 'messenger' | 'instagram' | 'whatsapp';
+    pages: AuthorizedPageItem[];
     error?: string;
-    redirectUrl: string;
-  }) => {
-    const safePayloadJson = JSON.stringify({
-      type: payload.success ? 'META_OAUTH_SUCCESS' : 'META_OAUTH_ERROR',
-      platform: payload.platform || 'messenger',
-      assetsCount: payload.assetsCount || 0,
-      error: payload.error || null
-    });
-    const safeRedirect = JSON.stringify(payload.redirectUrl);
+  }> {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+    const redirectUri = this.getRedirectUri(req);
 
-    return res.send(`<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Meta Authorization - One Agent BD</title>
-    <style>
-      body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0c; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-      .box { padding: 28px 32px; border-radius: 20px; background: #141418; border: 1px solid #27272a; max-width: 420px; }
-      .title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-      .sub { font-size: 13px; color: #a1a1aa; line-height: 1.5; }
-      .btn { margin-top: 18px; padding: 10px 20px; background: #7F22FE; color: #fff; border: none; border-radius: 12px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; }
-      .btn:hover { background: #6b1cd4; }
-    </style>
-  </head>
-  <body>
-    <div class="box">
-      <div class="title">${payload.success ? '✅ Meta Account Authorized!' : '⚠️ Meta Authorization Notice'}</div>
-      <div class="sub">${payload.success ? 'Page Access Tokens captured successfully. Closing window...' : (payload.error || 'Redirecting back to dashboard...')}</div>
-      <button class="btn" onclick="finishAndClose();">ড্যাশবোর্ডে ফিরে যান (Return to Dashboard)</button>
-    </div>
-    <script>
-      var msg = ${safePayloadJson};
-      var redirectTarget = ${safeRedirect};
+    let stateData: { userId: string; platform: 'messenger' | 'instagram' | 'whatsapp' };
+    try {
+      stateData = JSON.parse(Buffer.from(stateString, 'base64url').toString('utf-8'));
+    } catch (e) {
+      return { success: false, userId: '', platform: 'messenger', pages: [], error: 'Invalid OAuth state parameter.' };
+    }
 
-      function broadcastAndNotify() {
-        try {
-          localStorage.setItem('oneagentbd_oauth_result', JSON.stringify(Object.assign({}, msg, { timestamp: Date.now() })));
-        } catch (e) {}
+    const { userId, platform } = stateData;
 
-        try {
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage(msg, '*');
-          }
-        } catch (e) {}
+    try {
+      // 1. Exchange short-lived authorization code for user access token
+      const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+        appId
+      )}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${encodeURIComponent(
+        appSecret
+      )}&code=${encodeURIComponent(code)}`;
+
+      const tokenRes = await fetch(tokenUrl);
+      const tokenJson = (await tokenRes.json()) as any;
+
+      if (!tokenRes.ok || tokenJson.error) {
+        const msg = tokenJson.error?.message || 'Failed to exchange Meta authorization code.';
+        return { success: false, userId, platform, pages: [], error: msg };
       }
 
-      function finishAndClose() {
-        broadcastAndNotify();
-        try { window.close(); } catch(e) {}
-        if (!window.closed) {
-          window.location.href = redirectTarget;
-        }
-      }
+      const shortLivedToken = tokenJson.access_token;
 
-      (function() {
-        broadcastAndNotify();
+      // 2. Exchange for long-lived user token (60 days)
+      const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
+        appId
+      )}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(shortLivedToken)}`;
 
-        var isPopup = Boolean(window.opener) || window.name === 'oneagentbd_meta_oauth' || window.innerWidth < 850;
-        if (isPopup) {
-          setTimeout(function() {
-            try { window.close(); } catch (e) {}
-          }, 450);
-          return;
-        }
+      const longLivedRes = await fetch(longLivedUrl);
+      const longLivedJson = (await longLivedRes.json()) as any;
+      const userToken = longLivedJson.access_token || shortLivedToken;
 
-        setTimeout(function() {
-          window.location.href = redirectTarget;
-        }, 300);
-      })();
-    </script>
-  </body>
-</html>`);
-  };
+      // 3. Fetch user's managed Facebook Pages and linked Instagram accounts
+      const { pages, whatsappNumbers } = await this.discoverAssetsFromToken(userToken);
 
-  if (error) {
-    const errStr = String(error);
-    return sendPopupOrRedirect({
-      success: false,
-      error: errStr,
-      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(errStr)}`
-    });
+      // Cache pending authorization for 15 minutes for asset selection
+      pendingAuthCache.set(userId, {
+        userId,
+        platform,
+        pages,
+        whatsappNumbers,
+        expiresAt: Date.now() + 15 * 60 * 1000
+      });
+
+      db.logAudit({
+        id: 'aud_' + Date.now(),
+        user_id: userId,
+        action: 'meta_oauth_completed',
+        resource: 'channel',
+        details: `Authorized ${pages.length} Pages and ${whatsappNumbers.length} WhatsApp numbers via Meta OAuth for platform ${platform}`,
+        created_at: new Date().toISOString()
+      });
+
+      return {
+        success: true,
+        userId,
+        platform,
+        pages
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        userId,
+        platform,
+        pages: [],
+        error: err?.message || 'An unexpected error occurred during Meta authorization.'
+      };
+    }
   }
 
-  if (!code || !state) {
-    return sendPopupOrRedirect({
-      success: false,
-      error: 'Missing authorization code or state parameter from Meta.',
-      redirectUrl: `${baseUrl}/channels?meta_error=Missing_code_or_state`
-    });
-  }
+  /**
+   * Discovers Facebook Pages (with their permanent Page Access Tokens), linked Instagram Business Accounts,
+   * and WhatsApp Business Phone Numbers from a User Access Token or direct Page Access Token.
+   */
+  public async discoverAssetsFromToken(rawToken: string): Promise<{
+    pages: AuthorizedPageItem[];
+    whatsappNumbers: AuthorizedWhatsAppItem[];
+    error?: string;
+  }> {
+    const cleanToken = rawToken.trim();
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
 
-  const outcome = await metaOAuthService.handleCallback(code, state, req);
+    let effectiveUserToken = cleanToken;
 
-  if (!outcome.success) {
-    const errMsg = outcome.error || 'Authorization failed';
-    return sendPopupOrRedirect({
-      success: false,
-      platform: outcome.platform,
-      error: errMsg,
-      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(errMsg)}&platform=${outcome.platform}`
-    });
-  }
-
-  // If platform is messenger or instagram and no pages were granted or discovered
-  if (outcome.platform !== 'whatsapp' && outcome.pages.length === 0) {
-    const noPagesMsg =
-      'ফেসবুক লগইন সফল হয়েছে, কিন্তু কোনো ফেসবুক পেজ পাওয়া যায়নি। (আপনার মেটা অ্যাপ Development মোডে থাকলে ফেসবুক অ্যাকাউন্টটি মেটা কনসোলের App Roles > Roles-এ Developer বা Tester হিসেবে যোগ করুন, অথবা Page ID ও Token দিয়ে সরাসরি কানেক্ট করুন)।';
-    return sendPopupOrRedirect({
-      success: false,
-      platform: outcome.platform,
-      assetsCount: 0,
-      error: noPagesMsg,
-      redirectUrl: `${baseUrl}/channels?meta_error=${encodeURIComponent(noPagesMsg)}&platform=${outcome.platform}`
-    });
-  }
-
-  // Send postMessage to opener (if popup) or redirect back to frontend
-  return sendPopupOrRedirect({
-    success: true,
-    platform: outcome.platform,
-    assetsCount: outcome.pages.length,
-    redirectUrl: `${baseUrl}/channels?meta_auth=success&platform=${outcome.platform}&assets_count=${outcome.pages.length}`
-  });
-});
-
-// POST /api/channels/meta/exchange-token - Exchange frontend FB.login or User/Page token to capture Page Access Tokens
-channelsRouter.post('/meta/exchange-token', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const { accessToken, platform = 'messenger' } = req.body;
-  if (!accessToken || typeof accessToken !== 'string') {
-    return res.status(400).json({ error: 'Valid Meta Access Token is required.' });
-  }
-
-  const outcome = await metaOAuthService.exchangeFrontendToken(
-    user.id,
-    accessToken,
-    platform as 'messenger' | 'instagram' | 'whatsapp'
-  );
-
-  if (!outcome.success) {
-    return res.status(400).json({ error: outcome.error || 'Failed to capture Page Access Tokens from Meta.' });
-  }
-
-  const sanitizedPages = outcome.pages.map((p) => ({
-    id: p.id,
-    name: p.name,
-    category: p.category,
-    tasks: p.tasks,
-    picture_url: p.picture_url,
-    has_token: Boolean(p.access_token),
-    token_preview: p.token_preview || (p.access_token ? `EAA••••${p.access_token.slice(-6)}` : undefined),
-    instagram_business_account: p.instagram_business_account
-  }));
-
-  const sanitizedWaNumbers = (outcome.whatsappNumbers || []).map((w) => ({
-    id: w.id,
-    waba_id: w.waba_id,
-    waba_name: w.waba_name,
-    display_phone_number: w.display_phone_number,
-    verified_name: w.verified_name,
-    quality_rating: w.quality_rating,
-    has_token: Boolean(w.access_token),
-    token_preview: w.token_preview
-  }));
-
-  return res.json({
-    success: true,
-    platform: outcome.platform,
-    pages: sanitizedPages,
-    whatsappNumbers: sanitizedWaNumbers
-  });
-});
-
-// POST /api/channels/meta/sdk-capture - Store retrieved Page Access Tokens in user profile/database & verify with Meta Graph API
-channelsRouter.post('/meta/sdk-capture', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const {
-    accessToken,
-    platform = 'messenger',
-    autoConnectChannels = true,
-    grantedScopes
-  } = req.body;
-
-  if (!accessToken || typeof accessToken !== 'string') {
-    return res.status(400).json({ error: 'Valid Meta Access Token from Facebook SDK is required.' });
-  }
-
-  const result = await metaChannelService.captureAndStorePageTokens(user.id, accessToken, {
-    platform,
-    autoConnectChannels: Boolean(autoConnectChannels),
-    grantedScopes: Array.isArray(grantedScopes) ? grantedScopes : undefined
-  });
-
-  if (!result.success) {
-    return res.status(400).json({ error: result.error || 'Failed to capture and store Page Access Tokens.' });
-  }
-
-  const sanitizedPages = result.pages.map((p) => ({
-    id: p.id,
-    name: p.name,
-    category: p.category,
-    tasks: p.tasks,
-    picture_url: p.picture_url,
-    has_token: Boolean(p.access_token),
-    token_preview: p.token_preview || (p.access_token ? `EAA••••${p.access_token.slice(-6)}` : undefined),
-    instagram_business_account: p.instagram_business_account
-  }));
-
-  const sanitizedWaNumbers = result.whatsappNumbers.map((w) => ({
-    id: w.id,
-    waba_id: w.waba_id,
-    waba_name: w.waba_name,
-    display_phone_number: w.display_phone_number,
-    verified_name: w.verified_name,
-    quality_rating: w.quality_rating,
-    has_token: Boolean(w.access_token),
-    token_preview: w.token_preview
-  }));
-
-  const sanitizedChannels = result.connectedChannels.map(({ access_token, app_secret, ...rest }) => ({
-    ...rest,
-    has_token: Boolean(access_token),
-    token_preview: access_token ? `••••${access_token.slice(-4)}` : undefined
-  }));
-
-  return res.json({
-    success: true,
-    pages: sanitizedPages,
-    whatsappNumbers: sanitizedWaNumbers,
-    connectedChannels: sanitizedChannels,
-    verificationReport: result.verificationReport
-  });
-});
-
-// POST /api/channels/meta/verify-tokens - Verify stored Page Access Tokens with Meta Graph API to confirm connection status
-channelsRouter.post('/meta/verify-tokens', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { channelId } = req.body || {};
-  const report = await metaChannelService.verifyTokensWithGraphApi(
-    user.id,
-    typeof channelId === 'string' && channelId.trim() ? channelId.trim() : undefined
-  );
-
-  return res.json(report);
-});
-
-// GET /api/channels/meta/stored-tokens - Get summary of stored Page Access Tokens in user profile/database
-channelsRouter.get('/meta/stored-tokens', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const summary = metaChannelService.getStoredTokensSummary(user.id);
-  return res.json(summary);
-});
-
-// GET /api/channels/meta/pending-assets
-channelsRouter.get('/meta/pending-assets', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const assets = metaOAuthService.getPendingAssets(user.id);
-  if (!assets) {
-    return res.json({ available: false, pages: [], whatsappNumbers: [] });
-  }
-
-  // Sanitize access tokens before returning to client!
-  const sanitizedPages = assets.pages.map((p) => ({
-    id: p.id,
-    name: p.name,
-    category: p.category,
-    tasks: p.tasks,
-    picture_url: p.picture_url,
-    has_token: Boolean(p.access_token),
-    token_preview: p.token_preview || (p.access_token ? `EAA••••${p.access_token.slice(-6)}` : undefined),
-    instagram_business_account: p.instagram_business_account
-  }));
-
-  const sanitizedWaNumbers = (assets.whatsappNumbers || []).map((w) => ({
-    id: w.id,
-    waba_id: w.waba_id,
-    waba_name: w.waba_name,
-    display_phone_number: w.display_phone_number,
-    verified_name: w.verified_name,
-    quality_rating: w.quality_rating,
-    has_token: Boolean(w.access_token),
-    token_preview: w.token_preview
-  }));
-
-  return res.json({
-    available: sanitizedPages.length > 0 || sanitizedWaNumbers.length > 0,
-    platform: assets.platform,
-    pages: sanitizedPages,
-    whatsappNumbers: sanitizedWaNumbers
-  });
-});
-
-// POST /api/channels/meta/select-page
-channelsRouter.post('/meta/select-page', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const { pageId, pageName, category } = req.body;
-  if (!pageId) {
-    return res.status(400).json({ error: 'Page ID is required' });
-  }
-
-  const limitCheck = checkChannelLimitForPlan(user.id, 'messenger', String(pageId));
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
-  const result = await metaOAuthService.connectPage(user.id, pageId, {
-    name: pageName,
-    category
-  });
-
-  if (!result.success) {
-    return res.status(400).json({ error: result.error });
-  }
-
-  const { access_token, app_secret, ...sanitized } = result.channel as any;
-  return res.json({ success: true, channel: sanitized });
-});
-
-// POST /api/channels/meta/select-instagram
-channelsRouter.post('/meta/select-instagram', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const limitCheck = checkChannelLimitForPlan(user.id, 'instagram');
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
-  const { igAccountId, username, pageId } = req.body;
-  if (!igAccountId) {
-    return res.status(400).json({ error: 'Instagram Account ID is required' });
-  }
-
-  const result = await metaOAuthService.connectInstagram(user.id, igAccountId, {
-    username,
-    pageId
-  });
-
-  if (!result.success) {
-    return res.status(400).json({ error: result.error });
-  }
-
-  const { access_token, app_secret, ...sanitized } = result.channel as any;
-  return res.json({ success: true, channel: sanitized });
-});
-
-// POST /api/channels/meta/whatsapp-onboarding
-channelsRouter.post('/meta/whatsapp-onboarding', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const limitCheck = checkChannelLimitForPlan(user.id, 'whatsapp');
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
-  const { wabaId, phoneNumberId, displayPhoneNumber, verifiedName, accessToken } = req.body;
-
-  const pendingAssets = metaOAuthService.getPendingAssets(user.id);
-  const cachedWa = pendingAssets?.whatsappNumbers?.find((w) => w.id === String(phoneNumberId).trim());
-  const masterToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || process.env.META_APP_SECRET || 'system_cloud_token';
-  const effectiveToken = (accessToken && String(accessToken).trim()) || cachedWa?.access_token || masterToken;
-  const effectiveWabaId = wabaId || cachedWa?.waba_id || '';
-  const effectiveDisplayPhone = displayPhoneNumber?.trim() || cachedWa?.display_phone_number || String(phoneNumberId || '').trim();
-  const effectiveVerifiedName = verifiedName?.trim() || cachedWa?.verified_name || (effectiveDisplayPhone ? `WhatsApp Business (${effectiveDisplayPhone})` : 'WhatsApp Business');
-  const cleanDigits = effectiveDisplayPhone.replace(/[^0-9]/g, '');
-  const effectivePhoneId = String(phoneNumberId || '').trim() || (cleanDigits ? `wa_${cleanDigits}` : `wa_${Date.now()}`);
-
-  if (!effectiveDisplayPhone && !effectivePhoneId) {
-    return res.status(400).json({
-      error: 'WhatsApp Phone Number is required.'
-    });
-  }
-
-  const result = await metaOAuthService.connectWhatsAppOnboarding(user.id, {
-    wabaId: effectiveWabaId,
-    phoneNumberId: effectivePhoneId,
-    displayPhoneNumber: effectiveDisplayPhone || effectivePhoneId,
-    verifiedName: effectiveVerifiedName,
-    accessToken: effectiveToken
-  });
-
-  if (!result.success) {
-    return res.status(400).json({ error: result.error });
-  }
-
-  const { access_token, app_secret, ...sanitized } = result.channel as any;
-  return res.json({ success: true, channel: sanitized });
-});
-
-// POST /api/channels/meta/whatsapp-detect - Inspect access token or Phone Number ID to auto-populate WhatsApp details from Meta Graph API
-channelsRouter.post('/meta/whatsapp-detect', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { accessToken, phoneNumberId } = req.body || {};
-  const tokenToUse = (typeof accessToken === 'string' && accessToken.trim()) || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
-
-  if (!tokenToUse && !phoneNumberId) {
-    return res.status(400).json({ error: 'Access Token বা Phone Number ID প্রদান করুন।' });
-  }
-
-  try {
-    // 1. If phoneNumberId is provided, query it directly
-    if (phoneNumberId && tokenToUse) {
+    // Step 1: Attempt to upgrade to 60-day long-lived token if App ID & Secret are configured
+    if (appId && appSecret) {
       try {
-        const phoneUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-          String(phoneNumberId).trim()
-        )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
-          tokenToUse
-        )}`;
-        const phoneRes = await fetch(phoneUrl);
-        const phoneJson = (await phoneRes.json()) as any;
-        if (phoneRes.ok && phoneJson.id) {
-          return res.json({
-            success: true,
-            phoneNumberId: String(phoneJson.id),
-            displayPhoneNumber: phoneJson.display_phone_number || '',
-            verifiedName: phoneJson.verified_name || '',
-            qualityRating: phoneJson.quality_rating || 'GREEN'
+        const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
+          appId
+        )}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(cleanToken)}`;
+        const llRes = await fetch(longLivedUrl);
+        const llJson = (await llRes.json()) as any;
+        if (llRes.ok && llJson.access_token) {
+          effectiveUserToken = llJson.access_token;
+        }
+      } catch (_e) {
+        // Ignore if token is already a Page token or cannot be exchanged
+      }
+    }
+
+    const pages: AuthorizedPageItem[] = [];
+    const whatsappNumbers: AuthorizedWhatsAppItem[] = [];
+
+    // Step 2: Query /me/accounts to capture Page Access Tokens & linked Instagram Business Accounts
+    try {
+      const accountsUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,category,access_token,tasks,picture{url},instagram_business_account{id,username,name,profile_picture_url}&limit=100&access_token=${encodeURIComponent(
+        effectiveUserToken
+      )}`;
+      const accountsRes = await fetch(accountsUrl);
+      const accountsJson = (await accountsRes.json()) as any;
+
+      if (accountsRes.ok && Array.isArray(accountsJson.data) && accountsJson.data.length > 0) {
+        for (const p of accountsJson.data) {
+          const pageToken = p.access_token || effectiveUserToken;
+          pages.push({
+            id: String(p.id),
+            name: String(p.name || 'Facebook Page'),
+            category: p.category || 'Business Page',
+            access_token: pageToken,
+            token_preview: pageToken ? `EAA••••${pageToken.slice(-6)}` : undefined,
+            tasks: p.tasks,
+            picture_url: p.picture?.data?.url,
+            instagram_business_account: p.instagram_business_account
           });
         }
-      } catch (_directPhErr) {}
+      } else {
+        // Step 2B: Fallback — Check if the provided token is already a direct Page Access Token!
+        const meUrl = `https://graph.facebook.com/v21.0/me?fields=id,name,category,picture{url},instagram_business_account{id,username,name,profile_picture_url}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const meRes = await fetch(meUrl);
+        const meJson = (await meRes.json()) as any;
+
+        if (meRes.ok && meJson.id && meJson.category && !meJson.error) {
+          // Valid direct Facebook Page Access Token (has category field)
+          pages.push({
+            id: String(meJson.id),
+            name: String(meJson.name || 'Facebook Page'),
+            category: meJson.category,
+            access_token: effectiveUserToken,
+            token_preview: `EAA••••${effectiveUserToken.slice(-6)}`,
+            picture_url: meJson.picture?.data?.url,
+            instagram_business_account: meJson.instagram_business_account
+          });
+        } else if (accountsJson?.error) {
+          return {
+            pages: [],
+            whatsappNumbers: [],
+            error: accountsJson.error.message || 'Invalid Meta Access Token.'
+          };
+        }
+      }
+    } catch (err: any) {
+      return {
+        pages: [],
+        whatsappNumbers: [],
+        error: err?.message || 'Failed to query Meta Graph API.'
+      };
     }
 
-    // 2. Discover from token
-    if (tokenToUse) {
-      const { whatsappNumbers, error } = await metaOAuthService.discoverAssetsFromToken(tokenToUse);
-      if (whatsappNumbers && whatsappNumbers.length > 0) {
-        return res.json({
-          success: true,
-          numbers: whatsappNumbers.map((w) => ({
-            id: w.id,
-            waba_id: w.waba_id,
-            waba_name: w.waba_name,
-            display_phone_number: w.display_phone_number,
-            verified_name: w.verified_name,
-            quality_rating: w.quality_rating
-          }))
+    // Step 3: Attempt to discover WhatsApp Business Accounts (WABA) and Phone Number IDs
+    try {
+      const appId = this.getAppId();
+      const appSecret = this.getAppSecret();
+      const wabaIdsToFetch = new Set<string>();
+
+      // 3A. Inspect debug_token for granular_scopes (where Meta puts shared WABA IDs from Facebook Login for Business)
+      if (appId && appSecret) {
+        try {
+          const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(
+            effectiveUserToken
+          )}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`;
+          const debugRes = await fetch(debugUrl);
+          const debugJson = (await debugRes.json()) as any;
+          if (debugRes.ok && debugJson?.data?.granular_scopes) {
+            for (const gs of debugJson.data.granular_scopes) {
+              if (
+                gs.scope === 'whatsapp_business_management' ||
+                gs.scope === 'whatsapp_business_messaging'
+              ) {
+                if (Array.isArray(gs.target_ids)) {
+                  for (const tid of gs.target_ids) {
+                    if (tid) wabaIdsToFetch.add(String(tid));
+                  }
+                }
+              }
+            }
+          }
+        } catch (_debugErr) {}
+      }
+
+      // 3B. Direct me/whatsapp_business_accounts endpoint
+      try {
+        const directWabaUrl = `https://graph.facebook.com/v21.0/me/whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const directRes = await fetch(directWabaUrl);
+        const directJson = (await directRes.json()) as any;
+        if (directRes.ok && Array.isArray(directJson.data)) {
+          for (const w of directJson.data) {
+            if (w.id) {
+              wabaIdsToFetch.add(String(w.id));
+              const phones = w.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(w.id),
+                  waba_name: String(w.name || 'WhatsApp Business'),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || w.name,
+                  quality_rating: ph.quality_rating || 'GREEN',
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          }
+        }
+      } catch (_directErr) {}
+
+      // 3C. me/businesses with both owned and client WABAs
+      try {
+        const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}},client_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}&access_token=${encodeURIComponent(
+          effectiveUserToken
+        )}`;
+        const bizRes = await fetch(bizUrl);
+        const bizJson = (await bizRes.json()) as any;
+
+        if (bizRes.ok && Array.isArray(bizJson.data)) {
+          for (const biz of bizJson.data) {
+            const wabas = [
+              ...(biz.owned_whatsapp_business_accounts?.data || []),
+              ...(biz.client_whatsapp_business_accounts?.data || [])
+            ];
+            for (const waba of wabas) {
+              if (waba.id) {
+                wabaIdsToFetch.add(String(waba.id));
+                const phones = waba.phone_numbers?.data || [];
+                for (const ph of phones) {
+                  if (!whatsappNumbers.some((item) => item.id === String(ph.id))) {
+                    whatsappNumbers.push({
+                      id: String(ph.id),
+                      waba_id: String(waba.id),
+                      waba_name: String(waba.name || biz.name || 'WhatsApp Business'),
+                      display_phone_number: String(ph.display_phone_number || ph.id),
+                      verified_name: ph.verified_name || waba.name,
+                      quality_rating: ph.quality_rating || 'GREEN',
+                      access_token: effectiveUserToken,
+                      token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_bizErr) {}
+
+      // 3D. Fetch numbers for any WABA IDs found in granular scopes that aren't yet populated
+      for (const wabaId of wabaIdsToFetch) {
+        if (!whatsappNumbers.some((item) => item.waba_id === wabaId)) {
+          try {
+            const wUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              wabaId
+            )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}&access_token=${encodeURIComponent(
+              effectiveUserToken
+            )}`;
+            const wRes = await fetch(wUrl);
+            const wJson = (await wRes.json()) as any;
+            if (wRes.ok && wJson) {
+              const phones = wJson.phone_numbers?.data || [];
+              for (const ph of phones) {
+                whatsappNumbers.push({
+                  id: String(ph.id),
+                  waba_id: String(wabaId),
+                  waba_name: String(wJson.name || 'WhatsApp Business'),
+                  display_phone_number: String(ph.display_phone_number || ph.id),
+                  verified_name: ph.verified_name || wJson.name,
+                  quality_rating: ph.quality_rating || 'GREEN',
+                  access_token: effectiveUserToken,
+                  token_preview: `EAA••••${effectiveUserToken.slice(-6)}`
+                });
+              }
+            }
+          } catch (_wFetchErr) {}
+        }
+      }
+    } catch (_waErr) {
+      // Non-fatal if WhatsApp scopes aren't granted on this token
+    }
+
+    return { pages, whatsappNumbers };
+  }
+
+  /**
+   * Exchanges a frontend-captured Meta User/Page Access Token (from FB.login SDK or Graph API)
+   * and caches all discovered Page Access Tokens for 1-click connection.
+   */
+  public async exchangeFrontendToken(
+    userId: string,
+    accessToken: string,
+    platform: 'messenger' | 'instagram' | 'whatsapp'
+  ): Promise<{
+    success: boolean;
+    platform: 'messenger' | 'instagram' | 'whatsapp';
+    pages: AuthorizedPageItem[];
+    whatsappNumbers: AuthorizedWhatsAppItem[];
+    error?: string;
+  }> {
+    if (!accessToken || !accessToken.trim()) {
+      return {
+        success: false,
+        platform,
+        pages: [],
+        whatsappNumbers: [],
+        error: 'Access Token is required.'
+      };
+    }
+
+    const { pages, whatsappNumbers, error } = await this.discoverAssetsFromToken(accessToken);
+
+    if (error && pages.length === 0 && whatsappNumbers.length === 0) {
+      return {
+        success: false,
+        platform,
+        pages: [],
+        whatsappNumbers: [],
+        error
+      };
+    }
+
+    pendingAuthCache.set(userId, {
+      userId,
+      platform,
+      pages,
+      whatsappNumbers,
+      expiresAt: Date.now() + 15 * 60 * 1000
+    });
+
+    db.logAudit({
+      id: 'aud_' + Date.now(),
+      user_id: userId,
+      action: 'meta_token_exchanged',
+      resource: 'channel',
+      details: `Captured ${pages.length} Page Access Tokens and ${whatsappNumbers.length} WhatsApp numbers via Meta Login flow`,
+      created_at: new Date().toISOString()
+    });
+
+    return {
+      success: true,
+      platform,
+      pages,
+      whatsappNumbers
+    };
+  }
+
+  /**
+   * Retrieves currently authorized assets awaiting selection for the logged-in user
+   */
+  public getPendingAssets(userId: string): {
+    platform: 'messenger' | 'instagram' | 'whatsapp';
+    pages: AuthorizedPageItem[];
+    whatsappNumbers: AuthorizedWhatsAppItem[];
+  } | null {
+    const cached = pendingAuthCache.get(userId);
+    if (!cached || cached.expiresAt < Date.now()) {
+      pendingAuthCache.delete(userId);
+      return null;
+    }
+    return {
+      platform: cached.platform,
+      pages: cached.pages,
+      whatsappNumbers: cached.whatsappNumbers || []
+    };
+  }
+
+  /**
+   * Connect a selected Facebook Page to the tenant
+   */
+  public async connectPage(
+    userId: string,
+    pageId: string,
+    customPageData?: Partial<AuthorizedPageItem>
+  ): Promise<{ success: boolean; channel?: Channel; error?: string }> {
+    const cached = pendingAuthCache.get(userId);
+    let targetPage = cached?.pages.find((p) => p.id === pageId);
+
+    if (!targetPage && customPageData) {
+      targetPage = {
+        id: pageId,
+        name: customPageData.name || 'Facebook Page',
+        access_token: customPageData.access_token || '',
+        category: customPageData.category
+      };
+    }
+
+    if (!targetPage) {
+      return {
+        success: false,
+        error: 'The requested Facebook Page was not found in your recent Meta authorization session. Please reconnect.'
+      };
+    }
+
+    try {
+      // 1. Subscribe Page to Webhook events via Meta Graph API
+      if (targetPage.access_token && !targetPage.access_token.startsWith('sim_')) {
+        try {
+          const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            targetPage.id
+          )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
+            targetPage.access_token
+          )}`;
+          const subRes = await fetch(subUrl, { method: 'POST' });
+          const subJson = (await subRes.json()) as any;
+          if (!subRes.ok) {
+            console.warn('[MetaOAuth] Webhook subscription warning:', subJson);
+          }
+        } catch (subErr) {
+          console.warn('[MetaOAuth] Failed to auto-subscribe webhooks with Meta Graph API:', subErr);
+        }
+      }
+
+      // 2. Save Facebook Page asset record
+      const fbPageRecord: FacebookPage = {
+        id: targetPage.id,
+        user_id: userId,
+        name: targetPage.name,
+        category: targetPage.category,
+        access_token: targetPage.access_token,
+        is_webhook_subscribed: true,
+        status: 'connected',
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.saveFacebookPage(fbPageRecord);
+
+      // 3. Upsert tenant channel: check workspace-wide to prevent duplicates
+      const existingChannels = db.getChannels();
+      let channel = existingChannels.find((c) => c.platform === 'messenger' && (c.identifier === targetPage!.id || c.meta_asset_id === targetPage!.id));
+
+      if (channel) {
+        channel = db.updateChannel(channel.id, {
+          name: targetPage.name,
+          identifier: targetPage.id,
+          access_token: targetPage.access_token,
+          is_active: true,
+          auto_comment_reply: channel.auto_comment_reply ?? true,
+          auto_followup_enabled: channel.auto_followup_enabled ?? true,
+          status: 'connected',
+          meta_asset_name: targetPage.name,
+          meta_asset_id: targetPage.id,
+          error_message: undefined
+        });
+      } else {
+        channel = db.createChannel({
+          id: 'chn_fb_' + Date.now(),
+          user_id: userId,
+          platform: 'messenger',
+          name: targetPage.name,
+          identifier: targetPage.id,
+          access_token: targetPage.access_token,
+          is_active: true,
+          auto_comment_reply: true,
+          auto_followup_enabled: true,
+          status: 'connected',
+          meta_asset_name: targetPage.name,
+          meta_asset_id: targetPage.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
       }
-      if (error) {
-        return res.status(400).json({ error });
+
+      db.logAudit({
+        id: 'aud_' + Date.now(),
+        user_id: userId,
+        action: 'channel_connected',
+        resource: 'channel',
+        resource_id: channel?.id,
+        details: `Connected Facebook Page "${targetPage.name}" (${targetPage.id}) to One Agent BD`,
+        created_at: new Date().toISOString()
+      });
+
+      return { success: true, channel };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to complete Facebook Page connection.' };
+    }
+  }
+
+  /**
+   * Connect a selected Instagram Account to the tenant
+   */
+  public async connectInstagram(
+    userId: string,
+    igAccountId: string,
+    customData?: { username: string; pageId?: string; accessToken?: string }
+  ): Promise<{ success: boolean; channel?: Channel; error?: string }> {
+    const cached = pendingAuthCache.get(userId);
+    let targetPage = cached?.pages.find(
+      (p) =>
+        p.instagram_business_account?.id === igAccountId ||
+        (customData?.pageId && p.id === customData.pageId) ||
+        p.id === igAccountId
+    );
+    let username = targetPage?.instagram_business_account?.username || customData?.username || 'Instagram Professional';
+    let accessToken = targetPage?.access_token || customData?.accessToken || '';
+    let pageId = targetPage?.id || customData?.pageId || '';
+
+    if (!targetPage && !customData) {
+      return {
+        success: false,
+        error: 'Instagram account not found in your recent Meta authorization. Please reconnect.'
+      };
+    }
+
+    try {
+      // 1. Subscribe to webhooks if real token
+      if (accessToken && pageId && !accessToken.startsWith('sim_')) {
+        try {
+          const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            pageId
+          )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=${encodeURIComponent(
+            accessToken
+          )}`;
+          await fetch(subUrl, { method: 'POST' });
+        } catch (subErr) {
+          console.warn('[MetaOAuth] Webhook subscription warning for Instagram:', subErr);
+        }
+      }
+
+      // 2. Save Instagram Account asset record
+      const igRecord: InstagramAccount = {
+        id: igAccountId,
+        user_id: userId,
+        page_id: pageId,
+        username,
+        name: username,
+        access_token: accessToken,
+        is_webhook_subscribed: true,
+        status: 'connected',
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.saveInstagramAccount(igRecord);
+
+      // 3. Upsert channel: check workspace-wide to prevent duplicates
+      const existingChannels = db.getChannels();
+      let channel = existingChannels.find((c) => c.platform === 'instagram' && (c.identifier === igAccountId || c.meta_asset_id === igAccountId));
+
+      if (channel) {
+        channel = db.updateChannel(channel.id, {
+          name: `@${username.replace(/^@/, '')}`,
+          identifier: igAccountId,
+          access_token: accessToken,
+          is_active: true,
+          auto_comment_reply: channel.auto_comment_reply ?? true,
+          auto_followup_enabled: channel.auto_followup_enabled ?? true,
+          status: 'connected',
+          meta_asset_name: `@${username.replace(/^@/, '')}`,
+          meta_asset_id: igAccountId,
+          error_message: undefined
+        });
+      } else {
+        channel = db.createChannel({
+          id: 'chn_ig_' + Date.now(),
+          user_id: userId,
+          platform: 'instagram',
+          name: `@${username.replace(/^@/, '')}`,
+          identifier: igAccountId,
+          access_token: accessToken,
+          is_active: true,
+          auto_comment_reply: true,
+          auto_followup_enabled: true,
+          status: 'connected',
+          meta_asset_name: `@${username.replace(/^@/, '')}`,
+          meta_asset_id: igAccountId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      db.logAudit({
+        id: 'aud_' + Date.now(),
+        user_id: userId,
+        action: 'channel_connected',
+        resource: 'channel',
+        resource_id: channel?.id,
+        details: `Connected Instagram Professional Account "@${username}" (${igAccountId})`,
+        created_at: new Date().toISOString()
+      });
+
+      return { success: true, channel };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to connect Instagram account.' };
+    }
+  }
+
+  /**
+   * Connect WhatsApp Business via Official Onboarding / Embedded Signup
+   */
+  public async connectWhatsAppOnboarding(
+    userId: string,
+    data: {
+      wabaId: string;
+      phoneNumberId: string;
+      displayPhoneNumber: string;
+      verifiedName?: string;
+      accessToken: string;
+      subscribedAppsStatus?: 'subscribed' | 'failed' | 'not_subscribed' | 'pending';
+      subscribedAppsDetails?: any;
+      phoneNumberStatus?: string;
+      codeVerificationStatus?: string;
+      qualityRating?: string;
+    }
+  ): Promise<{ success: boolean; channel?: Channel; error?: string }> {
+    const { wabaId, phoneNumberId, accessToken } = data;
+    let displayPhoneNumber = data.displayPhoneNumber;
+    let verifiedName = data.verifiedName;
+    let subscribedAppsStatus = data.subscribedAppsStatus || 'pending';
+    let subscribedAppsDetails = data.subscribedAppsDetails || null;
+    let phoneNumberStatus = data.phoneNumberStatus || 'CONNECTED';
+    let codeVerificationStatus = data.codeVerificationStatus || 'VERIFIED';
+    let qualityRating = data.qualityRating || 'GREEN';
+
+    if (!phoneNumberId || !accessToken) {
+      return { success: false, error: 'Phone Number ID and System Access Token are required.' };
+    }
+
+    try {
+      // Step 2 & 3: Webhook subscription and Cloud API Registration
+      if (accessToken && !accessToken.startsWith('sim_')) {
+        // Step 2: POST /{waba_id}/subscribed_apps
+        if (wabaId) {
+          try {
+            console.log(`[Meta WhatsApp] Calling POST /${wabaId}/subscribed_apps ...`);
+            const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`;
+            const subRes = await fetch(subUrl, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                subscribed_fields: ['messages', 'message_deliveries', 'messaging_postbacks']
+              })
+            });
+            const subJson = (await subRes.json().catch(() => ({}))) as any;
+            console.log(`[Meta WhatsApp] POST /${wabaId}/subscribed_apps response:`, JSON.stringify(subJson));
+
+            // Verify with GET /{waba_id}/subscribed_apps
+            const getSubUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`;
+            const getSubRes = await fetch(getSubUrl, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const getSubJson = (await getSubRes.json().catch(() => ({}))) as any;
+            console.log(`[Meta WhatsApp] GET /${wabaId}/subscribed_apps verification:`, JSON.stringify(getSubJson));
+
+            const isSubscribed = Boolean(subJson?.success || (getSubRes.ok && getSubJson?.data?.length > 0));
+            subscribedAppsStatus = isSubscribed ? 'subscribed' : 'failed';
+            subscribedAppsDetails = getSubJson?.data || subJson;
+          } catch (subErr) {
+            console.warn('[Meta WhatsApp] Webhook subscription warning:', subErr);
+            subscribedAppsStatus = 'failed';
+          }
+        }
+
+        // Step 3: Register phone number via POST /{phone_number_id}/register with pin
+        try {
+          console.log(`[Meta WhatsApp] Calling POST /${phoneNumberId}/register ...`);
+          const regUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneNumberId)}/register`;
+          const regRes = await fetch(regUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              pin: '123456'
+            })
+          });
+          const regJson = (await regRes.json().catch(() => ({}))) as any;
+          console.log(`[Meta WhatsApp] POST /${phoneNumberId}/register response:`, JSON.stringify(regJson));
+        } catch (regErr) {
+          console.warn('[Meta WhatsApp] Cloud API register warning:', regErr);
+        }
+
+        // Query phone number status via GET /{phone_number_id}
+        try {
+          const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+            phoneNumberId
+          )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+            accessToken
+          )}`;
+          const phRes = await fetch(phUrl);
+          const phJson = (await phRes.json().catch(() => ({}))) as any;
+          console.log(`[Meta WhatsApp] GET /${phoneNumberId} status:`, JSON.stringify(phJson));
+
+          if (phRes.ok && phJson) {
+            if (phJson.status) phoneNumberStatus = phJson.status;
+            if (phJson.code_verification_status) codeVerificationStatus = phJson.code_verification_status;
+            if (phJson.quality_rating) qualityRating = phJson.quality_rating;
+            if (phJson.display_phone_number) displayPhoneNumber = phJson.display_phone_number;
+            if (phJson.verified_name) verifiedName = phJson.verified_name;
+          }
+        } catch (phQueryErr) {
+          console.warn('[Meta WhatsApp] Error fetching phone status:', phQueryErr);
+        }
+      }
+
+      // Save WABA and Phone records
+      if (wabaId) {
+        const wabaRecord: WhatsAppBusinessAccount = {
+          id: wabaId,
+          user_id: userId,
+          name: verifiedName || `WABA ${wabaId}`,
+          status: 'connected',
+          connected_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.saveWhatsAppAccount(wabaRecord);
+      }
+
+      const phoneRecord: WhatsAppPhoneNumber = {
+        id: phoneNumberId,
+        user_id: userId,
+        waba_id: wabaId || '',
+        display_phone_number: displayPhoneNumber,
+        verified_name: verifiedName,
+        quality_rating: qualityRating || 'GREEN',
+        code_verification_status: codeVerificationStatus || 'VERIFIED',
+        status: (phoneNumberStatus === 'CONNECTED' ? 'connected' : 'pending') as any,
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.saveWhatsAppPhoneNumber(phoneRecord);
+
+      // Upsert channel: find existing channel across workspace to update in place and prevent duplicate cards
+      const existingChannels = db.getChannels();
+      let channel = existingChannels.find(
+        (c) =>
+          c.platform === 'whatsapp' &&
+          (c.identifier === phoneNumberId ||
+            c.meta_asset_id === phoneNumberId ||
+            c.phone_number_id === phoneNumberId ||
+            (c.display_phone_number && c.display_phone_number.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')) ||
+            (c.identifier && c.identifier.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')))
+      ) || existingChannels.find((c) => c.platform === 'whatsapp');
+
+      const channelName = verifiedName
+        ? `${verifiedName} (${displayPhoneNumber})`
+        : `WhatsApp (${displayPhoneNumber})`;
+
+      if (channel) {
+        channel = db.updateChannel(channel.id, {
+          name: channelName,
+          identifier: phoneNumberId,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId || channel.waba_id,
+          display_phone_number: displayPhoneNumber,
+          access_token: accessToken,
+          is_active: true,
+          status: 'connected',
+          meta_asset_name: channelName,
+          meta_asset_id: phoneNumberId,
+          meta_business_id: wabaId || channel.meta_business_id,
+          subscribed_apps_status: subscribedAppsStatus,
+          subscribed_apps_details: subscribedAppsDetails,
+          phone_number_status: phoneNumberStatus,
+          code_verification_status: codeVerificationStatus,
+          quality_rating: qualityRating,
+          error_message: undefined,
+          updated_at: new Date().toISOString()
+        });
+      } else {
+        channel = db.createChannel({
+          id: 'chn_wa_' + Date.now(),
+          user_id: userId,
+          platform: 'whatsapp',
+          name: channelName,
+          identifier: phoneNumberId,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId,
+          display_phone_number: displayPhoneNumber,
+          access_token: accessToken,
+          is_active: true,
+          status: 'connected',
+          meta_asset_name: channelName,
+          meta_asset_id: phoneNumberId,
+          meta_business_id: wabaId,
+          subscribed_apps_status: subscribedAppsStatus,
+          subscribed_apps_details: subscribedAppsDetails,
+          phone_number_status: phoneNumberStatus,
+          code_verification_status: codeVerificationStatus,
+          quality_rating: qualityRating,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Clean up any old duplicate or inactive test channels for this tenant
+      const otherDuplicates = db
+        .getChannels(userId)
+        .filter((c) => c.platform === 'whatsapp' && c.id !== channel?.id);
+      for (const dup of otherDuplicates) {
+        // If it's a test QR token or duplicate number, remove it to keep tenant clean
+        if (dup.access_token.includes('sim_') || dup.access_token.includes('qr_linked') || dup.identifier === phoneNumberId) {
+          db.deleteChannel(dup.id, userId);
+        }
+      }
+
+      db.logAudit({
+        id: 'aud_' + Date.now(),
+        user_id: userId,
+        action: 'channel_connected',
+        resource: 'channel',
+        resource_id: channel?.id,
+        details: `Connected WhatsApp Business Number "${displayPhoneNumber}" (${phoneNumberId}) with WABA ${wabaId}`,
+        created_at: new Date().toISOString()
+      });
+
+      return { success: true, channel };
+    } catch (err: any) {
+      console.error('[Meta WhatsApp] Onboarding failed:', err);
+      return { success: false, error: err?.message || 'Failed to complete WhatsApp onboarding.' };
+    }
+  }
+
+  /**
+   * Complete WhatsApp Embedded Signup via Authorization Code and/or WABA data
+   */
+  public async handleWhatsAppEmbeddedSignupCode(
+    userId: string,
+    params: {
+      code?: string;
+      wabaId?: string;
+      phoneNumberId?: string;
+      accessToken?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    channel?: Channel;
+    whatsappNumbers?: AuthorizedWhatsAppItem[];
+    error?: string;
+  }> {
+    const appId = this.getAppId();
+    const appSecret = this.getAppSecret();
+
+    let effectiveToken = (params.accessToken && String(params.accessToken).trim()) || '';
+    let codeExchangeError = '';
+
+    // Step 1: Exchange authorization code for business access token server-side
+    if (params.code && (!effectiveToken || effectiveToken.length < 10)) {
+      if (!appSecret) {
+        return {
+          success: false,
+          error: 'Meta App Secret is missing in Admin Settings. Please go to Admin Settings and save your Meta App Secret so the authorization code can be exchanged.'
+        };
+      }
+
+      try {
+        console.log(`[Meta WhatsApp] Exchanging Embedded Signup code for App ID ${appId}...`);
+        const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${encodeURIComponent(
+          appId
+        )}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(params.code)}`;
+
+        const tokenRes = await fetch(tokenUrl);
+        const tokenJson = (await tokenRes.json()) as any;
+
+        if (tokenRes.ok && tokenJson.access_token) {
+          effectiveToken = tokenJson.access_token;
+          console.log('[Meta WhatsApp] Short-lived token captured successfully. Upgrading to long-lived token...');
+
+          // Upgrade to 60-day long-lived token
+          try {
+            const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${encodeURIComponent(
+              appId
+            )}&client_secret=${encodeURIComponent(appSecret)}&fb_exchange_token=${encodeURIComponent(effectiveToken)}`;
+            const llRes = await fetch(longLivedUrl);
+            const llJson = (await llRes.json()) as any;
+            if (llRes.ok && llJson.access_token) {
+              effectiveToken = llJson.access_token;
+              console.log('[Meta WhatsApp] Long-lived token upgraded successfully.');
+            }
+          } catch (_llErr) {
+            console.warn('[Meta WhatsApp] Long-lived token exchange warning:', _llErr);
+          }
+        } else {
+          codeExchangeError = tokenJson?.error?.message || `HTTP ${tokenRes.status}`;
+          console.warn('[Meta WhatsApp] Code exchange error:', tokenJson);
+        }
+      } catch (err: any) {
+        codeExchangeError = err?.message || 'Network error';
+        console.error('[Meta WhatsApp] Code exchange network error:', err);
+      }
+
+      if (!effectiveToken && codeExchangeError) {
+        return {
+          success: false,
+          error: `Meta Token Exchange Error: ${codeExchangeError}. Please check your Meta App ID & App Secret in Admin Settings.`
+        };
       }
     }
 
-    return res.status(404).json({
-      error: 'প্রদত্ত Access Token দিয়ে কোনো সক্রিয় WhatsApp Business ফোন নম্বর পাওয়া যায়নি। দয়া করে Phone Number ID সরাসরি ইনপুট করুন।'
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Meta API যাচাই ব্যর্থ হয়েছে।' });
-  }
-});
+    if (!effectiveToken) {
+      effectiveToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || process.env.META_APP_SECRET || '';
+    }
 
-// POST /api/channels/meta/whatsapp-embedded-signup - 1-Click Meta WhatsApp Embedded Signup handler
-channelsRouter.post('/meta/whatsapp-embedded-signup', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+    let targetWabaId = params.wabaId ? String(params.wabaId).trim() : '';
+    let targetPhoneId = params.phoneNumberId ? String(params.phoneNumberId).trim() : '';
+    let displayPhone = '';
+    let verifiedName = '';
+    let phoneList: any[] = [];
 
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
+    // If wabaId or phone_number_id is missing, inspect the token via debug_token or Graph API
+    if (effectiveToken && (!targetWabaId || !targetPhoneId)) {
+      try {
+        console.log('[Meta WhatsApp] Querying debug_token to find granular_scopes / WABA ID...');
+        const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(
+          effectiveToken
+        )}&access_token=${encodeURIComponent(appId)}|${encodeURIComponent(appSecret)}`;
+        const debugRes = await fetch(debugUrl);
+        const debugJson = (await debugRes.json().catch(() => ({}))) as any;
 
-  const limitCheck = checkChannelLimitForPlan(user.id, 'whatsapp');
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
+        if (debugRes.ok && debugJson?.data?.granular_scopes) {
+          for (const scope of debugJson.data.granular_scopes) {
+            if (
+              (scope.scope === 'whatsapp_business_management' || scope.scope === 'whatsapp_business_messaging') &&
+              scope.target_ids &&
+              scope.target_ids.length > 0
+            ) {
+              if (!targetWabaId) {
+                targetWabaId = String(scope.target_ids[0]);
+                console.log(`[Meta WhatsApp] Discovered WABA ID ${targetWabaId} from token granular_scopes!`);
+              }
+              break;
+            }
+          }
+        }
+      } catch (dbgErr) {
+        console.warn('[Meta WhatsApp] Error querying debug_token:', dbgErr);
+      }
+    }
 
-  const { code, wabaId, phoneNumberId, accessToken } = req.body;
+    // If still no wabaId, query /me/assigned_whatsapp_business_accounts
+    if (effectiveToken && !targetWabaId) {
+      try {
+        const assignedUrl = `https://graph.facebook.com/v21.0/me/assigned_whatsapp_business_accounts?access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const assignedRes = await fetch(assignedUrl);
+        const assignedJson = (await assignedRes.json().catch(() => ({}))) as any;
+        if (assignedRes.ok && assignedJson?.data?.length > 0) {
+          targetWabaId = assignedJson.data[0].id;
+          console.log(`[Meta WhatsApp] Discovered WABA ID ${targetWabaId} from assigned accounts!`);
+        }
+      } catch (_e) {}
+    }
 
-  const result = await metaOAuthService.handleWhatsAppEmbeddedSignupCode(user.id, {
-    code: typeof code === 'string' ? code.trim() : undefined,
-    wabaId: typeof wabaId === 'string' ? wabaId.trim() : undefined,
-    phoneNumberId: typeof phoneNumberId === 'string' ? phoneNumberId.trim() : undefined,
-    accessToken: typeof accessToken === 'string' ? accessToken.trim() : undefined
-  });
+    // Step 2 & 3: If targetWabaId is known, query WABA details & phone numbers
+    if (targetWabaId && effectiveToken) {
+      try {
+        const wabaInfoUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          targetWabaId
+        )}?fields=id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating,code_verification_status,status}&access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const wabaRes = await fetch(wabaInfoUrl);
+        const wabaJson = (await wabaRes.json()) as any;
 
-  if (!result.success) {
-    return res.status(400).json({ error: result.error || 'Failed to complete WhatsApp Embedded Signup.' });
-  }
+        if (wabaRes.ok && wabaJson) {
+          verifiedName = wabaJson.name || '';
+          phoneList = wabaJson.phone_numbers?.data || [];
+          console.log(`[Meta WhatsApp] WABA ${targetWabaId} has ${phoneList.length} phone number(s).`);
 
-  if (result.channel) {
-    const { access_token, app_secret, ...sanitized } = result.channel as any;
-    return res.json({ success: true, channel: sanitized });
-  }
+          if (phoneList.length > 0) {
+            if (targetPhoneId) {
+              const matched = phoneList.find((p: any) => p.id === targetPhoneId);
+              if (matched) {
+                displayPhone = matched.display_phone_number || targetPhoneId;
+                verifiedName = matched.verified_name || verifiedName;
+              }
+            } else {
+              // Prioritize customer's verified/connected phone number over sandbox test number
+              const realNumber = phoneList.find(
+                (p: any) =>
+                  p.display_phone_number &&
+                  !p.display_phone_number.includes('555') &&
+                  !p.display_phone_number.startsWith('+1555')
+              );
+              const selectedPhone = realNumber || phoneList[0];
+              targetPhoneId = selectedPhone.id;
+              displayPhone = selectedPhone.display_phone_number || targetPhoneId;
+              verifiedName = selectedPhone.verified_name || verifiedName;
+            }
+          }
+        }
+      } catch (wabaErr) {
+        console.warn('[Meta WhatsApp] Error querying WABA details:', wabaErr);
+      }
+    }
 
-  if (result.whatsappNumbers) {
-    const sanitizedWaNumbers = result.whatsappNumbers.map((w) => ({
-      id: w.id,
-      waba_id: w.waba_id,
-      waba_name: w.waba_name,
-      display_phone_number: w.display_phone_number,
-      verified_name: w.verified_name,
-      quality_rating: w.quality_rating,
-      has_token: Boolean(w.access_token),
-      token_preview: w.token_preview
-    }));
-    return res.json({ success: true, whatsappNumbers: sanitizedWaNumbers });
-  }
+    // If targetPhoneId is known but displayPhone is not yet set, query phone details
+    if (targetPhoneId && effectiveToken && !displayPhone) {
+      try {
+        const phUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          targetPhoneId
+        )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+          effectiveToken
+        )}`;
+        const phRes = await fetch(phUrl);
+        const phJson = (await phRes.json()) as any;
+        if (phRes.ok && phJson) {
+          displayPhone = phJson.display_phone_number || targetPhoneId;
+          verifiedName = phJson.verified_name || verifiedName;
+        }
+      } catch (phErr) {
+        console.warn('[Meta WhatsApp] Error querying phone details:', phErr);
+      }
+    }
 
-  return res.json({ success: true });
-});
+    // Connect channel immediately if phone_number_id is resolved!
+    if (targetPhoneId) {
+      const connResult = await this.connectWhatsAppOnboarding(userId, {
+        wabaId: targetWabaId,
+        phoneNumberId: targetPhoneId,
+        displayPhoneNumber: displayPhone || targetPhoneId,
+        verifiedName: verifiedName || `WhatsApp (${displayPhone || targetPhoneId})`,
+        accessToken: effectiveToken
+      });
 
-// ----------------------------------------------------------------------------
-// WHATSAPP LINKED DEVICES / QR CODE CONNECTION (ZERO DATA LOSS)
-// ----------------------------------------------------------------------------
+      if (connResult.success && connResult.channel) {
+        return {
+          success: true,
+          channel: connResult.channel
+        };
+      }
+    }
 
-// GET /api/channels/whatsapp/qr - Generate fresh Linked Device QR code session
-channelsRouter.get('/whatsapp/qr', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+    // Discover from token if not explicitly provided
+    if (effectiveToken) {
+      const { whatsappNumbers } = await this.discoverAssetsFromToken(effectiveToken);
+      if (whatsappNumbers && whatsappNumbers.length > 0) {
+        const realNumber =
+          whatsappNumbers.find(
+            (w) =>
+              w.display_phone_number &&
+              !w.display_phone_number.includes('555') &&
+              !w.display_phone_number.startsWith('+1555') &&
+              !w.waba_name?.toLowerCase().includes('test')
+          ) || whatsappNumbers[0];
 
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({ error: subCheck.error });
-  }
+        const autoConn = await this.connectWhatsAppOnboarding(userId, {
+          wabaId: realNumber.waba_id,
+          phoneNumberId: realNumber.id,
+          displayPhoneNumber: realNumber.display_phone_number,
+          verifiedName: realNumber.verified_name || realNumber.waba_name,
+          accessToken: effectiveToken
+        });
+        if (autoConn.success && autoConn.channel) {
+          return { success: true, channel: autoConn.channel };
+        }
+        return { success: true, whatsappNumbers };
+      }
+    }
 
-  const sessionId = `wa_qr_${user.id}_${Date.now()}`;
-  const qrRaw = `2@${Buffer.from(sessionId).toString('base64')},${Buffer.from(String(Date.now())).toString('base64')}`;
-
-  return res.json({
-    success: true,
-    sessionId,
-    qrRaw,
-    expiresInSeconds: 60,
-    timestamp: Date.now()
-  });
-});
-
-// POST /api/channels/whatsapp/pair-scan - Complete QR Scan pairing
-channelsRouter.post('/whatsapp/pair-scan', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({ error: subCheck.error });
-  }
-
-  const { phoneNumber, displayTitle, sessionId } = req.body;
-  const rawDigits = String(phoneNumber || '').replace(/[^0-9]/g, '');
-  const cleanPhone = rawDigits
-    ? rawDigits.startsWith('88')
-      ? `+${rawDigits}`
-      : rawDigits.startsWith('01')
-      ? `+88${rawDigits}`
-      : `+${rawDigits}`
-    : '+8801700000000';
-  const cleanIdentifier = rawDigits || `wa_linked_${Date.now()}`;
-  const channelName = displayTitle?.trim() || `WhatsApp (${cleanPhone})`;
-
-  // Check channel limit
-  const limitCheck = checkChannelLimitForPlan(user.id, 'whatsapp', cleanIdentifier);
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
-  // Upsert WhatsApp channel in database
-  const existingChannels = db.getChannels(user.id);
-  let channel = existingChannels.find(
-    (c) => c.platform === 'whatsapp' && (c.identifier === cleanIdentifier || c.name.includes(cleanPhone))
-  );
-
-  if (channel) {
-    channel = db.updateChannel(channel.id, {
-      name: channelName,
-      identifier: cleanIdentifier,
-      access_token: `qr_linked_token_${sessionId || Date.now()}`,
-      is_active: true,
-      status: 'connected',
-      error_message: undefined,
-      auto_comment_reply: channel.auto_comment_reply ?? true,
-      auto_followup_enabled: channel.auto_followup_enabled ?? true
-    });
-  } else {
-    channel = db.createChannel({
-      id: `chn_wa_qr_${Date.now()}`,
-      user_id: user.id,
-      platform: 'whatsapp',
-      name: channelName,
-      identifier: cleanIdentifier,
-      access_token: `qr_linked_token_${sessionId || Date.now()}`,
-      is_active: true,
-      status: 'connected',
-      auto_comment_reply: true,
-      auto_followup_enabled: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-  }
-
-  db.logAudit({
-    id: `aud_${Date.now()}`,
-    user_id: user.id,
-    action: 'channel_connected',
-    resource: 'channel',
-    resource_id: channel?.id,
-    details: `Linked WhatsApp Account via QR Code Scan: ${channelName}`,
-    created_at: new Date().toISOString()
-  });
-
-  const { access_token, app_secret, ...sanitized } = channel as any;
-  return res.json({ success: true, channel: sanitized });
-});
-
-// POST /api/channels/meta/simulate-oauth
-channelsRouter.post('/meta/simulate-oauth', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({
-      error:
-        subCheck.error ||
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan via bKash/Nagad to connect channels.'
-    });
-  }
-
-  const config = metaOAuthService.getConfig(req);
-  if (!config.configured) {
-    return res.status(400).json({
+    return {
       success: false,
-      error: 'Meta App credentials (App ID & Secret) are not configured. Please configure Meta App ID & Secret in settings or connect manually with Page Token.'
-    });
+      error: targetWabaId
+        ? 'Your Meta Business Portfolio was authorized, but no WhatsApp Phone Number is added inside it yet. Please add a phone number in Meta WhatsApp Manager or check WhatsApp > API Setup.'
+        : 'WhatsApp authorization completed, but no WhatsApp Business Account (WABA) or phone number was detected. Please ensure your Meta App has WhatsApp product added, and that your Facebook user has an Administrator role.'
+    };
   }
 
-  return res.status(400).json({
-    success: false,
-    error: 'Please use official Meta OAuth login to authorize your Facebook or Instagram page.'
-  });
-});
-
-// POST /api/channels/:id/test-connection - Check channel health with Meta
-channelsRouter.post('/:id/test-connection', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const outcome = await metaOAuthService.testChannelConnection(req.params.id, user.id);
-  return res.json(outcome);
-});
-
-// GET /api/channels/:id/whatsapp-diagnostics - Check live WABA webhook & Cloud API status
-channelsRouter.get('/:id/whatsapp-diagnostics', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const result = await metaOAuthService.getWhatsAppDiagnostics(req.params.id, user.id);
-  if (!result.success) {
-    return res.status(400).json({ error: result.error });
-  }
-
-  return res.json(result);
-});
-
-// POST /api/channels/:id/whatsapp-diagnostics/repair - 1-Click Re-subscribe WABA & Re-register Phone Number
-channelsRouter.post('/:id/whatsapp-diagnostics/repair', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const result = await metaOAuthService.repairWhatsAppChannel(req.params.id, user.id);
-  if (!result.success) {
-    return res.status(400).json({ error: result.message || result.error });
-  }
-
-  return res.json(result);
-});
-
-// POST /api/channels/:id/test-message - Simulate an incoming customer message to test AI reply and view in Live Chat Inbox
-channelsRouter.post('/:id/test-message', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const channel = db.getChannelById(req.params.id);
-  if (!channel || channel.user_id !== user.id) {
-    return res.status(404).json({ error: 'Channel not found or unauthorized' });
-  }
-
-  const { messageText } = req.body || {};
-  const testText =
-    (typeof messageText === 'string' && messageText.trim()) ||
-    'আসসালামু আলাইকুম, আপনাদের সার্ভিস ও প্ল্যানের বিস্তারিত বলুন?';
-  const testCustomerId = `test_${Date.now().toString().slice(-4)}`;
-  const testCustomerName =
-    channel.platform === 'whatsapp'
-      ? `WhatsApp Test Customer (+8801700${Date.now().toString().slice(-4)})`
-      : `${channel.platform.toUpperCase()} Test Customer`;
-
-  const outcome = await handleInboundWebhook({
-    platform: channel.platform as any,
-    identifier: channel.phone_number_id || channel.identifier,
-    customerId: testCustomerId,
-    customerName: testCustomerName,
-    messageText: testText,
-    messageId: `sim_test_${Date.now()}`
-  });
-
-  return res.json({
-    success: true,
-    handled: outcome.received,
-    replyText: outcome.aiReplyMessage?.message_text || '',
-    testCustomerId,
-    testCustomerName,
-    channelName: channel.name
-  });
-});
-
-// POST /api/channels/:id/disconnect - Disconnect channel
-channelsRouter.post('/:id/disconnect', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const outcome = await metaOAuthService.disconnectChannel(req.params.id, user.id);
-  return res.json(outcome);
-});
-
-// GET /api/channels - List tenant channels (NEVER EXPOSE TOKENS TO CLIENT)
-channelsRouter.get('/', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  // Ensure latest channels are synced from Supabase cloud database without blocking
-  if (db.getChannels().length === 0) {
-    await Promise.race([
-      db.syncFromSupabase(true),
-      new Promise((resolve) => setTimeout(resolve, 1500))
-    ]).catch((err) => {
-      console.warn('[Channels GET] syncFromSupabase error:', err);
-    });
-  } else if (Date.now() - db.getLastSupabaseSyncAt() > 20000) {
-    db.syncFromSupabase(false).catch((err) => {
-      console.warn('[Channels GET] Background sync warning:', err);
-    });
-  }
-
-  const channels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
-
-  // SANITIZE: Strip access_token and app_secret
-  const sanitized = channels.map(({ access_token, app_secret, ...rest }) => ({
-    ...rest,
-    status: rest.status || (rest.is_active ? 'connected' : 'not_connected'),
-    has_token: Boolean(access_token),
-    token_preview: access_token
-      ? access_token.startsWith('sim_')
-        ? 'sim_sandbox_token'
-        : `••••${access_token.slice(-4)}`
-      : undefined
-  }));
-
-  return res.json(sanitized);
-});
-
-// POST /api/channels - Add or Upsert a Channel manually with Page ID/Phone ID & Access Token
-channelsRouter.post('/', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { platform, name, identifier, access_token, app_secret } = req.body;
-
-  if (!platform || !identifier || !access_token) {
-    return res.status(400).json({
-      error: 'Platform, identifier (Page ID / Phone Number ID / Instagram ID), and Access Token are required.'
-    });
-  }
-
-  const validPlatforms = ['whatsapp', 'messenger', 'instagram'];
-  if (!validPlatforms.includes(platform)) {
-    return res.status(400).json({ error: `Invalid platform. Must be one of: ${validPlatforms.join(', ')}` });
-  }
-
-  const subCheck = checkSubscriptionActive(user.id);
-  if (!subCheck.allowed) {
-    return res.status(403).json({ error: subCheck.error });
-  }
-
-  const cleanIdentifier = String(identifier).trim();
-  const limitCheck = checkChannelLimitForPlan(
-    user.id,
-    platform as 'messenger' | 'instagram' | 'whatsapp',
-    cleanIdentifier
-  );
-  if (!limitCheck.allowed) {
-    return res.status(403).json({ error: limitCheck.error });
-  }
-
-  const cleanToken = String(access_token).trim();
-  const cleanName = name?.trim() || (platform === 'whatsapp' ? 'WhatsApp Business' : platform === 'messenger' ? 'Facebook Page' : 'Instagram Direct');
-
-  // Check if channel already exists for this platform & identifier to prevent duplicate cards
-  const existing = (user.role === 'admin' ? db.getChannels() : db.getChannels(user.id)).find(
-    (c) =>
-      c.platform === platform &&
-      (c.identifier.toLowerCase() === cleanIdentifier.toLowerCase() ||
-        (c.meta_asset_id && c.meta_asset_id.toLowerCase() === cleanIdentifier.toLowerCase()))
-  );
-
-  // Automatic Meta Webhook Subscription for Messenger & Instagram
-  if (platform === 'messenger' && cleanToken && !cleanToken.startsWith('sim_')) {
-    try {
-      const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-        cleanIdentifier
-      )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
-        cleanToken
-      )}`;
-      fetch(subUrl, { method: 'POST' })
-        .then(async (r) => {
-          const resJson = await r.json().catch(() => ({}));
-          console.log(`[Channels] Subscribed Facebook Page ${cleanIdentifier} to webhooks:`, resJson);
-        })
-        .catch((err) => console.warn('[Channels] Webhook subscription warning for Messenger:', err));
-    } catch (subErr) {
-      console.warn('[Channels] Failed to call subscribed_apps for Messenger:', subErr);
+  /**
+   * Verifies health and validity of an existing connected channel with Meta Graph API
+   */
+  public async testChannelConnection(channelId: string, userId: string): Promise<{
+    valid: boolean;
+    status: 'connected' | 'error';
+    message: string;
+    details?: any;
+  }> {
+    const channel = db.getChannelById(channelId);
+    if (!channel || channel.user_id !== userId) {
+      return { valid: false, status: 'error', message: 'Channel not found or unauthorized.' };
     }
-  } else if (platform === 'instagram' && cleanToken && !cleanToken.startsWith('sim_')) {
-    try {
-      const subUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
-        cleanIdentifier
-      )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=${encodeURIComponent(
-        cleanToken
-      )}`;
-      fetch(subUrl, { method: 'POST' }).catch(() => {});
-    } catch (_igErr) {}
-  }
 
-  if (existing) {
-    const updated = db.updateChannel(existing.id, {
-      name: cleanName,
-      access_token: cleanToken,
-      ...(app_secret && { app_secret: String(app_secret).trim() }),
-      is_active: true,
-      status: 'connected',
-      error_message: undefined,
-      updated_at: new Date().toISOString()
-    });
-
-    const { access_token: _token, app_secret: _sec, ...sanitized } = (updated || {}) as any;
-    return res.json({
-      ...sanitized,
-      updatedExisting: true,
-      message: `Updated existing ${platform.toUpperCase()} channel "${cleanName}". Channel is now connected, subscribed to webhooks, and active!`
-    });
-  }
-
-  // Create new channel
-  const newChannel: Channel = {
-    id: `ch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    user_id: user.id,
-    platform: platform as 'whatsapp' | 'messenger' | 'instagram',
-    name: cleanName,
-    identifier: cleanIdentifier,
-    access_token: cleanToken,
-    app_secret: app_secret ? String(app_secret).trim() : undefined,
-    is_active: true,
-    status: 'connected',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-
-  db.createChannel(newChannel);
-
-  // Return sanitized channel
-  const { access_token: _t, app_secret: _s, ...sanitized } = newChannel as any;
-  return res.status(201).json({
-    ...sanitized,
-    updatedExisting: false,
-    message: `Successfully connected ${cleanName}! Webhooks are now listening and subscribed for customer messages.`
-  });
-});
-
-// POST /api/channels/run-followups - Trigger Smart Auto Follow-up Engine for user
-channelsRouter.post('/run-followups', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const result = await runAutoFollowUpEngine({
-    userId: user.id,
-    forceImmediate: true
-  });
-
-  return res.json({
-    success: true,
-    ...result
-  });
-});
-
-// GET /api/channels/automation-settings - Get user's Auto Comment & Follow-up settings
-channelsRouter.get('/automation-settings', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const profile = db.getProfileById(user.id);
-  const defaults = {
-    auto_comment_reply_enabled: true,
-    public_comment_reply_template:
-      'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩',
-    send_private_inbox_on_comment: true,
-    auto_followup_enabled: true,
-    followup_delay_minutes: 45,
-    followup_message_template:
-      'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️',
-    upsell_enabled: true,
-    upsell_offer_text:
-      'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!',
-    auto_payment_verify_enabled: true,
-    auto_tracking_reply_enabled: true,
-    paused_customers: [] as string[],
-    blocked_customers: [] as string[],
-    daily_ad_spend_bdt: 500,
-    avg_product_cost_percent: 55,
-    return_courier_loss_per_order: 130
-  };
-
-  const merged = {
-    ...defaults,
-    ...(profile?.automation_settings || {})
-  };
-
-  return res.json({
-    ...merged,
-    settings: merged
-  });
-});
-
-// PUT /api/channels/automation-settings - Save user's Auto Comment & Follow-up settings
-channelsRouter.put('/automation-settings', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const profile = db.getProfileById(user.id);
-  const current = profile?.automation_settings || {
-    auto_comment_reply_enabled: true,
-    public_comment_reply_template:
-      'Thank you {customer_name}! ❤️ We have sent a detailed reply and product information to your Inbox (Messenger/DM). Please check your inbox! 📩',
-    send_private_inbox_on_comment: true,
-    auto_followup_enabled: true,
-    followup_delay_minutes: 45,
-    followup_message_template:
-      'Hello {customer_name}! 😊 You messaged our page earlier. Do you have any questions about our products or ordering? To confirm your order, simply reply with your Name, Full Address, and Phone Number—our AI will book your order right away! ❤️',
-    upsell_enabled: true,
-    upsell_offer_text:
-      'Order any 2 items together to enjoy FREE delivery or a special 100 BDT discount!',
-    auto_payment_verify_enabled: true,
-    auto_tracking_reply_enabled: true,
-    paused_customers: [],
-    blocked_customers: [],
-    daily_ad_spend_bdt: 500,
-    avg_product_cost_percent: 55,
-    return_courier_loss_per_order: 130
-  };
-
-  const body = req.body || {};
-  const updated = {
-    ...current,
-    auto_comment_reply_enabled:
-      body.auto_comment_reply_enabled !== undefined
-        ? Boolean(body.auto_comment_reply_enabled)
-        : current.auto_comment_reply_enabled,
-    public_comment_reply_template:
-      typeof body.public_comment_reply_template === 'string'
-        ? body.public_comment_reply_template
-        : current.public_comment_reply_template,
-    send_private_inbox_on_comment:
-      body.send_private_inbox_on_comment !== undefined
-        ? Boolean(body.send_private_inbox_on_comment)
-        : current.send_private_inbox_on_comment,
-    auto_followup_enabled:
-      body.auto_followup_enabled !== undefined
-        ? Boolean(body.auto_followup_enabled)
-        : current.auto_followup_enabled,
-    followup_delay_minutes:
-      typeof body.followup_delay_minutes === 'number'
-        ? body.followup_delay_minutes
-        : current.followup_delay_minutes,
-    followup_message_template:
-      typeof body.followup_message_template === 'string'
-        ? body.followup_message_template
-        : current.followup_message_template,
-    upsell_enabled:
-      body.upsell_enabled !== undefined ? Boolean(body.upsell_enabled) : (current.upsell_enabled ?? true),
-    upsell_offer_text:
-      typeof body.upsell_offer_text === 'string' ? body.upsell_offer_text : (current.upsell_offer_text || ''),
-    auto_payment_verify_enabled:
-      body.auto_payment_verify_enabled !== undefined
-        ? Boolean(body.auto_payment_verify_enabled)
-        : (current.auto_payment_verify_enabled ?? true),
-    auto_tracking_reply_enabled:
-      body.auto_tracking_reply_enabled !== undefined
-        ? Boolean(body.auto_tracking_reply_enabled)
-        : (current.auto_tracking_reply_enabled ?? true),
-    paused_customers: Array.isArray(body.paused_customers)
-      ? body.paused_customers
-      : (current.paused_customers || []),
-    blocked_customers: Array.isArray(body.blocked_customers)
-      ? body.blocked_customers
-      : (current.blocked_customers || []),
-    daily_ad_spend_bdt:
-      typeof body.daily_ad_spend_bdt === 'number'
-        ? body.daily_ad_spend_bdt
-        : (current.daily_ad_spend_bdt ?? 500),
-    avg_product_cost_percent:
-      typeof body.avg_product_cost_percent === 'number'
-        ? body.avg_product_cost_percent
-        : (current.avg_product_cost_percent ?? 55),
-    return_courier_loss_per_order:
-      typeof body.return_courier_loss_per_order === 'number'
-        ? body.return_courier_loss_per_order
-        : (current.return_courier_loss_per_order ?? 130)
-  };
-
-  db.updateProfile(user.id, { automation_settings: updated });
-
-  // Also sync channel-level toggles for convenience
-  const userChannels = db.getChannels(user.id);
-  for (const ch of userChannels) {
-    db.updateChannel(ch.id, {
-      auto_comment_reply: updated.auto_comment_reply_enabled,
-      auto_followup_enabled: updated.auto_followup_enabled
-    });
-  }
-
-  return res.json({ success: true, settings: updated });
-});
-
-// POST /api/channels/test-comment-reply - Simulate a customer comment & trigger Auto Comment + Inbox DM
-channelsRouter.post('/test-comment-reply', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const {
-    platform = 'messenger',
-    customerName = 'Tanvir Ahmed (Facebook Comment)',
-    commentText = 'What is the price of the Premium Panjabi? Can I see a photo?'
-  } = req.body || {};
-
-  const existingChannel = db
-    .getChannels(user.id)
-    .find((c) => c.platform === platform && c.is_active);
-
-  const outcome = await handleInboundCommentWebhook({
-    platform:
-      platform === 'instagram'
-        ? 'instagram'
-        : 'messenger',
-    identifier: existingChannel?.identifier || `sim_${platform}_${user.id}`,
-    commentId: `test_cm_${Date.now()}`,
-    customerId: `commenter_${Date.now()}`,
-    customerName,
-    commentText,
-    userId: user.id
-  });
-
-  return res.json({
-    success: outcome.handled,
-    ...outcome
-  });
-});
-
-// PUT /api/channels/:id - Update channel settings and credentials
-channelsRouter.put('/:id', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const channel = db.getChannelById(req.params.id);
-  const isAdmin = user.role === 'admin';
-  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
-    return res.status(404).json({ error: 'Channel not found or unauthorized' });
-  }
-
-  const { name, identifier, access_token, app_secret, is_active } = req.body;
-  const updated = db.updateChannel(req.params.id, {
-    ...(name !== undefined && { name: String(name).trim() }),
-    ...(identifier !== undefined && { identifier: String(identifier).trim() }),
-    ...(access_token !== undefined && access_token.trim() && { access_token: String(access_token).trim() }),
-    ...(app_secret !== undefined && { app_secret: app_secret ? String(app_secret).trim() : undefined }),
-    ...(is_active !== undefined && { is_active: Boolean(is_active) }),
-    status: is_active === false ? 'not_connected' : 'connected',
-    error_message: undefined,
-    updated_at: new Date().toISOString()
-  });
-
-  const { access_token: _token, app_secret: _sec, ...sanitized } = (updated || {}) as any;
-  return res.json(sanitized);
-});
-
-// PATCH /api/channels/:id/toggle
-channelsRouter.patch('/:id/toggle', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const channel = db.getChannelById(req.params.id);
-  const isAdmin = user.role === 'admin';
-  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
-    return res.status(404).json({ error: 'Channel not found or unauthorized' });
-  }
-
-  if (!channel.is_active) {
-    const subCheck = checkSubscriptionActive(user.id);
-    if (!subCheck.allowed) {
-      return res.status(403).json({ error: subCheck.error });
+    if (!channel.access_token) {
+      db.updateChannel(channel.id, { status: 'error', error_message: 'Access token is missing.' });
+      return { valid: false, status: 'error', message: 'Channel has no access token configured.' };
     }
-    if (['messenger', 'instagram', 'whatsapp'].includes(channel.platform) && channel.identifier !== 'website_widget') {
-      const limitCheck = checkChannelLimitForPlan(user.id, channel.platform as 'messenger' | 'instagram' | 'whatsapp');
-      if (!limitCheck.allowed) {
-        return res.status(403).json({ error: limitCheck.error });
+
+    // Simulation / Sandbox token check
+    if (channel.access_token.startsWith('sim_')) {
+      db.updateChannel(channel.id, { status: 'connected', error_message: undefined });
+      return {
+        valid: true,
+        status: 'connected',
+        message: 'Sandbox channel active. Webhook simulation is operational.'
+      };
+    }
+
+    try {
+      let testEndpoint = '';
+      if (channel.platform === 'whatsapp') {
+        testEndpoint = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          channel.identifier
+        )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&access_token=${encodeURIComponent(
+          channel.access_token
+        )}`;
+      } else {
+        testEndpoint = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          channel.identifier
+        )}?fields=id,name&access_token=${encodeURIComponent(channel.access_token)}`;
+      }
+
+      const res = await fetch(testEndpoint);
+      const json = (await res.json()) as any;
+
+      if (!res.ok || json.error) {
+        const errorMsg = json.error?.message || 'Meta API returned an error response.';
+        db.updateChannel(channel.id, { status: 'error', error_message: errorMsg });
+        return {
+          valid: false,
+          status: 'error',
+          message: errorMsg,
+          details: json.error
+        };
+      }
+
+      if (channel.platform === 'messenger') {
+        // Automatically ensure Facebook Page is subscribed to this App's Webhooks via Graph API
+        try {
+          const subRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              channel.identifier
+            )}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,feed&access_token=${encodeURIComponent(
+              channel.access_token
+            )}`,
+            { method: 'POST' }
+          );
+          const subData = (await subRes.json().catch(() => ({}))) as any;
+          console.log('[MetaOAuth] testChannelConnection auto-subscribed page:', subData);
+        } catch (_subErr) {
+          console.warn('[MetaOAuth] Error re-subscribing page during test:', _subErr);
+        }
+      }
+
+      if (channel.platform === 'whatsapp') {
+        // Ensure WABA webhook subscription and Cloud API registration are active
+        if (channel.meta_business_id) {
+          try {
+            await fetch(
+              `https://graph.facebook.com/v21.0/${encodeURIComponent(
+                channel.meta_business_id
+              )}/subscribed_apps?access_token=${encodeURIComponent(channel.access_token)}`,
+              { method: 'POST' }
+            );
+          } catch (_e) {}
+        }
+        try {
+          await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(channel.identifier)}/register`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${channel.access_token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                pin: '123456'
+              })
+            }
+          );
+        } catch (_e) {}
+
+        if (json.code_verification_status && json.code_verification_status !== 'VERIFIED') {
+          const unverifiedMsg = `This number (${json.display_phone_number || channel.name}) is currently "Unverified" in Meta WhatsApp Manager. Messages and AI replies will not work until you verify it via OTP in Meta.`;
+          db.updateChannel(channel.id, { status: 'error', error_message: unverifiedMsg });
+          return {
+            valid: false,
+            status: 'error',
+            message: unverifiedMsg,
+            details: json
+          };
+        }
+      }
+
+      db.updateChannel(channel.id, { status: 'connected', error_message: undefined });
+      return {
+        valid: true,
+        status: 'connected',
+        message: `Connection healthy! Meta confirmed asset "${json.name || json.verified_name || json.display_phone_number || channel.identifier}" is active.`,
+        details: json
+      };
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Failed to contact Meta Graph API.';
+      db.updateChannel(channel.id, { status: 'error', error_message: errorMsg });
+      return { valid: false, status: 'error', message: errorMsg };
+    }
+  }
+
+  /**
+   * Disconnects a channel safely
+   */
+  public async disconnectChannel(channelId: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const channel = db.getChannelById(channelId);
+    const user = db.getProfileById(userId);
+    const isAdmin = user?.role === 'admin';
+    if (!channel || (!isAdmin && channel.user_id !== userId)) {
+      return { success: false, message: 'Channel not found or unauthorized.' };
+    }
+
+    // Try to unsubscribe webhook if real token
+    if (channel.access_token && !channel.access_token.startsWith('sim_')) {
+      try {
+        const unsubUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
+          channel.identifier
+        )}/subscribed_apps?access_token=${encodeURIComponent(channel.access_token)}`;
+        await fetch(unsubUrl, { method: 'DELETE' });
+      } catch (err) {
+        console.warn('[MetaOAuth] Error unsubscribing app on disconnect:', err);
       }
     }
+
+    db.deleteChannel(channel.id, isAdmin ? undefined : userId);
+
+    db.logAudit({
+      id: 'aud_' + Date.now(),
+      user_id: userId,
+      action: 'channel_disconnected',
+      resource: 'channel',
+      resource_id: channel.id,
+      details: `Disconnected ${channel.platform} channel "${channel.name}" (${channel.identifier})`,
+      created_at: new Date().toISOString()
+    });
+
+    return { success: true, message: `Channel "${channel.name}" has been disconnected.` };
   }
 
-  const updated = db.updateChannel(req.params.id, {
-    is_active: !channel.is_active,
-    status: !channel.is_active ? 'connected' : 'not_connected'
-  });
+  /**
+   * Diagnostic inspector for a customer's WhatsApp Business Account & Cloud API Phone Number
+   */
+  public async getWhatsAppDiagnostics(channelId: string, userId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    diagnostics?: {
+      wabaId: string;
+      phoneNumberId: string;
+      displayPhoneNumber: string;
+      subscribedAppsStatus: string;
+      subscribedAppsDetails: any;
+      phoneNumberStatus: string;
+      codeVerificationStatus: string;
+      qualityRating: string;
+      lastWebhookAt?: string;
+      lastWebhookPayload?: any;
+      lastSendResult?: any;
+    };
+    error?: string;
+  }> {
+    const channel = db.getChannelById(channelId);
+    if (!channel || channel.user_id !== userId) {
+      return { success: false, error: 'Channel not found or unauthorized.' };
+    }
 
-  const { access_token, app_secret, ...sanitized } = (updated || {}) as any;
-  return res.json(sanitized);
-});
+    if (channel.platform !== 'whatsapp') {
+      return { success: false, error: 'Channel is not a WhatsApp channel.' };
+    }
 
-// PATCH /api/channels/:id/automation - Toggle auto_comment_reply and auto_followup_enabled
-channelsRouter.patch('/:id/automation', (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    const token = channel.access_token;
+    const phoneId = channel.phone_number_id || channel.meta_asset_id || channel.identifier;
+    const wabaId = channel.waba_id || channel.meta_business_id || '';
+
+    let subscribedAppsStatus = channel.subscribed_apps_status || 'pending';
+    let subscribedAppsDetails = channel.subscribed_apps_details || null;
+    let phoneNumberStatus = channel.phone_number_status || 'CONNECTED';
+    let codeVerificationStatus = channel.code_verification_status || 'VERIFIED';
+    let qualityRating = channel.quality_rating || 'GREEN';
+    let displayPhone = channel.display_phone_number || channel.name;
+
+    if (token && !token.startsWith('sim_')) {
+      // 1. Check subscribed_apps
+      if (wabaId) {
+        try {
+          const getSubRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const getSubJson = (await getSubRes.json().catch(() => ({}))) as any;
+          if (getSubRes.ok && getSubJson?.data) {
+            const hasSubscription = getSubJson.data.length > 0;
+            subscribedAppsStatus = hasSubscription ? 'subscribed' : 'failed';
+            subscribedAppsDetails = getSubJson.data;
+          }
+        } catch (subErr) {
+          console.warn('[WhatsApp Diagnostics] Error reading subscribed_apps:', subErr);
+        }
+      }
+
+      // 2. Check phone number status
+      if (phoneId) {
+        try {
+          const phRes = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(
+              phoneId
+            )}?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${encodeURIComponent(
+              token
+            )}`
+          );
+          const phJson = (await phRes.json().catch(() => ({}))) as any;
+          if (phRes.ok && phJson) {
+            if (phJson.status) phoneNumberStatus = phJson.status;
+            if (phJson.code_verification_status) codeVerificationStatus = phJson.code_verification_status;
+            if (phJson.quality_rating) qualityRating = phJson.quality_rating;
+            if (phJson.display_phone_number) displayPhone = phJson.display_phone_number;
+          }
+        } catch (phErr) {
+          console.warn('[WhatsApp Diagnostics] Error reading phone status:', phErr);
+        }
+      }
+    }
+
+    const updated = db.updateChannel(channel.id, {
+      subscribed_apps_status: subscribedAppsStatus,
+      subscribed_apps_details: subscribedAppsDetails,
+      phone_number_status: phoneNumberStatus,
+      code_verification_status: codeVerificationStatus,
+      quality_rating: qualityRating,
+      display_phone_number: displayPhone,
+      waba_id: wabaId,
+      phone_number_id: phoneId
+    });
+
+    return {
+      success: true,
+      channel: updated || channel,
+      diagnostics: {
+        wabaId,
+        phoneNumberId: phoneId,
+        displayPhoneNumber: displayPhone,
+        subscribedAppsStatus,
+        subscribedAppsDetails,
+        phoneNumberStatus,
+        codeVerificationStatus,
+        qualityRating,
+        lastWebhookAt: channel.last_webhook_at,
+        lastWebhookPayload: channel.last_webhook_payload,
+        lastSendResult: channel.last_send_result
+      }
+    };
   }
 
-  const channel = db.getChannelById(req.params.id);
-  const isAdmin = user.role === 'admin';
-  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
-    return res.status(404).json({ error: 'Channel not found or unauthorized' });
+  /**
+   * 1-Click Repair & Re-Sync WhatsApp Webhook and Cloud API Registration
+   */
+  public async repairWhatsAppChannel(channelId: string, userId: string): Promise<{
+    success: boolean;
+    channel?: Channel;
+    message: string;
+    error?: string;
+  }> {
+    const channel = db.getChannelById(channelId);
+    if (!channel || channel.user_id !== userId) {
+      return { success: false, message: 'Channel not found or unauthorized.' };
+    }
+
+    let token = channel.access_token;
+    const phoneId = channel.phone_number_id || channel.meta_asset_id || channel.identifier;
+    let wabaId = channel.waba_id || channel.meta_business_id || '';
+
+    // Check if channel has placeholder token and fallback to system token if available
+    const masterToken = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
+    if ((!token || token.startsWith('qr_') || token.startsWith('sim_')) && masterToken) {
+      token = masterToken;
+    }
+
+    if (!token || token.startsWith('qr_') || token.startsWith('sim_')) {
+      return {
+        success: false,
+        message:
+          'এই চ্যানেলটিতে রিয়েল মেটা টোকেন নেই (পুরনো বা কিউআর টেস্ট টোকেন)। দয়া করে "+ Connect Another WhatsApp" বাটনে ক্লিক করে অফিশিয়াল মেটা এমবেডেড সাইন-আপ সম্পন্ন করুন।'
+      };
+    }
+
+    try {
+      // 1. If wabaId is missing but phoneId is known, auto-discover WABA ID from Meta Graph API
+      if (!wabaId && phoneId) {
+        try {
+          const phQuery = await fetch(
+            `https://graph.facebook.com/v21.0/${encodeURIComponent(phoneId)}?fields=id,display_phone_number,whatsapp_business_account&access_token=${encodeURIComponent(token)}`
+          );
+          const phData = (await phQuery.json().catch(() => ({}))) as any;
+          if (phData?.whatsapp_business_account?.id) {
+            wabaId = phData.whatsapp_business_account.id;
+            db.updateChannel(channel.id, { waba_id: wabaId });
+          }
+        } catch (_wabaLookupErr) {
+          console.warn('[Repair WA] Could not lookup WABA ID from phone:', _wabaLookupErr);
+        }
+      }
+
+      // 2. Re-subscribe WABA to Webhooks: POST /{waba_id}/subscribed_apps
+      if (wabaId) {
+        console.log(`[Repair WA] Calling POST /${wabaId}/subscribed_apps ...`);
+        const subRes = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(wabaId)}/subscribed_apps`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subscribed_fields: ['messages', 'message_deliveries', 'messaging_postbacks']
+          })
+        });
+        const subJson = (await subRes.json().catch(() => ({}))) as any;
+        console.log('[Repair WA] Subscribed apps response:', subJson);
+        if (subRes.ok && subJson.success !== false) {
+          db.updateChannel(channel.id, { subscribed_apps_status: 'subscribed' });
+        }
+      }
+
+      // 3. Re-register Phone Number: POST /{phone_number_id}/register
+      if (phoneId) {
+        console.log(`[Repair WA] Calling POST /${phoneId}/register ...`);
+        await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(phoneId)}/register`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            pin: '123456'
+          })
+        });
+      }
+
+      // 4. Re-query diagnostics
+      const diagResult = await this.getWhatsAppDiagnostics(channelId, userId);
+      return {
+        success: true,
+        channel: diagResult.channel,
+        message: 'Successfully re-subscribed WABA to webhooks and re-registered phone number with WhatsApp Cloud API!'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: 'Repair attempt failed: ' + (err?.message || 'Network error'),
+        error: err?.message
+      };
+    }
   }
 
-  const { auto_comment_reply, auto_followup_enabled } = req.body || {};
-  const updated = db.updateChannel(req.params.id, {
-    ...(auto_comment_reply !== undefined && { auto_comment_reply: Boolean(auto_comment_reply) }),
-    ...(auto_followup_enabled !== undefined && { auto_followup_enabled: Boolean(auto_followup_enabled) }),
-    updated_at: new Date().toISOString()
-  });
-
-  const { access_token, app_secret, ...sanitized } = (updated || {}) as any;
-  return res.json(sanitized);
-});
-
-// DELETE /api/channels/:id
-channelsRouter.delete('/:id', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  /**
+   * OAuth validation - No mock/demo pages in production
+   */
+  public simulateOAuth(
+    _userId: string,
+    _platform: 'messenger' | 'instagram' | 'whatsapp'
+  ): {
+    success: boolean;
+    pages: AuthorizedPageItem[];
+    error?: string;
+  } {
+    return {
+      success: false,
+      pages: [],
+      error: 'Meta App ID and Secret must be configured to connect Facebook/Instagram pages.'
+    };
   }
+}
 
-  const channel = db.getChannelById(req.params.id);
-  const isAdmin = user.role === 'admin';
-  if (!channel || (!isAdmin && channel.user_id !== user.id)) {
-    return res.status(404).json({ error: 'Channel not found or unauthorized' });
-  }
-
-  // Gracefully attempt webhook unsubscription
-  await metaOAuthService.disconnectChannel(req.params.id, user.id).catch(() => {});
-
-  // Clean delete from database
-  db.deleteChannel(req.params.id, isAdmin ? undefined : user.id);
-
-  return res.json({ success: true, message: `Channel "${channel.name}" has been disconnected.` });
-});
+export const metaOAuthService = new MetaOAuthService();
