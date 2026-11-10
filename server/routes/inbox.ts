@@ -27,10 +27,14 @@ inboxRouter.get('/messages', async (req: Request, res: Response) => {
     ]).catch((err) => {
       console.warn('[Inbox GET] Initial syncFromSupabase error:', err?.message || err);
     });
-  } else if (now - db.getLastSupabaseSyncAt() > 15000) {
-    // Background non-blocking sync every 15s so requests return in <20ms
-    db.syncFromSupabase(false).catch((err) => {
-      console.warn('[Inbox GET] Background sync warning:', err?.message || err);
+  } else if (now - db.getLastSupabaseSyncAt() > 4000) {
+    // Different Vercel instances hold different copies of the data. Pull the latest messages
+    // (max 2s wait) so the inbox shows messages that another instance (e.g. the webhook) saved.
+    await Promise.race([
+      db.syncFromSupabase(false),
+      new Promise((resolve) => setTimeout(resolve, 2000))
+    ]).catch((err) => {
+      console.warn('[Inbox GET] Sync warning:', err?.message || err);
     });
   }
 
