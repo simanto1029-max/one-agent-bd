@@ -9,6 +9,22 @@ import { runAutoFollowUpEngine, handleInboundCommentWebhook, handleInboundWebhoo
 
 export const channelsRouter = Router();
 
+// Meta connect / config / OAuth endpoints must see the LATEST saved App ID, App Secret, tokens and channels.
+// Every Vercel serverless instance keeps its own in-memory copy, so pull fresh state from Supabase first.
+channelsRouter.use('/meta', async (req: Request, _res: Response, next) => {
+  try {
+    if (Date.now() - db.getLastSupabaseSyncAt() > 1500) {
+      await Promise.race([
+        db.syncFromSupabase(true),
+        new Promise((resolve) => setTimeout(resolve, 3000))
+      ]);
+    }
+  } catch (err: any) {
+    console.warn('[Channels Meta Fresh Sync] warning:', err?.message || err);
+  }
+  next();
+});
+
 // Helper to check active subscription or active free trial
 export function checkSubscriptionActive(userId: string): { allowed: boolean; error?: string } {
   const user = db.getProfileById(userId);
