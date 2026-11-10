@@ -10,6 +10,10 @@ import { db } from '../db/database.js';
 
 export const webhooksRouter = Router();
 
+// How long a webhook request may stay open while the AI reply is generated, sent and saved.
+// (Meta expects an answer within ~20s; Vercel function limit is 60s.)
+const WEBHOOK_MAX_WAIT_MS = 15000;
+
 const DEFAULT_WA_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || 'one_agent_bd_verify_token';
 const DEFAULT_FB_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.MESSENGER_VERIFY_TOKEN || 'one_agent_bd_verify_token';
 
@@ -17,15 +21,20 @@ const DEFAULT_FB_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process
  * Validates Meta X-Hub-Signature-256 header using META_APP_SECRET
  */
 function validateMetaSignature(req: Request): { valid: boolean; reason?: string } {
-  const appSecret = process.env.META_APP_SECRET;
-  if (!appSecret) {
-    // If META_APP_SECRET is not configured in env, allow through with debug log
+  const secrets = Array.from(
+    new Set(
+      [process.env.META_APP_SECRET, (db.getSettings() as any)?.meta_app_secret]
+        .map((x) => (typeof x === 'string' ? x.trim() : ''))
+        .filter(Boolean)
+    )
+  );
+  if (secrets.length === 0) {
+    // No app secret known anywhere -> cannot verify
     return { valid: true };
   }
 
   const signatureHeader = req.headers['x-hub-signature-256'] as string;
   if (!signatureHeader) {
-    console.warn('[Webhook Security] Missing X-Hub-Signature-256 header while META_APP_SECRET is set.');
     return { valid: false, reason: 'Missing X-Hub-Signature-256 header' };
   }
 
@@ -34,18 +43,36 @@ function validateMetaSignature(req: Request): { valid: boolean; reason?: string 
     return { valid: true };
   }
 
-  const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-
-  try {
-    const valid = crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expectedSignature));
-    if (!valid) {
-      console.warn('[Webhook Security] Signature mismatch detected.');
-      return { valid: false, reason: 'Signature mismatch' };
+  for (const secret of secrets) {
+    const expectedSignature = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    try {
+      if (
+        signatureHeader.length === expectedSignature.length &&
+        crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expectedSignature))
+      ) {
+        return { valid: true };
+      }
+    } catch (_) {
+      // try next secret
     }
-    return { valid: true };
-  } catch (err) {
-    return { valid: false, reason: 'Signature verification error' };
   }
+  return { valid: false, reason: 'Signature mismatch' };
+}
+
+/**
+ * Checks the Meta signature on every POST webhook.
+ * - Default: only logs a warning (so a wrong secret never silently kills your inbox).
+ * - Set META_ENFORCE_SIGNATURE=true in Vercel to reject forged requests with 403.
+ */
+function guardMetaSignature(req: Request, res: Response): boolean {
+  const sig = validateMetaSignature(req);
+  if (sig.valid) return true;
+  console.warn(`[Webhook Security] Invalid Meta signature (${sig.reason}) on ${req.originalUrl}`);
+  if (process.env.META_ENFORCE_SIGNATURE === 'true') {
+    res.status(403).send('Invalid signature');
+    return false;
+  }
+  return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -69,6 +96,7 @@ webhooksRouter.get(['/meta', '/', '/messenger', '/facebook', '/page'], (req: Req
 webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, res: Response) => {
   try {
     // Pull latest channels and state in serverless lambda before processing
+    if (!guardMetaSignature(req, res)) return;
     await db.syncFromSupabase().catch(() => {});
 
     const body = req.body || {};
@@ -296,10 +324,10 @@ webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, r
     }
 
     if (tasks.length > 0) {
-      // Hold HTTP connection open up to 2.4s so Vercel Serverless Lambda does not freeze before reply is dispatched
+      // Hold the HTTP connection open until AI reply + message saving finish (max WEBHOOK_MAX_WAIT_MS) so Vercel does not freeze the Lambda mid-work
       await Promise.race([
         Promise.allSettled(tasks),
-        new Promise((resolve) => setTimeout(resolve, 2400))
+        new Promise((resolve) => setTimeout(resolve, WEBHOOK_MAX_WAIT_MS))
       ]);
       // Await database flush so Serverless Lambda persists messages to Supabase before freezing
       await db.flushToSupabase().catch((err) => console.warn('[Meta Webhook] Flush warning:', err));
@@ -353,6 +381,7 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
   try {
     // Pull latest state in serverless lambda before processing
+    if (!guardMetaSignature(req, res)) return;
     await db.syncFromSupabase().catch(() => {});
 
     const body = req.body || {};
@@ -432,7 +461,7 @@ webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
     if (tasks.length > 0) {
       await Promise.race([
         Promise.allSettled(tasks),
-        new Promise((resolve) => setTimeout(resolve, 2400))
+        new Promise((resolve) => setTimeout(resolve, WEBHOOK_MAX_WAIT_MS))
       ]);
       await db.flushToSupabase().catch((err) => console.warn('[WhatsApp Webhook] Flush warning:', err));
     }
@@ -484,6 +513,7 @@ webhooksRouter.get('/messenger', (req: Request, res: Response) => {
 webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
   try {
     // Pull latest state in serverless lambda before processing
+    if (!guardMetaSignature(req, res)) return;
     await db.syncFromSupabase().catch(() => {});
 
     const body = req.body;
@@ -632,7 +662,7 @@ webhooksRouter.post('/messenger', async (req: Request, res: Response) => {
     if (tasks.length > 0) {
       await Promise.race([
         Promise.allSettled(tasks),
-        new Promise((resolve) => setTimeout(resolve, 2400))
+        new Promise((resolve) => setTimeout(resolve, WEBHOOK_MAX_WAIT_MS))
       ]);
       await db.flushToSupabase().catch((err) => console.warn('[Messenger Webhook] Flush warning:', err));
     }
@@ -686,6 +716,7 @@ webhooksRouter.get('/instagram', (req: Request, res: Response) => {
 webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
   try {
     // Pull latest state in serverless lambda before processing
+    if (!guardMetaSignature(req, res)) return;
     await db.syncFromSupabase().catch(() => {});
 
     const body = req.body;
@@ -770,7 +801,7 @@ webhooksRouter.post('/instagram', async (req: Request, res: Response) => {
     if (tasks.length > 0) {
       await Promise.race([
         Promise.allSettled(tasks),
-        new Promise((resolve) => setTimeout(resolve, 2400))
+        new Promise((resolve) => setTimeout(resolve, WEBHOOK_MAX_WAIT_MS))
       ]);
       await db.flushToSupabase().catch((err) => console.warn('[Instagram Webhook] Flush warning:', err));
     }
@@ -1015,5 +1046,3 @@ webhooksRouter.get('/meta/data-deletion', (req: Request, res: Response) => {
     documentation: 'https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback'
   });
 });
-
-
