@@ -112,7 +112,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const loadChannels = async () => {
     try {
       const data = await api.getChannels();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setLocalChannels(data);
       }
     } catch (err) {
@@ -125,7 +125,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   }, []);
 
   useEffect(() => {
-    if (channels && channels.length > 0) {
+    if (Array.isArray(channels)) {
       setLocalChannels(channels);
     }
   }, [channels]);
