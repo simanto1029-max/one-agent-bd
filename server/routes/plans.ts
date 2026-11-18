@@ -32,14 +32,12 @@ plansRouter.post('/', (req: Request, res: Response) => {
     }
   }
 
-  const { name, price, currency, duration_days, trial_days, is_active, features, feature_config, subtitle, badge, whatsapp_credits } = req.body;
+  const { name, price, currency, duration_days, trial_days, is_active, features, feature_config, subtitle, badge } = req.body;
   if (!name || price === undefined) {
     return res.status(400).json({ error: 'Name and price are required' });
   }
 
   const id = `plan_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now().toString(36)}`;
-  const waCredits = Number(whatsapp_credits) || (feature_config?.whatsapp_credits ? Number(feature_config.whatsapp_credits) : 2500);
-
   const newPlan: Plan = {
     id,
     name: name.trim(),
@@ -55,8 +53,7 @@ plansRouter.post('/', (req: Request, res: Response) => {
       vip_broadcast: feature_config?.vip_broadcast ?? true,
       courier_dispatch: feature_config?.courier_dispatch ?? true,
       csv_export: feature_config?.csv_export ?? true,
-      max_channels: Number(feature_config?.max_channels) || 3,
-      whatsapp_credits: waCredits
+      max_channels: Number(feature_config?.max_channels) || 3
     },
     subtitle: subtitle ? String(subtitle).trim() : undefined,
     badge: badge ? String(badge).trim() : undefined,
@@ -80,7 +77,7 @@ plansRouter.put('/:id', (req: Request, res: Response) => {
     }
   }
 
-  const { name, price, currency, duration_days, trial_days, is_active, features, feature_config, subtitle, badge, whatsapp_credits } = req.body;
+  const { name, price, currency, duration_days, trial_days, is_active, features, feature_config, subtitle, badge } = req.body;
   const updates: Partial<Plan> = {};
 
   if (name !== undefined) updates.name = String(name).trim();
@@ -93,15 +90,12 @@ plansRouter.put('/:id', (req: Request, res: Response) => {
   if (subtitle !== undefined) updates.subtitle = String(subtitle).trim();
   if (badge !== undefined) updates.badge = String(badge).trim();
 
-  if (feature_config !== undefined || whatsapp_credits !== undefined) {
+  if (feature_config !== undefined) {
     const currentPlan = db.getPlanById(req.params.id);
     const existingConfig = currentPlan?.feature_config || {};
-    const waCredits = whatsapp_credits !== undefined ? Number(whatsapp_credits) : (feature_config?.whatsapp_credits ?? existingConfig.whatsapp_credits ?? 2500);
-
     updates.feature_config = {
       ...existingConfig,
-      ...(feature_config || {}),
-      whatsapp_credits: waCredits
+      ...(feature_config || {})
     };
   }
 
