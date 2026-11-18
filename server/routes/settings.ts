@@ -257,13 +257,6 @@ settingsRouter.put('/instant-rules', async (req: Request, res: Response) => {
   });
 });
 
-// GET /api/settings/credits - Full WhatsApp & Multichannel Quota / Ledger Calculation
-settingsRouter.get('/credits', async (req: Request, res: Response) => {
-  const user = getAuthenticatedUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
   const { getUserSubscriptionStatus } = await import('../services/subscriptionService.js');
   const subStatus = getUserSubscriptionStatus(user.id);
   const profile = db.getProfileById(user.id);
