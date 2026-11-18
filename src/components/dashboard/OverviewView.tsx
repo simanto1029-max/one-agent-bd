@@ -790,10 +790,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <span className="text-xl font-black text-[#7C3AED] dark:text-purple-300 tabular-nums">
                 {instantRulesCount} matches
               </span>
-              <span className="text-[11px] font-bold text-emerald-500">Credits Saved</span>
+              <span className="text-[11px] font-bold text-emerald-500">Instant Replies</span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Delivery &amp; FAQs answered with zero quota deduction
+              Delivery and FAQs answered instantly without an AI generation
             </p>
           </div>
         </div>
