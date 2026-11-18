@@ -35,14 +35,14 @@ export function checkSubscriptionActive(userId: string): { allowed: boolean; err
     return {
       allowed: false,
       error:
-        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan (Starter: 1,250 BDT or Pro: 1,950 BDT) via bKash/Nagad to unpause and connect channels.'
+        'Your 2-Day Free Trial or subscription plan has ended. All automated channels are paused. Please purchase or renew a subscription plan (Advance: 1,250 BDT, Business: 1,950 BDT or Enterprise: 2,950 BDT) via bKash/Nagad to unpause and connect channels.'
     };
   }
 
   return { allowed: true };
 }
 
-// Helper to enforce Starter Plan (up to 3 social channels) vs Pro Plan (up to 10 social channels) limit
+// Enforce the connected-channel limit configured for the user's active package.
 function checkChannelLimitForPlan(
   userId: string,
   targetPlatform: 'messenger' | 'instagram' | 'whatsapp',
