@@ -118,7 +118,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         setStoresCount(storesRes.stores.length);
       }
 
-      // Compute Daily Message Consumption for the current month
+      // Compute daily conversation activity for the current month
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
