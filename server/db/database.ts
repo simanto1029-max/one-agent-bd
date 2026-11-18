@@ -1145,6 +1145,14 @@ class Database {
       plan_enterprise: 2950
     };
     let changed = false;
+    if (Array.isArray(this.data.agents)) {
+      this.data.agents.forEach((agent: any) => {
+        if (typeof agent.avatar_url === 'string' && agent.avatar_url.includes('images.unsplash.com/photo-1534528741775-53994a69daeb')) {
+          agent.avatar_url = '';
+          changed = true;
+        }
+      });
+    }
     this.data.plans = this.data.plans.map((plan: any) => {
       const next = { ...plan, feature_config: { ...(plan.feature_config || {}) } };
       if (legacyPrices[next.id] && [2499, 4499, 8999].includes(Number(next.price))) {
@@ -2022,7 +2030,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         user_id: userId,
         name: 'Main Business AI Agent',
         business_name: user?.full_name || 'My Online Store',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
+        avatar_url: '',
         tone: 'sales_closer',
         language: 'bangla',
         assigned_channels: userChannels.map((c) => c.id),
