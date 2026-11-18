@@ -837,7 +837,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
             </span>
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Experience autonomous sales AI, 100 test WhatsApp replies, and unlimited Facebook &amp; Instagram with 0 credit card needed.
+            Experience autonomous sales AI with unlimited WhatsApp, Facebook Messenger and Instagram conversations during your 2-day trial.
           </p>
         </div>
 
