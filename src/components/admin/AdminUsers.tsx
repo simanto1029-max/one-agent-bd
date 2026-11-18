@@ -27,11 +27,7 @@ interface ExtendedUser extends UserProfile {
   };
   channelsCount?: number;
   messagesCount?: number;
-  whatsappUsage?: {
-    used: number;
-    quota: number;
-    remaining: number;
-  };
+
 }
 
 export const AdminUsers: React.FC = () => {
