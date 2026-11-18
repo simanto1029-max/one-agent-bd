@@ -13,7 +13,6 @@ export function notifyReviewsUpdated() {
 interface ReviewData {
   n: string;
   r: string;
-  img: string;
   t: string;
 }
 
@@ -21,49 +20,41 @@ const DEFAULT_REVIEWS: ReviewData[] = [
   {
     n: 'Tanvir Ahmed',
     r: 'Founder, StyleVerse Fashion · Dhanmondi, Dhaka',
-    img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
     t: '“আমরা রাত ২টা-৩টার দিকে প্রচুর কাস্টমার ইনবক্স পেতাম এবং সকালে ঘুম থেকে উঠে দেখতাম কাস্টমার অন্য পেজে চলে গেছে। One Agent BD চালু করার পর থেকে মাঝরাতেও ২ সেকেন্ডে প্রডাক্টের ছবি ও সাইজ দিয়ে ক্যাশ অন ডেলিভারি অর্ডার কনফার্ম করে দিচ্ছে। আমাদের মান্থলি সেলস প্রায় ৪৫% বৃদ্ধি পেয়েছে!”'
   },
   {
     n: 'Nusrat Jahan Mim',
     r: "Owner, Mim's Hijab & Abaya · Uttara, Dhaka",
-    img: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
     t: '“ফেইসবুক ও ইনস্টাগ্রাম পেইজে প্রতিদিন শত শত মেসেজের রিপ্লাই দিতে গিয়ে আমার পুরো দিন চলে যেত। এখন কাস্টমার ভয়েস মেসেজ পাঠালে এআই খাঁটি বাংলায় সঠিক সাইজ ও ফেব্রিক ডিটেইলস বুঝিয়ে দেয়। Steadfast কুরিয়ারেও এক ক্লিকে পার্সেল এন্ট্রি হয়ে যায়।”'
   },
   {
     n: 'Imran Hossain Rony',
     r: 'Managing Director, TechGadget BD · Motijheel, Dhaka',
-    img: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
     t: '“বুস্টেড পোস্টের কমেন্টে কাস্টমাররা দাম জানতে চাইলে সাথে সাথে এআই ইনবক্সে ডিএম পাঠায়। সবচেয়ে বড় সুবিধা হলো ফেক অর্ডার ও কুরিয়ার ডেলিভারি সাকসেস রেশিও স্বয়ংক্রিয়ভাবে চেক করে দেয়, যার কারণে আমাদের রিটার্ন পার্সেল রেট ৩৫% থেকে নেমে ৬%-এ এসেছে।”'
   },
   {
     n: 'Sultana Razia',
     r: 'Co-Founder, Glow Aura Skincare · Banani, Dhaka',
-    img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80',
     t: '“প্রোডাক্টের ছবি পাঠালে এআই ইমেজ সার্চ করে ক্যাটালগ থেকে স্কিন টাইপ অনুযায়ী সিরাম ও ময়েশ্চারাইজার সাজেস্ট করে। কাস্টমার মনেই করে না যে এটা কোনো রোবট, একদম মানুষের মতো নম্রভাবে ‘আপনি’ সম্বোধন করে অর্ডার কনফার্ম করে নেয়।”'
   },
   {
     n: 'Kazi Farhan Ishrak',
     r: 'CEO, Chittagong Leather Crafts · GEC Circle, Chattogram',
-    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80',
     t: '“আমরা ঢাকা ও চট্টগ্রামের বাইরে সারাদেশে লেদার শুজ ও ওয়ালেট বিক্রি করি। পাঠাও এবং রেডএক্স কুরিয়ার ইন্টিগ্রেশন এত স্মুথ যে এআই অর্ডার নেওয়ার পর সরাসরি কুরিয়ার ট্র্যাকিং কোড কাস্টমারকে পাঠিয়ে দেয়। কাজের স্পিড আর একিউরেসি দেখে আমরা মুগ্ধ।”'
   },
   {
     n: 'Mahmudul Hasan Rahat',
     r: 'Proprietor, Deshi Organic Food · Zindabazar, Sylhet',
-    img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
     t: '“মধুর খাঁটিত্ব আর ঘি নিয়ে কাস্টমারদের শত শত প্রশ্ন থাকে। আমি ট্রেনিং ডাটাতে আমাদের বৈশিষ্ট্যগুলো লিখে দিয়েছি, এখন এআই ঠিক আমার মতোই বিস্তারিত বুঝিয়ে অর্ডার নেয়। হোয়াটসঅ্যাপ ক্লাউড এপিআই দিয়ে কোনো ব্যান বা রেস্ট্রিকশনের ভয় ছাড়াই নিরাপদে চলছে।”'
   },
   {
     n: 'Afsana Haque Chowdhury',
     r: 'Managing Partner, BabyLand BD · Mirpur DOHS, Dhaka',
-    img: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&auto=format&fit=crop&q=80',
     t: '“মেটা বিজ্ঞাপনে প্রতিদিন শত শত লিড আসত। আগে ৩-৪ জন মডারেটর রেখেও অর্ধেকের বেশি কাস্টমারকে সময়মতো উত্তর দেওয়া যেত না। One Agent BD আসার পর কোনো লিড মিস হয় না, স্বয়ংক্রিয়ভাবে অ্যাড্রেস ও ফোন নম্বর ভেরিফাই করে অর্ডার শিট তৈরি করে দেয়।”'
   },
   {
     n: 'Engr. Mahfuzur Rahman',
     r: 'Founder, SneakerStreet Bangladesh · Chawkbazar, Rajshahi',
-    img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=160&auto=format&fit=crop&q=80',
     t: '“আমাদের স্টোরের সাইজ ও কালার ভ্যারিয়েন্ট স্টক প্রতিনিয়ত পরিবর্তন হয়। এআই রিয়েল-টাইম ইনভেন্টরি চেক করে উত্তর দেয়, যার কারণে আউট-অফ-স্টক প্রোডাক্টের ভুল অর্ডার পড়ার কোনো চান্স থাকে না। মাসে কমপক্ষে ৩০,০০০ টাকা ওভারহেড খরচ বেঁচে গেছে।”'
   }
 ];
@@ -131,7 +122,6 @@ export const Testimonials: React.FC = () => {
       const newRev: ReviewData = {
         n: name.trim(),
         r: `${role.trim() || 'Business Owner'} · ${business.trim() || 'Bangladesh'}`,
-        img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=160&auto=format&fit=crop&q=80',
         t: `“${reviewText.trim()}”`
       };
       setReviews((prev) => [newRev, ...prev]);
@@ -521,7 +511,9 @@ export const Testimonials: React.FC = () => {
               <p className="q">{r.t}</p>
 
               <div className="who">
-                <img src={r.img} alt={r.n} loading="lazy" />
+                <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center text-sm font-extrabold shrink-0" aria-label={r.n}>
+                  {r.n.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+                </div>
                 <div>
                   <b>{r.n}</b>
                   <small>{r.r}</small>
