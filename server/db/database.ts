@@ -1448,6 +1448,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       if (sourceFile) {
         const content = fs.readFileSync(sourceFile, 'utf-8');
         const parsed = this.normalizeSchema(JSON.parse(content));
+        this.lastLocalWriteAt = Number((parsed as any)._lastUpdatedAt) || 0;
         this.saveData(parsed);
         return parsed;
       }
@@ -1688,7 +1689,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       const localPlanMap = new Map(this.data.plans.map((p) => [p.id, p]));
       incoming.plans = (incoming.plans || []).map((remotePlan) => {
         const local = localPlanMap.get(remotePlan.id);
-        if (local && (this.lastLocalWriteAt > 0 || (local.updated_at && (!remotePlan.updated_at || new Date(local.updated_at) >= new Date(remotePlan.updated_at))))) {
+        if (local && this.lastLocalWriteAt > 0 && local.updated_at && (!remotePlan.updated_at || new Date(local.updated_at) >= new Date(remotePlan.updated_at))) {
           return local;
         }
         return remotePlan;
