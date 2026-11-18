@@ -62,13 +62,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
     message: string;
   } | null>(null);
 
-  const [creditsData, setCreditsData] = useState<{
-    whatsapp?: { total_quota: number; used: number; remaining: number; percent_used: number };
-    facebook?: { is_unlimited: boolean; total_sent: number };
-    instagram?: { is_unlimited: boolean; total_sent: number };
-    instant_rules?: { triggered_count: number; credits_saved: number; estimated_savings_bdt: number };
-    plan?: { id: string; name: string; price: number; days_remaining: number; is_trial: boolean; is_expired: boolean };
-  } | null>(null);
+
 
   // Starter to Pro Upgrade Quote State
   const [upgradeQuote, setUpgradeQuote] = useState<{
@@ -117,16 +111,11 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const loadBillingData = async () => {
     try {
       setLoading(true);
-      const [myPayments, availablePlans, creditsRes] = await Promise.all([
+      const [myPayments, availablePlans] = await Promise.all([
         api.getMyPayments().catch(() => []),
-        api.getPlans().catch(() => []),
-        api.getCreditsUsage().catch(() => null)
+        api.getPlans().catch(() => [])
       ]);
       setPayments(myPayments);
-      if (creditsRes) {
-        setCreditsData(creditsRes);
-      }
-
       const active = availablePlans.filter((p) => p.is_active);
       const merged = active.length >= 2 ? normalizeToThreePlans(active) : OFFICIAL_THREE_PLANS;
       setPlans(merged);
@@ -225,18 +214,11 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const isExpired = subStatus?.isExpired;
   const endDate = subStatus?.subscription?.end_date;
 
-  const activePlanName = creditsData?.plan?.name || subStatus?.planName || 'Advance AI Plan';
-  const totalWaQuota = creditsData?.whatsapp?.total_quota || subStatus?.whatsappCreditsTotal || 2500;
-  const usedWaCredits = creditsData?.whatsapp?.used ?? subStatus?.whatsappCreditsUsed ?? 0;
-  const remainingWaCredits = creditsData?.whatsapp?.remaining ?? subStatus?.whatsappCreditsRemaining ?? Math.max(0, totalWaQuota - usedWaCredits);
-  const waPercentUsed = totalWaQuota > 0 ? Math.min(100, Math.round((usedWaCredits / totalWaQuota) * 100)) : 0;
-  const fbSent = creditsData?.facebook?.total_sent ?? 0;
-  const igSent = creditsData?.instagram?.total_sent ?? 0;
-  const instantRulesSaved = creditsData?.instant_rules?.triggered_count ?? 0;
+  const activePlanName = subStatus?.planName || 'Advance AI Plan';
 
   const selectedCustomAmount = selectedPlan
     ? calculateCustomPlanPrice(selectedPlan.price, activeDuration.months)
-    : 2499;
+    : 1250;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -338,111 +320,6 @@ export const BillingView: React.FC<BillingViewProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* 4 Interactive Usage & Quota Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: WhatsApp Messages Quota Progress */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <WhatsAppLogo className="w-3.5 h-3.5" />
-                <span>WhatsApp Messages</span>
-              </span>
-              <span className={`tabular-nums font-black ${waPercentUsed > 90 ? 'text-rose-500' : waPercentUsed > 70 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                {waPercentUsed}% Used
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-                {usedWaCredits.toLocaleString()} <span className="text-xs font-semibold text-slate-400">/ {totalWaQuota.toLocaleString()}</span>
-              </span>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
-                {remainingWaCredits.toLocaleString()} left
-              </span>
-            </div>
-            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700/60 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  waPercentUsed > 90
-                    ? 'bg-rose-500'
-                    : waPercentUsed > 70
-                    ? 'bg-amber-500'
-                    : 'bg-gradient-to-r from-emerald-500 to-[#7C3AED]'
-                }`}
-                style={{ width: `${Math.min(waPercentUsed, 100)}%` }}
-              />
-            </div>
-            <span className="block text-[10px] text-slate-400">
-              No foreign card needed • Covered by One Agent BD
-            </span>
-          </div>
-
-          {/* Card 2: Facebook Messenger */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <FacebookLogo className="w-3.5 h-3.5" />
-                <span>Facebook Messenger</span>
-              </span>
-              <span className="text-blue-600 dark:text-blue-400 font-extrabold text-[10px] uppercase">
-                Unlimited ♾️
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-blue-600 dark:text-blue-400 tabular-nums">
-                {fbSent.toLocaleString()}
-              </span>
-              <span className="text-[11px] font-bold text-slate-400">msgs handled</span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-              100% Free unlimited conversations with 0 Meta fee
-            </p>
-          </div>
-
-          {/* Card 3: Instagram Direct */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <InstagramLogo className="w-3.5 h-3.5" />
-                <span>Instagram Direct</span>
-              </span>
-              <span className="text-pink-600 dark:text-pink-400 font-extrabold text-[10px] uppercase">
-                Unlimited ♾️
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-pink-600 dark:text-pink-400 tabular-nums">
-                {igSent.toLocaleString()}
-              </span>
-              <span className="text-[11px] font-bold text-slate-400">msgs handled</span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-              DM &amp; post comment replies automated 24/7
-            </p>
-          </div>
-
-          {/* Card 4: Cost-Saver Instant Rules */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/20 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-purple-500" />
-                <span>Instant Rules Saved</span>
-              </span>
-              <span className="text-purple-600 dark:text-purple-400 font-extrabold text-[10px]">
-                {instantRulesSaved} Saved
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-[#7C3AED] dark:text-purple-300 tabular-nums">
-                0 Tokens
-              </span>
-              <span className="text-[11px] font-bold text-emerald-500">Free Quota</span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-              Delivery charge &amp; FAQs answered with 0 deduction
-            </p>
-          </div>
         </div>
 
         {/* Feature Permissions Pill Row */}
