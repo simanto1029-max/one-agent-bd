@@ -1453,7 +1453,13 @@ export class MetaOAuthService {
         const unsubUrl = `https://graph.facebook.com/v21.0/${encodeURIComponent(
           channel.identifier
         )}/subscribed_apps?access_token=${encodeURIComponent(channel.access_token)}`;
-        await fetch(unsubUrl, { method: 'DELETE' });
+        const unsubscribeController = new AbortController();
+        const unsubscribeTimer = setTimeout(() => unsubscribeController.abort(), 3000);
+        try {
+          await fetch(unsubUrl, { method: 'DELETE', signal: unsubscribeController.signal });
+        } finally {
+          clearTimeout(unsubscribeTimer);
+        }
       } catch (err) {
         console.warn('[MetaOAuth] Error unsubscribing app on disconnect:', err);
       }
