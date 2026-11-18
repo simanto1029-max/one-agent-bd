@@ -810,8 +810,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <span className="font-bold text-emerald-600 dark:text-emerald-400">AI Autonomous Replies</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-4 h-0.5 border-t-2 border-dashed border-[#F59E0B]" />
-              <span className="text-slate-500 dark:text-slate-400">Target Daily Pace ({currentDailyTargetPace} msgs/d)</span>
             </div>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
