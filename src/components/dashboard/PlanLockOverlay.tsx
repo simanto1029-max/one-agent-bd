@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Lock, ShieldAlert, ArrowRight, Sparkles } from 'lucide-react';
 import { OneAgentPayGatewayModal } from '../payment/NagorikPayModal';
-import { SubscriptionStatusInfo } from '../../types';
-import { OFFICIAL_THREE_PLANS } from '../../utils/pricingPlans';
+import { Plan, SubscriptionStatusInfo } from '../../types';
+import { api } from '../../api';
+import { OFFICIAL_THREE_PLANS, normalizeToThreePlans } from '../../utils/pricingPlans';
 
 interface PlanLockOverlayProps {
   subStatus: SubscriptionStatusInfo | null;
@@ -16,6 +17,25 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
   onGoToBilling
 }) => {
   const [isGatewayOpen, setIsGatewayOpen] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>(OFFICIAL_THREE_PLANS);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getPlans()
+      .then((availablePlans) => {
+        const activePlans = Array.isArray(availablePlans)
+          ? availablePlans.filter((plan) => plan.is_active)
+          : [];
+        if (!cancelled && activePlans.length > 0) {
+          setPlans(normalizeToThreePlans(activePlans));
+        }
+      })
+      .catch((error) => console.warn('[Plan Lock] Could not load live package prices:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [selectedPlanId, setSelectedPlanId] = useState<'plan_starter' | 'plan_pro' | 'plan_enterprise'>(() => {
     const currentPlanId = subStatus?.subscription?.plan_id;
     return currentPlanId === 'plan_pro' || currentPlanId === 'plan_enterprise'
@@ -24,7 +44,7 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
   });
 
   const activePlan =
-    OFFICIAL_THREE_PLANS.find((p) => p.id === selectedPlanId) || OFFICIAL_THREE_PLANS[0];
+    plans.find((p) => p.id === selectedPlanId) || plans[0] || OFFICIAL_THREE_PLANS[0];
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -54,7 +74,7 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
 
         {/* 3 Plan Selector Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {OFFICIAL_THREE_PLANS.map((plan) => {
+          {plans.map((plan) => {
             const isSelected = plan.id === selectedPlanId;
             return (
               <div
