@@ -382,11 +382,12 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
     process.env.WHATSAPP_VERIFY_TOKEN
   ].filter(Boolean);
 
-  if (mode === 'subscribe' && (allowedTokens.includes(token as string) || Boolean(token))) {
-    console.log('[WhatsApp Webhook] Verification successful for token:', token);
+  if (mode === 'subscribe' && allowedTokens.includes(String(token || '').trim())) {
+    console.log('[WhatsApp Webhook] Verification successful');
     return res.status(200).type('text/plain').send(String(challenge));
   }
 
+  console.warn('[WhatsApp Webhook] Verification failed: token mismatch');
   return res.status(403).json({ error: 'Verification failed: invalid token or mode' });
 });
 
