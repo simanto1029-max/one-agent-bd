@@ -298,7 +298,6 @@ export const AdminPlans: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
         {plans.map((plan) => {
           const cfg = plan.feature_config || {};
-          const waCredits = cfg.whatsapp_credits || (plan.price >= 8000 ? 15000 : plan.price >= 4000 ? 6500 : 2500);
 
           return (
             <div
@@ -548,7 +547,7 @@ export const AdminPlans: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 3: Quotas & Resource Limits */}
+              {/* Row 3: Channel Limits */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-purple-50/50 dark:bg-[#180F3D] border border-purple-200/60 dark:border-purple-500/20">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
