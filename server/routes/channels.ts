@@ -1428,6 +1428,22 @@ channelsRouter.delete('/:id', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Resolve the current cloud state before deleting. A cold serverless instance
+  // may otherwise act on the bundled database snapshot instead of the live channel.
+  if (
+    db.isSupabaseConfigured() &&
+    (db.getLastSupabaseSyncAt() === 0 || Date.now() - db.getLastSupabaseSyncAt() > 10000)
+  ) {
+    await db.syncFromSupabase(true).catch((err) => {
+      console.warn('[Channel Delete] Supabase refresh warning:', err);
+    });
+    if (db.getLastSupabaseSyncAt() === 0) {
+      return res.status(503).json({
+        error: 'Could not refresh channels from cloud storage. Please retry the delete in a moment.'
+      });
+    }
+  }
+
   const channel = db.getChannelById(req.params.id);
   const isAdmin = user.role === 'admin';
   if (!channel || (!isAdmin && channel.user_id !== user.id)) {
