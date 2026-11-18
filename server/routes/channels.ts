@@ -984,10 +984,20 @@ channelsRouter.get('/', async (req: Request, res: Response) => {
   // asynchronous Supabase pull finishes. Always wait for that first pull (and refresh
   // stale state periodically) before returning channels, or deleted channels can flash
   // back into the dashboard from the old bundled snapshot.
-  if (db.getLastSupabaseSyncAt() === 0 || Date.now() - db.getLastSupabaseSyncAt() > 10000) {
+  if (
+    db.isSupabaseConfigured() &&
+    (db.getLastSupabaseSyncAt() === 0 || Date.now() - db.getLastSupabaseSyncAt() > 10000)
+  ) {
     await db.syncFromSupabase(true).catch((err) => {
       console.warn('[Channels GET] Supabase refresh warning:', err);
     });
+    // Never return the stale bundled snapshot if the cloud refresh failed; it can
+    // contain a channel that the merchant already deleted in another invocation.
+    if (db.getLastSupabaseSyncAt() === 0) {
+      return res.status(503).json({
+        error: 'Could not refresh channels from cloud storage. Please retry in a moment.'
+      });
+    }
   }
 
   const channels = user.role === 'admin' ? db.getChannels() : db.getChannels(user.id);
