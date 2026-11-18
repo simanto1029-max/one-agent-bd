@@ -80,13 +80,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const [timeFilter, setTimeFilter] = useState<'today' | '7d' | '30d' | 'all'>('7d');
   const [selectedBusinessFilter, setSelectedBusinessFilter] = useState<string>('all');
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
-  const [creditsInfo, setCreditsInfo] = useState<{
-    whatsapp?: { total_quota: number; used: number; remaining: number; percent_used: number };
-    facebook?: { is_unlimited: boolean; total_sent: number };
-    instagram?: { is_unlimited: boolean; total_sent: number };
-    instant_rules?: { triggered_count: number; credits_saved: number; estimated_savings_bdt: number };
-    plan?: { id: string; name: string; price: number; days_remaining: number; is_trial: boolean; is_expired: boolean };
-  } | null>(null);
+
   const [storesCount, setStoresCount] = useState<number>(0);
   const [dailyChartData, setDailyChartData] = useState<
     Array<{
@@ -95,7 +89,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       ai: number;
       total: number;
       human: number;
-      dailyPace: number;
     }>
   >([]);
 
@@ -106,17 +99,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [ordersRes, agentsRes, inboxRes, creditsRes, storesRes] = await Promise.all([
+      const [ordersRes, agentsRes, inboxRes, storesRes] = await Promise.all([
         api.getOrders().catch(() => ({ orders: [], metrics: null })),
         api.getAgents().catch(() => ({ agents: [] })),
         api.getInbox().catch(() => ({ conversations: [], totalCount: 0 })),
-        api.getCreditsUsage().catch(() => null),
         api.getStores().catch(() => ({ stores: [] }))
       ]);
 
-      if (creditsRes) {
-        setCreditsInfo(creditsRes);
-      }
       if (ordersRes.orders) {
         setOrdersList(ordersRes.orders);
       }
@@ -163,8 +152,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         } catch {}
       });
 
-      const planQuota = creditsRes?.whatsapp?.total_quota || subStatus?.whatsappCreditsTotal || 2500;
-      const dailyTargetPace = Math.round(planQuota / 30); // e.g. 83 msgs/day
       const baseTotal = totalMessagesCount > 0 ? totalMessagesCount : 380;
       const baseAi = aiRepliesCount > 0 ? aiRepliesCount : 248;
 
@@ -187,7 +174,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           total: totalCount,
           ai: aiCount,
           human: humanCount,
-          dailyPace: dailyTargetPace
         });
       }
 
@@ -248,12 +234,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const isProPlan = subStatus?.isProPlan;
 
-  // Credit & Message Consumption Metrics
-  const activePlanQuota = creditsInfo?.whatsapp?.total_quota || subStatus?.whatsappCreditsTotal || 2500;
-  const creditsUsed = creditsInfo?.whatsapp?.used ?? subStatus?.whatsappCreditsUsed ?? (aiRepliesCount > 0 ? aiRepliesCount : 0);
-  const creditsRemaining = creditsInfo?.whatsapp?.remaining ?? subStatus?.whatsappCreditsRemaining ?? Math.max(0, activePlanQuota - creditsUsed);
-  const quotaPercent = activePlanQuota > 0 ? Math.min(100, Math.round((creditsUsed / activePlanQuota) * 100)) : 0;
-  const currentDailyTargetPace = Math.round(activePlanQuota / 30);
+
 
   const currentMonthTotalMsgs = dailyChartData.reduce((sum, d) => sum + d.total, 0);
   const currentMonthAiMsgs = dailyChartData.reduce((sum, d) => sum + d.ai, 0);
@@ -264,16 +245,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
   const currentYear = now.getFullYear();
 
-  const instantRulesCount = creditsInfo?.instant_rules?.triggered_count ?? (user as any)?.instant_rules_triggered_count ?? 14;
-  const fbSentCount = creditsInfo?.facebook?.total_sent ?? 342;
-  const igSentCount = creditsInfo?.instagram?.total_sent ?? 186;
-  const displayPlanName = creditsInfo?.plan?.name || subStatus?.planName || 'Advance AI Plan';
+  const instantRulesCount = (user as any)?.instant_rules_triggered_count ?? 0;
+  const fbSentCount = (user as any)?.facebook_messages_sent ?? 0;
+  const igSentCount = (user as any)?.instagram_messages_sent ?? 0;
+  const displayPlanName = subStatus?.planName || 'Advance AI Plan';
 
   const CustomChartTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const aiShare = data.total > 0 ? Math.round((data.ai / data.total) * 100) : 0;
-      const isAbovePace = data.ai > data.dailyPace;
       return (
         <div className="bg-white/95 dark:bg-[#120B2E]/95 backdrop-blur-md p-3.5 rounded-2xl border border-slate-200 dark:border-purple-500/30 shadow-xl text-xs space-y-2 min-w-[210px]">
           <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-purple-500/15">
@@ -314,12 +294,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </span>
             </div>
           </div>
-          <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 flex items-center justify-between text-[10px]">
-            <span className="text-slate-400">Target Daily Pace:</span>
-            <span className={`font-bold tabular-nums ${isAbovePace ? 'text-amber-500' : 'text-emerald-500'}`}>
-              {data.dailyPace} msgs/day {isAbovePace ? '↑ (Peak)' : '✓ (Safe)'}
-            </span>
-          </div>
+
         </div>
       );
     }
@@ -734,7 +709,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#7C3AED] animate-pulse" />
               <span className="text-[11px] font-black tracking-wider uppercase text-[#7C3AED] dark:text-purple-300">
-                Credit &amp; Message Analytics
+                Conversation Analytics
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/30">
                 {displayPlanName}
@@ -745,7 +720,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <span>Daily Message Consumption ({currentMonthName} {currentYear})</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Visualize daily AI autonomous replies vs. total customer conversations and monitor usage against your monthly plan limit.
+              Visualize daily AI autonomous replies compared with total customer conversations.
             </p>
           </div>
 
@@ -796,7 +771,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                 <WhatsAppLogo className="w-3.5 h-3.5" />
-                <span>WhatsApp Quota</span>
+                <span>WhatsApp Messages</span>
               </span>
               <span className={`tabular-nums font-extrabold ${quotaPercent > 90 ? 'text-rose-500' : quotaPercent > 70 ? 'text-amber-500' : 'text-emerald-500'}`}>
                 {quotaPercent}% Used
@@ -937,19 +912,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   tickLine={false}
                 />
                 <Tooltip content={<CustomChartTooltip />} />
-                <ReferenceLine
-                  y={currentDailyTargetPace}
-                  stroke="#F59E0B"
-                  strokeDasharray="4 4"
-                  strokeWidth={1.5}
-                  label={{
-                    value: `Target Pace (${currentDailyTargetPace}/d)`,
-                    fill: '#D97706',
-                    fontSize: 10,
-                    position: 'top',
-                    fontWeight: 'bold'
-                  }}
-                />
+                
                 <Area
                   type="monotone"
                   dataKey="total"
@@ -986,19 +949,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   tickLine={false}
                 />
                 <Tooltip content={<CustomChartTooltip />} />
-                <ReferenceLine
-                  y={currentDailyTargetPace}
-                  stroke="#F59E0B"
-                  strokeDasharray="4 4"
-                  strokeWidth={1.5}
-                  label={{
-                    value: `Target Pace (${currentDailyTargetPace}/d)`,
-                    fill: '#D97706',
-                    fontSize: 10,
-                    position: 'top',
-                    fontWeight: 'bold'
-                  }}
-                />
+                
                 <Bar dataKey="total" name="Total Messages" fill="#6366F1" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="ai" name="AI Replies" fill="#10B981" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -1018,7 +969,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   WhatsApp Cloud API
                 </span>
                 <span className="block text-[10px] text-slate-400">
-                  {creditsUsed.toLocaleString()} of {activePlanQuota.toLocaleString()} credits consumed
+                  Connected channel
                 </span>
               </div>
             </div>
@@ -1027,7 +978,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               onClick={() => onNavigate('settings')}
               className="text-[11px] font-bold text-[#7C3AED] hover:underline cursor-pointer"
             >
-              Top Up
+              Manage Channel
             </button>
           </div>
 
