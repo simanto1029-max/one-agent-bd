@@ -261,8 +261,6 @@ export const api = {
     targetPlanPrice: number;
     flatDifference: number;
     proratedDifference: number;
-    unusedStarterCredit: number;
-    renewWithCreditPrice: number;
     upgradeEndDate: string;
   }> {
     return fetchJson(`/api/subscriptions/upgrade-quote?targetPlanId=${encodeURIComponent(targetPlanId)}`);
