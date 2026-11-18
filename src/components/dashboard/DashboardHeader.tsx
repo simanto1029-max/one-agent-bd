@@ -23,7 +23,6 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   user,
-  subStatus,
   isDark,
   onToggleTheme,
   onOpenTour,
