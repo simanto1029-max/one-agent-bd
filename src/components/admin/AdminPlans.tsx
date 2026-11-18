@@ -252,7 +252,7 @@ export const AdminPlans: React.FC = () => {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Create and customize subscription tiers item-by-item: Name, Price, Days, WhatsApp Messages quota, and feature bullets. Updates apply immediately to the website and user billing.
+            Create and customize subscription tiers item-by-item: Name, Price, Billing Days, Channel Limits, and feature bullets. Updates apply immediately to the website and user billing.
           </p>
         </div>
 
