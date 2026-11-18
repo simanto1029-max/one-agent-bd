@@ -1158,11 +1158,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <img
-                        src={agent.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80'}
-                        alt={agent.name}
-                        className="w-8 h-8 rounded-xl object-cover"
-                      />
+                      <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center">
+                        <Bot className="w-4 h-4" />
+                      </div>
                       <div className="min-w-0">
                         <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">
                           {agent.business_name}
