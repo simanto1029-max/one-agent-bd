@@ -233,16 +233,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   // Toast & Error Diagnostics
   const [inboxToast, setInboxToast] = useState<string | null>(null);
   const [inboxError, setInboxError] = useState<string | null>(null);
-  const [serverDebug, setServerDebug] = useState<{
-    userId?: string;
-    userRole?: string;
-    userEmail?: string;
-    totalDbMessages?: number;
-    returnedMessages?: number;
-    returnedConversations?: number;
-    supabaseUrlDetected?: boolean;
-    supabaseKeyDetected?: boolean;
-  } | null>(null);
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,9 +263,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       if (!silent) setLoading(true);
       const res = await api.getInbox();
       setInboxError(null);
-      if ((res as any).debug) {
-        setServerDebug((res as any).debug);
-      }
       setConversations(res.conversations || []);
 
       if (res.categoryCounts) {
