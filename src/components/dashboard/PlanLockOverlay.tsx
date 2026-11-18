@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Lock, ShieldAlert, ArrowRight, Sparkles } from 'lucide-react';
 import { OneAgentPayGatewayModal } from '../payment/NagorikPayModal';
 import { SubscriptionStatusInfo } from '../../types';
-import { OFFICIAL_TWO_PLANS } from '../../utils/pricingPlans';
+import { OFFICIAL_THREE_PLANS } from '../../utils/pricingPlans';
 
 interface PlanLockOverlayProps {
   subStatus: SubscriptionStatusInfo | null;
@@ -16,12 +16,15 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
   onGoToBilling
 }) => {
   const [isGatewayOpen, setIsGatewayOpen] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState<'plan_starter' | 'plan_pro'>(
-    subStatus?.subscription?.plan_id === 'plan_pro' ? 'plan_pro' : 'plan_starter'
-  );
+  const [selectedPlanId, setSelectedPlanId] = useState<'plan_starter' | 'plan_pro' | 'plan_enterprise'>(() => {
+    const currentPlanId = subStatus?.subscription?.plan_id;
+    return currentPlanId === 'plan_pro' || currentPlanId === 'plan_enterprise'
+      ? currentPlanId
+      : 'plan_starter';
+  });
 
   const activePlan =
-    OFFICIAL_TWO_PLANS.find((p) => p.id === selectedPlanId) || OFFICIAL_TWO_PLANS[0];
+    OFFICIAL_THREE_PLANS.find((p) => p.id === selectedPlanId) || OFFICIAL_THREE_PLANS[0];
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -49,14 +52,14 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
           </div>
         </div>
 
-        {/* 2 Plan Selector Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {OFFICIAL_TWO_PLANS.map((plan) => {
+        {/* 3 Plan Selector Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {OFFICIAL_THREE_PLANS.map((plan) => {
             const isSelected = plan.id === selectedPlanId;
             return (
               <div
                 key={plan.id}
-                onClick={() => setSelectedPlanId(plan.id as 'plan_starter' | 'plan_pro')}
+                onClick={() => setSelectedPlanId(plan.id as 'plan_starter' | 'plan_pro' | 'plan_enterprise')}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
                   isSelected
                     ? 'bg-violet-50/70 dark:bg-violet-950/30 border-[#7F22FE] ring-1 ring-[#7F22FE]/30'
@@ -64,7 +67,7 @@ export const PlanLockOverlay: React.FC<PlanLockOverlayProps> = ({
                 }`}
               >
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#7F22FE] block">
-                  {plan.id === 'plan_pro' ? '10 AI Agents' : '3 AI Agents'}
+                  {plan.id === 'plan_enterprise' ? 'Unlimited Channels' : plan.id === 'plan_pro' ? '10 Connected Channels' : '3 Connected Channels'}
                 </span>
                 <span className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white block mt-0.5">
                   {plan.name}
