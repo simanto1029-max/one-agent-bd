@@ -67,7 +67,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
   {
     id: 'plan_starter',
     name: 'Advance AI Plan',
-    price: 2499,
+    price: 1250,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
@@ -77,7 +77,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
     features: [
       'Facebook Messenger: 100% Unlimited Conversations',
       'Instagram DM: 100% Unlimited Conversations',
-      'WhatsApp: 2,500 Messages & Replies Included',
+      'WhatsApp: Unlimited AI Conversations & Replies',
       '250 Comment Auto-Replies & Instant Inbox DM',
       '500 Instant FAQ & Delivery Charge Auto-Replies',
       '100 Products Catalog & Auto Order Capture',
@@ -100,7 +100,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
   {
     id: 'plan_pro',
     name: 'Business AI Plan',
-    price: 4499,
+    price: 1950,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
@@ -110,7 +110,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
     features: [
       'Facebook Messenger: 100% Unlimited Conversations',
       'Instagram DM: 100% Unlimited Conversations',
-      'WhatsApp: 6,500 Messages & Replies Included',
+      'WhatsApp: Unlimited AI Conversations & Replies',
       '1,000 Comment Auto-Replies & Instant Inbox DM',
       '1,500 Instant FAQ & Custom Business Rules',
       'Unlimited Products Catalog & Auto Order Capture',
@@ -135,7 +135,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
   {
     id: 'plan_enterprise',
     name: 'Enterprise Agency Plan',
-    price: 8999,
+    price: 2950,
     currency: 'BDT',
     duration_days: 30,
     trial_days: 2,
@@ -145,7 +145,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
     features: [
       'Facebook Messenger: 100% Unlimited Conversations',
       'Instagram DM: 100% Unlimited Conversations',
-      'WhatsApp: 15,000 Messages & Replies Included',
+      'WhatsApp: Unlimited AI Conversations & Replies',
       'Unlimited Comment Auto-Replies & Instant Inbox DM',
       'Unlimited Instant FAQ & Custom Business Knowledge Base',
       'Unlimited Products Catalog & Multi-Store Management',
@@ -217,16 +217,16 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
   {
     category: 'Core AI & Channels',
     feature: 'Base Monthly Rate',
-    starterValue: '2,499 TK / month',
-    proValue: '4,499 TK / month',
-    enterpriseValue: '8,999 TK / month'
+    starterValue: '1,250 TK / month',
+    proValue: '1,950 TK / month',
+    enterpriseValue: '2,950 TK / month'
   },
   {
     category: 'Core AI & Channels',
-    feature: 'WhatsApp Messages Included',
-    starterValue: '2,500 Messages',
-    proValue: '6,500 Messages',
-    enterpriseValue: '15,000 Messages'
+    feature: 'WhatsApp Conversations',
+    starterValue: 'Unlimited',
+    proValue: 'Unlimited',
+    enterpriseValue: 'Unlimited'
   },
   {
     category: 'Core AI & Channels',
@@ -297,9 +297,9 @@ export function normalizeToThreePlans(list: Plan[]): Plan[] {
   if (!list || list.length === 0) return OFFICIAL_THREE_PLANS;
   const activePlans = list.filter((p) => p.is_active);
   if (activePlans.length >= 3) return activePlans;
-  const starter = list.find((p) => p.id === 'plan_starter' || p.price === 2499) || OFFICIAL_THREE_PLANS[0];
-  const pro = list.find((p) => p.id === 'plan_pro' || p.price === 4499) || OFFICIAL_THREE_PLANS[1];
-  const enterprise = list.find((p) => p.id === 'plan_enterprise' || p.price === 8999) || OFFICIAL_THREE_PLANS[2];
+  const starter = list.find((p) => p.id === 'plan_starter' || p.price === 1250) || OFFICIAL_THREE_PLANS[0];
+  const pro = list.find((p) => p.id === 'plan_pro' || p.price === 1950) || OFFICIAL_THREE_PLANS[1];
+  const enterprise = list.find((p) => p.id === 'plan_enterprise' || p.price === 2950) || OFFICIAL_THREE_PLANS[2];
   return [starter, pro, enterprise];
 }
 
