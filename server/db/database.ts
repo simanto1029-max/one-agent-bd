@@ -1470,6 +1470,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       if (this.pushDebounceTimer) clearTimeout(this.pushDebounceTimer);
       this.pushDebounceTimer = setTimeout(() => {
         this.pushToSupabase().catch((err) => {
+          this.isDirty = true;
           console.warn('[Supabase Sync] Background push warning:', err?.message || err);
         });
       }, 400);
@@ -1596,6 +1597,9 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       this.lastSupabaseSyncAt = Date.now();
       return;
     }
+
+    this.isDirty = true;
+    throw new Error(`Supabase app_state persistence failed after all schema fallbacks (HTTP ${fallbackRes.status}).`);
   }
 
   private mergeLocalNewerProfiles(incoming: DatabaseSchema): DatabaseSchema {
@@ -1928,16 +1932,26 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       clearTimeout(this.pushDebounceTimer);
       this.pushDebounceTimer = null;
     }
+
     if (this.pendingFlushPromise) {
-      await this.pendingFlushPromise;
-      this.pendingFlushPromise = null;
+      try {
+        await this.pendingFlushPromise;
+      } finally {
+        this.pendingFlushPromise = null;
+      }
     }
+
     if (this.isDirty) {
       this.pendingFlushPromise = this.pushToSupabase().catch((err) => {
+        this.isDirty = true;
         console.warn('[Supabase Sync] Flush warning:', err?.message || err);
+        throw err;
       });
-      await this.pendingFlushPromise;
-      this.pendingFlushPromise = null;
+      try {
+        await this.pendingFlushPromise;
+      } finally {
+        this.pendingFlushPromise = null;
+      }
     }
   }
 
