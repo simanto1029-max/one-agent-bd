@@ -371,17 +371,13 @@ webhooksRouter.get('/whatsapp', (req: Request, res: Response) => {
   console.log(`[WhatsApp Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
 
   const allowedTokens = [
-    'oneagentbd_messenger_secret',
-    'oneagentbd_wa_secret',
-    'oneagentbd_whatsapp_secret',
-    'oneagentbd_secret',
-    'replay_agent_wa_secret',
-    'one_agent_wa_secret',
-    'oneagent_wa_verify',
-    'secret123',
-    DEFAULT_WA_VERIFY_TOKEN,
-    process.env.WHATSAPP_VERIFY_TOKEN
-  ].filter(Boolean);
+    process.env.META_WEBHOOK_VERIFY_TOKEN,
+    process.env.WHATSAPP_VERIFY_TOKEN,
+    process.env.META_VERIFY_TOKEN,
+    (db.getSettings() as any)?.meta_verify_token
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
 
   if (mode === 'subscribe' && allowedTokens.includes(String(token || '').trim())) {
     console.log('[WhatsApp Webhook] Verification successful');
