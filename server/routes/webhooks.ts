@@ -90,7 +90,8 @@ webhooksRouter.get(['/meta', '/', '/messenger', '/facebook', '/page'], (req: Req
     process.env.META_WEBHOOK_VERIFY_TOKEN,
     process.env.WHATSAPP_VERIFY_TOKEN,
     process.env.MESSENGER_VERIFY_TOKEN,
-    process.env.META_VERIFY_TOKEN
+    process.env.META_VERIFY_TOKEN,
+    (db.getSettings() as any)?.meta_verify_token
   ]
     .map((v) => String(v || '').trim())
     .filter(Boolean);
