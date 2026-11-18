@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState<'ai' | 'delivery' | 'credits' | 'instant'>('ai');
+  const [activeSection, setActiveSection] = useState<'ai' | 'delivery' | 'instant'>('ai');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Multi-Business Agent Training Scoping State
@@ -75,7 +75,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [savingAgent, setSavingAgent] = useState(false);
   const [savedAgentSuccess, setSavedAgentSuccess] = useState(false);
 
-  // Instant FAQ & Cost-Saver Rules State
+  // Instant FAQ & Instant FAQ Rules State
   const [instantRules, setInstantRules] = useState<any[]>([]);
   const [costSaverActive, setCostSaverActive] = useState(true);
   const [rulesTriggeredCount, setRulesTriggeredCount] = useState(0);
@@ -85,10 +85,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
   const [newRuleReply, setNewRuleReply] = useState('');
   const [newRuleName, setNewRuleName] = useState('');
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
-
-  // Credits & Quota Usage State
-  const [creditsData, setCreditsData] = useState<any>(null);
-  const [loadingCredits, setLoadingCredits] = useState(false);
 
   // Smart Sales Booster & Automation Settings
   const [autoSettings, setAutoSettings] = useState<AutomationSettings | null>(null);
@@ -212,25 +208,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
     }
   };
 
-  const loadCredits = async () => {
-    try {
-      setLoadingCredits(true);
-      const res = await api.getCreditsUsage();
-      if (res) {
-        setCreditsData(res);
-      }
-    } catch (e) {
-      console.warn('Could not load credits data:', e);
-    } finally {
-      setLoadingCredits(false);
-    }
-  };
+
 
   useEffect(() => {
     loadSettings();
     loadAgentsAndChannels();
     loadInstantRules();
-    loadCredits();
     api
       .getAutomationSettings()
       .then((res) => {
@@ -567,19 +550,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
         <div className="grid grid-cols-2 sm:flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 w-full sm:w-auto gap-1">
           <button
             type="button"
-            onClick={() => setActiveSection('credits')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              activeSection === 'credits'
-                ? 'bg-white dark:bg-neutral-900 text-purple-700 dark:text-purple-300 shadow-xs'
-                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span>AI Credits & Quota</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveSection('instant')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeSection === 'instant'
@@ -588,7 +558,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span>Cost-Saver & Instant FAQ</span>
+            <span>Instant FAQ Rules</span>
           </button>
 
           <button
@@ -619,101 +589,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
         </div>
       </div>
 
-      {/* SECTION 1: AI CREDITS & USAGE */}
-      {activeSection === 'credits' && (
-        <div className="space-y-5 animate-in fade-in duration-200">
-          {/* Top Quota Overview Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs">
-              <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-2">
-                <span className="text-xs font-bold">WhatsApp Monthly Quota</span>
-                <Zap className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white">
-                {(creditsData?.whatsapp?.total_quota ?? 2500).toLocaleString()}
-                <span className="text-xs font-normal text-neutral-400 ml-1">replies</span>
-              </div>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                Active Plan: <strong className="text-purple-600">{creditsData?.plan?.name || 'Advance AI Plan'}</strong>
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs">
-              <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-2">
-                <span className="text-xs font-bold">WhatsApp Replies Used</span>
-                <MessageSquare className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {(creditsData?.whatsapp?.used ?? 412).toLocaleString()}
-                <span className="text-xs font-normal text-neutral-400 ml-1">used</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 mt-2 overflow-hidden">
-                <div
-                  className="h-full bg-amber-500 rounded-full"
-                  style={{
-                    width: `${Math.min(100, Math.round(((creditsData?.whatsapp?.used ?? 412) / (creditsData?.whatsapp?.total_quota ?? 2500)) * 100))}%`
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-xs">
-              <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-2">
-                <span className="text-xs font-bold">Available WhatsApp Balance</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {(creditsData?.whatsapp?.remaining ?? 2088).toLocaleString()}
-                <span className="text-xs font-normal text-neutral-400 ml-1">remaining</span>
-              </div>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-                100% Ready for customer chats
-              </p>
-            </div>
-          </div>
-
-          {/* Managed Gateway & Free Channels Policy Card */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/5 via-violet-500/10 to-indigo-500/5 border border-purple-200/80 dark:border-purple-800/40 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-neutral-900 dark:text-white">
-                  Zero Foreign Card Hassle (100% Platform Managed Gateway)
-                </h3>
-                <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-0.5 leading-relaxed">
-                  আপনাকে মেটাকে কোনো ডলার বা ডুয়েল কারেন্সি ক্রেডিট কার্ড দিতে হয় না। ওয়ান এজেন্ট বিডি কেন্দ্রীয় মেটা ক্লাউড এপিআই গেটওয়ের মাধ্যমে সকল হোয়াটসঅ্যাপ মেসেজের খরচ বহন করে। আপনি কেবল বিকাশে বা নগদে লোকাল পেমেন্ট করবেন।
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-purple-200/60 dark:border-purple-800/30">
-              <div className="p-3 rounded-xl bg-white/80 dark:bg-neutral-900/80 border border-purple-100 dark:border-purple-900/40">
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Facebook Messenger</span>
-                <div className="text-base font-black text-neutral-900 dark:text-white mt-0.5">100% Unlimited</div>
-                <p className="text-[10px] text-neutral-400">মেটা থেকে মেসেঞ্জারে কোনো ফি কাটা হয় না, সম্পূর্ণ ফ্রি।</p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/80 dark:bg-neutral-900/80 border border-purple-100 dark:border-purple-900/40">
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Instagram Direct DM</span>
-                <div className="text-base font-black text-neutral-900 dark:text-white mt-0.5">100% Unlimited</div>
-                <p className="text-[10px] text-neutral-400">ইনস্টাগ্রাম মেসেজও সম্পূর্ণ আনলিমিটেড ও ফ্রি।</p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/80 dark:bg-neutral-900/80 border border-purple-100 dark:border-purple-900/40">
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Cost-Saver Instant Rules</span>
-                <div className="text-base font-black text-emerald-600 mt-0.5">
-                  {rulesTriggeredCount.toLocaleString()} Saved
-                </div>
-                <p className="text-[10px] text-neutral-400">ডেলিভারি ও পেমেন্ট রুল ইনস্ট্যান্ট ট্রিপল-সেভ করে।</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 2: INSTANT FAQ & COST-SAVER RULES */}
+      {/* SECTION 1: INSTANT FAQ RULES */}
       {activeSection === 'instant' && (
         <div className="space-y-5 animate-in fade-in duration-200">
           {/* Header Banner */}
@@ -721,13 +597,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Smart AI Token & Quota Saver</span>
+                <span>Instant FAQ Automation</span>
               </span>
               <h2 className="text-base font-black text-neutral-900 dark:text-white mt-0.5">
                 কাস্টম ডেলিভারি ও ইনস্ট্যান্ট রিপ্লাই রুলস
               </h2>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 max-w-xl leading-relaxed">
-                কাস্টমার যখন &ldquo;ডেলিভারি চার্জ কত?&rdquo;, &ldquo;ডেলিভারি কত দিন লাগবে?&rdquo;, বা &ldquo;বিকাশ নম্বর দিন&rdquo; জাতীয় প্রশ্ন করবে—এআই টোকেন খরচ না করে এই রুল থেকে চোখের পলকে নির্ভুল রিপ্লাই চলে যাবে। এতে আপনার হোয়াটসঅ্যাপ কোটা এবং এআই কস্ট ১০০% সুরক্ষিত থাকবে!
+                কাস্টমার পরিচিত প্রশ্ন করলে আগে থেকে তৈরি করা এই রুল অনুযায়ী দ্রুত ও নির্ভুল উত্তর যাবে। এতে সাধারণ প্রশ্নের উত্তর দিতে AI generation প্রয়োজন হবে না।
               </p>
             </div>
 
@@ -746,7 +622,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${costSaverActive ? 'bg-white animate-pulse' : 'bg-neutral-400'}`} />
-                <span>{costSaverActive ? 'Cost Saver Active' : 'Cost Saver Paused'}</span>
+                <span>{costSaverActive ? 'Instant FAQ Active' : 'Instant FAQ Paused'}</span>
               </button>
               <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                 ⚡ {rulesTriggeredCount} বার ইনস্ট্যান্ট রিপ্লাই হয়েছে
