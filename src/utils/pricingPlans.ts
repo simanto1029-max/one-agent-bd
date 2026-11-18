@@ -84,7 +84,7 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
       'Bangla Voice Note AI Listening & Photo Recognition',
       '1-Click Courier Booking (Steadfast, Pathao & RedX)',
       'VIP Customer Retargeting & Smart Follow-Up',
-      'System Message Credits (No user card needed!)'
+      
     ],
     feature_config: {
       website_stores: false,
@@ -182,7 +182,7 @@ export const TRIAL_PLAN: Plan = {
   features: [
     'Facebook Unlimited Conversations',
     'Instagram Unlimited Conversations',
-    '100 Test WhatsApp AI Replies Included',
+    'Unlimited WhatsApp AI Conversations During Trial',
     '1 AI Business Agent',
     'Bangla Voice Note & Photo AI',
     'Auto Comment & Inbox DM Reply',
