@@ -1177,8 +1177,20 @@ class Database {
         delete next.feature_config.whatsapp_credits;
         changed = true;
       }
+      if ('whatsapp_credits' in next) {
+        delete next.whatsapp_credits;
+        changed = true;
+      }
       return next;
     });
+    if (Array.isArray(this.data.profiles)) {
+      this.data.profiles.forEach((profile: any) => {
+        if ('custom_whatsapp_credits' in profile) {
+          delete profile.custom_whatsapp_credits;
+          changed = true;
+        }
+      });
+    }
     if (changed) {
       console.log('[Plan Migration] Removed legacy message-credit quotas and updated standard package prices.');
       this.persist();
