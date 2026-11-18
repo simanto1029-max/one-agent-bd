@@ -18,9 +18,6 @@ export interface SubscriptionStatusInfo {
   canAccessDashboard: boolean;
   isTrialActive?: boolean;
   canConnectWhatsApp?: boolean;
-  whatsappCreditsTotal: number;
-  whatsappCreditsUsed: number;
-  whatsappCreditsRemaining: number;
 }
 
 export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInfo {
@@ -142,29 +139,6 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
       };
   const canAccessStores = !isExpired && isProPlan;
 
-  // Calculate WhatsApp Message Credits Usage
-  const userMessages = db.getMessages(userId);
-  const waUsedCount = userMessages.filter(
-    (m) => m.platform === 'whatsapp' && (m.is_ai_reply || m.direction === 'outbound' || (m as any).sender_type === 'bot' || (m as any).sender_type === 'user')
-  ).length;
-
-  let baseQuota = (plan as any)?.feature_config?.whatsapp_credits || (plan as any)?.whatsapp_credits;
-  if (!baseQuota) {
-    if (planId === 'plan_enterprise' || Number(plan.price) >= 8000) {
-      baseQuota = 15000;
-    } else if (planId === 'plan_pro' || Number(plan.price) >= 4000) {
-      baseQuota = 6500;
-    } else if (isTrialActive) {
-      baseQuota = 100;
-    } else {
-      baseQuota = 2500;
-    }
-  }
-
-  const profileCustomCredits = (profile as any)?.custom_whatsapp_credits;
-  const whatsappCreditsTotal = typeof profileCustomCredits === 'number' ? profileCustomCredits : baseQuota;
-  const whatsappCreditsUsed = waUsedCount;
-  const whatsappCreditsRemaining = Math.max(0, whatsappCreditsTotal - whatsappCreditsUsed);
 
   return {
     subscription: sub,
@@ -183,10 +157,7 @@ export function getUserSubscriptionStatus(userId: string): SubscriptionStatusInf
     isGated,
     canAccessDashboard,
     isTrialActive,
-    canConnectWhatsApp: isAdmin || (!isTrialActive && !isExpired),
-    whatsappCreditsTotal,
-    whatsappCreditsUsed,
-    whatsappCreditsRemaining
+    canConnectWhatsApp: isAdmin || (!isTrialActive && !isExpired)
   };
 }
 
