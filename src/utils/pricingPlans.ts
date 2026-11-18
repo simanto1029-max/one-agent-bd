@@ -119,7 +119,6 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
       'Website Live Chat & WooCommerce/Shopify Store Sync',
       'AI Delivery Tracking & Courier Fraud Intelligence Check',
       'Up to 10 Connected Channels & Multi-Agent Collaboration',
-      'System Message Credits (No user card needed!)'
     ],
     feature_config: {
       website_stores: true,
@@ -154,7 +153,6 @@ export const OFFICIAL_THREE_PLANS: Plan[] = [
       'Dedicated VIP Account Manager (24/7 Priority WhatsApp)',
       'Team Collaboration & Multi-Staff Handover Queue',
       'Custom AI Sales Closer Persona & Webhook Integrations',
-      'System Message Credits (No user card needed!)'
     ],
     feature_config: {
       website_stores: true,
