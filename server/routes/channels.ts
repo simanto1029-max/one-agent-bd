@@ -1427,11 +1427,14 @@ channelsRouter.delete('/:id', async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Channel not found or unauthorized' });
   }
 
-  // Gracefully attempt webhook unsubscription
-  await metaOAuthService.disconnectChannel(req.params.id, user.id).catch(() => {});
+  // Disconnect once (this also removes the channel locally), then synchronously
+  // persist the tombstone to Supabase before the Vercel function returns.
+  const outcome = await metaOAuthService.disconnectChannel(req.params.id, user.id);
+  if (!outcome.success) {
+    return res.status(404).json({ error: outcome.message || 'Channel not found or unauthorized' });
+  }
 
-  // Clean delete from database
-  db.deleteChannel(req.params.id, isAdmin ? undefined : user.id);
+  await db.flushToSupabase();
 
   return res.json({ success: true, message: `Channel "${channel.name}" has been disconnected.` });
 });
