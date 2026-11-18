@@ -504,22 +504,19 @@ webhooksRouter.get('/messenger', (req: Request, res: Response) => {
   console.log(`[Messenger Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
 
   const allowedTokens = [
-    'oneagentbd_messenger_secret',
-    'oneagentbd_fb_secret',
-    'oneagentbd_secret',
-    'replay_agent_fb_secret',
-    'one_agent_fb_secret',
-    'oneagent_fb_verify',
-    'secret123',
-    DEFAULT_FB_VERIFY_TOKEN,
-    process.env.MESSENGER_VERIFY_TOKEN
-  ].filter(Boolean);
+    process.env.META_WEBHOOK_VERIFY_TOKEN,
+    process.env.MESSENGER_VERIFY_TOKEN,
+    process.env.META_VERIFY_TOKEN
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
 
-  if (mode === 'subscribe' && (allowedTokens.includes(token as string) || Boolean(token))) {
-    console.log('[Messenger Webhook] Verification successful for token:', token);
+  if (mode === 'subscribe' && allowedTokens.includes(String(token || '').trim())) {
+    console.log('[Messenger Webhook] Verification successful');
     return res.status(200).type('text/plain').send(String(challenge));
   }
 
+  console.warn('[Messenger Webhook] Verification failed: token mismatch');
   return res.status(403).json({ error: 'Verification failed: invalid token or mode' });
 });
 
