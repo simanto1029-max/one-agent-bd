@@ -41,11 +41,6 @@ export const AdminUsers: React.FC = () => {
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'trialing' | 'expired' | 'suspended'>('all');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Credit adjustment modal
-  const [adjustingUser, setAdjustingUser] = useState<ExtendedUser | null>(null);
-  const [creditAmountInput, setCreditAmountInput] = useState('1000');
-  const [adjustingLoading, setAdjustingLoading] = useState(false);
-
   // Subscription duration extension modal
   const [extendingUser, setExtendingUser] = useState<ExtendedUser | null>(null);
   const [extendingLoading, setExtendingLoading] = useState(false);
@@ -100,27 +95,6 @@ export const AdminUsers: React.FC = () => {
       await loadUsers();
     } catch (err: any) {
       showToast(err?.message || 'Failed to update user role', 'error');
-    }
-  };
-
-  const handleSaveCredits = async () => {
-    if (!adjustingUser) return;
-    const num = parseInt(creditAmountInput, 10);
-    if (isNaN(num) || num <= 0) {
-      showToast('Please enter a valid credit amount', 'error');
-      return;
-    }
-
-    try {
-      setAdjustingLoading(true);
-      const res = await api.adjustUserCredits(adjustingUser.id, { creditsToAdd: num });
-      showToast(res.message || `Added ${num} WhatsApp credits`);
-      setAdjustingUser(null);
-      await loadUsers();
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to adjust message credits', 'error');
-    } finally {
-      setAdjustingLoading(false);
     }
   };
 
@@ -268,7 +242,7 @@ export const AdminUsers: React.FC = () => {
             </span>
           </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-            Reactivate expired trials, extend subscription duration, manage message quotas, and control merchant accounts.
+            Manage merchant accounts, subscription plans, and access periods.
           </p>
         </div>
 
@@ -360,7 +334,6 @@ export const AdminUsers: React.FC = () => {
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Subscription Plan</th>
-                <th className="py-3 px-4">WhatsApp Credits</th>
                 <th className="py-3 px-4">Expiry &amp; Duration</th>
                 <th className="py-3 px-4 text-right">Admin Actions</th>
               </tr>
@@ -368,7 +341,7 @@ export const AdminUsers: React.FC = () => {
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                  <td colSpan={6} className="py-12 text-center text-neutral-400">
                     <p className="font-semibold">No users matching current filters.</p>
                     <p className="text-[11px] mt-1 text-neutral-500">Try clearing the search or changing status tab.</p>
                   </td>
@@ -378,8 +351,6 @@ export const AdminUsers: React.FC = () => {
                   const sub = u.subscription as any;
                   const rawEnd = sub?.endDate || sub?.end_date;
                   const isAccountActive = !u.is_suspended;
-                  const waUsage = u.whatsappUsage || { used: 0, quota: 2500, remaining: 2500 };
-                  const percentUsed = Math.min(100, Math.round((waUsage.used / Math.max(1, waUsage.quota)) * 100));
 
                   const nowTime = Date.now();
                   const endTime = rawEnd ? new Date(rawEnd).getTime() : 0;
@@ -462,39 +433,6 @@ export const AdminUsers: React.FC = () => {
                           <div className="text-[10px] text-neutral-400">
                             Channels: {u.channelsCount || 0} connected
                           </div>
-                        </div>
-                      </td>
-
-                      {/* WhatsApp Credits Quota */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-1 min-w-[130px]">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
-                              {waUsage.used.toLocaleString()} / {waUsage.quota.toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {waUsage.remaining.toLocaleString()} left
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                percentUsed > 90 ? 'bg-rose-500' : percentUsed > 70 ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`}
-                              style={{ width: `${percentUsed}%` }}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdjustingUser(u);
-                              setCreditAmountInput('1000');
-                            }}
-                            className="text-[10px] text-purple-600 dark:text-purple-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                            <span>Add Credits</span>
-                          </button>
                         </div>
                       </td>
 
@@ -854,54 +792,6 @@ export const AdminUsers: React.FC = () => {
         </div>
       )}
 
-      {/* Credit Adjustment Modal */}
-      {adjustingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#141A26] border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
-            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Zap className="w-4 h-4 text-purple-600" />
-              <span>Add WhatsApp Message Credits</span>
-            </h3>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              User: <strong className="text-slate-800 dark:text-white">{adjustingUser.email}</strong>
-              <br />
-              Current Quota: <strong>{(adjustingUser.whatsappUsage?.quota || 2500).toLocaleString()}</strong> messages
-            </p>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Additional Message Credits to Add:
-              </label>
-              <input
-                type="number"
-                value={creditAmountInput}
-                onChange={(e) => setCreditAmountInput(e.target.value)}
-                placeholder="e.g. 1000 or 2500"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white font-bold"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setAdjustingUser(null)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={adjustingLoading}
-                onClick={handleSaveCredits}
-                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                {adjustingLoading ? 'Adding...' : 'Add Credits'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
