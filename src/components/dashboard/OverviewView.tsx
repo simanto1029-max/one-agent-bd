@@ -700,7 +700,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
       )}
 
-      {/* DAILY MESSAGE CONSUMPTION & PLAN CREDIT TRACKING (RECHARTS) */}
+      {/* DAILY CONVERSATION ANALYTICS (RECHARTS) */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#120B2E] border border-slate-200/80 dark:border-purple-500/20 shadow-xs space-y-5">
         {/* Header & View Mode Switcher */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-purple-500/15">
@@ -716,7 +716,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Activity className="w-5 h-5 text-[#7C3AED]" />
-              <span>Daily Message Consumption ({currentMonthName} {currentYear})</span>
+              <span>Daily Conversations ({currentMonthName} {currentYear})</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Visualize daily AI autonomous replies compared with total customer conversations.
