@@ -37,17 +37,6 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { FacebookLogo, InstagramLogo, WhatsAppLogo } from '../common/BrandLogos';
 
-export const AGENT_AVATAR_PRESETS = [
-  { id: 'av_1', label: 'Tania (Sales Executive)', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_2', label: 'Arif (Tech & Gadgets)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_3', label: 'Farhana (Customer Support)', url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_4', label: 'Tanvir (Urgent Dispatch)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_5', label: 'Nusrat (Fashion Specialist)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_6', label: 'Sabrina (Product Consultant)', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_7', label: 'Kamal (Senior Advisor)', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=256&auto=format&fit=crop&q=80' },
-  { id: 'av_8', label: 'Sadia (Brand Ambassador)', url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=256&auto=format&fit=crop&q=80' },
-];
-
 interface AgentsViewProps {
   currentUser: UserProfile;
   subStatus: SubscriptionStatusInfo | null;
@@ -88,7 +77,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
   // Form state
   const [formName, setFormName] = useState('');
   const [formBusiness, setFormBusiness] = useState('');
-  const [formAvatar, setFormAvatar] = useState(AGENT_AVATAR_PRESETS[0].url);
+  const [formAvatar, setFormAvatar] = useState('');
   const [customAvatarInput, setCustomAvatarInput] = useState('');
   const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
   const [formTone, setFormTone] = useState<'sales_closer' | 'friendly' | 'urgent' | 'professional'>('sales_closer');
@@ -135,7 +124,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     setEditingAgent(null);
     setFormName('');
     setFormBusiness(currentUser.full_name || 'My New Business');
-    setFormAvatar(AGENT_AVATAR_PRESETS[0].url);
+    setFormAvatar('');
     setCustomAvatarInput('');
     setFormTone('sales_closer');
     setFormLanguage('bangla');
@@ -156,7 +145,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     setEditingAgent(agent);
     setFormName(agent.name);
     setFormBusiness(agent.business_name);
-    setFormAvatar(agent.avatar_url || AGENT_AVATAR_PRESETS[0].url);
+    setFormAvatar(agent.avatar_url || '');
     setCustomAvatarInput(agent.avatar_url || '');
     setFormTone(agent.tone);
     setFormLanguage(agent.language);
@@ -233,7 +222,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
       setSubmitting(true);
       setErrorMsg(null);
 
-      const avatarToSave = (formAvatar || customAvatarInput || AGENT_AVATAR_PRESETS[0].url).trim();
+      const avatarToSave = (formAvatar || customAvatarInput || '').trim();
 
       if (editingAgent) {
         await api.updateAgent(editingAgent.id, {
@@ -497,11 +486,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                     <div className="flex items-center gap-3">
                       {/* Avatar with Interactive Change Hover */}
                       <div className="relative group/avatar shrink-0">
-                        <img
-                          src={agent.avatar_url || AGENT_AVATAR_PRESETS[0].url}
-                          alt={agent.name}
-                          className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-200/80 dark:border-purple-500/30 shadow-xs"
-                        />
+                        {agent.avatar_url ? (
+                          <img src={agent.avatar_url} alt={agent.name} className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-200/80 dark:border-purple-500/30 shadow-xs" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center border border-purple-200/80 dark:border-purple-500/30">
+                            <Bot className="w-5 h-5" />
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() => setAgentForAvatarChange(agent)}
@@ -703,11 +694,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   {/* Current Selected Avatar Preview */}
                   <div className="relative shrink-0">
-                    <img
-                      src={formAvatar || AGENT_AVATAR_PRESETS[0].url}
-                      alt="Selected Avatar Preview"
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-sm"
-                    />
+                    {formAvatar ? (
+                      <img src={formAvatar} alt="Agent photo preview" className="w-16 h-16 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-sm" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center border-2 border-[#7C3AED]">
+                        <Bot className="w-7 h-7" />
+                      </div>
+                    )}
                     <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-[#7C3AED] text-white text-[9px] font-black uppercase tracking-wider shadow-xs">
                       Active
                     </span>
@@ -755,44 +748,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   </div>
                 </div>
 
-                {/* Preset Avatar Gallery Grid */}
-                <div className="pt-2 border-t border-purple-200/50 dark:border-purple-500/15">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
-                    Or select from verified professional presets:
-                  </span>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                    {AGENT_AVATAR_PRESETS.map((p) => {
-                      const isSelected = formAvatar === p.url;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setFormAvatar(p.url);
-                            setCustomAvatarInput(p.url);
-                          }}
-                          className={`relative p-0.5 rounded-xl border-2 transition-all cursor-pointer group ${
-                            isSelected
-                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30 scale-105'
-                              : 'border-transparent hover:border-purple-300 dark:hover:border-purple-500/40 opacity-75 hover:opacity-100'
-                          }`}
-                          title={p.label}
-                        >
-                          <img
-                            src={p.url}
-                            alt={p.label}
-                            className="w-full h-11 sm:h-10 rounded-lg object-cover"
-                          />
-                          {isSelected && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
-                              ✓
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1117,11 +1073,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-[#18103A] border border-slate-200/60 dark:border-purple-500/15">
-              <img
-                src={agentForAvatarChange.avatar_url || AGENT_AVATAR_PRESETS[0].url}
-                alt={agentForAvatarChange.name}
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#7C3AED]"
-              />
+              {agentForAvatarChange.avatar_url ? (
+                <img src={agentForAvatarChange.avatar_url} alt={agentForAvatarChange.name} className="w-12 h-12 rounded-xl object-cover border-2 border-[#7C3AED]" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center border-2 border-[#7C3AED]">
+                  <Bot className="w-5 h-5" />
+                </div>
+              )}
               <div>
                 <h4 className="font-bold text-xs text-slate-900 dark:text-white">
                   {agentForAvatarChange.name}
@@ -1152,48 +1110,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
               </button>
             </div>
 
-            {/* Presets Grid */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Or pick a instant preset photo:
-              </span>
-              <div className="grid grid-cols-4 gap-2">
-                {AGENT_AVATAR_PRESETS.map((p) => {
-                  const isCurrent = agentForAvatarChange.avatar_url === p.url;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      disabled={quickAvatarSaving}
-                      onClick={() => handleSaveQuickAvatar(agentForAvatarChange, p.url)}
-                      className={`relative rounded-xl border-2 overflow-hidden transition-all cursor-pointer p-0.5 group ${
-                        isCurrent
-                          ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/40'
-                          : 'border-transparent hover:border-purple-300 opacity-80 hover:opacity-100'
-                      }`}
-                      title={p.label}
-                    >
-                      <img src={p.url} alt={p.label} className="w-full h-12 rounded-lg object-cover" />
-                      {isCurrent && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="pt-2 border-t border-slate-100 dark:border-purple-500/15 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setAgentForAvatarChange(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
