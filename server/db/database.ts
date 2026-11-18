@@ -2334,17 +2334,20 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
   }
 
   deleteChannel(id: string, userId?: string): boolean {
-    this.deletedChannelIds.add(id);
     const target = this.data.channels.find((c) => c.id === id);
-    const targetIdent = target ? String(target.identifier || target.meta_asset_id || target.phone_number_id || '').trim().toLowerCase() : '';
-    const targetPlatform = target?.platform;
+    if (!target) return this.deletedChannelIds.has(id);
+    if (userId && target.user_id !== userId) return false;
 
-    // Remove primary channel
-    const beforeCount = this.data.channels.length;
+    this.deletedChannelIds.add(id);
+    const targetIdent = String(target.identifier || target.meta_asset_id || target.phone_number_id || '').trim().toLowerCase();
+    const targetPlatform = target.platform;
+    const targetOwner = target.user_id;
+
+    // Remove the requested channel and only its duplicates for the same owner.
+    // Never let one merchant's duplicate identifier delete another merchant's channel.
     this.data.channels = this.data.channels.filter((c) => {
       if (c.id === id) return false;
-      // Also clean up any lingering duplicate of the exact same channel
-      if (targetPlatform && targetIdent && c.platform === targetPlatform) {
+      if (targetPlatform && targetIdent && c.user_id === targetOwner && c.platform === targetPlatform) {
         const cId = String(c.identifier || c.meta_asset_id || c.phone_number_id || '').trim().toLowerCase();
         if (cId === targetIdent) {
           this.deletedChannelIds.add(c.id);
@@ -2355,9 +2358,8 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     });
 
     this.syncDeletedIdsToData();
-    const deleted = this.data.channels.length < beforeCount;
     this.persist();
-    return deleted || true;
+    return true;
   }
 
   // --- Multi-Tenant Businesses ---
