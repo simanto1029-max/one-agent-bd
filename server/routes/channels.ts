@@ -1434,7 +1434,14 @@ channelsRouter.delete('/:id', async (req: Request, res: Response) => {
     return res.status(404).json({ error: outcome.message || 'Channel not found or unauthorized' });
   }
 
-  await db.flushToSupabase();
+  try {
+    await db.flushToSupabase();
+  } catch (flushErr: any) {
+    console.error('[Channel Delete] Supabase persistence failed:', flushErr?.message || flushErr);
+    return res.status(503).json({
+      error: 'The channel was removed in this request, but cloud saving failed. Please refresh and retry once Supabase is available.'
+    });
+  }
 
   return res.json({ success: true, message: `Channel "${channel.name}" has been disconnected.` });
 });
