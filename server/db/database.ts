@@ -862,7 +862,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'VIP Customer Retargeting & Smart Follow-Up',
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       feature_config: {
         website_stores: false,
         call_requests: true,
@@ -896,7 +896,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'Up to 10 Connected Channels & Multi-Agent Collaboration',
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       feature_config: {
         website_stores: true,
         call_requests: true,
@@ -930,7 +930,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'Custom AI Sales Closer Persona & Webhook Integrations',
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       feature_config: {
         website_stores: true,
         call_requests: true,
