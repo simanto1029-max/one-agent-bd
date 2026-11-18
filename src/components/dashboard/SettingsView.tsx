@@ -906,11 +906,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onRefreshUser }) => 
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-indigo-50/60 dark:from-[#1A123B] dark:via-[#140D30] dark:to-[#18103A] border border-purple-200/80 dark:border-purple-500/25 space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={currentAgent.avatar_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80'}
-                          alt={currentAgent.name}
-                          className="w-12 h-12 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-xs shrink-0"
-                        />
+                        {currentAgent.avatar_url ? (
+                          <img src={currentAgent.avatar_url} alt={currentAgent.name} className="w-12 h-12 rounded-2xl object-cover border-2 border-[#7C3AED] shadow-xs shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 flex items-center justify-center border-2 border-[#7C3AED] shrink-0">
+                            <Bot className="w-5 h-5" />
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
