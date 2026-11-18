@@ -95,30 +95,9 @@ export const InstagramLogo: React.FC<{ className?: string }> = ({ className = 'w
   </svg>
 );
 
-// High-fidelity curated avatars ensuring real customer profile pictures
-const CURATED_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80'
-];
-
-export const getCustomerAvatarUrl = (name: string, customerId: string, customAvatar?: string): string => {
-  if (customAvatar && customAvatar.trim().startsWith('http')) {
-    return customAvatar;
-  }
-  let hash = 0;
-  const str = `${customerId}_${name}`;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const index = Math.abs(hash) % CURATED_AVATARS.length;
-  return CURATED_AVATARS[index];
+// Use only a real profile photo supplied by the connected platform; otherwise show initials.
+export const getCustomerAvatarUrl = (_name: string, _customerId: string, customAvatar?: string): string => {
+  return customAvatar && /^https?:\/\//i.test(customAvatar.trim()) ? customAvatar.trim() : '';
 };
 
 // Customer Profile Avatar Component with photo & fallback initials
@@ -151,7 +130,7 @@ const CustomerAvatar: React.FC<{
 
   return (
     <div className="relative shrink-0 select-none">
-      {!imgFailed ? (
+      {photoSrc && !imgFailed ? (
         <img
           src={photoSrc}
           alt={customerName}
@@ -832,21 +811,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </button>
           </div>
         )}
-
-        {/* Temporary Debug Line (Task 5): Shows total messages in state & counts after each filter step */}
-        <div className="mx-3.5 mt-2 px-2.5 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-[10px] text-indigo-800 dark:text-indigo-300 font-mono flex flex-wrap items-center gap-1.5 shrink-0">
-          <span className="font-bold text-indigo-900 dark:text-indigo-200">State:</span>
-          <span>{totalMessagesInState} msgs ({conversations.length} convs)</span>
-          <span>➜ Active: {step1TrashFiltered.length}</span>
-          <span>➜ Platform: {step2PlatformFiltered.length}</span>
-          <span>➜ Category: {step3CategoryFiltered.length}</span>
-          <span>➜ Filtered: {filteredConversations.length}</span>
-          {serverDebug && (
-            <span className="w-full text-[9px] text-indigo-600 dark:text-indigo-400 mt-0.5 border-t border-indigo-200/50 dark:border-indigo-800/40 pt-0.5">
-              [Server: {serverDebug.totalDbMessages ?? '?'} in DB | User: {serverDebug.userId} ({serverDebug.userRole}) | Supabase: {serverDebug.supabaseUrlDetected ? 'URL OK' : 'NO URL'}, {serverDebug.supabaseKeyDetected ? 'Key OK' : 'NO KEY'}]
-            </span>
-          )}
-        </div>
 
         {/* Trash Notice Banner when viewing trash */}
         {filterCategory === 'trash' && (
