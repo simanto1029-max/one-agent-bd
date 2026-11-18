@@ -1163,7 +1163,7 @@ class Database {
     }
     this.data.plans = this.data.plans.map((plan: any) => {
       const next = { ...plan, feature_config: { ...(plan.feature_config || {}) } };
-      if (legacyPrices[next.id] && [2499, 4499, 8999].includes(Number(next.price))) {
+      if (legacyPrices[next.id] && [899, 1299, 1499, 2499, 4499, 8999].includes(Number(next.price))) {
         next.price = legacyPrices[next.id];
         changed = true;
       }
