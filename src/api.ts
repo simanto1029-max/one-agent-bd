@@ -544,37 +544,7 @@ export const api = {
     });
   },
 
-  async getCreditsUsage(): Promise<{
-    whatsapp: {
-      total_quota: number;
-      used: number;
-      remaining: number;
-      percent_used: number;
-    };
-    facebook: {
-      is_unlimited: boolean;
-      total_sent: number;
-    };
-    instagram: {
-      is_unlimited: boolean;
-      total_sent: number;
-    };
-    instant_rules: {
-      triggered_count: number;
-      credits_saved: number;
-      estimated_savings_bdt: number;
-    };
-    plan: {
-      id: string;
-      name: string;
-      price: number;
-      days_remaining: number;
-      is_trial: boolean;
-      is_expired: boolean;
-    };
-  }> {
-    return fetchJson('/api/settings/credits');
-  },
+
 
   // Meta Auto Connect & OAuth
   async getMetaConfig(): Promise<{
@@ -1270,25 +1240,7 @@ export const api = {
     });
   },
 
-  async adjustUserCredits(
-    userId: string,
-    data: { creditsToAdd?: number; newTotalQuota?: number }
-  ): Promise<{
-    success: boolean;
-    user: any;
-    newQuota: number;
-    message: string;
-  }> {
-    return fetchJson<{
-      success: boolean;
-      user: any;
-      newQuota: number;
-      message: string;
-    }>(`/api/admin/users/${userId}/adjust-credits`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
+
 
   async toggleSuspendUser(userId: string): Promise<{ success: boolean; message: string }> {
     return fetchJson<{ success: boolean; message: string }>(`/api/admin/users/${userId}/suspend`, {
