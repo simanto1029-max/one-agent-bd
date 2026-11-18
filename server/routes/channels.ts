@@ -980,17 +980,13 @@ channelsRouter.get('/', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Ensure latest channels are synced from Supabase cloud database without blocking
-  if (db.getChannels().length === 0) {
-    await Promise.race([
-      db.syncFromSupabase(true),
-      new Promise((resolve) => setTimeout(resolve, 1500))
-    ]).catch((err) => {
-      console.warn('[Channels GET] syncFromSupabase error:', err);
-    });
-  } else if (Date.now() - db.getLastSupabaseSyncAt() > 20000) {
-    db.syncFromSupabase(false).catch((err) => {
-      console.warn('[Channels GET] Background sync warning:', err);
+  // A fresh Vercel serverless instance starts with bundled/local state before its
+  // asynchronous Supabase pull finishes. Always wait for that first pull (and refresh
+  // stale state periodically) before returning channels, or deleted channels can flash
+  // back into the dashboard from the old bundled snapshot.
+  if (db.getLastSupabaseSyncAt() === 0 || Date.now() - db.getLastSupabaseSyncAt() > 10000) {
+    await db.syncFromSupabase(true).catch((err) => {
+      console.warn('[Channels GET] Supabase refresh warning:', err);
     });
   }
 
