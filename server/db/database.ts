@@ -843,7 +843,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     {
       id: 'plan_starter',
       name: 'Advance AI Plan',
-      price: 2499,
+      price: 1250,
       currency: 'BDT',
       duration_days: 30,
       trial_days: 2,
@@ -853,7 +853,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       features: [
         'Facebook Messenger: 100% Unlimited Conversations',
         'Instagram DM: 100% Unlimited Conversations',
-        'WhatsApp: 2,500 Messages & Replies Included',
+        'WhatsApp: Unlimited AI Conversations & Replies',
         '250 Comment Auto-Replies & Instant Inbox DM',
         '500 Instant FAQ & Delivery Charge Auto-Replies',
         '100 Products Catalog & Auto Order Capture',
@@ -871,13 +871,12 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         courier_dispatch: true,
         csv_export: false,
         max_channels: 3,
-        whatsapp_credits: 2500
       }
     },
     {
       id: 'plan_pro',
       name: 'Business AI Plan',
-      price: 4499,
+      price: 1950,
       currency: 'BDT',
       duration_days: 30,
       trial_days: 2,
@@ -887,7 +886,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       features: [
         'Facebook Messenger: 100% Unlimited Conversations',
         'Instagram DM: 100% Unlimited Conversations',
-        'WhatsApp: 6,500 Messages & Replies Included',
+        'WhatsApp: Unlimited AI Conversations & Replies',
         '1,000 Comment Auto-Replies & Instant Inbox DM',
         '1,500 Instant FAQ & Custom Business Rules',
         'Unlimited Products Catalog & Auto Order Capture',
@@ -907,13 +906,12 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         courier_dispatch: true,
         csv_export: true,
         max_channels: 10,
-        whatsapp_credits: 6500
       }
     },
     {
       id: 'plan_enterprise',
       name: 'Enterprise Agency Plan',
-      price: 8999,
+      price: 2950,
       currency: 'BDT',
       duration_days: 30,
       trial_days: 2,
@@ -923,7 +921,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       features: [
         'Facebook Messenger: 100% Unlimited Conversations',
         'Instagram DM: 100% Unlimited Conversations',
-        'WhatsApp: 15,000 Messages & Replies Included',
+        'WhatsApp: Unlimited AI Conversations & Replies',
         'Unlimited Comment Auto-Replies & Instant Inbox DM',
         'Unlimited Instant FAQ & Custom Business Knowledge Base',
         'Unlimited Products Catalog & Multi-Store Management',
@@ -943,7 +941,6 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         courier_dispatch: true,
         csv_export: true,
         max_channels: 99,
-        whatsapp_credits: 15000
       }
     }
   ],
@@ -1140,9 +1137,45 @@ class Database {
     }
   }
 
+  private migrateLegacyPlanCatalog(): void {
+    if (!Array.isArray(this.data?.plans)) return;
+    const legacyPrices: Record<string, number> = {
+      plan_starter: 1250,
+      plan_pro: 1950,
+      plan_enterprise: 2950
+    };
+    let changed = false;
+    this.data.plans = this.data.plans.map((plan: any) => {
+      const next = { ...plan, feature_config: { ...(plan.feature_config || {}) } };
+      if (legacyPrices[next.id] && [2499, 4499, 8999].includes(Number(next.price))) {
+        next.price = legacyPrices[next.id];
+        changed = true;
+      }
+      if (Array.isArray(next.features)) {
+        const cleaned = next.features
+          .filter((feature: string) => !/system message credits|whatsapp.*(quota|[0-9,]+ messages)/i.test(feature))
+          .map((feature: string) => /whatsapp/i.test(feature) ? 'WhatsApp: Unlimited AI Conversations & Replies' : feature);
+        if (JSON.stringify(cleaned) !== JSON.stringify(next.features)) {
+          next.features = cleaned;
+          changed = true;
+        }
+      }
+      if ('whatsapp_credits' in next.feature_config) {
+        delete next.feature_config.whatsapp_credits;
+        changed = true;
+      }
+      return next;
+    });
+    if (changed) {
+      console.log('[Plan Migration] Removed legacy message-credit quotas and updated standard package prices.');
+      this.persist();
+    }
+  }
+
   constructor() {
     this.data = this.loadData();
     this.loadDeletedIdsFromData(this.data);
+    this.migrateLegacyPlanCatalog();
     const cfg = this.getSupabaseConfig();
     const isConnected = Boolean(cfg);
     console.log(`Supabase connected: ${isConnected ? 'yes' : 'no'}, messages loaded: ${this.data.messages.length}`);
@@ -1863,6 +1896,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         const normalized = this.normalizeSchema(rawState);
         this.data = this.mergeLocalNewerProfiles(normalized);
         this.loadDeletedIdsFromData(this.data);
+        this.migrateLegacyPlanCatalog();
         this.saveData(this.data);
         this.lastSupabaseSyncAt = Date.now();
         console.log(`[Supabase Sync Done] In-memory database now has ${this.data.messages.length} messages, ${this.data.channels?.length || 0} channels.`);
