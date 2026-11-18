@@ -86,11 +86,24 @@ webhooksRouter.get(['/meta', '/', '/messenger', '/facebook', '/page'], (req: Req
 
   console.log(`[Unified Meta Webhook GET] mode=${mode}, token=${token}, challenge=${challenge}`);
 
-  if (mode === 'subscribe' && challenge !== undefined) {
+  const expectedTokens = [
+    process.env.META_WEBHOOK_VERIFY_TOKEN,
+    process.env.WHATSAPP_VERIFY_TOKEN,
+    process.env.MESSENGER_VERIFY_TOKEN,
+    process.env.META_VERIFY_TOKEN
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+
+  // Meta verification must use an exact configured token.
+  // Never accept an arbitrary token: that can make webhook configuration
+  // look successful while the actual callback is misconfigured.
+  if (mode === 'subscribe' && challenge !== undefined && expectedTokens.includes(String(token || '').trim())) {
     return res.status(200).type('text/plain').send(String(challenge));
   }
 
-  return res.status(200).type('text/plain').send(String(challenge || 'OK'));
+  console.warn('[Unified Meta Webhook GET] Verification failed: token mismatch');
+  return res.status(403).type('text/plain').send('Verification failed');
 });
 
 webhooksRouter.post(['/meta', '/', '/facebook', '/page'], async (req: Request, res: Response) => {
