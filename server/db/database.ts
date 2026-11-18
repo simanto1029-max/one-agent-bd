@@ -708,7 +708,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Mahmudul Hasan Rahat',
     role: 'F-Commerce Seller',
     business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'Before One Agent BD, we used to lose late-night Facebook inquiries because no one was online after midnight. Now the AI replies in 2 seconds, checks available sizes, and confirms COD orders while we sleep.',
@@ -720,7 +720,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Sadia Afrin Tisha',
     role: 'Online Boutique Owner',
     business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'Customers constantly send product screenshots and voice notes on Instagram and Messenger. The AI recognizes product photos accurately, quotes the exact price, and handles the entire checkout conversation.',
@@ -732,7 +732,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Tanvir Ahmed Chowdhury',
     role: 'Electronics & Gadget Seller',
     business: 'Chattogram, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'The auto comment-to-inbox workflow and 1-click Steadfast courier booking saved our team hours of manual data entry every single day. Best automation platform we have used.',
@@ -744,7 +744,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Ariful Islam Sourav',
     role: 'Organic Food Seller',
     business: 'Sylhet, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'During peak season we receive hundreds of WhatsApp messages daily. One Agent BD collects customer names, phone numbers, and full delivery addresses and logs every order into our dashboard.',
@@ -756,7 +756,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Nusrat Jahan Mim',
     role: 'Clothing Page Owner',
     business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'Connecting our Facebook Page and Instagram took less than two minutes. Whenever a buyer asks for a live call, the AI alerts our team in the Call Requests queue immediately.',
@@ -768,7 +768,7 @@ export const defaultSeedReviews: ReviewItem[] = [
     name: 'Imran Hossain Rony',
     role: 'E-Commerce Merchant',
     business: 'Dhaka, BD',
-    avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80',
+    avatar_url: '',
     rating: 5,
     review_text:
       'Our ad conversion rate nearly doubled because customers get an instant response right after clicking our boosted posts. Smart follow-ups bring back hesitant buyers automatically.',
@@ -1147,8 +1147,16 @@ class Database {
     let changed = false;
     if (Array.isArray(this.data.agents)) {
       this.data.agents.forEach((agent: any) => {
-        if (typeof agent.avatar_url === 'string' && agent.avatar_url.includes('images.unsplash.com/photo-1534528741775-53994a69daeb')) {
+        if (typeof agent.avatar_url === 'string' && agent.avatar_url.includes('images.unsplash.com')) {
           agent.avatar_url = '';
+          changed = true;
+        }
+      });
+    }
+    if (Array.isArray((this.data as any).reviews)) {
+      (this.data as any).reviews.forEach((review: any) => {
+        if (String(review.id || '').startsWith('rev_seed_') && review.avatar_url) {
+          review.avatar_url = '';
           changed = true;
         }
       });
