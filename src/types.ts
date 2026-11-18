@@ -19,7 +19,6 @@ export interface PlanFeaturesConfig {
   courier_dispatch?: boolean;
   csv_export?: boolean;
   max_channels?: number;
-  whatsapp_credits?: number;
 }
 
 export interface Plan {
@@ -63,9 +62,6 @@ export interface SubscriptionStatusInfo {
   canAccessDashboard: boolean;
   isTrialActive?: boolean;
   canConnectWhatsApp?: boolean;
-  whatsappCreditsTotal?: number;
-  whatsappCreditsUsed?: number;
-  whatsappCreditsRemaining?: number;
 }
 
 export interface Payment {
