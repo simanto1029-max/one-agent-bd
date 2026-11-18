@@ -590,10 +590,10 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
       {/* Head section */}
       <div className="head">
-        <span className="badge">Transparent Credit Pricing</span>
+        <span className="badge">Simple Monthly Pricing</span>
         <h2>Flexible packages for every business size. Start small, scale big.</h2>
         <p>
-          Every plan includes <strong>100% Unlimited Facebook &amp; Instagram</strong> conversations. WhatsApp replies are covered by our built-in system credits—<strong>no foreign card required</strong>!
+          Every plan includes unlimited AI conversations across WhatsApp, Facebook Messenger and Instagram, subject to each platform's messaging policies.
         </p>
         <small>
           Meta Cloud API direct connection &bull; 0% foreign card hassle &bull; 100% Autonomous AI Sales Agent
@@ -686,7 +686,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           <div className="top">
             <h3>{advancePlan.name.replace(/ Plan| AI Plan/gi, '') || 'Advance'}</h3>
             <span className="free">
-              {(advancePlan.feature_config?.whatsapp_credits || 2500).toLocaleString('en-US')} WA Messages
+              {Unlimited WhatsApp
             </span>
           </div>
 
@@ -736,7 +736,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           <div className="top">
             <h3>{businessPlan.name.replace(/ Plan| AI Plan/gi, '') || 'Business'}</h3>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-              {(businessPlan.feature_config?.whatsapp_credits || 6500).toLocaleString('en-US')} WA Messages
+              {Unlimited WhatsApp
             </span>
           </div>
 
@@ -785,7 +785,7 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
           <div className="top">
             <h3>{enterprisePlan.name.replace(/ Plan| AI Plan/gi, '') || 'Enterprise'}</h3>
             <span className="free">
-              {(enterprisePlan.feature_config?.whatsapp_credits || 15000).toLocaleString('en-US')} WA Messages
+              {Unlimited WhatsApp
             </span>
           </div>
 
