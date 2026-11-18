@@ -235,13 +235,7 @@ export const PLAN_COMPARISON_ROWS: PlanComparisonRow[] = [
     proValue: '100% Unlimited',
     enterpriseValue: '100% Unlimited'
   },
-  {
-    category: 'Core AI & Channels',
-    feature: 'Foreign Credit Card Required for Meta',
-    starterValue: 'No (Covered by One Agent BD)',
-    proValue: 'No (Covered by One Agent BD)',
-    enterpriseValue: 'No (Covered by One Agent BD)'
-  },
+
   {
     category: 'Core AI & Channels',
     feature: 'Autonomous AI Agents',
