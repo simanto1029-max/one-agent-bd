@@ -76,8 +76,6 @@ export const BillingView: React.FC<BillingViewProps> = ({
     targetPlanPrice: number;
     flatDifference: number;
     proratedDifference: number;
-    unusedStarterCredit: number;
-    renewWithCreditPrice: number;
     upgradeEndDate: string;
   } | null>(null);
   const [upgradeMode, setUpgradeMode] = useState<boolean>(false);
