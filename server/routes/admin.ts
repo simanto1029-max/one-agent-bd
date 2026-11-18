@@ -86,11 +86,6 @@ adminRouter.get('/users', (req: Request, res: Response) => {
     const channels = db.getChannels(p.id);
     const messages = db.getMessages(p.id);
 
-    const waMessages = messages.filter(
-      (m) => m.platform === 'whatsapp' && (m.is_ai_reply || m.direction === 'outbound' || (m as any).sender_type === 'bot' || (m as any).sender_type === 'user')
-    );
-    const quota = (p as any).custom_whatsapp_credits || (sub?.plan_id === 'plan_enterprise' ? 15000 : sub?.plan_id === 'plan_pro' ? 6500 : 2500);
-
     return {
       ...p,
       subscription: sub
@@ -105,12 +100,7 @@ adminRouter.get('/users', (req: Request, res: Response) => {
           }
         : null,
       channelsCount: channels.length,
-      messagesCount: messages.length,
-      whatsappUsage: {
-        used: waMessages.length,
-        quota,
-        remaining: Math.max(0, quota - waMessages.length)
-      }
+      messagesCount: messages.length
     };
   });
 
@@ -213,42 +203,6 @@ adminRouter.post('/users/:id/extend-subscription', async (req: Request, res: Res
     },
     reactivatedChannelsCount,
     message: `Subscription successfully ${newStatus === 'trialing' ? 'extended as Trial' : 'activated/extended'} until ${targetEndDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}!`
-  });
-});
-
-// POST /api/admin/users/:id/adjust-credits - Adjust user message quota
-adminRouter.post('/users/:id/adjust-credits', (req: Request, res: Response) => {
-  const profile = db.getProfileById(req.params.id);
-  if (!profile) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const { creditsToAdd, newTotalQuota } = req.body;
-  const currentQuota = (profile as any).custom_whatsapp_credits || 2500;
-  const updatedQuota = typeof newTotalQuota === 'number'
-    ? newTotalQuota
-    : typeof creditsToAdd === 'number'
-    ? currentQuota + creditsToAdd
-    : currentQuota;
-
-  const updated = db.updateProfile(req.params.id, {
-    custom_whatsapp_credits: updatedQuota
-  } as any);
-
-  db.logAudit({
-    id: `audit_${Date.now()}`,
-    user_id: req.params.id,
-    action: 'adjust_credits',
-    resource: 'user_credits',
-    details: `Admin adjusted WhatsApp credits to ${updatedQuota}`,
-    created_at: new Date().toISOString()
-  });
-
-  return res.json({
-    success: true,
-    user: updated,
-    newQuota: updatedQuota,
-    message: `WhatsApp credit quota updated to ${updatedQuota}`
   });
 });
 
