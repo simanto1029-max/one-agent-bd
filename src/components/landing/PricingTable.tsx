@@ -69,17 +69,17 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
 
   // Find corresponding plan from live database or fallback
   const advancePlan =
-    livePlans.find((p) => p.id === 'plan_starter' || p.price === 2499 || p.name.toLowerCase().includes('advance')) ||
+    livePlans.find((p) => p.id === 'plan_starter' || p.price === 1250 || p.name.toLowerCase().includes('advance')) ||
     livePlans[0] ||
     OFFICIAL_THREE_PLANS[0];
 
   const businessPlan =
-    livePlans.find((p) => p.id === 'plan_pro' || p.price === 4499 || p.name.toLowerCase().includes('business')) ||
+    livePlans.find((p) => p.id === 'plan_pro' || p.price === 1950 || p.name.toLowerCase().includes('business')) ||
     livePlans[1] ||
     OFFICIAL_THREE_PLANS[1];
 
   const enterprisePlan =
-    livePlans.find((p) => p.id === 'plan_enterprise' || p.price === 8999 || p.name.toLowerCase().includes('enterprise')) ||
+    livePlans.find((p) => p.id === 'plan_enterprise' || p.price === 2950 || p.name.toLowerCase().includes('enterprise')) ||
     livePlans[2] ||
     OFFICIAL_THREE_PLANS[2];
 
@@ -99,9 +99,9 @@ export const PricingTable: React.FC<PricingTableProps> = ({ onSelectPlan }) => {
   };
 
   // Base plan prices from live database
-  const advanceBasePrice = advancePlan.price || 2499;
-  const businessBasePrice = businessPlan.price || 4499;
-  const enterpriseBasePrice = enterprisePlan.price || 8999;
+  const advanceBasePrice = advancePlan.price || 1250;
+  const businessBasePrice = businessPlan.price || 1950;
+  const enterpriseBasePrice = enterprisePlan.price || 2950;
 
   // Total prices for selected duration
   const advanceTotal = calculateCustomPlanPrice(advanceBasePrice, selectedDuration);
