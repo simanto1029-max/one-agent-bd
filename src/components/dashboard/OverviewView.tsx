@@ -50,7 +50,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ReferenceLine
 } from 'recharts';
 
 interface OverviewViewProps {
@@ -753,52 +752,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onNavigate('settings')}
-              className="px-3.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-[#7C3AED] dark:text-purple-300 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Manage Credits</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 
-        {/* 4 Summary Stats & Plan Limit Progress */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card 1: WhatsApp Plan Quota Progress */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                <WhatsAppLogo className="w-3.5 h-3.5" />
-                <span>WhatsApp Messages</span>
-              </span>
-              <span className={`tabular-nums font-extrabold ${quotaPercent > 90 ? 'text-rose-500' : quotaPercent > 70 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                {quotaPercent}% Used
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
-                {creditsUsed.toLocaleString()} <span className="text-xs font-normal text-slate-400">/ {activePlanQuota.toLocaleString()}</span>
-              </span>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
-                {creditsRemaining.toLocaleString()} left
-              </span>
-            </div>
-            <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700/60 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  quotaPercent > 90
-                    ? 'bg-rose-500'
-                    : quotaPercent > 70
-                    ? 'bg-amber-500'
-                    : 'bg-gradient-to-r from-emerald-500 to-[#7C3AED]'
-                }`}
-                style={{ width: `${Math.min(quotaPercent, 100)}%` }}
-              />
-            </div>
-          </div>
-
+        {/* Conversation performance summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
           {/* Card 2: AI Autonomous Reply Share */}
           <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -819,40 +777,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </p>
           </div>
 
-          {/* Card 3: Target Daily Budget Pace */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
-              <span className="flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                <span>Daily Run Rate</span>
-              </span>
-              <span className="text-amber-500 font-extrabold">~{currentMonthDailyAvg} / day</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
-                {currentDailyTargetPace} <span className="text-xs font-normal text-slate-400">target pace</span>
-              </span>
-              <span className={`text-[11px] font-bold ${currentMonthDailyAvg <= currentDailyTargetPace ? 'text-emerald-500' : 'text-amber-500'}`}>
-                {currentMonthDailyAvg <= currentDailyTargetPace ? '✓ Safe Pace' : '⚡ High Demand'}
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Target pace per day to stay within plan limits
-            </p>
-          </div>
-
           {/* Card 4: Cost-Saver Instant Rules Savings */}
           <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-[#18103A] border border-slate-200/70 dark:border-purple-500/15 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
               <span className="flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-purple-500" />
-                <span>Instant Rules Saved</span>
+                <span>Instant FAQ Matches</span>
               </span>
               <span className="text-purple-600 dark:text-purple-400 font-extrabold">{instantRulesCount} hits</span>
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-xl font-black text-[#7C3AED] dark:text-purple-300 tabular-nums">
-                0 Tokens
+                {instantRulesCount} matches
               </span>
               <span className="text-[11px] font-bold text-emerald-500">Credits Saved</span>
             </div>
@@ -978,7 +914,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               onClick={() => onNavigate('settings')}
               className="text-[11px] font-bold text-[#7C3AED] hover:underline cursor-pointer"
             >
-              Manage Channel
+              View Channels
             </button>
           </div>
 
