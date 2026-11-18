@@ -1165,9 +1165,17 @@ class Database {
         changed = true;
       }
       if (Array.isArray(next.features)) {
+        // Remove message-credit wording, but retain WhatsApp as an unlimited plan feature.
         const cleaned = next.features
-          .filter((feature: string) => !/system message credits|whatsapp.*(quota|[0-9,]+ messages)/i.test(feature))
-          .map((feature: string) => /whatsapp/i.test(feature) ? 'WhatsApp: Unlimited AI Conversations & Replies' : feature);
+          .filter((feature: string) => !/system message credits/i.test(feature))
+          .map((feature: string) =>
+            /whatsapp/i.test(feature) ? 'WhatsApp: Unlimited AI Conversations & Replies' : feature
+          );
+        if (!cleaned.some((feature: string) => /whatsapp/i.test(feature))) {
+          const instagramIndex = cleaned.findIndex((feature: string) => /instagram/i.test(feature));
+          cleaned.splice(instagramIndex >= 0 ? instagramIndex + 1 : Math.min(1, cleaned.length), 0,
+            'WhatsApp: Unlimited AI Conversations & Replies');
+        }
         if (JSON.stringify(cleaned) !== JSON.stringify(next.features)) {
           next.features = cleaned;
           changed = true;
