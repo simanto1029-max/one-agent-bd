@@ -101,7 +101,7 @@ export const AdminPlans: React.FC = () => {
     setFormFeatures([
       'Facebook Messenger: 100% Unlimited Conversations',
       'Instagram DM: 100% Unlimited Conversations',
-      'WhatsApp: 2,500 Messages & Replies Included',
+      'WhatsApp: Unlimited AI Conversations & Replies',
       'Bangla Voice Note AI Listening & Photo Recognition',
       '1-Click Courier Booking (Steadfast, Pathao & RedX)',
       'Autonomous AI Sales Closer Persona',
