@@ -193,7 +193,6 @@ export interface PlanFeaturesConfig {
   courier_dispatch?: boolean;
   csv_export?: boolean;
   max_channels?: number;
-  whatsapp_credits?: number;
 }
 
 export interface Plan {
@@ -816,7 +815,7 @@ const initialData: DatabaseSchema = {
 Business Knowledge Base:
 1. Services & Products:
    - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.
-   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.
+   - 3 Official Plans: Advance AI Plan (1,250 BDT/month), Business AI Plan (1,950 BDT/month), and Enterprise Agency Plan (2,950 BDT/month), plus a 2-Day Free Trial.
 2. Payment & Support:
    - bKash, Nagad & Rocket automated gateway (pay.oneagentbd.online). Helpline: +8801601705804.
 
@@ -1391,7 +1390,7 @@ class Database {
 Business Knowledge Base:
 1. Services & Products:
    - 24/7 AI Auto-Reply for WhatsApp, Facebook Messenger, Instagram & Websites, Voice Message Transcription, and E-Commerce Order Automation.
-   - 2 Official Plans: Starter AI Plan (1,250 BDT/month) and Pro Business Plan (1,950 BDT/month), plus a 2-Day Free Trial.
+   - 3 Official Plans: Advance AI Plan (1,250 BDT/month), Business AI Plan (1,950 BDT/month), and Enterprise Agency Plan (2,950 BDT/month), plus a 2-Day Free Trial.
 2. Delivery & Charges:
    - Digital services activate instantly. Physical parcel delivery: Inside Dhaka 60 BDT (24-48 hours), Outside Dhaka nationwide 120 BDT (2-3 days). Cash on Delivery (COD) available.
 3. Payment Methods:
