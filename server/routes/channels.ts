@@ -54,7 +54,8 @@ function checkChannelLimitForPlan(
   const subStatus = getUserSubscriptionStatus(userId);
   const isTrialActive = !subStatus.isExpired && subStatus.subscription?.status === 'trialing';
   const isPro = subStatus.isProPlan || isTrialActive;
-  const maxAllowedChannels = isPro ? 10 : subStatus.featureConfig?.max_channels || 3;
+  const configuredLimit = Number(subStatus.featureConfig?.max_channels);
+  const maxAllowedChannels = configuredLimit > 0 ? configuredLimit : isPro ? 10 : 3;
 
   const activeMetaChannels = db
     .getChannels(userId)
@@ -79,12 +80,12 @@ function checkChannelLimitForPlan(
     if (!isPro) {
       return {
         allowed: false,
-        error: `Your Starter AI Plan (1,250 BDT/month) allows up to ${maxAllowedChannels} social channels (Facebook, Instagram & WhatsApp). Upgrade to the Pro Business Plan (1,950 BDT/month) to connect up to 10 channels simultaneously.`
+        error: `You have reached the ${maxAllowedChannels}-channel limit for your current subscription. Please disconnect an existing channel or choose a higher plan.`
       };
     }
     return {
       allowed: false,
-      error: `You have reached the maximum of ${maxAllowedChannels} connected channels on your Pro Business Plan. Please disconnect an existing channel before adding a new one.`
+      error: `You have reached the ${maxAllowedChannels}-channel limit for your current subscription. Please disconnect an existing channel or choose a higher plan.`
     };
   }
 
