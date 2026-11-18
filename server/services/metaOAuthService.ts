@@ -669,7 +669,7 @@ export class MetaOAuthService {
       db.saveFacebookPage(fbPageRecord);
 
       // 3. Upsert tenant channel: check workspace-wide to prevent duplicates
-      const existingChannels = db.getChannels();
+      const existingChannels = db.getChannels(userId);
       let channel = existingChannels.find((c) => c.platform === 'messenger' && (c.identifier === targetPage!.id || c.meta_asset_id === targetPage!.id));
 
       if (channel) {
@@ -777,7 +777,7 @@ export class MetaOAuthService {
       db.saveInstagramAccount(igRecord);
 
       // 3. Upsert channel: check workspace-wide to prevent duplicates
-      const existingChannels = db.getChannels();
+      const existingChannels = db.getChannels(userId);
       let channel = existingChannels.find((c) => c.platform === 'instagram' && (c.identifier === igAccountId || c.meta_asset_id === igAccountId));
 
       if (channel) {
@@ -970,7 +970,7 @@ export class MetaOAuthService {
       db.saveWhatsAppPhoneNumber(phoneRecord);
 
       // Upsert channel: find existing channel across workspace to update in place and prevent duplicate cards
-      const existingChannels = db.getChannels();
+      const existingChannels = db.getChannels(userId);
       let channel = existingChannels.find(
         (c) =>
           c.platform === 'whatsapp' &&
@@ -979,7 +979,7 @@ export class MetaOAuthService {
             c.phone_number_id === phoneNumberId ||
             (c.display_phone_number && c.display_phone_number.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')) ||
             (c.identifier && c.identifier.replace(/\D/g, '') === displayPhoneNumber.replace(/\D/g, '')))
-      ) || existingChannels.find((c) => c.platform === 'whatsapp');
+      );
 
       const channelName = verifiedName
         ? `${verifiedName} (${displayPhoneNumber})`
