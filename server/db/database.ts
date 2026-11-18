@@ -860,7 +860,6 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'Bangla Voice Note AI Listening & Photo Recognition',
         '1-Click Courier Booking (Steadfast, Pathao & RedX)',
         'VIP Customer Retargeting & Smart Follow-Up',
-        'System Message Credits (No user card needed!)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -895,7 +894,6 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'Website Live Chat & WooCommerce/Shopify Store Sync',
         'AI Delivery Tracking & Courier Fraud Intelligence Check',
         'Up to 10 Connected Channels & Multi-Agent Collaboration',
-        'System Message Credits (No user card needed!)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -930,7 +928,6 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
         'Dedicated VIP Account Manager (24/7 Priority WhatsApp)',
         'Team Collaboration & Multi-Staff Handover Queue',
         'Custom AI Sales Closer Persona & Webhook Integrations',
-        'System Message Credits (No user card needed!)'
       ],
       created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       updated_at: new Date().toISOString(),
