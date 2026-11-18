@@ -1264,86 +1264,22 @@ class Database {
     if (!parsed.appointments) parsed.appointments = [];
     if (!parsed.email_subscribers) parsed.email_subscribers = [];
     if (!parsed.email_campaigns) parsed.email_campaigns = [];
-    if (!parsed.products || parsed.products.length === 0) {
-      const nowIso = new Date().toISOString();
-      const defaultSeedItems: Product[] = [
-        {
-          id: 'prod_admin_cargo_01',
-          user_id: 'usr_admin_001',
-          name: 'Cargo Jogger Pant (Olive Green)',
-          price: 1150,
-          currency: 'BDT',
-          category: 'Pants',
-          description: 'Heavyweight stretchable cotton twill fabric with 6 utility pockets, elastic jogger ankles, and adjustable waist drawstrings. Available sizes: 30, 32, 34, 36.',
-          image_url: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80',
-          stock_status: 'in_stock',
-          keywords: ['cargo', 'jogger', 'pant', 'olive', 'green', 'কার্গো', 'প্যান্ট', 'কটন'],
-          created_at: nowIso,
-          updated_at: nowIso
-        },
-        {
-          id: 'prod_admin_denim_02',
-          user_id: 'usr_admin_001',
-          name: 'Slim Fit Denim Jeans (Deep Blue)',
-          price: 1250,
-          currency: 'BDT',
-          category: 'Pants',
-          description: 'Premium stretch denim with dark blue wash, reinforced stitching, and brass rivets. Soft and comfortable for everyday wear. Sizes: 30, 32, 34, 36.',
-          image_url: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80',
-          stock_status: 'in_stock',
-          keywords: ['denim', 'jeans', 'pant', 'blue', 'ডেনিম', 'জিন্স', 'প্যান্ট', 'স্লিম'],
-          created_at: nowIso,
-          updated_at: nowIso
-        },
-        {
-          id: 'prod_admin_shirt_03',
-          user_id: 'usr_admin_001',
-          name: 'Casual Oxford Cotton Shirt (Sky Blue)',
-          price: 850,
-          currency: 'BDT',
-          category: 'Shirts',
-          description: '100% combed breathable cotton Oxford shirt with button-down collar and curved hem. Perfect for all seasons. Sizes: M, L, XL, XXL.',
-          image_url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
-          stock_status: 'in_stock',
-          keywords: ['shirt', 'oxford', 'cotton', 'blue', 'শার্ট', 'কটন', 'ফুল হাতা'],
-          created_at: nowIso,
-          updated_at: nowIso
-        },
-        {
-          id: 'prod_admin_watch_04',
-          user_id: 'usr_admin_001',
-          name: 'Smart Calling Watch (Series 9 Metallic Black)',
-          price: 2450,
-          currency: 'BDT',
-          category: 'Watches',
-          description: '1.99 inch HD AMOLED screen with Bluetooth call support, heart rate and blood oxygen monitoring, 100+ sports modes, and 5-day battery backup. IP68 water resistant.',
-          image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
-          stock_status: 'in_stock',
-          keywords: ['watch', 'smartwatch', 'smart', 'calling', 'ঘড়ি', 'ঘড়ি', 'স্মার্টওয়াচ'],
-          created_at: nowIso,
-          updated_at: nowIso
-        }
-      ];
-      if (this.deletedProductIds.size === 0) {
-        parsed.products = defaultSeedItems;
-      } else {
-        parsed.products = [];
-      }
-    } else {
-      // Fix any mismatched seed image URLs in existing database records
-      parsed.products.forEach((p: Product) => {
-        if (p.name.includes('Denim Jeans') && (p.image_url?.includes('photo-1542272604') || p.image_url?.includes('523275335684'))) {
-          p.image_url = 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80';
-        } else if (p.name.includes('Cargo Jogger') && (p.image_url?.includes('photo-1624378439575') || p.image_url?.includes('542272604'))) {
-          p.image_url = 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=600&auto=format&fit=crop&q=80';
-        }
-      });
-      parsed.products = parsed.products.filter(
-        (p: Product) =>
-          !this.deletedProductIds.has(p.id) &&
-          !['prod_001', 'prod_002', 'prod_003', 'prod_004', 'prod_005'].includes(p.id)
-      );
-    }
+    // Never recreate demo/sample products when the merchant has no products.
+    // Product data must be merchant-created and must persist through Supabase syncs.
+    const legacySeedProductIds = new Set([
+      'prod_admin_cargo_01',
+      'prod_admin_denim_02',
+      'prod_admin_shirt_03',
+      'prod_admin_watch_04',
+      'prod_001',
+      'prod_002',
+      'prod_003',
+      'prod_004',
+      'prod_005'
+    ]);
+    parsed.products = (Array.isArray(parsed.products) ? parsed.products : []).filter(
+      (p: Product) => !legacySeedProductIds.has(p.id) && !this.deletedProductIds.has(p.id)
+    );
     if (Array.isArray(parsed.messages)) {
       parsed.messages.forEach((m: Message) => {
         if (m.user_id === 'usr_admin_001' || m.user_id === 'usr_admin_1') {
@@ -2270,16 +2206,10 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     });
     if (flexible) return flexible;
 
-    // 3. Resilient single-channel fallback: If the merchant has configured active channels for this platform,
-    // match the active channel so incoming webhooks are not discarded due to minor Meta identifier variances
-    const platformChannels = this.data.channels.filter(
-      (c) => !this.deletedChannelIds.has(c.id) && c.platform === platform && c.is_active
-    );
-    if (platformChannels.length >= 1) {
-      console.log(`[Database] Resilient fallback matched incoming ${platform} (${identifier}) to configured channel ${platformChannels[0].name} (${platformChannels[0].identifier})`);
-      return platformChannels[0];
-    }
-
+    // Never map an unknown Meta asset to another active channel.
+    // Meta webhooks contain a platform asset identifier (Page ID / IG account ID /
+    // WhatsApp phone_number_id). Mapping an unknown identifier to the first active
+    // channel can route customer messages to the wrong merchant/channel.
     return undefined;
   }
 
