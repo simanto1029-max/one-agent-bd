@@ -41,8 +41,8 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
   const isCurrentStarter =
     currentPlanId === 'plan_starter' ||
     ((!status.isProPlan || status.planName?.toLowerCase().includes('starter') || status.planName?.toLowerCase().includes('advance')) && !status.isExpired);
-  const baseStarterPrice = currentPlan.price || 2499;
-  const baseProPrice = targetPlan.price || 4499;
+  const baseStarterPrice = currentPlan.price || 1250;
+  const baseProPrice = targetPlan.price || 1950;
   const flatDifference = Math.max(0, baseProPrice - baseStarterPrice); // Difference between the configured monthly plan prices
 
   // Prorated difference based on remaining days of the current 30-day billing cycle:
