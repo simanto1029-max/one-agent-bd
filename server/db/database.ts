@@ -1846,7 +1846,7 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       return;
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
       let rawState: any = null;
       let usedEndpoint = '';
