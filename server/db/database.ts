@@ -1239,6 +1239,9 @@ class Database {
   }
 
   private normalizeSchema(parsed: any): DatabaseSchema {
+    // Load tombstones before normalizing so deleted channels are filtered on every
+    // local or Supabase load, not one request later.
+    this.loadDeletedIdsFromData(parsed);
     if (!parsed.orders) {
       parsed.orders = [];
     } else {
@@ -1923,9 +1926,14 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
       if (rawState && typeof rawState === 'object') {
         const remoteMsgCount = Array.isArray(rawState.messages) ? rawState.messages.length : 0;
         console.log(`[Supabase Sync Success] Pulled from ${usedEndpoint}. Remote messages: ${remoteMsgCount}, Profiles: ${rawState.profiles?.length || 0}`);
+        // Apply remote deletion tombstones before merging channels. Otherwise a
+        // channel deleted in a previous serverless invocation can be reintroduced
+        // from app_state during this invocation's first sync.
+        this.loadDeletedIdsFromData(rawState);
         const normalized = this.normalizeSchema(rawState);
         this.data = this.mergeLocalNewerProfiles(normalized);
         this.loadDeletedIdsFromData(this.data);
+        this.syncDeletedIdsToData();
         this.migrateLegacyPlanCatalog();
         this.saveData(this.data);
         this.lastSupabaseSyncAt = Date.now();
