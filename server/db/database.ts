@@ -1505,6 +1505,10 @@ MANDATORY LANGUAGE & SERIAL LIST REPLY RULES:
     return this.lastSupabaseSyncAt;
   }
 
+  public isSupabaseConfigured(): boolean {
+    return Boolean(this.getSupabaseConfig());
+  }
+
   private getSupabaseHeaders(key: string, extra: Record<string, string> = {}): Record<string, string> {
     const headers: Record<string, string> = {
       apikey: key,
