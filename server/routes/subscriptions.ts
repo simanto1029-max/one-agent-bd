@@ -27,8 +27,8 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
   const currentPlanId = status.planId || 'plan_starter';
   const targetPlanId = (req.query.targetPlanId as string) || 'plan_pro';
 
-  const currentPlan = db.getPlanById(currentPlanId) || { id: 'plan_starter', price: 2499, name: 'Advance AI Plan' };
-  const targetPlan = db.getPlanById(targetPlanId) || { id: 'plan_pro', price: 4499, name: 'Business AI Plan' };
+  const currentPlan = db.getPlanById(currentPlanId) || { id: 'plan_starter', price: 1250, name: 'Advance AI Plan' };
+  const targetPlan = db.getPlanById(targetPlanId) || { id: 'plan_pro', price: 1950, name: 'Business AI Plan' };
 
   const currentSub = db.getSubscriptionByUserId(user.id);
   const now = new Date();
@@ -43,7 +43,7 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
     ((!status.isProPlan || status.planName?.toLowerCase().includes('starter') || status.planName?.toLowerCase().includes('advance')) && !status.isExpired);
   const baseStarterPrice = currentPlan.price || 2499;
   const baseProPrice = targetPlan.price || 4499;
-  const flatDifference = Math.max(0, baseProPrice - baseStarterPrice); // 2,000 BDT flat difference
+  const flatDifference = Math.max(0, baseProPrice - baseStarterPrice); // Difference between the configured monthly plan prices
 
   // Prorated difference based on remaining days of the current 30-day billing cycle:
   // e.g. If 20 days remaining out of 30: (20 / 30) * 700 = ~467 BDT
@@ -51,11 +51,6 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
     daysRemaining > 0 && daysRemaining < 30
       ? Math.max(150, Math.round((daysRemaining / 30) * flatDifference))
       : flatDifference;
-
-  // Unused credit if renewing for a brand-new full 30-day month from today:
-  const unusedStarterCredit =
-    daysRemaining > 0 ? Math.round((Math.min(30, daysRemaining) / 30) * baseStarterPrice) : 0;
-  const renewWithCreditPrice = Math.max(flatDifference, baseProPrice - unusedStarterCredit);
 
   return res.json({
     canUpgrade: isCurrentStarter,
@@ -66,10 +61,8 @@ subscriptionsRouter.get('/upgrade-quote', (req: Request, res: Response) => {
     daysRemaining,
     currentPlanPrice: baseStarterPrice,
     targetPlanPrice: baseProPrice,
-    flatDifference, // 700 BDT (Upgrades current cycle to Pro)
+    flatDifference, // Current-cycle upgrade difference
     proratedDifference, // Prorated remaining days difference
-    unusedStarterCredit,
-    renewWithCreditPrice, // Full month Pro with credit deducted
     upgradeEndDate: currentSub?.end_date || new Date(now.getTime() + 30 * 86400000).toISOString()
   });
 });
