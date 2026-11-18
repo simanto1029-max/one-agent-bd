@@ -39,12 +39,11 @@ export const AdminPlans: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [formSubtitle, setFormSubtitle] = useState('');
   const [formBadge, setFormBadge] = useState('');
-  const [formPrice, setFormPrice] = useState<number>(2499);
+  const [formPrice, setFormPrice] = useState<number>(1250);
   const [formCurrency, setFormCurrency] = useState('BDT');
   const [formDurationDays, setFormDurationDays] = useState<number>(30);
   const [formTrialDays, setFormTrialDays] = useState<number>(2);
   const [formIsActive, setFormIsActive] = useState(true);
-  const [formWhatsappCredits, setFormWhatsappCredits] = useState<number>(2500);
   const [formMaxChannels, setFormMaxChannels] = useState<number>(3);
 
   // System module toggles
@@ -88,12 +87,11 @@ export const AdminPlans: React.FC = () => {
     setFormName('');
     setFormSubtitle('Grow Your E-Commerce Business');
     setFormBadge('');
-    setFormPrice(2499);
+    setFormPrice(1250);
     setFormCurrency('BDT');
     setFormDurationDays(30);
     setFormTrialDays(2);
     setFormIsActive(true);
-    setFormWhatsappCredits(2500);
     setFormMaxChannels(3);
     setFormFeatWebsiteStores(false);
     setFormFeatCallRequests(true);
@@ -127,7 +125,6 @@ export const AdminPlans: React.FC = () => {
     setFormIsActive(plan.is_active !== undefined ? plan.is_active : true);
 
     const cfg = plan.feature_config || {};
-    setFormWhatsappCredits(cfg.whatsapp_credits || (plan.price >= 8000 ? 15000 : plan.price >= 4000 ? 6500 : 2500));
     setFormMaxChannels(cfg.max_channels || (plan.price >= 8000 ? 99 : plan.price >= 4000 ? 10 : 3));
     setFormFeatWebsiteStores(Boolean(cfg.website_stores));
     setFormFeatCallRequests(cfg.call_requests !== undefined ? Boolean(cfg.call_requests) : true);
@@ -138,7 +135,7 @@ export const AdminPlans: React.FC = () => {
     setFormFeatures(Array.isArray(plan.features) && plan.features.length > 0 ? [...plan.features] : [
       'Facebook Messenger: 100% Unlimited Conversations',
       'Instagram DM: 100% Unlimited Conversations',
-      `${(cfg.whatsapp_credits || 2500).toLocaleString()} WhatsApp Messages Included`
+      'WhatsApp: Unlimited AI Conversations & Replies'
     ]);
     setNewFeatureText('');
     setSuccessMsg(null);
@@ -196,8 +193,7 @@ export const AdminPlans: React.FC = () => {
           courier_dispatch: formFeatCourierDispatch,
           csv_export: formFeatCsvExport,
           vip_broadcast: formFeatVipBroadcast,
-          max_channels: Number(formMaxChannels) || 3,
-          whatsapp_credits: Number(formWhatsappCredits) || 2500
+          max_channels: Number(formMaxChannels) || 3
         }
       };
 
@@ -355,24 +351,9 @@ export const AdminPlans: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Key Quota Badges */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60">
-                    <span className="block text-[10px] font-bold text-[#7C3AED] dark:text-purple-300">
-                      WhatsApp Quota:
-                    </span>
-                    <span className="text-xs font-black text-slate-900 dark:text-white">
-                      {waCredits.toLocaleString()} Msgs
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                    <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      Trial &amp; Channels:
-                    </span>
-                    <span className="text-xs font-black text-slate-900 dark:text-white">
-                      {plan.trial_days}d trial • {cfg.max_channels || 3} ch
-                    </span>
-                  </div>
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs">
+                  <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400">Trial &amp; Channels:</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">{plan.trial_days}d trial • {cfg.max_channels || 3} ch</span>
                 </div>
 
                 {/* Feature Permissions Chips */}
@@ -569,24 +550,6 @@ export const AdminPlans: React.FC = () => {
 
               {/* Row 3: Quotas & Resource Limits */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-purple-50/50 dark:bg-[#180F3D] border border-purple-200/60 dark:border-purple-500/20">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                    💬 Included WhatsApp Messages Quota
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={formWhatsappCredits}
-                    onChange={(e) => setFormWhatsappCredits(Number(e.target.value))}
-                    placeholder="e.g. 2500, 6500, 15000"
-                    className="w-full text-xs p-2.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-[#1A123B] text-slate-900 dark:text-white font-mono font-bold"
-                  />
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 block">
-                    System messages included. No foreign card needed for user.
-                  </span>
-                </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
                     🔗 Max Connected Channels Limit
