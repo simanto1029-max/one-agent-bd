@@ -583,44 +583,8 @@ async function processSingleInboundEvent(event: InboundWebhookEvent): Promise<In
       db.updateProfile(channel.user_id, {
         instant_rules_triggered_count: curCount + 1
       } as any);
-      console.log(`[Cost-Saver Rule Matched] Triggered rule "${matchedInstantRule.name}" for customer ${event.customerId}. Saved 1 AI credit!`);
-    } else if (event.platform === 'whatsapp') {
-      const subStatus = getUserSubscriptionStatus(channel.user_id);
-      if (subStatus.whatsappCreditsRemaining <= 0) {
-        console.warn(`[Quota Exceeded] User ${channel.user_id} has exhausted monthly WhatsApp credits (${subStatus.whatsappCreditsUsed}/${subStatus.whatsappCreditsTotal}).`);
-        aiReplyText = `আসসালামু আলাইকুম! আপনার মেসেজটি পেয়েছি। আমাদের লাইভ সাপোর্ট টিম কিছুক্ষণের মধ্যেই আপনার সাথে সরাসরি যুক্ত হয়ে উত্তর দিচ্ছেন। ধন্যবাদ।`;
-        inbound.requires_human_attention = true;
-        inbound.attention_reason = 'Monthly WhatsApp AI reply credit quota reached';
-        db.updateMessage(inbound);
-      } else {
-        const aiResult = await generateAIReply({
-          userId: channel.user_id,
-          channelId: channel.id,
-          agentId: channel.agent_id,
-          channelName: channel.business_name || channel.meta_asset_name || channel.name,
-          incomingMessage: event.messageText,
-          customerId: event.customerId,
-          customerName: event.customerName,
-          platform: event.platform,
-          history: conversationHistory,
-          audioBase64,
-          audioMimeType,
-          imageBase64,
-          imageMimeType,
-          imageUrl: event.imageUrl,
-          overrideSystemPrompt: event.overrideSystemPrompt,
-          systemConfirmedOrder: preConfirmedOrder,
-          isOrderIncomplete,
-          missingOrderFields
-        });
-
-        generatedAiResult = aiResult;
-        aiReplyText = aiResult.replyText;
-        attachedImageUrl = aiResult.attachedImageUrl;
-        interactiveOptions = aiResult.interactiveOptions;
-      }
+      console.log(`[Cost-Saver Rule Matched] Triggered rule "${matchedInstantRule.name}" for customer ${event.customerId}. Handled without an AI generation.`);
     } else {
-      // Messenger / Instagram: 100% UNLIMITED conversations!
       const aiResult = await generateAIReply({
         userId: channel.user_id,
         channelId: channel.id,
