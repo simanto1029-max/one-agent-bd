@@ -1496,7 +1496,18 @@ export class MetaOAuthService {
     error?: string;
   }> {
     const channel = db.getChannelById(channelId);
-    if (!channel || channel.user_id !== userId) {
+    const requestingUser = db.getProfileById(userId);
+    const isAdmin = requestingUser?.role === 'admin';
+    // Admin dashboards can list every tenant's channels; diagnostics must apply
+    // the same admin ownership rule as disconnectChannel().
+    if (!channel || (!isAdmin && channel.user_id !== userId)) {
+      console.warn('[WhatsApp Diagnostics] Channel access denied:', {
+        channelId,
+        requestingUserId: userId,
+        channelFound: Boolean(channel),
+        channelOwnerId: channel?.user_id || null,
+        requestingUserRole: requestingUser?.role || 'unknown'
+      });
       return { success: false, error: 'Channel not found or unauthorized.' };
     }
 
@@ -1597,7 +1608,18 @@ export class MetaOAuthService {
     error?: string;
   }> {
     const channel = db.getChannelById(channelId);
-    if (!channel || channel.user_id !== userId) {
+    const requestingUser = db.getProfileById(userId);
+    const isAdmin = requestingUser?.role === 'admin';
+    // Keep repair authorization consistent with diagnostics and disconnect:
+    // admins may manage channels visible in the admin dashboard.
+    if (!channel || (!isAdmin && channel.user_id !== userId)) {
+      console.warn('[Repair WA] Channel access denied:', {
+        channelId,
+        requestingUserId: userId,
+        channelFound: Boolean(channel),
+        channelOwnerId: channel?.user_id || null,
+        requestingUserRole: requestingUser?.role || 'unknown'
+      });
       return { success: false, message: 'Channel not found or unauthorized.' };
     }
 
