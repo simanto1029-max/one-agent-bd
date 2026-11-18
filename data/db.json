@@ -66,7 +66,7 @@
     {
       "id": "plan_starter",
       "name": "Advance AI Plan",
-      "price": 2499,
+      "price": 1250,
       "currency": "BDT",
       "duration_days": 30,
       "trial_days": 2,
@@ -76,14 +76,12 @@
       "features": [
         "Facebook Messenger: 100% Unlimited Conversations",
         "Instagram DM: 100% Unlimited Conversations",
-        "WhatsApp: 2,500 Messages & Replies Included",
         "250 Comment Auto-Replies & Instant Inbox DM",
         "500 Instant FAQ & Delivery Charge Auto-Replies",
         "100 Products Catalog & Auto Order Capture",
         "Bangla Voice Note AI Listening & Photo Recognition",
         "1-Click Courier Booking (Steadfast, Pathao & RedX)",
-        "VIP Customer Retargeting & Smart Follow-Up",
-        "System Message Credits (No user card needed!)"
+        "VIP Customer Retargeting & Smart Follow-Up"
       ],
       "created_at": "2026-08-28T14:01:21.489Z",
       "updated_at": "2026-10-21T08:35:00.000Z",
@@ -93,14 +91,13 @@
         "vip_broadcast": true,
         "courier_dispatch": true,
         "csv_export": false,
-        "max_channels": 3,
-        "whatsapp_credits": 2500
+        "max_channels": 3
       }
     },
     {
       "id": "plan_pro",
       "name": "Business AI Plan",
-      "price": 4499,
+      "price": 1950,
       "currency": "BDT",
       "duration_days": 30,
       "trial_days": 2,
@@ -110,7 +107,6 @@
       "features": [
         "Facebook Messenger: 100% Unlimited Conversations",
         "Instagram DM: 100% Unlimited Conversations",
-        "WhatsApp: 6,500 Messages & Replies Included",
         "1,000 Comment Auto-Replies & Instant Inbox DM",
         "1,500 Instant FAQ & Custom Business Rules",
         "Unlimited Products Catalog & Auto Order Capture",
@@ -118,8 +114,7 @@
         "Accounts, Stock & Profit ERP (Sales, Due, Cashbook)",
         "Website Live Chat & WooCommerce/Shopify Store Sync",
         "AI Delivery Tracking & Courier Fraud Intelligence Check",
-        "Up to 10 Connected Channels & Multi-Agent Collaboration",
-        "System Message Credits (No user card needed!)"
+        "Up to 10 Connected Channels & Multi-Agent Collaboration"
       ],
       "created_at": "2026-08-28T14:01:21.489Z",
       "updated_at": "2026-10-21T08:35:00.000Z",
@@ -129,14 +124,13 @@
         "vip_broadcast": true,
         "courier_dispatch": true,
         "csv_export": true,
-        "max_channels": 10,
-        "whatsapp_credits": 6500
+        "max_channels": 10
       }
     },
     {
       "id": "plan_enterprise",
       "name": "Enterprise Agency Plan",
-      "price": 8999,
+      "price": 2950,
       "currency": "BDT",
       "duration_days": 30,
       "trial_days": 2,
@@ -146,16 +140,14 @@
       "features": [
         "Facebook Messenger: 100% Unlimited Conversations",
         "Instagram DM: 100% Unlimited Conversations",
-        "WhatsApp: 15,000 Messages & Replies Included",
         "Unlimited Comment Auto-Replies & Instant Inbox DM",
         "Unlimited Instant FAQ & Custom Business Knowledge Base",
         "Unlimited Products Catalog & Multi-Store Management",
         "Everything in Business Plan +",
         "Connect Unlimited Channels (Multi-Page & Multi-Number)",
-        "Dedicated VIP Account Manager (24/7 Priority WhatsApp)",
+        "WhatsApp: Unlimited AI Conversations & Replies",
         "Team Collaboration & Multi-Staff Handover Queue",
-        "Custom AI Sales Closer Persona & Webhook Integrations",
-        "System Message Credits (No user card needed!)"
+        "Custom AI Sales Closer Persona & Webhook Integrations"
       ],
       "created_at": "2026-08-28T14:01:21.489Z",
       "updated_at": "2026-10-21T08:35:00.000Z",
@@ -165,8 +157,7 @@
         "vip_broadcast": true,
         "courier_dispatch": true,
         "csv_export": true,
-        "max_channels": 99,
-        "whatsapp_credits": 15000
+        "max_channels": 99
       }
     }
   ],
